@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <title>Put</title>
+    
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        }
+      };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; color: #333; }
+        h1, h2 { color: #2c3e50; }
+        .zadatak { background-color: #f8f9fa; padding: 20px; border-left: 5px solid #007bff; margin-bottom: 30px; }
+        .rjesenje { background-color: #ffffff; padding: 20px; }
+    </style>
+</head>
+
+<body>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Put</h1>
+        <p>Nalaziš se u strašnom HSIN zatvoru sastavljenom od prostorija raspoređenih u obliku tablice $N \times M$ redaka i stupaca. Svaka prostorija zatvora može biti otključana ($1$) ili zaključana ($0$). Sigurnosni sustav zatvora ima jednu veliku manu - ventilacijske cijevi. Kroz te ventilacijske cijevi možeš skliznuti iz jedne otključane prostorije u bilo koju drugu otključanu prostoriju koja se nalazi u istom retku ili stupcu.</p>
+        <p>No, sustav nadzora prepoznaje obrasce kretanja. Ako tijekom puta ikada prođeš kroz tri uzastopne prostorije koje se nalaze u istom retku ili u istom stupcu, alarm se automatski oglasi i čuvari se naljute!</p>
+        <p>Tvoj cilj je izračunati koliko postoji različitih puteva od točno $X$ koraka. Putevi vode isključivo kroz otključane prostorije (uključujući i početnu prostoriju) i nikad ne sadrže tri uzastopne prostorije u istom retku ili stupcu.</p>
+        <p>Dva puta se smatraju različitima ako imaju različit redoslijed posjećenih prostorija, tj. ako se put kroz prostorije razlikuje u bilo kojem trenutku. Tijekom puta, prostorije koje posjećuješ ne moraju biti različite tj. možeš posjetiti istu prostoriju više puta, ali ne zaredom.</p>
+        <p>Odgovor može biti jako velik pa ispiši ostatak pri dijeljenju odgovora s $10^9 + 7$.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+        
+        <h3>Dinamičko programiranje ($O(N \cdot M \cdot X)$)</h3>
+        <p>Pravilo da ne smijemo posjetiti tri uzastopne prostorije u istom retku ili istom stupcu zapravo znači da se <b>moramo kretati strogo naizmjenično: vodoravno, pa okomito, pa vodoravno, itd.</b> Ako bismo napravili dva vodoravna poteza zaredom, to bi značilo da smo posjetili tri uzastopne prostorije u istom retku, što aktivira alarm.</p>
+        
+        <p>Definirajmo stanja dinamičkog programiranja:</p>
+        <ul>
+            <li>$dpV[x][y][k]$ - broj načina za doći do polja $(x, y)$ u $k$ poteza, ako je zadnji potez bio <b>vodoravan</b>.</li>
+            <li>$dpO[x][y][k]$ - broj načina za doći do polja $(x, y)$ u $k$ poteza, ako je zadnji potez bio <b>okomit</b>.</li>
+        </ul>
+
+        <p><b>Baza DP-a (za $k = 0$):</b><br>
+        Ako je polje $(x, y)$ otključano, vrijedi $dpV[x][y][0] = dpO[x][y][0] = 1$, inače je $0$.</p>
+
+        <p><b>Prijelazi (za otključana polja):</b><br>
+        Ako radimo vodoravan potez do polja $(x, y)$, morali smo doći iz nekog drugog polja u istom retku $x$, a prethodni potez je morao biti okomit:
+        $$dpV[x][y][k] = \sum_{j \neq y} dpO[x][j][k-1] = \left( \sum_{j=1}^{M} dpO[x][j][k-1] \right) - dpO[x][y][k-1]$$
+        Analogno vrijedi i za okomiti potez (dolazimo iz istog stupca $y$, a prethodni je bio vodoravan):
+        $$dpO[x][y][k] = \sum_{i \neq x} dpV[i][y][k-1] = \left( \sum_{i=1}^{N} dpV[i][y][k-1] \right) - dpV[x][y][k-1]$$
+        Prvo izračunamo sume za sve dp-ove u istom retku i stupcu pa onda računamo ova stanje dpV i dpO.
+        Ovo rješenje radi u složenosti $O(N \cdot M \cdot X)$, za $X \le 300$.</p>
+
+        <h3>Množenje i brzo potenciranje matrica</h3>
+        <p>Za općenite matrice $A$ dimenzija $N \times K$ i $B$ dimenzija $K \times M$, njihov umnožak $C = A \times B$ računa se tako da je element na poziciji $(i, j)$ jednak zbroju umnožaka elemenata $i$-tog retka matrice $A$ i $j$-tog stupca matrice $B$:
+        $$C[i][j] = \sum_{k=1}^{K} A[i][k] \cdot B[k][j]$$
+        Budući da za množenje matrica vrijedi asocijativnost ($(A \times B) \times C = A \times (B \times C)$), matrice možemo brzo potencirati algoritmom ponašalno identičnim brzom potenciranju brojeva:</p>
+        <ul>
+            <li>$A^{2k} = A^k \times A^k$</li>
+            <li>$A^{2k+1} = A^k \times A^k \times A$</li>
+        </ul>
+
+        <h4>Primjer: Fibonaccijevi brojevi</h4>
+        <p>Kako bismo vidjeli moć brzog potenciranja matrica, pogledajmo Fibonaccijev niz gdje vrijedi $F_n = F_{n-1} + F_{n-2}$. Odnos između uzastopnih stanja možemo zapisati u obliku matrice:
+        $$\begin{bmatrix} F_n \\ F_{n-1} \end{bmatrix} = \begin{bmatrix} 1 & 1 \\ 1 & 0 \end{bmatrix} \times \begin{bmatrix} F_{n-1} \\ F_{n-2} \end{bmatrix}$$
+        Ako želimo izračunati $n$-ti Fibonaccijev broj, ne moramo ići korak po korak. Jednadžbu možemo raspisati do početnih stanja ($F_1=1, F_0=0$):
+        $$\begin{bmatrix} F_n \\ F_{n-1} \end{bmatrix} = \begin{bmatrix} 1 & 1 \\ 1 & 0 \end{bmatrix}^{n-1} \times \begin{bmatrix} F_1 \\ F_0 \end{bmatrix}$$
+        Potenciranjem matrice $\begin{bmatrix} 1 & 1 \\ 1 & 0 \end{bmatrix}$ na potenciju $n-1$ u složenosti $O(\log n)$, pronalazimo $n$-ti Fibonaccijev broj jako brzo, čak i ako je $n = 10^{18}$.</p>
+
+        <h3>3. Primjena na naš zadatak ($O((N \cdot M)^3 \cdot \log X)$)</h3>
+        <p>U našem zadatku, umjesto pojedinačnih polja u tablici, sva polja možemo "izravnati" u jedan jedinstveni niz (vektor) stanja veličine $1 \times (N \cdot M)$. Svaka prostorija $(x, y)$ dobiva svoj jedinstveni indeks od $1$ do $N \cdot M$ (npr. indeks $s = (x-1) \cdot M + y$).</p>
+        
+        <h4>Početna matrica (vektor $X$)</h4>
+        <p>Početna matrica $X$ je redčani vektor dimenzije $1 \times (N \cdot M)$. Budući da naš put može započeti u bilo kojoj otključanoj prostoriji, naša početna stanja postavljamo ovako:
+        $$X[0][s] = \begin{cases} 1, & \text{ako je prostorija } s \text{ otključana} \\ 0, & \text{ako je zaključana} \end{cases}$$
+        </p>
+
+        <h4>Prijelazne matrice $V$ i $U$</h4>
+        <p>Kreiramo dvije prijelazne matrice dimenzija $(N \cdot M) \times (N \cdot M)$ koje opisuju pravila kretanja:</p>
+        <ul>
+            <li><b>Matrica $V$ (Vodoravni prijelaz):</b> Element $V[s_1][s_2]$ iznosi $1$ ako i samo ako se prostorije $s_1$ i $s_2$ nalaze u <b>istom retku</b> ($x_1 = x_2$), nisu ista prostorija ($s_1 \neq s_2$) i obje su prostorije otključane. U suprotnom iznosi $0$.</li>
+            <li><b>Matrica $U$ (Okomiti prijelaz):</b> Element $U[s_1][s_2]$ iznosi $1$ ako i samo ako se prostorije $s_1$ i $s_2$ nalaze u <b>istom stupcu</b> ($y_1 = y_2$), nisu ista prostorija ($s_1 \neq s_2$) i obje su prostorije otključane. U suprotnom iznosi $0$.</li>
+        </ul>
+
+        <h4>Konačni račun</h4>
+        <p>Množenjem vektora stanja s matricom $V$ radimo jedan vodoravan korak ($X \times V$), a množenjem s $U$ radimo okomit korak ($X \times U$). Budući da se kretanja moraju strogo izmjenjivati, imamo dva moguća scenarija ovisno o tome je li prvi korak vodoravan ili okomit:</p>
+        <ol>
+            <li>Ako krećemo vodoravno, nakon $X$ koraka stanje je: $X \times V \times U \times V \times U \dots$</li>
+            <li>Ako krećemo okomito, nakon $X$ koraka stanje je: $X \times U \times V \times U \times V \dots$</li>
+        </ol>
+        <p>Da bismo ovo izračunali pomoću brzog potenciranja, možemo grupirati parove koraka. Definirajmo npr. zajedničku matricu za dva uzastopna koraka (vodoravni pa okomiti) kao $W_1 = V \times U$, a za obrnuti par kao $W_2 = U \times V$.</p>
+        <p>Sada matrice $W_1$ i $W_2$ možemo potencirati na potenciju $\lfloor X/2 \rfloor$ u $O(\log X)$ koraka. Ako je broj koraka $X$ neparan, na kraju samo pomnožimo s još jednom preostalom matricom ($V$ ili $U$). Zbroj svih elemenata u rezultantnim vektorima za oba scenarija daje nam konačan broj valjanih puteva.</p>
+
+        <p>Složenost množenja matrica veličine $(N \cdot M) \times (N \cdot M)$ iznosi $O((N \cdot M)^3)$. Uz brzo potenciranje, ukupna složenost rješenja je <b>$O((N \cdot M)^3 \cdot \log X)$</b>.</p>
+    </div>
+
+</body>
+</html>
