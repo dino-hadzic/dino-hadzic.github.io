@@ -1,5 +1,6 @@
 (function () {
     var NOTICE_ID = 'asset-error-notice';
+    var reported = {};
 
     function insertNotice(text) {
         var notice = document.getElementById(NOTICE_ID);
@@ -23,6 +24,10 @@
     window.reportAssetError = function (asset, details) {
         var text = asset + ' se nije uspio učitati.' + (details ? ' ' + details : '');
         console.error('[asset-error] ' + asset, details || '');
+        if (reported[text]) {
+            return;
+        }
+        reported[text] = true;
         if (document.body) {
             insertNotice(text);
         } else {

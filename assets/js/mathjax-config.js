@@ -10,3 +10,7 @@ window.MathJax = {
         fontCache: 'global'
     }
 };
+
+if (window.mathJaxStartup) {
+    window.MathJax.startup = window.mathJaxStartup;
+}
