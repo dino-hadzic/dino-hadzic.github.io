@@ -277,14 +277,13 @@ class Converter:
                 spec_end = match_brace(text, k)
                 body = text[spec_end:be]
             rows_html = []
-            body = body.replace("\\hline", "")
+            body = re.sub(r"\\hline|\\cline\s*\{[^}]*\}", "", body)
+            body = self.convert_tabular(body)  # nested tables, innermost first
             for raw_row in re.split(r"\\\\", body):
                 if not raw_row.strip():
                     continue
                 cells = re.split(r"(?<!\\)&", raw_row)
-                tds = "".join(
-                    "<td>" + self.inline(c.strip()) + "</td>" for c in cells
-                )
+                tds = "".join(self.cell(c) for c in cells)
                 rows_html.append("<tr>" + tds + "</tr>")
             table = (
                 '<div class="table-wrap"><table><tbody>'
@@ -293,6 +292,19 @@ class Converter:
             )
             text = text[:s] + self.store.add(table) + text[e:]
         return text
+
+    def cell(self, raw):
+        """One table cell, honouring \\multicolumn{n}{spec}{content}."""
+        raw = raw.strip()
+        span = ""
+        m = re.match(r"\\multicolumn\s*\{(\d+)\}", raw)
+        if m:
+            _, i = take_arg(raw, m.end())      # column spec
+            content, _ = take_arg(raw, i)
+            if content is not None:
+                span = f' colspan="{m.group(1)}"'
+                raw = content
+        return f"<td{span}>" + self.inline(raw) + "</td>"
 
     def convert_lists(self, text):
         for env, tag in (("itemize", "ul"), ("enumerate", "ol"), ("description", "ul")):
@@ -400,8 +412,10 @@ class Converter:
         "footnotesize": ("", ""),
     }
 
-    DROP_ARG = ("index", "label", "markboth", "addcontentsline", "phantomsection",
-                "hspace", "vspace", "hspace*", "vspace*", "setcounter", "pagenumbering")
+    # command -> number of {...} arguments to drop along with it
+    DROP_ARG = {"index": 1, "label": 1, "markboth": 2, "addcontentsline": 3,
+                "phantomsection": 1, "hspace": 1, "vspace": 1, "hspace*": 1,
+                "vspace*": 1, "setcounter": 2, "pagenumbering": 1}
     DROP_BARE = ("noindent", "small", "footnotesize", "normalsize", "large", "centering",
                  "cleardoublepage", "phantomsection", "newpage", "medskip", "bigskip",
                  "smallskip", "par", "sffamily", "ttfamily", "raggedright")
@@ -442,7 +456,7 @@ class Converter:
                           f'<a href="{html.escape(m.group(1), quote=True)}">{html.escape(m.group(1))}</a>'),
                       text)
 
-        for name in self.DROP_ARG:
+        for name, nargs in self.DROP_ARG.items():
             while True:
                 m = re.search(r"\\" + re.escape(name) + r"\s*(?=[{\[])", text)
                 if not m:
@@ -450,8 +464,12 @@ class Converter:
                 i = m.end()
                 if text[i] == "[":
                     i = text.index("]", i) + 1
-                arg, nxt = take_arg(text, i)
-                text = text[: m.start()] + text[(nxt if arg is not None else i) :]
+                for _ in range(nargs):
+                    arg, nxt = take_arg(text, i)
+                    if arg is None:
+                        break
+                    i = nxt
+                text = text[: m.start()] + text[i:]
 
         # commands with one argument -> tags
         pat = re.compile(r"\\(" + "|".join(self.SIMPLE) + r")\s*(?=\{)")
