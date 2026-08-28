@@ -1,0 +1,43 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { chapters, chapterLabel, loadChapter, neighbours } from "../../lib/book";
+import { renderMath } from "../../lib/math";
+
+export function getStaticPaths() {
+  return chapters.map((chapter) => ({ params: { slug: chapter.slug } }));
+}
+
+const { slug } = Astro.params;
+const chapter = await loadChapter(slug!);
+const html = renderMath(chapter.html);
+const { prev, next } = neighbours(slug!);
+const toc = chapter.sections
+  .filter((section) => section.level <= 3)
+  .map((section) => ({ ...section, title: renderMath(section.title) }));
+---
+
+<Layout title={`${chapterLabel(chapter)} · Priručnik za natjecateljsko programiranje`}>
+  <main id="sadrzaj">
+    {
+      toc.length > 1 && (
+        <details class="chapter-toc">
+          <summary>U ovom poglavlju</summary>
+          <ul>
+            {toc.map((section) => (
+              <li class={`level-${section.level}`}>
+                <a href={`#${section.id}`} set:html={section.title} />
+              </li>
+            ))}
+          </ul>
+        </details>
+      )
+    }
+
+    <article set:html={html} />
+
+    <nav class="pager">
+      {prev ? <a href={`/poglavlje/${prev.slug}/`}>← {chapterLabel(prev)}</a> : <span />}
+      {next && <a href={`/poglavlje/${next.slug}/`}>{chapterLabel(next)} →</a>}
+    </nav>
+  </main>
+</Layout>
