@@ -109,8 +109,10 @@ function cardFor(slug: string) {
           src={preface?.image ?? defaultImage}
           alt="Ilustracija predgovora"
           data-preview-image
-          loading="lazy"
+          loading="eager"
           decoding="async"
+          width="800"
+          height="533"
         />
       </aside>
     </div>
@@ -123,26 +125,45 @@ function cardFor(slug: string) {
   const previewTitle = preview?.querySelector("[data-preview-title]");
   const previewDescription = preview?.querySelector("[data-preview-description]");
   const previewImage = preview?.querySelector("[data-preview-image]");
+  const SWAP_DELAY = 1000;
   let swapTimer;
+  let currentKey = "__default__";
   let hoveredCard = null;
   let focusedCard = null;
 
-  function showPreview(number, title, description, image) {
+  const preloaded = [];
+  const seen = new Set();
+  document.querySelectorAll("[data-card-image]").forEach((card) => {
+    const src = card.dataset.cardImage;
+    if (!src || seen.has(src)) return;
+    seen.add(src);
+    const img = new Image();
+    img.src = src;
+    preloaded.push(img);
+  });
+
+  function showPreview(key, number, title, description, image) {
     if (!preview || !previewNumber || !previewTitle || !previewDescription || !previewImage) return;
     window.clearTimeout(swapTimer);
-    preview.classList.add("is-swapping");
+    if (key === currentKey) {
+      preview.classList.remove("is-fading");
+      return;
+    }
+    preview.classList.add("is-fading");
     swapTimer = window.setTimeout(() => {
       previewNumber.textContent = number;
       previewTitle.textContent = title;
       previewDescription.textContent = description;
       previewImage.src = image;
       previewImage.alt = title;
-      preview.classList.remove("is-swapping");
-    }, 120);
+      currentKey = key;
+      preview.classList.remove("is-fading");
+    }, SWAP_DELAY);
   }
 
   function showCard(card) {
     showPreview(
+      card.dataset.cardSlug,
       card.dataset.cardNumber || "—",
       card.dataset.cardTitle || "",
       card.dataset.cardDescription || "",
@@ -152,6 +173,7 @@ function cardFor(slug: string) {
 
   function showDefault() {
     showPreview(
+      "__default__",
       "✦",
       "Priručnik za natjecateljsko programiranje",
       "Hrvatski prijevod knjige Competitive Programmer's Handbook autora Anttija Laaksonena — uvod u algoritme i tehnike koje se koriste na programerskim natjecanjima.",
