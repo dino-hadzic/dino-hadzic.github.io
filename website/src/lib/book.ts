@@ -1,6 +1,7 @@
 import index from "../data/index.json";
 import literatura from "../data/literatura.json";
 import summaries from "../data/summaries.json";
+import { withBase } from "./url";
 
 export type SectionMeta = {
   id: string;
@@ -69,7 +70,7 @@ export function chapterCards(): ChapterCard[] {
     return {
       ...chapter,
       opis: summary.opis,
-      image: `/art/${chapter.slug}.jpg`,
+      image: withBase(`/art/${chapter.slug}.jpg`),
       tier: chapterTier(chapter.number),
     };
   });
