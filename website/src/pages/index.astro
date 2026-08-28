@@ -1,58 +1,179 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import { chapters, chaptersByPart } from "../lib/book";
+import { chapterCards, chaptersByPart } from "../lib/book";
 
 const parts = chaptersByPart();
-const preface = chapters.find((chapter) => chapter.slug === "preface");
+const cards = chapterCards();
+const preface = cards.find((card) => card.slug === "preface");
+const cardsBySlug = new Map(cards.map((card) => [card.slug, card]));
+
+function cardFor(slug: string) {
+  const card = cardsBySlug.get(slug);
+  if (!card) throw new Error(`Missing chapter card for slug "${slug}"`);
+  return card;
+}
 ---
 
 <Layout title="Priručnik za natjecateljsko programiranje">
-  <main id="sadrzaj">
+  <main id="sadrzaj" class="wide selection-page">
     <h1>Priručnik za natjecateljsko programiranje</h1>
     <p class="lead">
       Hrvatski prijevod knjige <em>Competitive Programmer's Handbook</em> autora Anttija
       Laaksonena — uvod u algoritme i tehnike koje se koriste na programerskim natjecanjima.
     </p>
 
-    {
-      preface && (
-        <ol class="toc">
-          <li>
-            <a href={`/poglavlje/${preface.slug}/`}>
-              <span class="num">—</span>
-              <span>{preface.title}</span>
+    <div class="selection-layout">
+      <div class="selection-list">
+        {
+          preface && (
+            <a
+              class="chapter-card neutral"
+              href={`/poglavlje/${preface.slug}/`}
+              data-card-slug={preface.slug}
+              data-card-title={preface.title}
+              data-card-number="—"
+              data-card-description={preface.opis}
+              data-card-image={preface.image}
+            >
+              <span class="card-number">—</span>
+              <span class="card-copy">
+                <strong>{preface.title}</strong>
+                <span class="card-description">{preface.opis}</span>
+              </span>
             </a>
-          </li>
-        </ol>
-      )
-    }
+          )
+        }
 
-    {
-      parts.map((part) => (
-        <section>
-          <h2 class="part-title">{part.part}</h2>
-          <ol class="toc">
-            {part.chapters.map((chapter) => (
-              <li>
-                <a href={`/poglavlje/${chapter.slug}/`}>
-                  <span class="num">{chapter.number}</span>
-                  <span>{chapter.title}</span>
-                </a>
-              </li>
-            ))}
-          </ol>
+        {
+          parts.map((part) => (
+            <section class="card-group">
+              <h2 class="part-title">{part.part}</h2>
+              <div class="card-stack">
+                {part.chapters.map((chapter) => {
+                  const card = cardFor(chapter.slug);
+                  return (
+                    <a
+                      class:list={["chapter-card", card.tier]}
+                      href={`/poglavlje/${card.slug}/`}
+                      data-card-slug={card.slug}
+                      data-card-title={card.title}
+                      data-card-number={card.number}
+                      data-card-description={card.opis}
+                      data-card-image={card.image}
+                    >
+                      <span class="card-number">{card.number}</span>
+                      <span class="card-copy">
+                        <strong>{card.title}</strong>
+                        <span class="card-description">{card.opis}</span>
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </section>
+          ))
+        }
+
+        <section class="card-group">
+          <h2 class="part-title">Dodatno</h2>
+          <a
+            class="chapter-card neutral"
+            href="/literatura/"
+            data-card-slug="literatura"
+            data-card-title="Literatura"
+            data-card-number="§"
+            data-card-description="Popis izvora i dodatne literature korištene u knjizi."
+            data-card-image={preface?.image ?? "/art/preface.jpg"}
+          >
+            <span class="card-number">§</span>
+            <span class="card-copy">
+              <strong>Literatura</strong>
+              <span class="card-description">Popis izvora i dodatne literature korištene u knjizi.</span>
+            </span>
+          </a>
         </section>
-      ))
-    }
+      </div>
 
-    <h2 class="part-title">Dodatno</h2>
-    <ol class="toc">
-      <li>
-        <a href="/literatura/">
-          <span class="num">§</span>
-          <span>Literatura</span>
-        </a>
-      </li>
-    </ol>
+      <aside class="chapter-preview" data-preview aria-live="polite">
+        <div class="preview-heading">
+          <span class="preview-number" data-preview-number>✦</span>
+          <h2 data-preview-title>Priručnik za natjecateljsko programiranje</h2>
+        </div>
+        <p data-preview-description>
+          Hrvatski prijevod knjige <em>Competitive Programmer's Handbook</em> autora Anttija
+          Laaksonena — uvod u algoritme i tehnike koje se koriste na programerskim natjecanjima.
+        </p>
+        <img
+          src={preface?.image ?? "/art/preface.jpg"}
+          alt="Ilustracija predgovora"
+          data-preview-image
+          loading="lazy"
+          decoding="async"
+        />
+      </aside>
+    </div>
   </main>
 </Layout>
+
+<script is:inline>
+  const preview = document.querySelector("[data-preview]");
+  const previewNumber = preview?.querySelector("[data-preview-number]");
+  const previewTitle = preview?.querySelector("[data-preview-title]");
+  const previewDescription = preview?.querySelector("[data-preview-description]");
+  const previewImage = preview?.querySelector("[data-preview-image]");
+  let swapTimer;
+  let hoveredCard = null;
+  let focusedCard = null;
+
+  function showPreview(number, title, description, image) {
+    if (!preview || !previewNumber || !previewTitle || !previewDescription || !previewImage) return;
+    window.clearTimeout(swapTimer);
+    preview.classList.add("is-swapping");
+    swapTimer = window.setTimeout(() => {
+      previewNumber.textContent = number;
+      previewTitle.textContent = title;
+      previewDescription.textContent = description;
+      previewImage.src = image;
+      previewImage.alt = title;
+      preview.classList.remove("is-swapping");
+    }, 120);
+  }
+
+  function showCard(card) {
+    showPreview(
+      card.dataset.cardNumber || "—",
+      card.dataset.cardTitle || "",
+      card.dataset.cardDescription || "",
+      card.dataset.cardImage || "/art/preface.jpg",
+    );
+  }
+
+  function showDefault() {
+    showPreview(
+      "✦",
+      "Priručnik za natjecateljsko programiranje",
+      "Hrvatski prijevod knjige Competitive Programmer's Handbook autora Anttija Laaksonena — uvod u algoritme i tehnike koje se koriste na programerskim natjecanjima.",
+      "/art/preface.jpg",
+    );
+  }
+
+  document.querySelectorAll("[data-card-slug]").forEach((card) => {
+    card.addEventListener("pointerenter", () => {
+      hoveredCard = card;
+      showCard(card);
+    });
+    card.addEventListener("pointerleave", () => {
+      hoveredCard = null;
+      if (!focusedCard) showDefault();
+    });
+    card.addEventListener("focusin", () => {
+      focusedCard = card;
+      showCard(card);
+    });
+    card.addEventListener("focusout", (event) => {
+      if (card.contains(event.relatedTarget)) return;
+      focusedCard = null;
+      if (!hoveredCard) showDefault();
+    });
+  });
+</script>
