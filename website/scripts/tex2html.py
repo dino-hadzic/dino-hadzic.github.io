@@ -482,6 +482,7 @@ class Converter:
     def escape_text(self, text):
         text = text.replace("``", "\u201e").replace("''", "\u201c")
         text = text.replace("\\\\", "<br />")
+        text = text.replace("---", "\u2014").replace("--", "\u2013")
         text = html.escape(text, quote=False)
         # html.escape mangled the escape sequences' ampersands; work on the escaped text
         for k, v in self.ESCAPES.items():
