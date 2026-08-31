@@ -1,6 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { chapters, chapterLabel, loadChapter, neighbours } from "../../lib/book";
+import { chapters, chapterLabel, chapterProblems, loadChapter, neighbours } from "../../lib/book";
 import { renderMath } from "../../lib/math";
 import { rewriteBase, withBase } from "../../lib/url";
 
@@ -12,9 +12,16 @@ const { slug } = Astro.params;
 const chapter = await loadChapter(slug!);
 const html = rewriteBase(renderMath(chapter.html));
 const { prev, next } = neighbours(slug!);
+const problems = chapterProblems(slug!);
+const footnotesAt = html.indexOf('<section class="footnotes">');
+const body = footnotesAt === -1 ? html : html.slice(0, footnotesAt);
+const footnotes = footnotesAt === -1 ? "" : html.slice(footnotesAt);
 const toc = chapter.sections
   .filter((section) => section.level <= 3)
   .map((section) => ({ ...section, title: renderMath(section.title) }));
+if (problems.length > 0) {
+  toc.push({ id: "zadaci", title: "Zadaci", level: 2 });
+}
 ---
 
 <Layout title={`${chapterLabel(chapter)} · Priručnik za natjecateljsko programiranje`}>
@@ -34,7 +41,42 @@ const toc = chapter.sections
       )
     }
 
-    <article set:html={html} />
+    <article>
+      <Fragment set:html={body} />
+
+      {problems.length > 0 && (
+        <section class="zadaci">
+          <h2 id="zadaci">Zadaci</h2>
+          <p>
+            Zadaci za vježbu na temu ovog poglavlja, poredani od najlakšeg prema najtežem.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Zadatak</th>
+                  <th>Link</th>
+                </tr>
+              </thead>
+              <tbody>
+                {problems.map((problem) => (
+                  <tr>
+                    <td>{problem.name}</td>
+                    <td>
+                      <a href={problem.url} target="_blank" rel="noopener noreferrer">
+                        {problem.code}
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <Fragment set:html={footnotes} />
+    </article>
 
     <nav class="pager">
       {prev ? <a href={withBase(`/poglavlje/${prev.slug}/`)}>← {chapterLabel(prev)}</a> : <span />}

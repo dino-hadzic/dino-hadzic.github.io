@@ -1,6 +1,7 @@
 import index from "../data/index.json";
 import literatura from "../data/literatura.json";
 import summaries from "../data/summaries.json";
+import zadaci from "../data/zadaci.json";
 import { withBase } from "./url";
 
 export type SectionMeta = {
@@ -20,6 +21,16 @@ export type ChapterMeta = {
 export type Chapter = ChapterMeta & { html: string };
 
 export type Reference = { key: string; html: string };
+
+export type Problem = {
+  name: string;
+  url: string;
+  source: "CSES" | "Codeforces" | "AtCoder";
+  /** Short human label of the problem, e.g. "CSES 1068" or "Codeforces 4A". */
+  code: string;
+  /** Codeforces-scale difficulty, used for ordering. */
+  difficulty: number;
+};
 
 export type ChapterCard = ChapterMeta & {
   opis: string;
@@ -82,6 +93,11 @@ export function neighbours(slug: string): { prev: ChapterMeta | null; next: Chap
     prev: i > 0 ? chapters[i - 1] : null,
     next: i >= 0 && i < chapters.length - 1 ? chapters[i + 1] : null,
   };
+}
+
+/** Curated practice problems of a chapter, sorted from easiest to hardest. */
+export function chapterProblems(slug: string): Problem[] {
+  return (zadaci as Record<string, Problem[]>)[slug] ?? [];
 }
 
 export async function loadChapter(slug: string): Promise<Chapter> {
