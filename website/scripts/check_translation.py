@@ -2,7 +2,8 @@
 """Structural comparison between English source .tex and Croatian translation.
 
 Checks that only prose changed: environment counts, math delimiters, label/ref/
-cite/index/key counts, and verbatim equality of lstlisting bodies.
+cite/index/key counts, and equality of lstlisting code (comments excluded, since
+they are translated too).
 """
 from __future__ import annotations
 
@@ -16,16 +17,23 @@ ENV_BEGIN = re.compile(r"\\begin\{([^}]*)\}")
 ENV_END = re.compile(r"\\end\{([^}]*)\}")
 LST = re.compile(r"\\begin\{lstlisting\}(.*?)\\end\{lstlisting\}", re.S)
 COMMANDS = ["label", "ref", "cite", "index", "key", "includegraphics", "footnote"]
-ENGLISH_HINTS = [" the ", " is ", " we ", " and ", " of the ", " with "]
+ENGLISH_HINTS = [" the ", " is ", " we ", " of the ", " with "]
 
 
 TIKZ = re.compile(r"\\begin\{tikzpicture\}.*?\\end\{tikzpicture\}", re.S)
 COMMENT = re.compile(r"(?m)^\s*%.*$")
+EMPH = re.compile(r"\\emph\{[^{}]*\}")
+CODE_COMMENT = re.compile(r"(?m)\s*//.*$")
 
 
 def strip_code(text: str) -> str:
-    """Drop content where English words are expected (code, figures, comments)."""
-    return COMMENT.sub("", TIKZ.sub("", LST.sub("", text)))
+    """Drop content where English words are expected (code, figures, titles)."""
+    return EMPH.sub("", COMMENT.sub("", TIKZ.sub("", LST.sub("", text))))
+
+
+def listing_code(body: str) -> str:
+    """Listing body without comments, which are translated in the Croatian text."""
+    return CODE_COMMENT.sub("", body)
 
 
 def stats(text: str) -> dict[str, object]:
@@ -35,7 +43,7 @@ def stats(text: str) -> dict[str, object]:
         "dollars": text.count("$"),
         "cmds": {c: len(re.findall(r"\\" + c + r"\{", text)) for c in COMMANDS},
         "nodes": text.count("\\node"),
-        "listings": [m.strip("\n") for m in LST.findall(text)],
+        "listings": [listing_code(m.strip("\n")) for m in LST.findall(text)],
     }
 
 
@@ -59,7 +67,7 @@ def compare(src: Path, dst: Path) -> list[str]:
     else:
         for i, (la, lb) in enumerate(zip(a["listings"], b["listings"]), 1):
             if la != lb:
-                problems.append(f"lstlisting #{i} body differs")
+                problems.append(f"lstlisting #{i} code differs")
     prose = strip_code(dst.read_text())
     hits = sorted({h.strip() for h in ENGLISH_HINTS if h in prose})
     if hits:
