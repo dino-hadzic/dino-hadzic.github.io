@@ -67,13 +67,20 @@ class Store:
 
 
 def strip_comments(text):
+    """Drop LaTeX comments, keeping verbatim lines intact (code uses % as modulo)."""
     out = []
+    verbatim = False
     for line in text.split("\n"):
-        m = re.search(r"(?<!\\)%", line)
-        if m:
-            line = line[: m.start()]
-            if not line.strip():
-                continue
+        if re.match(r"\s*\\begin\{lstlisting\}", line):
+            verbatim = True
+        elif re.match(r"\s*\\end\{lstlisting\}", line):
+            verbatim = False
+        if not verbatim:
+            m = re.search(r"(?<!\\)%", line)
+            if m:
+                line = line[: m.start()]
+                if not line.strip():
+                    continue
         out.append(line)
     return "\n".join(out)
 
