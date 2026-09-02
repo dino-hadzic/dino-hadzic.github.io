@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C. Cryptography Problem</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../../../assets/js/asset-errors.js"></script>
+    <script src="../../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> · <a href="../../../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK C: Cryptography Problem</h1>
+        <p><i>Kriptografski zadatak</i> — The 1st Universal Cup, Stage 10: Zhejiang (1st OCPC, Winter 2023, Day 6: Yuhao Du Contest 11). Vremensko ograničenje: 5 s, memorijsko ograničenje: 1024 MB.</p>
+        <p>Zadano je $m$ jednadžbi $a_i \cdot x + err_i \equiv c_i \pmod p$, gdje je $err_i$ nepoznata slučajna greška iz $[-\lfloor p/200 \rfloor, \lfloor p/200 \rfloor]$, a $a_i, c_i, p$ su poznati. Jednadžbe vrijede za neki nepoznati cijeli $x$; pronađi jedan takav $x$.</p>
+        <h3>Ulaz</h3>
+        <p>$T \le 500$ testova; u svakom $m, p$ ($50 \le m \le 100$, $10^{15} \le p \le 10^{18}$, $p$ prost) i $m$ parova $a_i, c_i$. Vrijednosti $a_i$ i $x$ uniformno su slučajne.</p>
+        <h3>Izlaz</h3>
+        <p>Za svaki test jedan $x$.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+        <h3>Prvo rješenje</h3>
+        <p>Neka je $M = \lfloor p / 200 \rfloor$ i $x' = (a_1 x - c_1 + M) \bmod p$. Tada je $x' \in [0, 2M]$. Sve ostale jednadžbe prepišemo u terminima $x'$ i rješavamo $x'$ umjesto $x$ (dalje $x$ označava taj $x'$).</p>
+        <p>Osnovna ideja: naći slučajne linearne kombinacije jednadžbi koje daju mali koeficijent, a ne povećavaju previše grešku. Pomnožimo li $i$-tu jednadžbu s $y_i$ i sve zbrojimo, dobivamo $(\sum a_i y_i) \cdot x + \text{greška} \equiv \sum c_i y_i \pmod p$, gdje greška ne prelazi $(\sum |y_i|) \cdot M$.</p>
+        <p>Neka je $A = (\sum a_i y_i) \bmod p$, $E = (\sum |y_i|) \cdot M$, $C = (\sum c_i y_i) \bmod p$. Ako je koeficijent $A$ dovoljno malen, a greška $E$ ne prelazi $p/2$, skup rješenja te jednadžbe unija je intervala
+        $$\left[\frac{C + ip - E}{A}, \frac{C + ip + E}{A}\right].$$
+        Te intervale iterativno presijecamo s dosadašnjim skupom rješenja i održavamo skup intervala u kojima $x$ može biti. Ako linearne kombinacije biramo slučajno i presijecamo „prikladna“ rješenja, skup se eksponencijalno smanjuje. „Prikladno“ znači: kad su intervali malo manji, presijecamo s većim $A$ — inače se skup ne bi smanjivao dovoljno brzo.</p>
+        <p>Kako naći te slučajne linearne kombinacije? Tehnika se stalno koristi za razbijanje polinomnih hasheva i zove se <i>multi-tree attack</i>. Kratka ideja: imamo skup brojeva, sortiramo ga i generiramo novi skup iz razlika bliskih brojeva. Primjerice, ovdje iz sortiranog niza $a$ generiramo $\{a_i - a_j \mid j &lt; i \le j + 5\}$ i zadržimo najmanje brojeve; to ponovimo 5 puta. To je dovoljno za prolaz.</p>
+        <h3>Drugo rješenje</h3>
+        <p>Zadatak je dobro poznat u CTF zajednici (zahvala @oToToT i @toxicpie). Svodi se na problem najkraćeg vektora u rešetki (lattice) i rješava se bibliotečnim kodom.</p>
+        <p>Odaberemo bilo kojih $T$ jednadžbi i konstruiramo $T + 2$ vektora $e_1, \dots, e_{T+2}$ dimenzije $T + 2$:</p>
+        <ul>
+            <li>za $i = 1, \dots, T$: $e_{i,i} = M_1 p$;</li>
+            <li>za $i = T + 1$: $e_{i,j} = M_1 a_j$ za $j = 1, \dots, T$ i $e_{i,T+1} = 1$;</li>
+            <li>za $i = T + 2$: $e_{i,j} = M_1 c_j$ za $j = 1, \dots, T$ i $e_{i,T+2} = p / M_2$.</li>
+        </ul>
+        <p>Ako je odgovor $x$, tada je $x e_{T+1} - e_{T+2} - \sum_{i=1}^{T} \lfloor a_i x / p \rfloor e_i$ kratak vektor u kojem je svaka koordinata otprilike $\max(p, M_1 \cdot \text{greška})$.</p>
+        <p>Izbor $T = 14$, $M_1 = 50$, $M_2 = 20$ dovoljan je za prolaz, ali treba dobro optimiziran LLL.</p>
+
+        <h3>Izvor</h3>
+        <p>Prijevod službenog rješenja autora Yuhaa Dua: <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1195&amp;r=1">Tutorial (en)</a>. Tekst zadatka preveden je prema službenim <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1195&amp;r=0">engleskim tekstovima zadataka</a>. Zadatak je dostupan na <a href="https://contest.ucup.ac/contest/1195">Universal Cup Judging System</a>.</p>
+    </div>
+
+</body>
+</html>
