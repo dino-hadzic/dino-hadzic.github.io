@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jetpack (JHIO 2023)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Jetpack</h1>
+        <p><i>Vremensko ograničenje: 2 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Maroje živi u tablici u kojoj gravitacija vuče prema dolje-lijevo. Njegov jetpack ima spremnik za $K$ jedinica goriva, a na svakoj od $N$ postaja (zadanih koordinatama $(x_i, y_i)$; veći $x$ je desnije, veći $y$ više) puni se do vrha. Pomaci za jedno polje troše:</p>
+        <ul>
+            <li>gore-desno ($x$ i $y$ rastu za 1): $2A$;</li>
+            <li>gore ili desno: $A$;</li>
+            <li>gore-lijevo ili dolje-desno (jedna koordinata raste, druga pada): $B$;</li>
+            <li>lijevo, dolje ili dolje-lijevo: $0$.</li>
+        </ul>
+        <p>Maroje kreće s prve postaje. Do kojih sve postaja može doći?</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N, K, A, B$ ($2 \le N$; $1 \le K, A \le 10^6$; $0 \le B \le A$), zatim $N$ redaka s $X_i, Y_i$ ($0 \le X_i, Y_i \le 10^6$).</p>
+        <h3>Izlazni podaci</h3>
+        <p>Niz od $N$ znamenki bez razmaka: $i$-ta je 1 ako Maroje može doći do $i$-te postaje, inače 0.</p>
+        <h3>Bodovanje</h3>
+        <table>
+            <tr><th>Podzadatak</th><th>Bodovi</th><th>Ograničenja</th></tr>
+            <tr><td>1</td><td>10</td><td>$N, X_i, Y_i \le 100$</td></tr>
+            <tr><td>2</td><td>15</td><td>$N \le 200$</td></tr>
+            <tr><td>3</td><td>20</td><td>$N \le 2000$ i $B = 0$</td></tr>
+            <tr><td>4</td><td>30</td><td>$N \le 2000$</td></tr>
+            <tr><td>5</td><td>25</td><td>$B = 0$ i $N \le 100\,000$</td></tr>
+        </table>
+        <h3>Probni primjeri</h3>
+        <pre>ulaz:
+7 20 6 0
+3 3
+2 6
+8 6
+10 5
+7 3
+8 10
+1 3
+
+izlaz:
+1100101</pre>
+        <pre>ulaz:
+7 20 6 3
+3 3
+2 6
+8 6
+10 5
+7 3
+8 10
+1 3
+
+izlaz:
+1100001</pre>
+        <pre>ulaz:
+7 20 5 5
+3 3
+2 6
+8 6
+10 5
+7 3
+8 11
+1 3
+
+izlaz:
+1111101</pre>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: najjeftiniji let između dvije postaje</h3>
+        <p>Neka je $dx = x_2 - x_1$ i $dy = y_2 - y_1$. Između postaja nema prepreka pa nas zanima samo najmanja moguća cijena za ukupni pomak $(dx, dy)$:</p>
+        <ul>
+            <li>$dx \le 0$ i $dy \le 0$: sve je „nizbrdo“, cijena $0$.</li>
+            <li>$dx \ge 0$ i $dy \ge 0$: svaki korak gore ili desno košta $A$, a dijagonala gore-desno košta $2A$ — isto kao dva zasebna koraka. Cijena $A \cdot (dx + dy)$.</li>
+            <li>jedna koordinata raste, druga pada (npr. $dx &gt; 0$, $dy &lt; 0$): iskoristimo što više dijagonala dolje-desno po cijeni $B \le A$ — njih $m = \min(dx, |dy|)$ — a preostalih $dx - m$ koraka desno košta po $A$. Cijena $B \cdot m + A \cdot (\max(dx,dy) - m)$, gdje je $\max(dx,dy)$ ona pozitivna komponenta.</li>
+        </ul>
+        <p>Zašto ništa nije jeftinije? Svaki potez koji povećava $x$ košta barem $B$, a ako uz to ne smanjuje $y$ košta $A$. Da bi $x$ narastao za $dx$ trebamo barem $dx$ takvih poteza; najviše $|dy|$ njih smije istodobno smanjivati $y$ (inače bi $y$ pao ispod cilja i morali bismo ga vraćati gore po cijeni $A$, što nije jeftinije). Dakle formula je zaista minimum.</p>
+        <h3>Korak 2: graf postaja i BFS ($N \le 2000$)</h3>
+        <p>Budući da se jetpack na svakoj postaji napuni do $K$, pitanje „može li Maroje od postaje $i$ izravno do postaje $j$“ glasi jednostavno: <b>cijena$(i, j) \le K$</b>. Postaje su vrhovi grafa, a takvi parovi su strelice (usmjerene — u obrnutom smjeru cijena je općenito drukčija).</p>
+        <p>Dostupne postaje su sve do kojih se od postaje 1 može doći nizom strelica. To računamo <b>pretraživanjem grafa</b> (BFS ili DFS): postaju 1 stavimo u red i označimo; iz svake postaje koju izvadimo iz reda pogledamo <i>svih</i> $N$ ostalih postaja i one neoznačene s cijenom $\le K$ označimo i dodamo u red. Svaka postaja se obradi jednom i tada pregleda $N$ kandidata: $O(N^2) = 4 \cdot 10^6$ izračuna cijene. To pokriva podzadatke 1–4 (75 bodova). Pazi: cijena može biti do $2 \cdot 10^{12}$, koristi 64-bitne brojeve.</p>
+        <h3>Korak 3: posebni slučaj $B = 0$ ($N \le 100\,000$)</h3>
+        <p>Kad je $B = 0$, formula se lijepo pojednostavi. Označimo $s = x + y$ („visina“ postaje u smjeru gore-desno). Za $dx &gt; 0 &gt; dy$ cijena je $A \cdot (dx - \min(dx, |dy|)) = A \cdot \max(0, dx + dy)$, a isto vrijedi i u ostalim slučajevima. Dakle:</p>
+        <p style="text-align:center">cijena$(i, j) = A \cdot \max(0,\ s_j - s_i)$.</p>
+        <p>Drugim riječima: iz postaje s visinom $s$ besplatno dolazimo do svih postaja s visinom $\le s$, a uz punu spremnik možemo se popeti najviše za $h = \lfloor K / A \rfloor$. Zato:</p>
+        <ol>
+            <li>Sortiramo postaje po $s$.</li>
+            <li>Neka je <code>maxS</code> najveća visina do koje smo došli — na početku $s_1$. Sve postaje s $s \le$ <code>maxS</code> su dostupne.</li>
+            <li>Prolazimo sortirane postaje redom. Ako je $s_i \le$ <code>maxS</code> $+ h$, postaja je dostupna i <code>maxS = max(maxS, s_i)</code>. Čim naiđemo na postaju kojoj to ne vrijedi, ni jedna dalja (još viša) nije dostupna — stanemo.</li>
+        </ol>
+        <p>Složenost $O(N \log N)$ zbog sortiranja. Zašto je ispravno? Postaja niža od <code>maxS</code> + $h$ dohvatljiva je iz postaje na kojoj je <code>maxS</code> postignut, a viša nije dohvatljiva ni iz koje dosad dostupne postaje jer bi trebalo više od $h$ „visine“ odjednom.</p>
+        <h3>Korak 4: sve zajedno</h3>
+        <p>Ako je $N \le 2000$, pokreni BFS iz koraka 2; inače je (prema ograničenjima) $B = 0$ pa primijeni korak 3. Provjera na prvom primjeru ($A=6$, $K=20$, $h=3$): visine su $6, 8, 14, 15, 10, 18, 4$. Krećemo s <code>maxS</code> $= 6$: dostupne su visine $\le 9$ → postaje 1, 2, 7; <code>maxS</code> $= 8$, granica 11 → postaja 5 (visina 10); <code>maxS</code> $= 10$, granica 13 → postaja 3 ima 14, stop. Izlaz <code>1100101</code>. ✓</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2023/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2023). Službeno rješenje nije objavljeno; rješenje ispod napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2023/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

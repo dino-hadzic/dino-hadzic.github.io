@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snagator (JHIO 2022)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Snagator</h1>
+        <p><i>Vremensko ograničenje: 3 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Na natjecanju sudjeluje $N$ snagatora s međusobno različitim snagama. U $i$-toj od $M$ sekundi Vito kaže: „natjecatelj $A_i$ ima veću snagu od natjecatelja $B_i$“. Sve izjave su istinite, a neke se mogu ponavljati.</p>
+        <p>Nakon koliko je najmanje izjava moguće <b>poredati barem $K$ natjecatelja</b> po snazi (tj. pronaći $K$ natjecatelja čiji nam je međusobni poredak potpuno poznat)? Ako to nije moguće ni nakon svih $M$ izjava, ispiši $-1$.</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N, M, K$ ($2 \le N \le 300\,000$, $1 \le M \le 300\,000$, $2 \le K \le N$). Zatim $M$ redaka s $A_i$ i $B_i$ ($A_i \ne B_i$).</p>
+        <h3>Izlazni podaci</h3>
+        <p>Traženi broj izjava ili $-1$.</p>
+        <h3>Bodovanje</h3>
+        <p>5 bodova: $K = 2$; +20: $K = 3$; +20: $N, M \le 3000$; +20: $M \le 3000$.</p>
+        <h3>Probni primjeri</h3>
+        <pre>ulaz:
+3 4 3
+2 1
+2 3
+2 1
+3 1
+
+izlaz:
+4</pre>
+        <pre>ulaz:
+4 5 3
+1 2
+3 4
+1 4
+2 3
+1 3
+
+izlaz:
+4</pre>
+        <pre>ulaz:
+4 2 4
+1 2
+2 3
+
+izlaz:
+-1</pre>
+        <p><i>Opis prvog primjera:</i> Nakon dvije izjave znamo $2 &gt; 1$ i $2 &gt; 3$, ali ne znamo odnos 1 i 3 — moguća su dva poretka. Tek nakon četvrte izjave znamo $2 &gt; 3 &gt; 1$.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: izjave kao strelice</h3>
+        <p>Nacrtajmo natjecatelje kao točke, a izjavu „$A$ je jači od $B$“ kao <b>strelicu</b> $A \to B$. Dobivamo <b>usmjereni graf</b>. Budući da su sve izjave istinite, strelice se nikad ne „vrte u krug“ (ne može biti $A$ jači od $B$, $B$ od $C$, a $C$ od $A$) — takav graf zove se <b>DAG</b> (usmjereni graf bez ciklusa).</p>
+        <h3>Korak 2: što znači „poredati $K$ natjecatelja“?</h3>
+        <p>Za dva natjecatelja znamo tko je jači točno onda kad od jednog do drugog vodi <b>niz strelica</b> (npr. $2 \to 3 \to 1$ znači i $2$ jači od $1$). Skup natjecatelja možemo poredati ako za <i>svaki par</i> iz skupa znamo poredak. Ako ih poredamo od najjačeg do najslabijeg, za svaki susjedni par mora postojati niz strelica, pa zapravo postoji jedan dugačak niz strelica koji redom prolazi kroz sve njih. Obrnuto, natjecatelji na bilo kojem <b>putu</b> u grafu jasno su poredani. Zaključak:</p>
+        <p style="text-align:center"><b>možemo poredati barem $K$ natjecatelja $\iff$ u grafu postoji put koji prolazi kroz barem $K$ točaka.</b></p>
+        <h3>Korak 3: najdulji put u DAG-u</h3>
+        <p>U općenitom grafu je najdulji put težak problem, ali u DAG-u je lagan uz <b>topološko sortiranje</b>: točke poredamo tako da svaka strelica ide „slijeva nadesno“. Kako? Brojimo koliko strelica <i>ulazi</i> u svaku točku (<code>ulazni[v]</code>). Točke bez ulaznih strelica stavimo u red. Uzimamo točku iz reda, „brišemo“ njene izlazne strelice (susjedima smanjimo <code>ulazni</code>), a susjed čiji <code>ulazni</code> padne na $0$ ulazi u red. Redoslijed vađenja iz reda je topološki poredak. (Ovo je poznato kao Kahnov algoritam.)</p>
+        <p>Sad računamo <code>L[v]</code> = najveći broj točaka na putu koji <b>završava</b> u $v$. Na početku je <code>L[v] = 1</code> za sve. Kad obrađujemo točku $v$ u topološkom redu, za svakog susjeda $u$ (strelica $v \to u$) postavimo <code>L[u] = max(L[u], L[v] + 1)</code>. Budući da $v$ obrađujemo tek nakon svih točaka iz kojih strelice vode u $v$, u tom trenutku je <code>L[v]</code> već konačan. Najdulji put je $\max_v$ <code>L[v]</code>. Ovo je jednostavan primjer <b>dinamičkog programiranja</b>: odgovor za $u$ slažemo iz već gotovih odgovora njegovih prethodnika. Složenost je $O(N + M)$.</p>
+        <h3>Korak 4: nakon koje sekunde?</h3>
+        <p>Najdulji put nakon $t$ izjava <b>nikad se ne skraćuje</b> kad $t$ raste (dodavanjem strelica postojeći putevi ostaju). Dakle svojstvo „najdulji put $\ge K$“ je <i>ne, ne, ne, …, da, da, da</i> po $t$ — idealno za <b>binarno pretraživanje</b>:</p>
+        <ol>
+            <li>Najprije provjerimo $t = M$. Ako ni tada put nije duljine $\ge K$, odgovor je $-1$.</li>
+            <li>Inače držimo interval $[lo, hi]$ u kojem je odgovor; uzmemo sredinu $mid$, izgradimo graf iz prvih $mid$ izjava i izračunamo najdulji put. Ako je $\ge K$, odgovor je $\le mid$ (postavimo $hi = mid$), inače je $&gt; mid$ ($lo = mid + 1$).</li>
+            <li>Kad se $lo$ i $hi$ izjednače, to je odgovor.</li>
+        </ol>
+        <p>Binarno pretraživanje treba oko $\log_2 M \approx 19$ provjera, a svaka je $O(N + M)$, ukupno oko $19 \cdot 600\,000 \approx 1.2 \cdot 10^7$ koraka — lako unutar 3 sekunde.</p>
+        <h3>Sitnice</h3>
+        <ul>
+            <li>Ponovljene izjave stvaraju duplikate strelica; algoritmu to ne smeta.</li>
+            <li>Kod $K = 2$ odgovor je uvijek $1$ (već prva izjava poredava dvoje), što se slaže s našim postupkom.</li>
+        </ul>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2022/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2022). Službeno rješenje nije objavljeno; rješenje ispod napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2022/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

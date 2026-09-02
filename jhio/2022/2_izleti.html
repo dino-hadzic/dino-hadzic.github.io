@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Izleti (JHIO 2022)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Izleti</h1>
+        <p><i>Vremensko ograničenje: 3 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Hrvatsku zamišljamo kao tablicu $N \times M$. Lijepa polja označena su znakom <code>.</code>, ružna znakom <code>#</code>. Turisti se kreću u četiri osnovna smjera i ne smiju stati na ružno polje.</p>
+        <p>Za svaki od $Q$ izleta odredi najmanji broj koraka od početnog polja do odredišta, ili $-1$ ako odredište nije dostupno.</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N, M$ ($1 \le N, M \le 300$) i $Q$ ($1 \le Q \le 100\,000$). Slijedi $N$ redaka tablice, a zatim $Q$ redaka s po četiri broja $A_i, B_i, C_i, D_i$ — redak i stupac početnog polja te redak i stupac odredišta.</p>
+        <h3>Izlazni podaci</h3>
+        <p>$Q$ redaka — udaljenost za svaki izlet.</p>
+        <h3>Bodovanje</h3>
+        <p>10 bodova: $N, M, Q \le 10$; +20: $Q \le 300$; +20: $N \le 10$; +10: $N \le 100$; +39: $N, M \le 200$.</p>
+        <h3>Probni primjeri</h3>
+        <pre>ulaz:
+5 6 4
+#...#.
+......
+#.#.#.
+....#.
+......
+4 1 4 1
+2 4 1 3
+5 1 3 2
+5 1 4 1
+
+izlaz:
+0
+2
+3
+1</pre>
+        <pre>ulaz:
+4 4 3
+....
+....
+##..
+.#..
+4 1 3 3
+2 3 1 1
+1 4 4 1
+
+izlaz:
+-1
+3
+-1</pre>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: udaljenost od jednog polja — BFS</h3>
+        <p>Najkraći put u tablici gdje svaki korak košta 1 računamo <b>pretraživanjem u širinu</b> (BFS). Ideja: iz početnog polja „širimo val“. Imamo <b>red</b> (queue): na početku u njemu je samo početno polje s udaljenošću $0$. Ponavljamo: uzmemo polje s početka reda, pogledamo mu četiri susjeda; svakom lijepom susjedu koji još nema udaljenost upišemo udaljenost trenutnog polja $+1$ i stavimo ga na kraj reda. Red obrađuje polja po rastućoj udaljenosti pa je prva zapisana udaljenost ujedno i najmanja. Jedan BFS obiđe svako polje najviše jednom: $O(N \cdot M)$, tj. do $90\,000$ koraka.</p>
+        <p>Jedan BFS daje udaljenosti od početnog polja do <b>svih</b> polja odjednom. Ako odredište nema upisanu udaljenost, odgovor je $-1$.</p>
+        <h3>Korak 2: previše upita za BFS po upitu</h3>
+        <p>$Q = 100\,000$ upita puta $90\,000$ koraka je $9 \cdot 10^9$ — previše. Prva ušteda: <b>grupiramo upite po početnom polju</b> (sortiramo ih ili spremimo u popise po polju). Za svako početno polje koje se pojavljuje napravimo BFS jednom i odgovorimo na sve upite iz tog polja. To rješava sve podzadatke osim najvećeg: kod $N \le 100$ ima najviše $30\,000$ različitih početnih polja, dakle $30\,000 \cdot 30\,000 = 9 \cdot 10^8$ jednostavnih koraka, što u C++-u prolazi u 3 sekunde. Za $200 \times 200$ je granično, a za $300 \times 300$ (na službenim testovima oko $50\,000$ različitih početnih polja) traje predugo. Za pune bodove treba pametnija ideja.</p>
+        <h3>Korak 3 (napredno): podijeli pa vladaj po tablici</h3>
+        <p>Trik je u pitanju: <i>kroz koja polja najkraći put sigurno prolazi?</i> Presjecimo tablicu <b>srednjim retkom</b>. Za izlet čiji su početak i kraj na različitim stranama tog retka, put <b>mora</b> proći kroz neko polje srednjeg retka. Zato:</p>
+        <ol>
+            <li>Iz <b>svakog polja srednjeg retka</b> (najviše $M \le 300$ polja) napravimo BFS. To je $300 \cdot 90\,000 = 2.7 \cdot 10^7$ koraka — u redu.</li>
+            <li>Za svaki upit $(a, b)$ i svako polje $s$ srednjeg retka izračunamo $d(s,a) + d(s,b)$. Najmanja od tih vrijednosti je duljina najkraćeg puta koji prolazi kroz srednji redak. Za upite s krajevima na različitim stranama to je konačan odgovor.</li>
+        </ol>
+        <p>Što s upitima čija su oba kraja na istoj strani (npr. oba iznad srednjeg retka)? Njihov najkraći put <b>ili</b> ipak prolazi srednjim retkom (to smo već izračunali) <b>ili</b> ostaje cijeli u gornjoj polovici. Drugi slučaj rješavamo <b>isto ovako, samo na gornjoj polovici</b>: presječemo je po njezinom srednjem retku (ili srednjem stupcu — biramo dulju stranicu da se polovice brzo smanjuju), pokrenemo BFS-ove <i>ograničene na tu polovicu</i> i tako dalje. Odgovor za upit je najmanja vrijednost dobivena na svim razinama na kojima se upit pojavio.</p>
+        <p>Ovakav postupak — problem razbijemo na dva manja istog oblika i svaki riješimo istom metodom — zove se <b>podijeli pa vladaj</b> (engl. <i>divide and conquer</i>). Rekurzija staje kad područje ima samo jedno polje.</p>
+        <h3>Korak 4: zašto je dovoljno brzo?</h3>
+        <ul>
+            <li>Na svakoj razini rekurzije područja se ne preklapaju, a iz svakog polja rezne linije radimo BFS po svom području. Zbroj rada na jednoj razini je otprilike (duljina reza) $\times$ (površina) $\le 300 \cdot 90\,000$. Dubina rekurzije je oko $\log_2 300 + \log_2 300 \approx 17$, ali se površine brzo smanjuju pa je ukupno manje od $10^8$ koraka.</li>
+            <li>Svaki upit na svakoj razini prođe kroz najviše $300$ polja reza: $10^5 \cdot 300 \cdot 17 \approx 5 \cdot 10^8$ vrlo jednostavnih zbrajanja. U C++-u to prolazi za oko jednu sekundu (naša provjera na službenim testovima: ispod 0.9 s).</li>
+        </ul>
+        <p>Pazi na dvije sitnice: BFS mora ostati unutar trenutnog pravokutnika (ne smije „izaći“ preko reza — takve puteve već je obradila viša razina), a upit s početkom ili krajem <i>na samom rezu</i> potpuno je riješen na toj razini i ne šalje se dalje.</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2022/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2022). Službeno rješenje nije objavljeno; rješenje ispod napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2022/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
