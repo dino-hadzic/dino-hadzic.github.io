@@ -86,17 +86,63 @@
         <h3>Korak 2: binarno pretraživanje odgovora</h3>
         <p>$cijena(W)$ raste s $W$ (veći $W$ = više mostova treba dizati i svaki više). Zato ako $W$ „prolazi“, prolazi i svaki manji; ako ne prolazi, ne prolazi ni veći. To je savršeno za <b>binarno pretraživanje</b>: držimo interval $[lo, hi)$ u kojem je odgovor ($lo$ prolazi, $hi$ ne), gledamo sredinu i sužavamo. Odgovor je najviše $10^9 + 10^9$ (najveća nosivost plus cijeli proračun), pa treba oko 31 korak.</p>
         <p><b>Sporo rješenje</b> ($N, Q \le 1000$): za svako pitanje nađi put (DFS/BFS od $C$), pa binarno pretraži $W$ računajući $cijena(W)$ prolaskom po putu — $O(Q \cdot N \cdot 31)$, dovoljno za 23 boda. Za lanac (podzadatak 2) put je interval pa pomažu prefiksni zbrojevi sortiranih vrijednosti.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: binarno pretraživanje</h4>
+
+            <p>Ako za neki niz odgovora vrijedi „prvo je sve <i>ne</i>, pa od nekog mjesta sve <i>da</i>“ (odgovor je <b>monoton</b>), granicu možemo naći <b>binarnim pretraživanjem</b>: pogledamo sredinu, ovisno o odgovoru odbacimo lijevu ili desnu polovicu i ponavljamo. Nakon $\log_2(\text{raspon})$ koraka ostane jedan kandidat — za raspon $10^{18}$ to je samo 60 provjera.</p>
+            <pre>long long lo = 0, hi = 1e18;           // invarijanta: lo je "ne" (ili ispred), hi je "da"
+while (hi - lo &gt; 1) { long long mid = (lo + hi) / 2; if (dobro(mid)) hi = mid; else lo = mid; }
+// hi je najmanji "da"</pre>
+            <p>Osim traženja broja u sortiranom nizu, najčešće se koristi kao <b>binarno pretraživanje po odgovoru</b>: umjesto „koliki je najmanji $X$ za koji nešto vrijedi?“ odgovaramo na lakše pitanje „vrijedi li za ovaj konkretni $X$?“ i to ponovimo $\log$ puta.</p>
+        </div>
 
         <h3>Korak 3: kako brzo dobiti $k$ i $\sum T$ za put?</h3>
         <p>Trebamo, za zadani prag $W$, zbroj po mostovima puta $C$–$D$ nekog „težinskog“ podatka (1 za brojanje, $T$ za zbroj), ali samo po mostovima s $T &lt; W$. Tri alata:</p>
         <ol>
             <li><b>Ukorijenjeno stablo i LCA.</b> Ukorijenimo stablo u otoku 1. Svaki most tada „pripada“ svom donjem (djetetu) otoku. Za put $C$–$D$ neka je $L$ njihov <b>najniži zajednički predak</b> (LCA — najdublji otok koji je predak i $C$ i $D$). Zbroj po mostovima puta jednak je $s(C) + s(D) - 2\,s(L)$, gdje je $s(v)$ zbroj po mostovima od korijena do $v$. LCA nalazimo <b>binarnim dizanjem</b>: za svaki otok pamtimo $2^k$-tog pretka ($k = 0..17$), izjednačimo dubine skokovima, pa skačemo dok se preci ne podudare; $O(\log N)$ po upitu.</li>
+        
+        <div class="pojam">
+            <h4>Novi pojam: LCA i binarno podizanje</h4>
+
+            <p>U ukorijenjenom stablu <b>najniži zajednički predak</b> (LCA) dvaju čvorova $u$ i $v$ je najdublji čvor koji je predak i jednom i drugom. Put $u \to v$ ide od $u$ gore do LCA pa dolje do $v$, pa udaljenost iznosi $dub(u) + dub(v) - 2\,dub(\text{lca})$.</p>
+            <p><b>Binarno podizanje</b>: za svaki čvor unaprijed zapamtimo <code>gore[k][v]</code> = predak čvora $v$ udaljen $2^k$ koraka ($k = 0..\log N$), po pravilu <code>gore[k][v] = gore[k-1][gore[k-1][v]]</code>. Tada se „podigni $v$ za $d$ koraka“ radi po bitovima broja $d$ u $O(\log N)$, a LCA se nađe tako da dublji čvor prvo podignemo na istu dubinu, a zatim oba čvora dižemo za najveće potencije $2^k$ za koje se <i>još ne spoje</i>; na kraju je LCA njihov roditelj. Priprema $O(N \log N)$, svaki upit $O(\log N)$.</p>
+        </div>
             <li><b>Eulerov obilazak + Fenwickovo stablo.</b> Kako brzo mijenjati $s(v)$ kad neki most „uključimo“? Numeriramo otoke redom DFS-a ($tin[v]$) i pamtimo kraj podstabla ($tout[v]$). Uključivanje mosta djeteta $u$ znači: svim otocima u podstablu od $u$ (a to je interval $[tin[u], tout[u]]$) povećaj $s$ za $1$ (i za $T_u$). <b>Fenwickovo (binarno indeksirano) stablo</b> podržava „dodaj na intervalu, pročitaj u točki“ u $O(\log N)$: dodamo $+x$ na $tin[u]$ i $-x$ na $tout[u]+1$, a $s(v)$ je prefiksni zbroj do $tin[v]$. Držimo dva Fenwicka: za brojače i za zbrojeve nosivosti.</li>
+        
+        <div class="pojam">
+            <h4>Novi pojam: Eulerov obilazak — podstablo kao interval</h4>
+
+            <p>Ako DFS-om obiđemo stablo i svakom čvoru zapišemo <b>vrijeme ulaska</b> <code>tin[v]</code> (redni broj kad smo ga prvi put posjetili) i <b>vrijeme izlaska</b> <code>tout[v]</code> (kad smo obradili cijelo podstablo), tada su čvorovi podstabla od $v$ točno oni s <code>tin</code> u intervalu $[tin[v], tout[v]]$. Time se pitanja o podstablu pretvaraju u pitanja o intervalu niza — pa ih rješavaju prefiksni zbrojevi, Fenwick ili segmentno stablo. Slično, ako zapišemo i ulazak i izlazak u jedan niz duljine $2N$, put između dva čvora odgovara intervalu u kojem se „dvaput viđeni“ čvorovi pokrate.</p>
+        </div>
+        
+        <div class="pojam">
+            <h4>Novi pojam: Fenwickovo (binarno indeksirano) stablo</h4>
+
+            <p>Zamislimo polje brojeva u kojem se stalno događaju dvije stvari: <b>promijeni</b> vrijednost na jednoj poziciji i <b>pitaj</b> koliki je zbroj prvih $v$ pozicija. Obični prefiksni zbrojevi ne pomažu jer bi se nakon svake promjene morali računati iznova ($O(N)$).</p>
+            <p><b>Fenwickovo stablo</b> je polje <code>F</code> iste duljine u kojem <code>F[v]</code> pamti zbroj jednog pametno odabranog komada niza (komad završava na $v$, a duljina mu je najveća potencija broja 2 koja dijeli $v$). Zbog toga se svaki prefiks $1..v$ može sastaviti od najviše $\log N$ komada, a svaka pozicija pripada najviše $\log N$ komada. Obje operacije zato traju $O(\log N)$, a kod je kraći od pet redaka:</p>
+            <pre>void dodaj(int v, int x) { for (; v &lt;= N; v += v &amp; -v) F[v] += x; }
+long long zbroj(int v)    { long long s = 0; for (; v &gt; 0; v -= v &amp; -v) s += F[v]; return s; }</pre>
+            <p>(<code>v &amp; -v</code> je najniži postavljeni bit broja $v$.) Zbroj na intervalu $[l, r]$ je <code>zbroj(r) - zbroj(l-1)</code>.</p>
+            <p>Najčešća upotreba: na poziciji $x$ držimo broj pojavljivanja vrijednosti $x$. Tada <code>zbroj(x)</code> kaže koliko je viđenih brojeva $\le x$, a <code>zbroj(x - 1)</code> koliko ih je $&lt; x$ — oba upita rade u $O(\log N)$.</p>
+        </div>
             <li><b>Offline sortiranje po pragu.</b> Sortiramo mostove po $T$. Ako pitanja obrađujemo po <b>rastućem</b> pragu $W$, dovoljno je redom uključivati mostove s $T &lt; W$ — svaki se uključi jednom.</li>
+        
+        <div class="pojam">
+            <h4>Novi pojam: offline obrada upita</h4>
+
+            <p><b>Offline</b> znači: prvo pročitamo <i>sve</i> upite, pa ih obradimo u redoslijedu koji nama odgovara (npr. sortirane po nekom parametru), a odgovore na kraju ispišemo u izvornom redoslijedu. To je dopušteno kad god zadatak ne zahtijeva odgovor prije čitanja sljedećeg upita, i često pretvara „težak“ zadatak s promjenama u lagan zadatak s jednim prolazom.</p>
+        </div>
         </ol>
 
         <h3>Korak 4: paralelno binarno pretraživanje</h3>
         <p>Problem: svako pitanje ima <b>svoj</b> niz pragova (sredina svog intervala). Trik zvan <b>paralelno binarno pretraživanje</b>: sva pitanja napreduju istodobno, po jednom koraku.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: paralelno binarno pretraživanje</h4>
+
+            <p>Imamo $Q$ upita i za svaki bismo binarno pretraživali odgovor, ali <i>provjera</i> jednog kandidata zahtijeva skupu pripremu (npr. izgradnju strukture nad svim podacima do nekog praga). Umjesto da za svaki upit radimo $\log$ zasebnih priprema, <b>sve upite pretražujemo istodobno</b>: u svakoj od $\log$ „rundi“ svaki upit ima svoj trenutni <code>mid</code>; upite sortiramo po <code>mid</code>, jednim prolazom gradimo strukturu i, kad prijeđemo <code>mid</code> nekog upita, odgovorimo mu i pomaknemo njegovu granicu. Ukupno $O(\log \cdot (\text{priprema} + Q \cdot \text{upit}))$ umjesto $O(Q \cdot \log \cdot \text{priprema})$.</p>
+        </div>
         <ol>
             <li>Svako pitanje ima interval $[lo_i, hi_i)$; početno $[1, 2 \cdot 10^9 + 5)$.</li>
             <li>U jednoj <b>rundi</b> svako pitanje izračuna svoju sredinu $mid_i$. Pitanja sortiramo po $mid_i$, ispraznimo Fenwicke i prolazimo ih rastuće, uključujući mostove s $T &lt; mid_i$. Za pitanje izračunamo $k$ i $\sum T$ na putu (tri Fenwick-upita: $C$, $D$, $L$), pa $cijena = mid_i \cdot k - \sum T$; ako je $\le M_i$, $lo_i = mid_i$, inače $hi_i = mid_i$.</li>

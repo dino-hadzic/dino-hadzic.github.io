@@ -54,11 +54,39 @@
         <h3>Korak 2: fiksiraj desni kraj, gledaj sve lijeve</h3>
         <p>Idemo po $r$ od 1 do $N$ i za svaki lijevi kraj $l \le r$ zamišljamo dvije vrijednosti: $\text{pmax}_l$ = parnost od $\max(a_l..a_r)$ i $\text{pmin}_l$ = parnost od $\min(a_l..a_r)$. Za trenutačni $r$ tražimo broj $l$ s $\text{pmax}_l = \text{pmin}_l$.</p>
         <p>Kako se te vrijednosti mijenjaju kad $r$ poraste za 1? $\max(a_l..a_r)$ kao funkcija od $l$ je nerastuća slijeva nadesno i sastoji se od <b>blokova</b> s istom vrijednošću; blokove pamti <b>monotoni stog</b>: kad dođe $a_r$, sa stoga skidamo sve blokove s vrijednošću $\le a_r$ — svi $l$ u tim blokovima dobivaju novi max $= a_r$ — i gurnemo novi blok. Isto za min (skidamo blokove s vrijednošću $\ge a_r$). Svaki element uđe i izađe sa stoga jednom, pa je <b>ukupan broj promjena blokova $O(N)$</b>; ali jedna promjena mijenja $\text{pmax}$ za cijeli <b>interval</b> vrijednosti $l$.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: monotoni stog</h4>
+
+            <p><b>Stog</b> (stack) je struktura „zadnji unutra, prvi vani“. <b>Monotoni stog</b> je stog u kojem vrijednosti odozdo prema vrhu uvijek rastu (ili uvijek padaju). Kad dodajemo novi element, s vrha skidamo sve koji bi narušili poredak, pa ga stavimo na vrh.</p>
+            <p>Zašto je koristan: dok prolazimo niz slijeva, na stogu su točno oni raniji elementi koji su još „vidljivi“ — npr. za rastući stog to su kandidati za najbliži manji element slijeva. Svaki element uđe na stog jednom i siđe s njega najviše jednom, pa cijeli prolaz traje $O(N)$ iako pojedini korak može skinuti puno elemenata (kažemo da je cijena <b>amortizirano</b> $O(1)$).</p>
+            <p>Tipične primjene: „najbliži veći/manji element lijevo i desno“, najveći pravokutnik u histogramu, i računanje koliko se intervala ima isti maksimum.</p>
+        </div>
 
         <h3>Korak 3: segmentno stablo koje broji jednakosti</h3>
+        
+        <div class="pojam">
+            <h4>Novi pojam: segmentno stablo</h4>
+
+            <p><b>Segmentno stablo</b> je struktura koja nad nizom duljine $N$ odgovara na pitanja tipa „koliki je zbroj / minimum / maksimum na intervalu $[l, r]$?“ i pritom dopušta promjene niza — obje operacije u $O(\log N)$.</p>
+            <p>Ideja: korijen stabla „pokriva“ cijeli niz $[1, N]$. Svaki čvor koji pokriva interval $[a, b]$ ima dvoje djece: lijevo pokriva $[a, m]$, desno $[m+1, b]$, gdje je $m$ sredina. Listovi pokrivaju po jedan element. U svakom čvoru pamtimo željenu informaciju za njegov interval (npr. zbroj), a vrijednost čvora računa se <b>spajanjem</b> vrijednosti djece (zbroj = zbroj lijevog + zbroj desnog; maksimum = veći od dvaju maksimuma…).</p>
+            <ul>
+                <li><b>Promjena elementa</b>: promijeni list pa se popni do korijena i ponovno izračunaj svaki čvor na putu — dubina stabla je $\log N$, dakle $O(\log N)$.</li>
+                <li><b>Upit za $[l, r]$</b>: krenemo od korijena; ako je interval čvora cijeli unutar $[l, r]$, uzmemo njegovu vrijednost; ako je potpuno izvan, preskočimo ga; inače se spustimo u oboje djece. Može se dokazati da tako posjetimo najviše oko $4 \log N$ čvorova.</li>
+            </ul>
+            <p>Stablo se obično sprema u obično polje veličine $4N$: djeca čvora $v$ su $2v$ i $2v+1$. Snaga segmentnog stabla je u tome da u čvoru možemo pamtiti <i>bilo što</i> što se može spojiti iz dvaju dijelova — ne samo zbroj.</p>
+        </div>
         <p><b>Segmentno stablo</b> nad pozicijama $l$ u svakom čvoru pamti četiri brojača $c[u][v]$ = koliko $l$ u tom komadu ima $\text{pmax}_l = u$ i $\text{pmin}_l = v$. Traženi broj za trenutačni $r$ je $c[0][0] + c[1][1]$ u korijenu. Potrebne operacije:</p>
         <ul>
             <li><b>postavi $\text{pmax}$ na $v$ za sve $l \in [L, R]$</b>: u čvoru koji je cijeli unutar intervala: $c[v][\cdot] \mathrel{+}= c[1-v][\cdot]$, $c[1-v][\cdot] = 0$ — brojači se samo presele. Djeci ostavimo <b>lijenu oznaku</b> „pmax := v“ koju spuštamo tek kad ih dotaknemo;</li>
+        
+        <div class="pojam">
+            <h4>Novi pojam: lijeno ažuriranje (lazy propagation) u segmentnom stablu</h4>
+
+            <p>Obično segmentno stablo mijenja <b>jedan</b> element. Što ako trebamo „dodaj $x$ svim elementima na $[l, r]$“ ili „postavi sve na $[l, r]$ na vrijednost $x$“? Mijenjati svaki list bilo bi $O(N)$.</p>
+            <p><b>Lijeno ažuriranje</b>: promjenu primijenimo na najviše $O(\log N)$ čvorova čiji su intervali cijeli unutar $[l, r]$ (isti čvorovi koje bi posjetio upit) — ažuriramo njihovu vrijednost i u čvor zapišemo <b>oznaku</b> „djeci još nisam prenio ovu promjenu“. Tek kad se kasnije zbog nekog upita ili promjene moramo spustiti u djecu, prije spuštanja oznaku „gurnemo“ dolje (primijenimo je na oboje djece i zapišemo im njihove oznake). Tako se posao ne obavlja nikad uzalud, a svaka operacija ostaje $O(\log N)$.</p>
+            <p>Bitno je da se iz vrijednosti čvora i oznake može odmah izračunati nova vrijednost čvora (npr. „dodaj $x$“ na zbroj intervala duljine $d$ znači zbroj $+= x \cdot d$).</p>
+        </div>
             <li>isto za $\text{pmin}$ (zasebna oznaka);</li>
             <li>kad dođe novi $r$, na poziciji $l = r$ postavi $\text{pmax} = \text{pmin} = a_r \bmod 2$.</li>
         </ul>

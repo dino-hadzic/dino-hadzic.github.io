@@ -95,21 +95,52 @@
         <ul>
             <li><b>$N, Q \le 1000$:</b> za svaki upit prođi put (DFS od $a$ do $b$), prebroji vrste u mapi; $O(NQ)$.</li>
             <li><b>$v_i \le 10$:</b> za svaku od 10 vrsta i svaki čvor $x$ pamti $cnt_c[x]$ = broj čvorova vrste $c$ na putu od korijena do $x$. Broj na putu $a$–$b$ je $cnt_c[a] + cnt_c[b] - 2\,cnt_c[L] + [v_L = c]$, gdje je $L$ <b>najniži zajednički predak</b> (LCA) — najdublji čvor koji je predak i $a$ i $b$; nalazimo ga binarnim dizanjem u $O(\log N)$. Odgovor je maksimum po 10 vrsta.</li>
+        
+        <div class="pojam">
+            <h4>Novi pojam: LCA i binarno podizanje</h4>
+
+            <p>U ukorijenjenom stablu <b>najniži zajednički predak</b> (LCA) dvaju čvorova $u$ i $v$ je najdublji čvor koji je predak i jednom i drugom. Put $u \to v$ ide od $u$ gore do LCA pa dolje do $v$, pa udaljenost iznosi $dub(u) + dub(v) - 2\,dub(\text{lca})$.</p>
+            <p><b>Binarno podizanje</b>: za svaki čvor unaprijed zapamtimo <code>gore[k][v]</code> = predak čvora $v$ udaljen $2^k$ koraka ($k = 0..\log N$), po pravilu <code>gore[k][v] = gore[k-1][gore[k-1][v]]</code>. Tada se „podigni $v$ za $d$ koraka“ radi po bitovima broja $d$ u $O(\log N)$, a LCA se nađe tako da dublji čvor prvo podignemo na istu dubinu, a zatim oba čvora dižemo za najveće potencije $2^k$ za koje se <i>još ne spoje</i>; na kraju je LCA njihov roditelj. Priprema $O(N \log N)$, svaki upit $O(\log N)$.</p>
+        </div>
             <li><b>Lanac:</b> put je interval niza — to je klasični problem „najčešći element na intervalu“, koji rješava <b>Moov algoritam</b> (korak 2).</li>
         </ul>
 
         <h3>Korak 2: Moov algoritam na nizu</h3>
         <p>Imamo niz i mnogo upita „najveća frekvencija na $[l, r]$“. Držimo trenutni interval $[L, R]$ i za njega: <code>freq[c]</code> (koliko puta se vrsta $c$ pojavljuje) i <code>koliko[f]</code> (koliko vrsta ima frekvenciju točno $f$), te trenutni maksimum <code>mx</code>. Dodavanje elementa: <code>koliko[freq[c]]--, freq[c]++, koliko[freq[c]]++</code>, <code>mx = max(mx, freq[c])</code>. Uklanjanje: obrnuto, a ako <code>koliko[mx]</code> padne na 0, onda <code>mx--</code> (maksimum pada za najviše 1, jer smo maknuli jedan element). Sve $O(1)$.</p>
         <p>Trik je <b>redoslijed obrade upita</b>: niz podijelimo na blokove veličine $B \approx N / \sqrt{Q}$ i upite sortiramo po bloku lijevog kraja, a unutar bloka po desnom kraju (naizmjence rastuće/padajuće). Tada lijevi kraj unutar bloka „drhti“ najviše $B$ po upitu (ukupno $QB$), a desni kraj u jednom bloku putuje najviše $N$ (ukupno $N \cdot N/B$). Ukupno oko $O(N \sqrt{Q})$ pomicanja — za naše granice nekoliko desetaka milijuna.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: Moov algoritam (pametan redoslijed upita)</h4>
+
+            <p>Imamo mnogo upita oblika „nešto o intervalu $[L, R]$“, a znamo trenutni odgovor <b>brzo popraviti</b> kad granicu pomaknemo za jedno mjesto (dodaj/izbaci jedan element). Ako upite obradimo redom kako su zadani, granice mogu skakati po cijelom nizu i ukupno se pomaknuti $O(NQ)$ puta.</p>
+            <p><b>Moov algoritam</b> upite presloži: niz podijelimo na blokove duljine $B \approx N / \sqrt{Q}$, upite sortiramo po bloku u kojem im je lijeva granica, a unutar bloka po desnoj granici. Tada:</p>
+            <ul>
+                <li>lijeva granica unutar jednog bloka pomiče se najviše $B$ po upitu — ukupno $Q \cdot B$;</li>
+                <li>desna granica unutar bloka samo raste, dakle najviše $N$ po bloku — ukupno $N \cdot (N / B)$.</li>
+            </ul>
+            <p>Uz $B \approx N/\sqrt{Q}$ oboje je $O(N \sqrt{Q})$, dakle oko $N\sqrt{Q}$ pomaka umjesto $NQ$. Odgovore spremamo po izvornom indeksu upita. (Sitnica: u neparnim blokovima sortiraj po desnoj granici <i>padajuće</i> — desna se granica onda ne mora vraćati na početak, što u praksi ubrza dvostruko.) Moov algoritam je <b>offline</b>: mora unaprijed znati sve upite.</p>
+        </div>
 
         <h3>Korak 3: put u stablu kao interval — Eulerov obilazak</h3>
         <p>Obiđemo stablo DFS-om i svaki čvor zapišemo <b>dvaput</b>: kad u njega uđemo ($tin$) i kad iz njega izađemo ($tout$). Dobijemo niz duljine $2N$. Za dva čvora $a, b$ ($tin[a] &lt; tin[b]$) i njihov LCA $L$:</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: Eulerov obilazak — podstablo kao interval</h4>
+
+            <p>Ako DFS-om obiđemo stablo i svakom čvoru zapišemo <b>vrijeme ulaska</b> <code>tin[v]</code> (redni broj kad smo ga prvi put posjetili) i <b>vrijeme izlaska</b> <code>tout[v]</code> (kad smo obradili cijelo podstablo), tada su čvorovi podstabla od $v$ točno oni s <code>tin</code> u intervalu $[tin[v], tout[v]]$. Time se pitanja o podstablu pretvaraju u pitanja o intervalu niza — pa ih rješavaju prefiksni zbrojevi, Fenwick ili segmentno stablo. Slično, ako zapišemo i ulazak i izlazak u jedan niz duljine $2N$, put između dva čvora odgovara intervalu u kojem se „dvaput viđeni“ čvorovi pokrate.</p>
+        </div>
         <ul>
             <li>ako je $L = a$ (jedan je predak drugog): uzmi interval $[tin[a], tin[b]]$;</li>
             <li>inače: uzmi interval $[tout[a], tin[b]]$ i <b>posebno dodaj</b> čvor $L$ (on se u tom intervalu ne pojavljuje).</li>
         </ul>
         <p>U odabranom intervalu čvorovi koji se pojavljuju <b>dvaput</b> (ušli smo i izašli) nisu na putu, a oni koji se pojavljuju <b>jednom</b> točno su čvorovi puta. Zato pri pomicanju granice ne „dodajemo“ nego <b>preklapamo</b> (toggle) čvor: ako je bio uključen, isključimo ga, i obrnuto. Za upit s dodatnim $L$: preklopi $L$, zapiši odgovor, preklopi natrag.</p>
         <p>Vrste $v_i \le 10^9$ prvo sažmemo na brojeve $0..N-1$ (sortiraj različite vrijednosti i zamijeni indeksom).</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: kompresija koordinata</h4>
+
+            <p>Kad su vrijednosti velike (do $10^9$) ali ih je malo (do $10^5$), a važan nam je samo njihov <b>međusobni poredak</b>, sve različite vrijednosti sortiramo i zamijenimo ih rednim brojevima $1, 2, \dots, K$. Tada ih možemo koristiti kao indekse u Fenwickovom ili segmentnom stablu. Prevođenje vrijednosti u indeks radi se binarnim pretraživanjem (<code>lower_bound</code>) u sortiranom popisu.</p>
+        </div>
 
         <h3>Provjera na primjeru</h3>
         <p>Prvi primjer, upit $(4, 7)$: LCA je 1, interval Eulerovog niza između izlaska iz 4 i ulaska u 7 sadrži jednom čvorove $4, 2, 3, 7$, a $1$ dodamo posebno: vrste $1, 2, 2, 1, 1$ → jednolikost 3. ✓</p>
