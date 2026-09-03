@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suncokret (Juniorske izborne pripreme 2018)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Suncokret</h1>
+        <p><i>Prvi izborni ispit. Vremensko ograničenje: 2 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Pred Ivičinom kućom je $N$ suncokreta slijeva nadesno, $i$-ti visok $A_i$ cm. Da suncokret naraste $X$ cm treba ga zaliti s $X$ litara vode. Ivica želi da visine budu <b>neopadajuće</b> slijeva nadesno. Susjed Krešo u $i$-toj od $Q$ noći zalije $X_i$-ti suncokret s $Y_i$ litara. Nakon svake noći Ivica se pita: koliko bi mu <b>najmanje</b> litara vode trebalo da visine tog dana postanu neopadajuće (ne čini to zaista)?</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N$, $Q$ ($1 \le N, Q \le 100\,000$); niz $A$ ($1 \le A_i \le 10^9$); $Q$ redaka $X_i$, $Y_i$ ($1 \le Y_i \le 10^9$).</p>
+        <h3>Izlazni podaci</h3>
+        <p>$Q$ redaka s odgovorima.</p>
+        <h3>Bodovanje</h3>
+        <p>30 bodova: $N, Q \le 1000$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>5 4
+1 3 2 2 4
+1 2
+2 3
+4 5
+1 1</pre></td><td><pre>2
+10
+7
+7</pre></td></tr>
+            <tr><td><pre>3 4
+3 1 1
+3 1
+2 2
+1 2
+2 1</pre></td><td><pre>3
+1
+5
+4</pre></td></tr>
+            <tr><td><pre>3 2
+1 3 1
+3 1
+2 1</pre></td><td><pre>1
+2</pre></td></tr>
+        </table>
+        <p><b>Opis prvog primjera:</b> 1. dan visine 3, 3, 2, 2, 4 → optimalno 3, 3, 3, 3, 4, trošak $0+0+1+1+0 = 2$; 2. dan 3, 6, 2, 2, 4 → 3, 6, 6, 6, 6, trošak 10; 3. dan 3, 6, 2, 7, 4 → 3, 6, 6, 7, 7, trošak 7; 4. dan 4, 6, 2, 7, 4 → trošak 7.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: koliko košta jedan dan?</h3>
+        <p>Suncokreti samo rastu, pa je najjeftinije $i$-ti podići točno do <b>najvišeg lijevo od njega (uključivo)</b>: nova visina je $\max(A_1, \dots, A_i)$ — <b>prefiksni maksimum</b> $M_i$. Trošak je $\sum_i (M_i - A_i) = \sum_i M_i - \sum_i A_i$.</p>
+        <p><b>Sporo</b> ($N, Q \le 1000$): nakon svake promjene izračunaj sve $M_i$ u $O(N)$: ukupno $O(NQ)$.</p>
+
+        <h3>Korak 2: što se mijenja?</h3>
+        <p>$\sum A_i$ održavamo trivijalno. Teži dio je $\sum M_i$ kad se jedan $A_x$ poveća: prefiksni maksimumi desno od $x$ mogu porasti — potencijalno mnogo njih. Treba struktura koja zna <b>zbroj prefiksnih maksimuma</b> uz promjenu jednog elementa.</p>
+
+        <h3>Korak 3: segmentno stablo koje pamti „zbroj prefiksnih maksimuma“</h3>
+        <p><b>Segmentno stablo</b> dijeli niz na polovice, četvrtine … i u svakom čvoru pamti podatke o svom komadu: ovdje $mx$ = maksimum komada i $sm$ = zbroj prefiksnih maksimuma <b>unutar komada</b> (kao da komad počinje ni od čega).</p>
+        <p>Ključna pomoćna funkcija: <code>calc(čvor, pre)</code> = zbroj prefiksnih maksimuma komada tog čvora ako „izvana“ slijeva već dolazi maksimum <code>pre</code>. Računa se rekurzivno:</p>
+        <ul>
+            <li>ako <code>pre ≥ mx[čvor]</code>: svi prefiksni maksimumi su <code>pre</code> → <code>pre · duljina</code>;</li>
+            <li>inače, ako <code>pre ≥ mx[lijevo dijete]</code>: lijeva polovica daje <code>pre · duljina_lijeve</code>, a desna <code>calc(desno, pre)</code>;</li>
+            <li>inače: lijeva polovica daje <code>calc(lijevo, pre)</code>, a desna točno ono što je već spremljeno: <code>sm[čvor] − sm[lijevo]</code> (jer je desna polovica u <code>sm[čvor]</code> izračunata upravo s „ulaznim“ maksimumom <code>mx[lijevo]</code>).</li>
+        </ul>
+        <p>U svakom se koraku spuštamo u <b>samo jedno</b> dijete, pa je <code>calc</code> $O(\log N)$. Pri gradnji/promjeni čvor se osvježi kao <code>sm[čvor] = sm[lijevo] + calc(desno, mx[lijevo])</code>. Promjena jednog elementa osvježava $\log N$ čvorova, svaki s jednim <code>calc</code>: $O(\log^2 N)$ po upitu. Odgovor je <code>sm[korijen] − ΣA</code>.</p>
+
+        <h3>Provjera na prvom primjeru</h3>
+        <p>Nakon 2. noći $A = 3, 6, 2, 2, 4$, prefiksni maksimumi $3, 6, 6, 6, 6$ (zbroj 27), $\sum A = 17$, odgovor $10$. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O((N + Q) \log^2 N)$. Visine kroz upite narastu do $\approx 10^{14}$, a zbrojevi do $\approx 10^{19}$ — obavezno 64-bitni tip (u ekstremnom slučaju <code>unsigned long long</code> ili <code>__int128</code>).</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (23/23).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2018/zadaci/prvi/zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2018/">hsin.hr, Juniorske izborne pripreme 2018</a>, prvi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2018/zadaci/prvi/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
