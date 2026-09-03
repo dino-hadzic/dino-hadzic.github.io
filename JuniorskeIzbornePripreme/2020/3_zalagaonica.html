@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zalagaonica (Juniorske izborne pripreme 2020)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Zalagaonica</h1>
+        <p><i>Prvi izborni ispit. Vremensko ograničenje: 3 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Za papirić s riječi Rick plaća $C[x]$ kuna, gdje je $x$ broj <b>različitih slova</b> na papiriću. Stjepan smije riječ škarama razrezati na dijelove (svaki dio je neprazan niz uzastopnih slova) i prodati svaki dio zasebno. Koliko najviše može zaraditi?</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prvom retku $N$ ($1 \le N \le 26$), broj različitih slova u riječi. U drugom niz $C$ od $N$ prirodnih brojeva manjih od $10^9$. U trećem riječ $S$ ($1 \le |S| \le 10^6$) od malih slova.</p>
+        <h3>Izlazni podaci</h3>
+        <p>Najveća zarada.</p>
+        <h3>Bodovanje</h3>
+        <p>50 bodova: $|S| \le 3000$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>3
+1 2 10
+abcbca</pre></td><td><pre>20</pre></td></tr>
+            <tr><td><pre>2
+1 14
+aaabbbaaabbbaaa</pre></td><td><pre>63</pre></td></tr>
+            <tr><td><pre>2
+1 3
+ababababa</pre></td><td><pre>13</pre></td></tr>
+        </table>
+        <p><b>Opisi:</b> <code>abc|bca</code> → $10 + 10$; <code>a|a|ab|b|ba|a|ab|b|ba|a|a</code> → 63; <code>ab|ab|ab|ab|a</code> → 13.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <p><i>Ovaj opis slijedi <b>službeni opis rješenja</b> (autor zadatka: Marin Kišić), proširen dodatnim koracima za mlađe čitatelje.</i></p>
+
+        <h3>Korak 1: dinamičko programiranje po prefiksu</h3>
+        <p><b>Dinamičko programiranje</b> znači: riješi manje verzije zadatka i iz njih sastavi veće. Neka je $dp[i]$ najveća zarada za papirić s <b>prvih $i$ slova</b>. Zadnji komad koji Stjepan preda Ricku je neki $S[j..i]$; ostatak (prvih $j - 1$ slova) riješimo optimalno — to je $dp[j-1]$. Dakle:</p>
+        <p style="text-align:center">$dp[i] = \max_{1 \le j \le i} \big(dp[j-1] + C[\text{razl}(j, i)]\big)$, $dp[0] = 0$,</p>
+        <p>gdje je $\text{razl}(j, i)$ broj različitih slova u $S[j..i]$. Prolaskom $j$ od $i$ prema dolje uz brojač slova to je $O(|S|^2)$ — 50 bodova.</p>
+
+        <h3>Korak 2: samo 26 zanimljivih $j$</h3>
+        <p>Ključno opažanje: ako za $j_1 &lt; j_2$ vrijedi $\text{razl}(j_1, i) = \text{razl}(j_2, i)$, prijelaz iz $j_1$ <b>nikad nije bolji</b>. Zašto? Komad $S[j_1..i]$ mogli bismo dodatno razrezati na $S[j_1..j_2-1]$ i $S[j_2..i]$: drugi dio ima isti broj različitih slova, dakle istu cijenu, a prvi dio donosi barem još nešto (sve su cijene pozitivne). Formalno: $dp[j_2 - 1] \ge dp[j_1 - 1] + C[\text{razl}(j_1, j_2 - 1)] &gt; dp[j_1 - 1]$.</p>
+        <p>Dakle dovoljno je gledati $j$ na kojima se $\text{razl}(j, i)$ <b>mijenja</b>: to su <b>zadnja pojavljivanja</b> svakog slova do pozicije $i$. Ako zadnja pojavljivanja poredamo silazno: $p_1 &gt; p_2 &gt; \dots &gt; p_k$ (najviše 26), tada komad $S[p_t..i]$ ima točno $t$ različitih slova (slova čije zadnje pojavljivanje je $\ge p_t$). Zato:</p>
+        <p style="text-align:center">$dp[i] = \max_{t = 1..k} \big(dp[p_t - 1] + C[t]\big)$.</p>
+
+        <h3>Korak 3: provedba</h3>
+        <p>Održavaj listu slova poredanu po zadnjem pojavljivanju (najnovije prvo): kad pročitaš slovo, izbaci ga iz liste i stavi na početak ($O(26)$). Zatim za $t = 1..k$ izračunaj kandidata. Zarada može biti do $10^6 \cdot 10^9$ — 64-bitni tip.</p>
+
+        <h3>Provjera na prvom primjeru</h3>
+        <p><code>abcbca</code>, $C = (1, 2, 10)$: $dp[3] = 10$ (<code>abc</code>), $dp[6]$: zadnja pojavljivanja $a{:}6, c{:}5, b{:}4$ → kandidati $dp[5] + 1$, $dp[4] + 2$, $dp[3] + 10 = 20$. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O(26 \cdot |S|)$.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (13/13).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2020/zadaci/prvi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2020/">hsin.hr, Juniorske izborne pripreme 2020</a>, prvi izborni ispit). Rješenje slijedi <a href="https://hsin.hr/jpripreme2020/zadaci/prvi_ispit_rjesenja.zip">službeni opis rješenja</a> (HSIN), prepričan i razrađen u manjim koracima za ovu stranicu, te je provjereno na <a href="https://hsin.hr/jpripreme2020/zadaci/prvi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
