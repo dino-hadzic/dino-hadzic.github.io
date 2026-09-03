@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xpan (Juniorske izborne pripreme 2025)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Xpan</h1>
+        <p><i>Drugi izborni ispit. Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Xpan nizovi definirani su ovako:</p>
+        <ol>
+            <li>malo slovo engleske abecede je Xpan niz; ekspanzija mu je to slovo;</li>
+            <li>ako su $A$ i $B$ Xpan nizovi, i $AB$ je Xpan niz; ekspanzija je spoj ekspanzija od $A$ i $B$;</li>
+            <li>ako je $K$ jednoznamenkasti prirodni broj i $A$ Xpan niz, $K(A)$ je Xpan niz; ekspanzija je $K$ puta ponovljena ekspanzija od $A$. Npr. ekspanzija od <code>3(abc)</code> je <code>abcabcabc</code>.</li>
+        </ol>
+        <p>Zadani su Xpan niz i brojevi $L$ i $R$. Ispiši dio ekspanzije od $L$-tog do $R$-tog slova.</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prvom retku je Xpan niz duljine najviše $10^6$. U drugom su $L$ i $R$ ($1 \le L \le R \le \min(10^{18}, \text{duljina ekspanzije})$, $R - L + 1 \le 10^6$).</p>
+        <h3>Izlazni podaci</h3>
+        <p>Traženi dio ekspanzije.</p>
+        <h3>Bodovanje</h3>
+        <table>
+            <tr><th>Bodovi</th><th>Ograničenja</th></tr>
+            <tr><td>14</td><td>duljina ekspanzije $\le 1000$</td></tr>
+            <tr><td>21</td><td>duljina ekspanzije $\le 10^6$</td></tr>
+            <tr><td>21</td><td>$L = R$</td></tr>
+            <tr><td>28</td><td>$R - L + 1 \le 10\,000$</td></tr>
+            <tr><td>16</td><td>bez dodatnih ograničenja</td></tr>
+        </table>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>abc4(d)
+1 7</pre></td><td><pre>abcdddd</pre></td></tr>
+            <tr><td><pre>3(ab2(cd))
+3 10</pre></td><td><pre>cdcdabcd</pre></td></tr>
+            <tr><td><pre>ba2(na)
+1 6</pre></td><td><pre>banana</pre></td></tr>
+        </table>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: struktura niza je stablo</h3>
+        <p>Xpan niz prirodno opisujemo <b>stablom</b>: čvor „slovo“, čvor „ponavljanje“ ($K$ i jedno dijete) i čvor „spoj“ (niz djece). Npr. <code>3(ab2(cd))</code> je ponavljanje ×3 čije je dijete spoj [a, b, ponavljanje ×2 od spoja [c, d]]. Stablo gradimo jednim prolazom po ulazu: kad vidimo znamenku, iza nje je „(“, rekurzivno pročitamo sadržaj do „)“; slovo je list. (Za $10^6$ znakova ugniježđenje može biti duboko pa rekurziju pišemo s velikim stogom ili iterativno s vlastitim stogom.)</p>
+        <p><b>Podzadatci 1–2</b> (ekspanzija $\le 10^6$): jednostavno izgradi cijelu ekspanziju rekurzivno i ispiši od $L$ do $R$.</p>
+
+        <h3>Korak 2: duljina svakog čvora</h3>
+        <p>Cijela ekspanzija može imati do $9^{500\,000}$ slova, pa je ne smijemo graditi. Ali <b>duljinu</b> svakog podstabla znamo izračunati: slovo $\to 1$, spoj $\to$ zbroj duljina djece, ponavljanje $\to K \cdot$ duljina djeteta. Duljine brzo prerastu $10^{18}$; kako nas zanimaju samo pozicije do $10^{18}$, sve duljine <b>ograničimo</b> odozgo na npr. $2 \cdot 10^{18}$ (ako bi umnožak bio veći, zapišemo $2 \cdot 10^{18}$). Pri množenju pazimo na preljev: provjeri <code>duljina &gt;= CAP / K</code> ili množi u 128-bitnom tipu.</p>
+
+        <h3>Korak 3: ispis raspona bez izgradnje</h3>
+        <p>Pišemo funkciju <code>ispisi(čvor, l, r)</code> koja ispisuje slova ekspanzije tog čvora na pozicijama $l..r$ (0-indeksirano unutar čvora):</p>
+        <ul>
+            <li><b>slovo:</b> ispiši ga;</li>
+            <li><b>spoj:</b> prolazi djecu redom i pamti pomak <code>off</code> (duljine dosadašnje djece). Dijete koje pokriva $[\text{off}, \text{off} + \text{dulj} - 1]$ preskoči ako se ne siječe s $[l, r]$; inače pozovi <code>ispisi(dijete, max(l, off) - off, min(r, off + dulj - 1) - off)</code>. Prekini kad <code>off &gt; r</code>;</li>
+            <li><b>ponavljanje:</b> dijete duljine $d$ ponovljeno $K$ puta; kopija $i$ pokriva $[i d, (i+1) d - 1]$. Počni od kopije $i = \lfloor l / d \rfloor$ (prve koja siječe raspon) i idi dok $i d \le r$, pozivajući <code>ispisi</code> na presjeku.</li>
+        </ul>
+        <p>Koliko je to koraka? Svako ispisano slovo košta jedan spust do lista. Uz to, u svakom čvoru na putu do prvog i zadnjeg slova možda preskačemo djecu — ali preskočene se ne posjećuju rekurzivno, a djecu s <b>nečim</b> u rasponu posjećujemo i za njih ispisujemo barem jedno slovo. Zato je ukupan rad $O(\text{duljina ulaza} + (R - L + 1) \cdot \text{dubina})$ u najgorem slučaju, a u praksi znatno manje — dubina rekurzije po jednom slovu ne ponavlja se za susjedna slova jer ih ispisujemo zajedno unutar istog poziva.</p>
+
+        <h3>Provjera na drugom primjeru</h3>
+        <p><code>3(ab2(cd))</code>: unutarnji spoj ima duljinu $2 + 4 = 6$, cijeli niz $18$. Tražimo pozicije $2..9$ (0-indeksirano). Kopija $0$ pokriva $0..5$: unutar nje pozicije $2..5$ → to je <code>2(cd)</code> cijeli → <code>cdcd</code>. Kopija $1$ pokriva $6..11$, unutar nje $0..3$ → <code>a</code>, <code>b</code>, pa pozicije $0..1$ od <code>2(cd)</code> → <code>cd</code>. Ukupno <code>cdcdabcd</code>. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>Izgradnja stabla i duljina $O(|S|)$, ispis približno $O(|S| + (R - L + 1))$ uz gore navedeni faktor dubine u najgorem slučaju. Sve duljine u 64-bitnim brojevima s ograničenjem odozgo.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (66/66), uključujući ulaze s ugniježđenjem dubine preko $300\,000$ i pozicijama oko $10^{18}$.</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2025/zadaci/drugi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2025/">hsin.hr, Juniorske izborne pripreme 2025</a>, drugi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2025/zadaci/drugi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

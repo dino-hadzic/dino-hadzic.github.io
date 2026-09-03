@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domine (Juniorske izborne pripreme 2019)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Domine</h1>
+        <p><i>Drugi izborni ispit. Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Ploča $N \times M$ ($N$, $M$ neparni) prekrivena je $(NM - 1) / 2$ domino pločica (svaka pokriva dva susjedna polja), a jedno je polje prazno. Pločica se može pomaknuti za jedno polje uzduž svoje osi ako je prazno polje odmah uz njezin kraj — tada prazno polje „skoči“ na drugi kraj pločice. Koliko se različitih pločica može, nekim nizom pomicanja, u nekom trenutku pomaknuti sa svoje početne pozicije?</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N$, $M$ ($1 \le N, M \le 499$, neparni); zatim $(NM - 1) / 2$ redaka $x_1, y_1, x_2, y_2$ — dva susjedna polja jedne pločice (redak, stupac).</p>
+        <h3>Izlazni podaci</h3>
+        <p>Broj pločica.</p>
+        <h3>Bodovanje</h3>
+        <p>20 bodova: $N, M \le 3$. +20: $N, M \le 5$. +20: $N = M = 9$ i može se pomaknuti najviše 2 pločice. +40: $9 &lt; N, M \le 499$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>1 3
+1 2 1 3</pre></td><td><pre>1</pre></td></tr>
+            <tr><td><pre>3 3
+3 2 3 3
+2 1 1 1
+1 2 1 3
+2 3 2 2</pre></td><td><pre>3</pre></td></tr>
+            <tr><td><pre>5 5
+4 3 4 4
+4 5 5 5
+5 2 5 1
+1 2 1 1
+3 4 3 3
+5 4 5 3
+4 1 3 1
+3 2 4 2
+2 3 1 3
+2 5 3 5
+1 4 2 4
+2 1 2 2</pre></td><td><pre>8</pre></td></tr>
+        </table>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: što se događa pri pomaku?</h3>
+        <p>Prazno polje je na $p$. Pločica koja pokriva $p + e$ i $p + 2e$ (za smjer $e$ = gore/dolje/lijevo/desno) klizne na $p$ i $p + e$; prazno polje ode na $p + 2e$. Dakle <b>prazno polje uvijek skače za 2 polja</b> u jednom od 4 smjera, i to samo ako su dva polja u tom smjeru <b>jedna pločica</b>.</p>
+        <p><b>Sporo</b> ($N, M \le 5$): pretraži sva stanja ploče (BFS/DFS po cijelim rasporedima) i zabilježi koje su se pločice pomaknule.</p>
+
+        <h3>Korak 2: pomak se uvijek može poništiti — i samo tako</h3>
+        <p>Nakon pomaka pločica leži na $p, p + e$, a rupa je na $p + 2e$: pomak u smjeru $-e$ vraća točno prethodno stanje. Ključno je da se raspored ploče pri zadanom položaju rupe <b>ne može razlikovati</b> ovisno o tome kojim smo putem došli: skokovi za 2 polja koji bi napravili „krug“ i vratili rupu na isto mjesto drugim putem nisu mogući, jer bi pločice duž takvog kruga trebale biti pomaknute na način koji nije usklađen s pravilom „rupa skače preko cijele pločice“. Zato graf stanja izgleda kao <b>stablo</b>: iz svakog položaja rupe grane vode u nove položaje, a natrag se ide samo poništavanjem. (Ovo smo, osim na službenim testovima, provjerili i iscrpnom pretragom svih stanja na stotinama malih nasumičnih ploča.)</p>
+
+        <h3>Korak 3: DFS po položajima rupe</h3>
+        <p>Držimo ploču kao niz <code>id[polje]</code> (oznaka pločice, $-1$ za rupu). Radimo <b>DFS</b> (pretragu u dubinu) po položaju rupe: iz rupe $h$ za svaki smjer provjeri jesu li $h + e$ i $h + 2e$ unutar ploče i ista pločica; ako da, tu pločicu označi kao <b>pomičnu</b>, izvedi pomak (ažuriraj <code>id</code>) i uđi u $h + 2e$ ako još nije posjećen. Pri povratku (backtrack) pomak poništi da ploča bude točno onakva kakva je bila. Rekurzija može biti duboka ($\approx 125\,000$), pa koristi vlastiti stog: par (položaj rupe, sljedeći smjer za isprobati).</p>
+
+        <h3>Korak 4: zašto je dovoljno posjetiti svaki položaj rupe jednom</h3>
+        <p>Zbog svojstva stabla, raspored ploče kad rupa dođe na $h$ ovisi samo o $h$, pa i skup mogućih poteza iz $h$ ovisi samo o $h$. Zato posjećeni položaj ne treba pregledavati ponovno. Svako polje ploče obiđe se najviše jednom: $O(NM)$.</p>
+
+        <h3>Provjera na drugom primjeru</h3>
+        <p>Rupa u $(3,1)$. Gore: $(2,1),(1,1)$ ista pločica → pomična; rupa u $(1,1)$; desno: $(1,2),(1,3)$ → pomična; rupa u $(1,3)$; dolje: $(2,3),(3,3)$? Pločice su $(2,3)$–$(2,2)$ i $(3,2)$–$(3,3)$ — različite, ne. Natrag: iz $(3,1)$ desno: $(3,2),(3,3)$ → pomična; rupa $(3,3)$; gore: $(2,3),(1,3)$ različite. Ukupno 3. ✓</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (46/46) i usporedbom s iscrpnom pretragom na malim pločama.</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2019/zadaci/drugi/zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2019/">hsin.hr, Juniorske izborne pripreme 2019</a>, drugi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2019/zadaci/drugi/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarmi (Juniorske izborne pripreme 2023)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Alarmi</h1>
+        <p><i>Drugi izborni ispit. Vremensko ograničenje: 2 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Mirko ima točno tri alarma. Sljedećih $N$ dana želi se svaki dan probuditi u zadano vrijeme, pa svake večeri neki od tri alarma <b>pomakne</b> na sutrašnje vrijeme. Jedan dodir mijenja vrijeme za jednu minutu; nije moguće prijeći s 23:59 na 00:00 (npr. s 23:58 na 00:07 treba 1431 dodir). Koliko mu je najmanje dodira ukupno potrebno?</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prva tri retka početna vremena alarma ($H$ $M$). Zatim $N$ ($1 \le N \le 500$) i $N$ redaka sa željenim vremenima buđenja.</p>
+        <h3>Izlazni podaci</h3>
+        <p>Najmanji ukupan broj dodira.</p>
+        <h3>Bodovanje</h3>
+        <p>20 bodova: $N \le 10$; 20: $N \le 20$; 20: $N \le 100$; 40: $N \le 500$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>3 37
+21 30
+5 44
+6
+21 17
+9 48
+17 48
+8 54
+6 17
+13 32</pre></td><td><pre>933</pre></td></tr>
+            <tr><td><pre>14 1
+19 2
+10 54
+4
+1 49
+5 3
+6 37
+21 39</pre></td><td><pre>990</pre></td></tr>
+            <tr><td><pre>19 12
+11 54
+13 39
+3
+3 20
+18 47
+18 52</pre></td><td><pre>544</pre></td></tr>
+        </table>
+        <p><b>Opis drugog primjera:</b> treći alarm pomiče se 10:54 → 1:49 → 5:03 → 6:37, a četvrtog dana drugi alarm 19:02 → 21:39.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: vremena kao brojevi</h3>
+        <p>Vrijeme $H{:}M$ pretvorimo u minute od ponoći, $t = 60H + M$. Cijena pomicanja alarma s $t_1$ na $t_2$ je $|t_1 - t_2|$ (nema „prelaska preko ponoći“).</p>
+
+        <h3>Korak 2: koja su vremena uopće moguća?</h3>
+        <p>Svaki alarm u svakom trenutku pokazuje ili svoje početno vrijeme ili vrijeme nekog prošlog dana buđenja. Označimo sva ta vremena jednim nizom: $t_0, t_1, t_2$ su početna, a $t_3, \dots, t_{N+2}$ dani buđenja. Nakon dana $d$ jedan je alarm sigurno na $t_d$ (upravo je pomaknut ili je već bio tamo — pomicanje na isto vrijeme košta 0), a druga dva su na nekim <b>ranijim</b> vremenima $t_j, t_k$ s $j &lt; k &lt; d$.</p>
+
+        <h3>Korak 3: mali $N$ — isprobaj sve</h3>
+        <p>Svaki dan biramo jedan od tri alarma: $3^N$ mogućnosti; za $N \le 10$ (59 tisuća) rekurzija koja proba sva tri izbora daje 20 bodova. Za $N \le 20$ ($3.5 \cdot 10^9$) treba ideja iz koraka 4.</p>
+
+        <h3>Korak 4: dinamičko programiranje po stanju (dan, druga dva alarma)</h3>
+        <p><b>Dinamičko programiranje</b> pamti najmanju cijenu za svako stanje umjesto da isprobava sve puteve. Stanje nakon dana $d$: par $(j, k)$ — indeksi vremena na kojima su dva alarma koja <b>nisu</b> na $t_d$. Neka je $dp_d[j][k]$ najmanji broj dodira do tada. Početno stanje: prije prvog dana zamislimo „dan“ $d = 2$: alarm na $t_2$, ostala dva na $(0, 1)$, cijena 0.</p>
+        <p>Prijelaz s dana $d$ na $d + 1$ (novo vrijeme $t_{d+1}$) — pomičemo jedan od tri alarma:</p>
+        <ul>
+            <li>alarm na $t_d$: cijena $|t_d - t_{d+1}|$, novo stanje $(j, k)$ (ostala dva se nisu mijenjala);</li>
+            <li>alarm na $t_j$: cijena $|t_j - t_{d+1}|$, novo stanje $(k, d)$ — jer sada na $t_d$ ostaje „stari“ alarm koji postaje jedan od „druga dva“;</li>
+            <li>alarm na $t_k$: cijena $|t_k - t_{d+1}|$, novo stanje $(j, d)$.</li>
+        </ul>
+        <p>Odgovor je najmanji $dp_{N+2}[j][k]$ po svim parovima.</p>
+
+        <h3>Korak 5: koliko je to posla?</h3>
+        <p>Nakon dana $d$ postoji oko $d^2 / 2$ parova $(j, k)$, svaki s 3 prijelaza. Ukupno $\sum_d 3 d^2 / 2 \approx N^3 / 2 \approx 6 \cdot 10^7$ za $N = 500$ — brzo. Memorija: držimo samo tablicu za trenutni i sljedeći dan, $503 \times 503$ brojeva.</p>
+
+        <h3>Provjera na drugom primjeru</h3>
+        <p>Vremena: $841, 1142, 654$; buđenja $109, 303, 397, 1299$. Optimalno: treći alarm $654 \to 109 \to 303 \to 397$ ($545 + 194 + 94 = 833$), pa drugi $1142 \to 1299$ ($157$). Ukupno $990$. ✓ (DP pronalazi upravo tu vrijednost.)</p>
+
+        <h3>Složenost</h3>
+        <p>$O(N^3)$ vremena, $O(N^2)$ memorije.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (23/23).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2023/zadaci/drugi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2023/">hsin.hr, Juniorske izborne pripreme 2023</a>, drugi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2023/zadaci/drugi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

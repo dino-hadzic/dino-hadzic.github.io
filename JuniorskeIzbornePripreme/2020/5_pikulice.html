@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pikulice (Juniorske izborne pripreme 2020)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Pikulice</h1>
+        <p><i>Drugi izborni ispit. Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>U nizu je $N + 1$ postolja; točno jedno je prazno (X), na ostalima je crvena (C) ili plava (P) pikulica. Potez (1 sekunda): (1) pikulicu susjednu praznom postolju pomakni na njega; (2) pikulicom $A$ preskoči susjednu pikulicu $B$ <b>različite boje</b> na prazno postolje odmah iza $B$. Koliko najmanje sekundi treba da poredak postane: sve crvene, pa prazno postolje, pa sve plave? Ako je nemoguće, $-1$.</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N$ ($1 \le N \le 20$) i riječ od $N + 1$ znakova iz $\{C, P, X\}$.</p>
+        <h3>Izlazni podaci</h3>
+        <p>Traženi broj sekundi ili $-1$.</p>
+        <h3>Bodovanje</h3>
+        <p>20 bodova: $N \le 3$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>2
+PCX</pre></td><td><pre>2</pre></td></tr>
+            <tr><td><pre>4
+CCXPP</pre></td><td><pre>0</pre></td></tr>
+            <tr><td><pre>4
+XCPCP</pre></td><td><pre>3</pre></td></tr>
+        </table>
+        <p><b>Opis prvog primjera:</b> plava preskoči crvenu (XCP), pa crvena klizne na prazno (CXP).</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <p><i>Ovaj opis slijedi <b>službeni opis rješenja</b> (autori: Marin Kišić, Vedran Kurdija), proširen dodatnim koracima za mlađe čitatelje.</i></p>
+
+        <h3>Korak 1: stanja i graf</h3>
+        <p>Za $N \le 3$ moglo se ručno ispisati sve slučajeve (32 „ifa“). Općenito: <b>stanje</b> je raspored pikulica na postoljima. Svaki potez vodi iz jednog stanja u drugo i traje 1 sekundu, pa je pitanje „najmanji broj poteza“ zapravo <b>najkraći put u grafu</b> čiji su čvorovi stanja, a bridovi potezi. Najkraći put u grafu s jednakim duljinama bridova nalazi <b>BFS</b> (pretraga u širinu): iz početnog stanja obiđemo sva stanja na udaljenosti 1, pa 2, … pomoću reda (queue), pamteći za svako stanje kad smo ga prvi put vidjeli.</p>
+
+        <h3>Korak 2: koliko ima stanja?</h3>
+        <p>Prazno postolje može biti na $N + 1$ mjesta, a svako od preostalih $N$ postolja nosi jednu od dvije boje: $(N + 1) \cdot 2^N$ stanja. Za $N = 20$ to je $21 \cdot 2^{20} \approx 2.2 \cdot 10^7$ — dovoljno malo za BFS ako stanja spremimo <b>kompaktno</b>.</p>
+
+        <h3>Korak 3: bitmaske</h3>
+        <p><b>Bitmaska</b> je običan cijeli broj čiji binarni zapis kodira stanje: $i$-ti bit = 1 ako je $i$-ta <b>neprazna</b> pikulica slijeva crvena. Npr. <code>CPC</code> → $101_2 = 5$. Prazno postolje ne stane u jedan bit (tri opcije), pa ga pamtimo zasebno: stanje je par (maska, pozicija praznog). Udaljenost spremamo u niz veličine $(N+1) \cdot 2^N$ indeksiran s $\text{pozicija} \cdot 2^N + \text{maska}$.</p>
+        <p>Zgodna posljedica: <b>klizanje</b> (potez 1) ne mijenja redoslijed neprazne pikulice, pa maska ostaje ista, a pozicija praznog se pomiče za $\pm 1$. <b>Preskok</b> (potez 2) zamjenjuje dvije susjedne pikulice u redoslijedu (one na indeksima $e - 2, e - 1$ ako se skače slijeva, odnosno $e, e + 1$ ako zdesna, gdje je $e$ pozicija praznog) i dopušten je samo ako su im bitovi različiti — tada se ta dva bita u maski invertiraju (XOR), a prazno skoči na mjesto skakača.</p>
+
+        <h3>Korak 4: cilj</h3>
+        <p>Ako je crvenih $k$, ciljna maska ima jedinice na prvih $k$ bitova ($2^k - 1$), a prazno je na poziciji $k$. Ako BFS ne dosegne cilj, ispiši $-1$.</p>
+
+        <h3>Provjera na trećem primjeru</h3>
+        <p><code>XCPCP</code>: maska $1010_2$, prazno 0. Ciljna maska $0011_2$, prazno 2. Tri poteza: C klizne lijevo (<code>CXPCP</code>), C preskoči P (<code>CCPXP</code>), P klizne (<code>CCXPP</code>). ✓</p>
+
+        <h3>Složenost</h3>
+        <p>Svako stanje ima najviše 4 prijelaza: $O(N \cdot 2^N)$ vremena i memorije ($\approx 22$ MB za udaljenosti).</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (13/13).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2020/zadaci/drugi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2020/">hsin.hr, Juniorske izborne pripreme 2020</a>, drugi izborni ispit). Rješenje slijedi <a href="https://hsin.hr/jpripreme2020/zadaci/drugi_ispit_rjesenja.zip">službeni opis rješenja</a> (HSIN), prepričan i razrađen u manjim koracima za ovu stranicu, te je provjereno na <a href="https://hsin.hr/jpripreme2020/zadaci/drugi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

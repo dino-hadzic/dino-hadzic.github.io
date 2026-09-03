@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marinada (Juniorske izborne pripreme 2021)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Marinada</h1>
+        <p><i>Drugi izborni ispit. Vremensko ograničenje: 2 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Labirint je matrica $N \times M$: zidovi (<code>#</code>), prazna polja (<code>.</code>), namirnice (<code>N</code>, ukupno $K$), ulaz <code>U</code> i izlaz <code>I</code>. Krešo se kreće gore/dolje/lijevo/desno po poljima koja nisu zidovi, a polja smije posjećivati više puta. Koliko najmanje koraka treba od ulaza do izlaza tako da pokupi <b>sve</b> namirnice?</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prvom retku $N$, $M$ ($\le 1000$) i $K$ ($1 \le K \le 16$). Zatim $N$ redaka po $M$ znakova.</p>
+        <h3>Izlazni podaci</h3>
+        <p>Najmanji broj koraka.</p>
+        <h3>Bodovanje</h3>
+        <table>
+            <tr><th>Podzadatak</th><th>Bodovi</th><th>Ograničenja</th></tr>
+            <tr><td>1</td><td>30</td><td>$N, M \le 50$, $K \le 6$</td></tr>
+            <tr><td>2</td><td>30</td><td>$N, M \le 1000$, $K \le 8$</td></tr>
+            <tr><td>3</td><td>40</td><td>$N, M \le 1000$, $K \le 16$</td></tr>
+        </table>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>6 10 3
+##########
+#.UI....N#
+#.....N..#
+#........#
+#N.......#
+##########</pre></td><td><pre>19</pre></td></tr>
+            <tr><td><pre>6 10 3
+..##...###
+#.U#....N#
+##.#.N#..#
+#..####..#
+#N.I.....#
+..###..###</pre></td><td><pre>28</pre></td></tr>
+        </table>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: labirint → mali graf</h3>
+        <p>Važna su samo $K + 2$ posebna polja: ulaz, izlaz i namirnice. Put od ulaza do izlaza posjećuje namirnice u <b>nekom redoslijedu</b>, a između dviju uzastopnih posebnih točaka Krešo ide <b>najkraćim putem</b>. Zato prvo izračunamo udaljenosti između svih parova posebnih polja.</p>
+        <p><b>BFS (pretraga u širinu)</b> iz jednog polja nalazi najkraće udaljenosti do svih polja: obrađujemo polja u „valovima“ — prvo sve na udaljenosti 1, pa 2, itd., koristeći red (queue). Jedan BFS je $O(NM)$; pokrenemo ga iz svakog od $K + 2$ posebnih polja: $18 \cdot 10^6$ koraka. Dobivamo tablicu $D[i][j]$.</p>
+
+        <h3>Korak 2: redoslijed namirnica</h3>
+        <p>Sad tražimo redoslijed obilaska $K$ namirnica koji minimizira $D[U][n_1] + D[n_1][n_2] + \dots + D[n_K][I]$. <b>Sporo</b> ($K \le 6$): isprobaj svih $K! = 720$ redoslijeda. Za $K = 16$ to je $2 \cdot 10^{13}$ — treba dinamičko programiranje.</p>
+
+        <h3>Korak 3: DP po podskupovima (bitmaske)</h3>
+        <p><b>Bitmaska</b> je broj čiji bitovi kažu koje su namirnice već pokupljene (bit $j$ = 1 ako je $j$-ta pokupljena). Stanje: (skup pokupljenih $mask$, zadnja pokupljena $i$). Neka je $dp[mask][i]$ najmanji broj koraka od ulaza do namirnice $i$ pri čemu su pokupljene točno namirnice iz $mask$ (i $i \in mask$).</p>
+        <ul>
+            <li>početak: $dp[\{i\}][i] = D[U][i]$;</li>
+            <li>prijelaz: za svaku $j \notin mask$: $dp[mask \cup \{j\}][j] = \min(\dots, dp[mask][i] + D[i][j])$;</li>
+            <li>odgovor: $\min_i dp[\text{sve}][i] + D[i][I]$.</li>
+        </ul>
+        <p>Zašto to radi: za optimalan put, njegov početni dio do $i$-te pokupljene namirnice je i sam optimalan za odgovarajuće stanje — inače bismo ga zamijenili kraćim. Stanja ima $2^{16} \cdot 16 \approx 10^6$, svako s 16 prijelaza: $\approx 1.7 \cdot 10^7$ operacija.</p>
+
+        <h3>Korak 4: detalji</h3>
+        <p>Retke labirinta čitaj kao riječi (<code>scanf("%s")</code>) — u ulazu mogu biti dodatni razmaci na kraju retka. Ako neko polje nije dostupno, udaljenost je „beskonačno“ i taj prijelaz preskačemo. Polje na kojem je Krešo već bio smije se ponovno posjetiti, pa je zbroj najkraćih udaljenosti doista ostvariv.</p>
+
+        <h3>Provjera na prvom primjeru</h3>
+        <p>Namirnice na $(2, 9)$, $(3, 7)$, $(5, 2)$; ulaz $(2, 3)$, izlaz $(2, 4)$. Najbolji redoslijed: ulaz → $(5,2)$ (4) → $(3,7)$ (7) → $(2,9)$ (3) → izlaz (5): $4 + 7 + 3 + 5 = 19$. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O((K + 2) NM + 2^K K^2)$.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (31/31).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2021/zadaci/drugi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2021/">hsin.hr, Juniorske izborne pripreme 2021</a>, drugi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2021/zadaci/drugi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
