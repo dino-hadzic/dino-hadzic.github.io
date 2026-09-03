@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bojanje stabla (Juniorske izborne pripreme 2023)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Bojanje stabla</h1>
+        <p><i>Prvi izborni ispit. Vremensko ograničenje: 2 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Zadano je stablo od $N$ čvorova; na početku svi imaju vrijednost 0. Mirko nekoliko puta mijenja vrijednosti: u <b>$i$-tom</b> mijenjanju postavlja vrijednost svih čvorova na putu od $a_i$ do $b_i$ na $i$. Slavko povremeno pita: koja je trenutna vrijednost čvora $x$?</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prvom retku je $N$. U sljedećih $N-1$ redaka su bridovi $a$, $b$. Zatim je $M$ — ukupan broj mijenjanja i pitanja, pa $M$ redaka oblika <code>1 a b</code> (mijenjanje) ili <code>2 x</code> (pitanje).</p>
+        <h3>Izlazni podaci</h3>
+        <p>Odgovori na pitanja, svaki u zasebnom retku.</p>
+        <h3>Bodovanje</h3>
+        <table>
+            <tr><th>Podzadatak</th><th>Bodovi</th><th>Ograničenja</th></tr>
+            <tr><td>1</td><td>25</td><td>$N, M \le 1000$</td></tr>
+            <tr><td>2</td><td>35</td><td>$N, M \le 100\,000$; stablo je lanac $1 - 2 - 3 - \dots - N$</td></tr>
+            <tr><td>3</td><td>40</td><td>$N, M \le 100\,000$</td></tr>
+        </table>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>5
+1 2
+1 3
+2 4
+4 5
+8
+1 3 4
+1 5 1
+1 3 5
+2 3
+2 2
+1 1 3
+1 3 2
+2 3</pre></td><td><pre>3
+3
+5</pre></td></tr>
+            <tr><td><pre>6
+1 2
+1 3
+2 4
+4 5
+5 6
+8
+1 6 2
+2 4
+2 1
+1 3 3
+2 3
+2 6
+2 4
+1 5 2</pre></td><td><pre>1
+0
+2
+1
+1</pre></td></tr>
+            <tr><td><pre>5
+1 2
+1 3
+3 4
+3 5
+8
+2 5
+2 5
+2 3
+1 2 3
+2 2
+1 3 4
+2 3
+2 1</pre></td><td><pre>0
+0
+0
+1
+2
+1</pre></td></tr>
+        </table>
+        <p><b>Opis trećeg primjera:</b> prvo mijenjanje postavlja čvorove $2, 1, 3$ na 1; drugo postavlja $3, 4$ na 2. Zato je vrijednost čvora 3 dva, a čvora 1 jedan.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: „postavi na $i$“ je zapravo „uzmi veći“</h3>
+        <p>Vrijednosti koje Mirko upisuje <b>rastu</b>: $1, 2, 3, \dots$ Zato je trenutna vrijednost čvora jednostavno <b>najveći</b> $i$ među svim mijenjanjima čiji put prolazi kroz taj čvor. Umjesto „postavi cijeli put na $i$“ smijemo raditi „na cijelom putu uzmi $\max$ sa $i$“ — a to je lakša operacija jer se maksimumi ne moraju „gurati“ nadolje (vidi korak 3).</p>
+        <p><b>Sporo</b> ($N, M \le 1000$): za svako mijenjanje pronađi put (npr. DFS od $a$ pamteći roditelje, pa se od $b$ vraćaj) i ručno postavi vrijednosti; pitanje je $O(1)$. Ukupno $O(NM)$.</p>
+
+        <h3>Korak 2: lanac — segmentno stablo</h3>
+        <p>Ako je stablo lanac $1 - 2 - \dots - N$, put od $a$ do $b$ je <b>interval</b> $[\min(a,b), \max(a,b)]$. Trebamo: „na intervalu uzmi $\max$ s $i$“ i „vrijednost u točki“. To radi <b>segmentno stablo</b>: binarno stablo nad nizom u kojem svaki čvor pokriva neki interval (korijen cijeli niz, djeca polovice, …, listovi pojedine pozicije). Operacija na intervalu $[l, r]$ raspada se na najviše $2 \log N$ čvorova stabla koji ga točno pokrivaju; u svaki od njih zapišemo $\max(\text{postojeće}, i)$. Vrijednost pozicije $x$ je <b>maksimum svih zapisa na putu od lista $x$ do korijena</b> (svaki zapis na tom putu pokriva $x$). Oboje je $O(\log N)$, i nema potrebe za „lijenim propagiranjem“ jer maksimum smijemo ostaviti gore.</p>
+
+        <h3>Korak 3: općenito stablo — rastav na teške lance (HLD)</h3>
+        <p><b>Heavy-light dekompozicija</b> razreže stablo na lance tako da se svaki put razbije na malo intervala:</p>
+        <ol>
+            <li>Ukorijenimo stablo u 1 i izračunamo veličinu podstabla svakog čvora.</li>
+            <li>Za svaki čvor odaberemo <b>teško dijete</b> — dijete s najvećim podstablom. Brid do teškog djeteta je „težak“, ostali su „laki“.</li>
+            <li>Teški bridovi tvore <b>lance</b>. Svaki čvor pamti vrh svog lanca (<code>head</code>) i poziciju u zajedničkom nizu (<code>pos</code>); čvorove numeriramo tako da je svaki lanac neprekinut interval pozicija.</li>
+        </ol>
+        <p><b>Ključna činjenica:</b> spuštajući se od korijena, svaki laki brid vodi u podstablo <b>barem dvostruko manje</b> (inače bi to dijete bilo teško). Zato put od korijena do bilo kojeg čvora prelazi najviše $\log_2 N \approx 17$ lakih bridova, pa se sastoji od najviše 17 komada lanaca. Put $a$–$b$ ima ih najviše $2 \log N$.</p>
+        <p><b>Operacija na putu $a$–$b$:</b> dok $a$ i $b$ nisu u istom lancu, uzmi onaj čiji je vrh lanca dublji, obradi interval $[pos[head], pos[\text{čvor}]]$ u segmentnom stablu i skoči na roditelja vrha lanca. Kad su u istom lancu, obradi interval između njih. Svaki je komad jedan intervalni upit segmentnog stabla: ukupno $O(\log^2 N)$ po mijenjanju. Pitanje za čvor $x$: točkasti upit na $pos[x]$, $O(\log N)$.</p>
+
+        <h3>Provjera na trećem primjeru</h3>
+        <p>Nakon mijenjanja $(2, 3)$ s vrijednošću 1 i $(3, 4)$ s vrijednošću 2: čvor 3 leži na oba puta → $\max(1, 2) = 2$; čvor 1 samo na prvom → 1. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O(N + M \log^2 N)$ — daleko unutar 2 s.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (18/18).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2023/zadaci/prvi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2023/">hsin.hr, Juniorske izborne pripreme 2023</a>, prvi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2023/zadaci/prvi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
