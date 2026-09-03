@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Putevi (Juniorske izborne pripreme 2022)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Putevi</h1>
+        <p><i>Drugi izborni ispit. Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Zadano je stablo od $N$ čvorova $1..N$ u kojem je svaki čvor $i \ge 2$ spojen s nekim svojim <b>pravim djeliteljem</b> $P_i &lt; i$ (npr. čvor 6 s jednim od 1, 2, 3). Za svaku duljinu puta od 1 do $N$ (duljina = broj čvorova na putu) odredi koliko postoji puteva te duljine.</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prvom retku $N$ ($1 \le N \le 100\,000$). U drugom $N - 1$ brojeva $P_2, \dots, P_N$.</p>
+        <h3>Izlazni podaci</h3>
+        <p>$N$ brojeva: broj puteva duljine $1, 2, \dots, N$.</p>
+        <h3>Bodovanje</h3>
+        <p>26 bodova: $N \le 1000$. Dodatnih 7: svi $P_i = 1$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>5
+1 1 2 1</pre></td><td><pre>5 4 4 2 0</pre></td></tr>
+            <tr><td><pre>5
+1 1 1 1</pre></td><td><pre>5 4 6 0 0</pre></td></tr>
+            <tr><td><pre>6
+1 1 2 1 3</pre></td><td><pre>6 5 5 4 1 0</pre></td></tr>
+        </table>
+        <p><b>Opis trećeg primjera:</b> 6 puteva duljine 1 (pojedini čvorovi), 5 duljine 2 (bridovi), 5 duljine 3 ($(1,2,4), (1,3,6), (2,1,3), (2,1,5), (3,1,5)$), 4 duljine 4, 1 duljine 5 ($(4,2,1,3,6)$), 0 duljine 6.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: stablo je vrlo plitko</h3>
+        <p>Roditelj čvora $i$ je pravi djelitelj, dakle $P_i \le i / 2$. Penjući se od bilo kojeg čvora prema korijenu 1, broj se svaki put barem <b>udvostruči smanji</b>, pa je dubina svakog čvora najviše $\log_2 N \approx 17$. To znači: nijedan put nema više od $2 \cdot 17 + 1 = 35$ čvorova — za duljine veće od toga odgovor je 0. Sva „akcija“ je u malim duljinama.</p>
+        <p><b>Sporo</b> ($N \le 1000$): iz svakog čvora pokreni DFS i broji udaljenosti — $O(N^2)$; svaki put (par čvorova) prebroji se dvaput pa podijeli s 2.</p>
+
+        <h3>Korak 2: put ima najviši čvor</h3>
+        <p>Svaki put u ukorijenjenom stablu ima jedinstven <b>najviši čvor</b> $v$ (najbliži korijenu). Put se od $v$ spušta u najviše dva različita podstabla djece od $v$ (ili je $v$ sam kraj puta). Zato brojimo puteve <b>po njihovom najvišem čvoru</b>.</p>
+        <p>Za svaki čvor $v$ izračunamo tablicu $cnt_v[d]$ = broj čvorova u podstablu $v$ na dubini $d$ ispod $v$ ($d = 0..17$). Tablicu djeteta $c$ „podignemo“ za 1 ($cnt_c[d]$ postaje doprinos na dubinu $d+1$) i zbrojimo u tablicu roditelja. Budući da je roditelj uvijek <b>manjeg</b> indeksa, dovoljno je obraditi čvorove od $N$ prema 2 — kad dođemo na red čvoru $v$, njegova tablica je već potpuna.</p>
+
+        <h3>Korak 3: brojanje puteva pri spajanju</h3>
+        <p>Kad u tablicu $v$ (koja već sadrži $v$ i podstabla ranije obrađene djece) dodajemo podstablo djeteta $c$, novi putevi s najvišim čvorom $v$ su oni koji imaju jedan kraj u dosadašnjem dijelu (na dubini $i$ ispod $v$) i drugi u podstablu $c$ (na dubini $j$ ispod $c$). Njihova duljina je $i + j + 2$ čvorova ($i + 1$ na jednoj strani i $j + 1$ na drugoj), a takvih puteva je $cnt_v[i] \cdot cnt_c[j]$:</p>
+        <p style="text-align:center">$ans[i + j + 2] \mathrel{+}= cnt_v[i] \cdot cnt_c[j]$ &nbsp; za sve $i, j$.</p>
+        <p>Slučaj $i = 0$ pokriva puteve koji <b>počinju u samom $v$</b> i spuštaju se u $c$. Puteve duljine 1 (jedan čvor) dodamo posebno: $ans[1] = N$. Svaki put se broji točno jednom — kod svog najvišeg čvora, u trenutku spajanja djeteta koje sadrži njegov „kasnije dodani“ kraj.</p>
+
+        <h3>Korak 4: koliko to košta?</h3>
+        <p>Tablice imaju najviše 18 unosa, pa jedno spajanje košta najviše $18 \cdot 18$ množenja. Za $N - 1$ spajanja: oko $3 \cdot 10^7$ operacija — brzo. Broj puteva može biti do $N^2/2 = 5 \cdot 10^9$: 64-bitni tip.</p>
+
+        <h3>Provjera na trećem primjeru</h3>
+        <p>Obradimo $v = 6$ ($P = 3$): $cnt_3 = [1]$, $cnt_6 = [1]$ → $ans[2] {+}{=} 1$; $cnt_3 = [1, 1]$. $v = 5$ u 1: $ans[2] {+}{=} 1$, $cnt_1 = [1, 1]$. $v = 4$ u 2: $ans[2] {+}{=} 1$, $cnt_2 = [1, 1]$. $v = 3$ u 1: $cnt_1 = [1, 1]$, $cnt_3 = [1, 1]$: $ans[2] {+}{=} 1$, $ans[3] {+}{=} 1 + 1 = 2$, $ans[4] {+}{=} 1$; $cnt_1 = [1, 2, 1]$. $v = 2$ u 1: $cnt_2 = [1, 1]$: $ans[2] {+}{=} 1$, $ans[3] {+}{=} 2 + 1 = 3$, $ans[4] {+}{=} 1 + 2 = 3$, $ans[5] {+}{=} 1$. Ukupno: $ans = 6, 5, 5, 4, 1, 0$. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O(N \log^2 N)$ vremena, $O(N \log N)$ memorije.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (33/33).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2022/zadaci/drugi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2022/">hsin.hr, Juniorske izborne pripreme 2022</a>, drugi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2022/zadaci/drugi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

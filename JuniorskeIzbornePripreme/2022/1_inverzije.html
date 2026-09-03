@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inverzije (Juniorske izborne pripreme 2022)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Inverzije</h1>
+        <p><i>Prvi izborni ispit. Vremensko ograničenje: 4 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Zadana je permutacija $P$ duljine $N$. <b>Inverzija</b> na intervalu od $a$ do $b$ je par $(i, j)$ takav da je $a \le i &lt; j \le b$ i $P_i &gt; P_j$. Za $M$ zadanih intervala odredi broj inverzija na svakom.</p>
+        <h3>Ulazni podaci</h3>
+        <p>U prvom retku $N$ i $M$ ($1 \le N, M \le 100\,000$). U drugom permutacija. Zatim $M$ redaka s $a_i$, $b_i$.</p>
+        <h3>Izlazni podaci</h3>
+        <p>$M$ redaka s brojem inverzija.</p>
+        <h3>Bodovanje</h3>
+        <p>20 bodova: $N, M \le 20$. 30 bodova: $N, M \le 1000$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>5 5
+4 3 5 1 2
+2 3
+1 5
+4 4
+1 4
+2 4</pre></td><td><pre>0
+7
+0
+4
+2</pre></td></tr>
+            <tr><td><pre>5 2
+4 3 1 5 2
+2 3
+1 5</pre></td><td><pre>1
+6</pre></td></tr>
+            <tr><td><pre>6 3
+2 6 1 4 3 5
+1 5
+3 4
+1 2</pre></td><td><pre>5
+0
+0</pre></td></tr>
+        </table>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: sporo — provjeri sve parove</h3>
+        <p>Za svaki interval prođi sve parove $i &lt; j$: $O(N^2)$ po upitu, dovoljno za $N, M \le 20$. Za $N, M \le 1000$: za svaki upit prođi elemente slijeva i za svaki brojimo prethodne veće — s <b>Fenwickovim stablom</b> to je $O(N \log N)$ po upitu, ukupno $O(MN \log N) \approx 1.7 \cdot 10^7$; 50 bodova.</p>
+
+        <h3>Korak 2: Fenwickovo stablo — „koliko je viđenih brojeva manjih od $x$?“</h3>
+        <p><b>Fenwickovo (binarno indeksirano) stablo</b> je polje koje podržava dvije operacije u $O(\log N)$: „povećaj vrijednost na poziciji $v$“ i „zbroj vrijednosti na pozicijama $1..v$“. Ako na poziciji $v$ držimo 1 kad je broj $v$ u trenutnom skupu, tada je $pref(v)$ = koliko brojeva u skupu je $\le v$, a $|skup| - pref(v)$ = koliko ih je $&gt; v$.</p>
+
+        <h3>Korak 3: pomicanje granica intervala</h3>
+        <p>Zamislimo da već znamo broj inverzija $cur$ za interval $[L, R]$ i skup njegovih elemenata u Fenwicku. Kako ga proširiti za jedan element?</p>
+        <ul>
+            <li>dodaj $P_{R+1}$ zdesna: nove inverzije su parovi s prethodnim <b>većim</b> elementima: $cur$ += $|skup| - pref(P_{R+1})$;</li>
+            <li>dodaj $P_{L-1}$ slijeva: novi parovi s kasnijim <b>manjim</b>: $cur$ += $pref(P_{L-1} - 1)$;</li>
+            <li>uklanjanje: prvo izbaci iz skupa, pa oduzmi isti izraz.</li>
+        </ul>
+        <p>Svaki pomak granice za 1 košta $O(\log N)$. Pitanje je samo: <b>koliko će se granice ukupno pomicati</b> dok odgovaramo na sve upite?</p>
+
+        <h3>Korak 4: Moov algoritam — pametan redoslijed upita</h3>
+        <p>Ako upite obradimo u ulaznom redoslijedu, granice mogu skakati po $N$ za svaki upit — $O(NM)$ pomaka. <b>Moov algoritam</b> upite <b>presloži</b>: niz podijelimo na blokove duljine $B \approx N / \sqrt{M}$, upite sortiramo po bloku lijeve granice, a unutar bloka po desnoj granici. Tada:</p>
+        <ul>
+            <li>lijeva granica unutar jednog bloka pomiče se najviše $B$ po upitu: ukupno $M \cdot B \approx N \sqrt{M}$;</li>
+            <li>desna granica unutar jednog bloka samo raste (najviše $N$), a blokova je $N / B$: ukupno $N \cdot N / B \approx N \sqrt{M}$.</li>
+        </ul>
+        <p>Dakle oko $2 N \sqrt{M} \approx 6 \cdot 10^7$ pomaka, svaki $O(\log N)$ — oko $10^9$ jednostavnih operacija, što prolazi u 4 sekunde u C++ (Fenwick je vrlo brz). Odgovore spremamo po izvornom indeksu upita. Mali trik: u neparnim blokovima sortiraj desnu granicu padajuće — granica se tada ne mora vraćati na početak.</p>
+
+        <h3>Provjera na prvom primjeru</h3>
+        <p>Interval $[1, 4]$ niza $4, 3, 5, 1$: dodajemo redom: $4$ (0), $3$ (1 veći: +1), $5$ (+0), $1$ (3 veća: +3) → 4. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O((N + M) \sqrt{M} \log N)$ vremena; odgovori do $N^2/2 \approx 5 \cdot 10^9$ — 64-bitni tip.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (33/33).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2022/zadaci/prvi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2022/">hsin.hr, Juniorske izborne pripreme 2022</a>, prvi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2022/zadaci/prvi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
