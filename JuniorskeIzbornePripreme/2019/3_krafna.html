@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krafna (Juniorske izborne pripreme 2019)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Krafna</h1>
+        <p><i>Prvi izborni ispit. Vremensko ograničenje: 4 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Marin ima $N$ mrava s različitim oznakama (nenegativni cijeli brojevi). <b>Hammingova udaljenost</b> dvaju brojeva je broj binarnih znamenki u kojima se razlikuju (npr. $25 = 11001_2$ i $11 = 01011_2$ razlikuju se u 2 znamenke). Svi mravi su na početku na slancu; $Q$ puta neki mrav prelazi na krafnu. Nakon svakog prijelaza ispiši najmanju Hammingovu udaljenost između nekog mrava na krafni i nekog na slancu (uvijek ima barem jedan na svakom).</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N$ ($\le 10^6$), oznake $A_i$ ($0 \le A_i \le 10^6$), $Q$ ($1 \le Q &lt; N$) i $Q$ oznaka mrava koji prelaze.</p>
+        <h3>Izlazni podaci</h3>
+        <p>$Q$ redaka.</p>
+        <h3>Bodovanje</h3>
+        <p>15 bodova: $N \le 100$. Dodatnih 30: $N \le 5000$.</p>
+        <h3>Probni primjeri</h3>
+        <table>
+            <tr><th>ulaz</th><th>izlaz</th></tr>
+            <tr><td><pre>4
+6 10 18 22
+2
+10
+18</pre></td><td><pre>2
+1</pre></td></tr>
+            <tr><td><pre>3
+1 10 100
+2
+1
+10</pre></td><td><pre>3
+4</pre></td></tr>
+            <tr><td><pre>5
+5 10 15 20 25
+2
+10
+20</pre></td><td><pre>2
+2</pre></td></tr>
+        </table>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: sporo</h3>
+        <p>Nakon svakog prijelaza prođi sve parove (krafna, slanac) i izračunaj udaljenost (<code>__builtin_popcount(a ^ b)</code>): $O(N^2)$ po upitu, ukupno $O(QN^2)$ — 15 bodova. Za 45 bodova: održavaj za svakog mrava na slancu najmanju udaljenost do krafne; kad mrav prijeđe, ažuriraj sve ($O(N)$ po upitu, $O(QN) = 2.5 \cdot 10^7$).</p>
+
+        <h3>Korak 2: kad par „vrijedi“?</h3>
+        <p>Neka je $t(a)$ trenutak prelaska mrava $a$ ($t = Q + 1$ ako nikad ne prelazi). Par $(a, b)$ s $t(a) &lt; t(b)$ je „jedan na krafni, drugi na slancu“ točno u trenucima $i$ s $t(a) \le i &lt; t(b)$. Odgovor u trenutku $i$ je najmanja udaljenost među takvim parovima. Udaljenost je uvijek $\le 20$ (oznake $&lt; 2^{20}$), pa pitajmo za svaki $d = 0, 1, \dots, 20$: <b>postoji li u trenutku $i$ par na udaljenosti $\le d$?</b> Odgovor je najmanji takav $d$.</p>
+
+        <h3>Korak 3: „najkasniji susjed“ u kugli polumjera $d$</h3>
+        <p>Za mrava $a$ neka je $L_d(a)$ najveći $t(b)$ među svim mravima $b$ na Hammingovoj udaljenosti $\le d$ od $a$. Tada: u trenutku $i$ postoji par na udaljenosti $\le d$ $\iff$ postoji $a$ s $t(a) \le i$ i $L_d(a) &gt; i$. (Mrav $b$ koji je „predugo“ na slancu ili je $a$ sam ne smeta: uvjet $t(b) &gt; i \ge t(a)$ isključuje ih.)</p>
+        <p>Kako izračunati $L_d$ za sve oznake odjednom? Zamislimo <b>hiperkocku</b>: čvorovi su svi brojevi $0..2^{20} - 1$, a susjedi se razlikuju u jednom bitu. Kugla polumjera $d$ oko $v$ je unija kugli polumjera $d - 1$ oko $v$ i oko svih 20 susjeda. Zato:</p>
+        <p style="text-align:center">$M_0[v] = t(v)$ (ili $-\infty$ ako tu nema mrava), $\quad M_d[v] = \max\big(M_{d-1}[v], \max_k M_{d-1}[v \oplus 2^k]\big)$.</p>
+        <p>Jedan korak je $20 \cdot 2^{20} \approx 2 \cdot 10^7$ operacija, 20 koraka $\approx 4 \cdot 10^8$ — u 4 sekunde stane. Ovo je rođak tehnike „zbroj po podskupovima“ (SOS DP) za kuglu umjesto podskupa.</p>
+
+        <h3>Korak 4: odgovori</h3>
+        <p>Za fiksni $d$ prođi upite redom i drži $best = \max_{a: t(a) \le i} M_d[a]$ (nakon $i$-tog prelaska uključi mrava koji je upravo prešao). Ako je $best &gt; i$, odgovor u trenutku $i$ je $\le d$. Za svaki $i$ zapamti najmanji takav $d$. Ukupno $O(21 \cdot Q)$.</p>
+
+        <h3>Provjera na prvom primjeru</h3>
+        <p>$t(10) = 1$, $t(18) = 2$, ostali $3$. $d = 1$: $M_1[18] \ge t(22) = 3$ (18 i 22 se razlikuju u jednom bitu); u trenutku 2 imamo $t(18) = 2 \le 2 &lt; 3$ → odgovor $\le 1$; udaljenost 0 nemoguća → 1. U trenutku 1: $M_1[10]$: susjedi od 10 među oznakama — nema (6: dva bita, 18: dva) → $M_1[10] = 1 \not&gt; 1$; $d = 2$: $M_2[10] \ge t(6) = 3$ → odgovor 2. ✓</p>
+
+        <h3>Složenost</h3>
+        <p>$O(20 \cdot 20 \cdot 2^{20} + N + Q)$, memorija dva niza od $2^{20}$ brojeva.</p>
+        <p>Rješenje je provjereno na svim službenim testnim podacima (54/54).</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2019/zadaci/prvi/zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2019/">hsin.hr, Juniorske izborne pripreme 2019</a>, prvi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2019/zadaci/prvi/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
