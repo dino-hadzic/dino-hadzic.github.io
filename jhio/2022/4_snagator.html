@@ -72,9 +72,39 @@ izlaz:
         <p style="text-align:center"><b>možemo poredati barem $K$ natjecatelja $\iff$ u grafu postoji put koji prolazi kroz barem $K$ točaka.</b></p>
         <h3>Korak 3: najdulji put u DAG-u</h3>
         <p>U općenitom grafu je najdulji put težak problem, ali u DAG-u je lagan uz <b>topološko sortiranje</b>: točke poredamo tako da svaka strelica ide „slijeva nadesno“. Kako? Brojimo koliko strelica <i>ulazi</i> u svaku točku (<code>ulazni[v]</code>). Točke bez ulaznih strelica stavimo u red. Uzimamo točku iz reda, „brišemo“ njene izlazne strelice (susjedima smanjimo <code>ulazni</code>), a susjed čiji <code>ulazni</code> padne na $0$ ulazi u red. Redoslijed vađenja iz reda je topološki poredak. (Ovo je poznato kao Kahnov algoritam.)</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: usmjereni acikličan graf (DAG) i topološki poredak</h4>
+
+            <p>Usmjereni graf bez ciklusa zove se <b>DAG</b>. U njemu uvijek postoji <b>topološki poredak</b> — redoslijed vrhova u kojem svaka strelica ide „s lijeva na desno“. Dobije se Kahnovim algoritmom: stavi u red sve vrhove bez ulaznih strelica; vadi ih redom, svakom susjedu smanji broj ulaznih strelica i dodaj ga u red kad padne na 0. Vrijeme $O(V + E)$. Ako neki vrh nikad ne uđe u red, graf ima ciklus.</p>
+            <p>Kad imamo topološki poredak, dinamičko programiranje po grafu (npr. najdulji put) postaje jednostavno: obradi vrhove tim redom, a svi prethodnici su već gotovi.</p>
+        </div>
         <p>Sad računamo <code>L[v]</code> = najveći broj točaka na putu koji <b>završava</b> u $v$. Na početku je <code>L[v] = 1</code> za sve. Kad obrađujemo točku $v$ u topološkom redu, za svakog susjeda $u$ (strelica $v \to u$) postavimo <code>L[u] = max(L[u], L[v] + 1)</code>. Budući da $v$ obrađujemo tek nakon svih točaka iz kojih strelice vode u $v$, u tom trenutku je <code>L[v]</code> već konačan. Najdulji put je $\max_v$ <code>L[v]</code>. Ovo je jednostavan primjer <b>dinamičkog programiranja</b>: odgovor za $u$ slažemo iz već gotovih odgovora njegovih prethodnika. Složenost je $O(N + M)$.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: dinamičko programiranje (DP)</h4>
+
+            <p><b>Dinamičko programiranje</b> je način rješavanja u kojem velik problem rastavimo na <b>manje podprobleme istog oblika</b>, riješimo ih od najmanjih prema većima i svaki odgovor <b>zapamtimo</b> u tablici, da ga nikad ne računamo dvaput.</p>
+            <p>Recept ima tri dijela:</p>
+            <ol>
+                <li><b>Stanje</b> — što točno opisuje podproblem (npr. „prvih $i$ elemenata“, „polje $(x, y)$“, „skup već upotrijebljenih stvari“). Odgovor za stanje zapisujemo kao <code>dp[stanje]</code>.</li>
+                <li><b>Prijelaz</b> — formula kojom se <code>dp[stanje]</code> računa iz <i>već izračunatih</i> manjih stanja.</li>
+                <li><b>Početno stanje</b> (bazni slučaj), npr. <code>dp[0] = 0</code> ili <code>dp[0] = 1</code>.</li>
+            </ol>
+            <p>Najpoznatiji primjer: broj načina da se popnemo $n$ stuba korakom od 1 ili 2 — stanje je $n$, prijelaz <code>dp[n] = dp[n-1] + dp[n-2]</code>, početak <code>dp[0] = dp[1] = 1</code>. Bez pamćenja bi rekurzija trajala eksponencijalno; s tablicom traje $O(n)$. Vrijeme DP-a je otprilike (broj stanja) $\times$ (cijena jednog prijelaza).</p>
+        </div>
         <h3>Korak 4: nakon koje sekunde?</h3>
         <p>Najdulji put nakon $t$ izjava <b>nikad se ne skraćuje</b> kad $t$ raste (dodavanjem strelica postojeći putevi ostaju). Dakle svojstvo „najdulji put $\ge K$“ je <i>ne, ne, ne, …, da, da, da</i> po $t$ — idealno za <b>binarno pretraživanje</b>:</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: binarno pretraživanje</h4>
+
+            <p>Ako za neki niz odgovora vrijedi „prvo je sve <i>ne</i>, pa od nekog mjesta sve <i>da</i>“ (odgovor je <b>monoton</b>), granicu možemo naći <b>binarnim pretraživanjem</b>: pogledamo sredinu, ovisno o odgovoru odbacimo lijevu ili desnu polovicu i ponavljamo. Nakon $\log_2(\text{raspon})$ koraka ostane jedan kandidat — za raspon $10^{18}$ to je samo 60 provjera.</p>
+            <pre>long long lo = 0, hi = 1e18;           // invarijanta: lo je "ne" (ili ispred), hi je "da"
+while (hi - lo &gt; 1) { long long mid = (lo + hi) / 2; if (dobro(mid)) hi = mid; else lo = mid; }
+// hi je najmanji "da"</pre>
+            <p>Osim traženja broja u sortiranom nizu, najčešće se koristi kao <b>binarno pretraživanje po odgovoru</b>: umjesto „koliki je najmanji $X$ za koji nešto vrijedi?“ odgovaramo na lakše pitanje „vrijedi li za ovaj konkretni $X$?“ i to ponovimo $\log$ puta.</p>
+        </div>
         <ol>
             <li>Najprije provjerimo $t = M$. Ako ni tada put nije duljine $\ge K$, odgovor je $-1$.</li>
             <li>Inače držimo interval $[lo, hi]$ u kojem je odgovor; uzmemo sredinu $mid$, izgradimo graf iz prvih $mid$ izjava i izračunamo najdulji put. Ako je $\ge K$, odgovor je $\le mid$ (postavimo $hi = mid$), inače je $&gt; mid$ ($lo = mid + 1$).</li>

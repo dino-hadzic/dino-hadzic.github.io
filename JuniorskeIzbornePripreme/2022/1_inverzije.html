@@ -64,34 +64,95 @@
         <h2>RJEŠENJE:</h2>
 
         <h3>Korak 1: sporo — provjeri sve parove</h3>
-        <p>Za svaki interval prođi sve parove $i &lt; j$: $O(N^2)$ po upitu, dovoljno za $N, M \le 20$. Za $N, M \le 1000$: za svaki upit prođi elemente slijeva i za svaki brojimo prethodne veće — s <b>Fenwickovim stablom</b> to je $O(N \log N)$ po upitu, ukupno $O(MN \log N) \approx 1.7 \cdot 10^7$; 50 bodova.</p>
+        <p>Za svaki interval prođi sve parove $i &lt; j$ i prebroji one s $P_i &gt; P_j$: $O(N^2)$ po upitu, dovoljno za $N, M \le 20$.</p>
+        <p>Za $N, M \le 1000$: za svaki upit prođi elemente slijeva nadesno i za svaki prebroji koliko je <b>prije njega</b> bilo većih. To pitanje („koliko je viđenih brojeva većih od $x$?“) odgovara Fenwickovo stablo u $O(\log N)$, pa je jedan upit $O(N \log N)$, a svi $O(MN \log N) \approx 1.7 \cdot 10^7$ — 50 bodova.</p>
 
-        <h3>Korak 2: Fenwickovo stablo — „koliko je viđenih brojeva manjih od $x$?“</h3>
-        <p><b>Fenwickovo (binarno indeksirano) stablo</b> je polje koje podržava dvije operacije u $O(\log N)$: „povećaj vrijednost na poziciji $v$“ i „zbroj vrijednosti na pozicijama $1..v$“. Ako na poziciji $v$ držimo 1 kad je broj $v$ u trenutnom skupu, tada je $pref(v)$ = koliko brojeva u skupu je $\le v$, a $|skup| - pref(v)$ = koliko ih je $&gt; v$.</p>
+        <div class="pojam">
+            <h4>Novi pojam: Fenwickovo (binarno indeksirano) stablo</h4>
 
-        <h3>Korak 3: pomicanje granica intervala</h3>
-        <p>Zamislimo da već znamo broj inverzija $cur$ za interval $[L, R]$ i skup njegovih elemenata u Fenwicku. Kako ga proširiti za jedan element?</p>
+            <p>Zamislimo polje brojeva u kojem se stalno događaju dvije stvari: <b>promijeni</b> vrijednost na jednoj poziciji i <b>pitaj</b> koliki je zbroj prvih $v$ pozicija. Obični prefiksni zbrojevi ne pomažu jer bi se nakon svake promjene morali računati iznova ($O(N)$).</p>
+            <p><b>Fenwickovo stablo</b> je polje <code>F</code> iste duljine u kojem <code>F[v]</code> pamti zbroj jednog pametno odabranog komada niza (komad završava na $v$, a duljina mu je najveća potencija broja 2 koja dijeli $v$). Zbog toga se svaki prefiks $1..v$ može sastaviti od najviše $\log N$ komada, a svaka pozicija pripada najviše $\log N$ komada. Obje operacije zato traju $O(\log N)$, a kod je kraći od pet redaka:</p>
+            <pre>void dodaj(int v, int x) { for (; v &lt;= N; v += v &amp; -v) F[v] += x; }
+long long zbroj(int v)    { long long s = 0; for (; v &gt; 0; v -= v &amp; -v) s += F[v]; return s; }</pre>
+            <p>(<code>v &amp; -v</code> je najniži postavljeni bit broja $v$.) Zbroj na intervalu $[l, r]$ je <code>zbroj(r) - zbroj(l-1)</code>.</p>
+            <p>Najčešća upotreba: na poziciji $x$ držimo 1 ako je broj $x$ „viđen“. Tada <code>zbroj(x)</code> kaže koliko je viđenih brojeva $\le x$ — dakle Fenwick odgovara na pitanje „koliko je dosad bilo manjih od $x$?“ u $O(\log N)$.</p>
+        </div>
+
+        <h3>Korak 2: pomicanje granica intervala</h3>
+        <p>Zamislimo da znamo broj inverzija $cur$ za interval $[L, R]$ i da u Fenwicku držimo skup njegovih elemenata. Interval možemo <b>proširiti ili skratiti za jedno mjesto</b> i pritom popraviti $cur$:</p>
         <ul>
-            <li>dodaj $P_{R+1}$ zdesna: nove inverzije su parovi s prethodnim <b>većim</b> elementima: $cur$ += $|skup| - pref(P_{R+1})$;</li>
-            <li>dodaj $P_{L-1}$ slijeva: novi parovi s kasnijim <b>manjim</b>: $cur$ += $pref(P_{L-1} - 1)$;</li>
-            <li>uklanjanje: prvo izbaci iz skupa, pa oduzmi isti izraz.</li>
+            <li>dodaj $P_{R+1}$ zdesna: nove su inverzije parovi $P_{R+1}$ s <b>većim</b> elementima u skupu: $cur$ += (koliko ih je u skupu $&gt; P_{R+1}$);</li>
+            <li>dodaj $P_{L-1}$ slijeva: novi parovi s <b>manjim</b> elementima u skupu: $cur$ += (koliko ih je $&lt; P_{L-1}$);</li>
+            <li>uklanjanje: prvo izbaci element iz skupa, pa oduzmi isti izraz.</li>
         </ul>
-        <p>Svaki pomak granice za 1 košta $O(\log N)$. Pitanje je samo: <b>koliko će se granice ukupno pomicati</b> dok odgovaramo na sve upite?</p>
+        <p>Svaki pomak granice košta jedan upit na Fenwicku, $O(\log N)$. Ostaje pitanje: <b>koliko će se granice ukupno pomicati</b> dok odgovaramo na sve upite? Ako upite obradimo redom kako su zadani, može biti $O(NM) = 10^{10}$ — previše.</p>
 
-        <h3>Korak 4: Moov algoritam — pametan redoslijed upita</h3>
-        <p>Ako upite obradimo u ulaznom redoslijedu, granice mogu skakati po $N$ za svaki upit — $O(NM)$ pomaka. <b>Moov algoritam</b> upite <b>presloži</b>: niz podijelimo na blokove duljine $B \approx N / \sqrt{M}$, upite sortiramo po bloku lijeve granice, a unutar bloka po desnoj granici. Tada:</p>
+        <h3>Korak 3: Moov algoritam — pametan redoslijed upita</h3>
+
+        <div class="pojam">
+            <h4>Novi pojam: Moov algoritam (pametan redoslijed upita)</h4>
+
+            <p>Imamo mnogo upita oblika „nešto o intervalu $[L, R]$“, a znamo trenutni odgovor <b>brzo popraviti</b> kad granicu pomaknemo za jedno mjesto (dodaj/izbaci jedan element). Ako upite obradimo redom kako su zadani, granice mogu skakati po cijelom nizu i ukupno se pomaknuti $O(NQ)$ puta.</p>
+            <p><b>Moov algoritam</b> upite presloži: niz podijelimo na blokove duljine $B \approx N / \sqrt{Q}$, upite sortiramo po bloku u kojem im je lijeva granica, a unutar bloka po desnoj granici. Tada:</p>
+            <ul>
+                <li>lijeva granica unutar jednog bloka pomiče se najviše $B$ po upitu — ukupno $Q \cdot B$;</li>
+                <li>desna granica unutar bloka samo raste, dakle najviše $N$ po bloku — ukupno $N \cdot (N / B)$.</li>
+            </ul>
+            <p>Uz $B \approx N/\sqrt{Q}$ oboje je $O(N \sqrt{Q})$, dakle oko $N\sqrt{Q}$ pomaka umjesto $NQ$. Odgovore spremamo po izvornom indeksu upita. (Sitnica: u neparnim blokovima sortiraj po desnoj granici <i>padajuće</i> — desna se granica onda ne mora vraćati na početak, što u praksi ubrza dvostruko.) Moov algoritam je <b>offline</b>: mora unaprijed znati sve upite.</p>
+        </div>
+        <p>U našem zadatku: $N = M = 10^5$, blok $B \approx 316$, ukupno oko $2N\sqrt{M} \approx 6 \cdot 10^7$ pomaka granica. Svaki pomak radi jedan Fenwickov upit i jednu Fenwickovu promjenu, oboje $O(\log N) \approx 17$ — oko $2 \cdot 10^9$ elementarnih operacija. To je u C++-u <i>na granici</i> 4 sekunde (naša provjera: 0.65 s na brzom računalu, ali na sporijem sudačkom računalu lako 2–3 s). Ima puno bolji način — Moov algoritam <b>bez logaritma</b>.</p>
+
+        <h3>Korak 4: makni logaritam — dva pripremljena niza</h3>
+        <p>Pogledajmo pobliže što zapravo računamo kad desnu granicu pomičemo s $R$ na $R' &gt; R$. Nove inverzije su svi parovi $(j, k)$ s $j &lt; k$, $k \in (R, R']$, $j \in [L, k)$ i $P_j &gt; P_k$. Rastavimo skup takvih $j$ na dva dijela:</p>
         <ul>
-            <li>lijeva granica unutar jednog bloka pomiče se najviše $B$ po upitu: ukupno $M \cdot B \approx N \sqrt{M}$;</li>
-            <li>desna granica unutar jednog bloka samo raste (najviše $N$), a blokova je $N / B$: ukupno $N \cdot N / B \approx N \sqrt{M}$.</li>
+            <li>$j \in [1, k)$ — <b>svi</b> elementi lijevo od $k$, bez obzira na $L$;</li>
+            <li>minus $j \in [1, L)$ — oni koji su lijevo od intervala pa ih ne smijemo brojati.</li>
         </ul>
-        <p>Dakle oko $2 N \sqrt{M} \approx 6 \cdot 10^7$ pomaka, svaki $O(\log N)$ — oko $10^9$ jednostavnih operacija, što prolazi u 4 sekunde u C++ (Fenwick je vrlo brz). Odgovore spremamo po izvornom indeksu upita. Mali trik: u neparnim blokovima sortiraj desnu granicu padajuće — granica se tada ne mora vraćati na početak.</p>
+        <p>Prvi dio uopće ne ovisi o upitu! Definirajmo <b>unaprijed</b>:</p>
+        <p style="text-align:center">$f_k$ = broj inverzija u prefiksu $P_1, \dots, P_k$, &nbsp;&nbsp; $g_k$ = broj inverzija u sufiksu $P_k, \dots, P_N$.</p>
+        <p>Oba niza izračunamo jednim prolazom s Fenwickom u $O(N \log N)$ ($f_k = f_{k-1} + $ broj ranijih većih od $P_k$; $g$ simetrično zdesna, s „ranijih manjih“). Tada je zbroj prvog dijela preko svih $k \in (R, R']$ točno $f_{R'} - f_R$ — dobiven u $O(1)$, bez ikakvog pomicanja element po element!</p>
+        <p>Drugi dio, $\sum_{k \in (R, R']} \big(\text{broj } j &lt; L \text{ s } P_j &gt; P_k\big)$, ovisi o $L$ i o intervalu $(R, R']$. Ne možemo ga odmah izračunati — ali možemo ga <b>zabilježiti kao zadaću</b>: „kad budeš znao sve elemente $P_1..P_{L-1}$, za svaki $k \in (R, R']$ prebroji koliko ih je većih od $P_k$ i to <i>oduzmi</i> upitu $q$“. Zadaću spremimo u popis <code>pre[L-1]</code>.</p>
+        <p>Smanjivanje desne granice s $R$ na $R' &lt; R$ je isto s obrnutim predznakom ($f_{R'} - f_R$ je negativan; zadaća za $k \in (R', R]$ se <i>dodaje</i>). Pomicanje <b>lijeve</b> granice je zrcalna slika: koristi se $g$, a zadaća glasi „kad budeš znao sve elemente $P_{R+1}..P_N$, za svaki $k$ u pomaknutom dijelu prebroji koliko ih je <i>manjih</i> od $P_k$“ — spremamo je u <code>suf[R+1]</code>.</p>
+        <p>Nakon Moovog prolaza svaki upit ima zapisan svoj <b>doprinos</b> u odnosu na prethodni upit u Moovom redoslijedu (dio iz $f$/$g$ već izračunat, dio čeka kao zadaća). Konačni odgovor upita je zbroj doprinosa svih upita do njega u Moovom redoslijedu (prefiksni zbroj po tom redoslijedu) — jer je stanje nakon upita $q$ upravo interval upita $q$.</p>
+
+        <h3>Korak 5: rješavanje zadaća — jedan prolaz i struktura s $O(1)$ upitom</h3>
+        <p>Sve zadaće iz <code>pre</code> riješimo <b>jednim prolazom slijeva</b>: kad dođemo do pozicije $i$, dodamo $P_i$ u strukturu; skup „viđenih“ je tada točno $P_1..P_i$, pa obradimo sve zadaće iz <code>pre[i]</code>: za svaki $k$ u njihovom intervalu pitamo strukturu „koliko je viđenih većih od $P_k$“. Zadaće iz <code>suf</code> riješimo simetričnim prolazom zdesna.</p>
+        <p>Koliko posla? Zadaće ukupno imaju onoliko elemenata koliko je bilo pomaka granica u Moovom algoritmu — $O(N\sqrt{M})$ <b>upita</b> strukturi — a <b>dodavanja</b> u strukturu je samo $N$ (jedno po poziciji). Fenwick bi za upite trošio $\log N$; nama treba struktura s <b>upitom u $O(1)$</b>, a dodavanje smije biti sporo jer ih je malo.</p>
+
+        <div class="pojam">
+            <h4>Novi pojam: korjenska (sqrt) dekompozicija</h4>
+
+            <p>Niz duljine $N$ podijelimo na blokove duljine $B \approx \sqrt{N}$ (oko 300 za $N = 10^5$). Za svaki blok pamtimo neki sažetak (zbroj, broj…). Tada:</p>
+            <ul>
+                <li>informaciju o intervalu sastavimo iz najviše $2B$ pojedinačnih elemenata na krajevima i najviše $N/B$ cijelih blokova — $O(\sqrt{N})$;</li>
+                <li>ili obrnuto: promjenu upišemo u $O(\sqrt N)$ mjesta (svi elementi do kraja bloka + svi sažetci blokova), pa upit u jednoj točki pročitamo u $O(1)$.</li>
+            </ul>
+            <p>Koristi se kad želimo <b>drugačiji omjer</b> cijena nego kod Fenwicka ($\log N$ za oboje): npr. skupo ažuriranje $O(\sqrt N)$, ali upit $O(1)$. To se isplati kad je upita puno više nego ažuriranja.</p>
+        </div>
+        <p>Konkretno: polje <code>cnt[v]</code> = broj viđenih brojeva većih od $v$ unutar bloka broja $v$ (gledaju se samo viđeni brojevi <i>iz istog bloka</i>), i <code>cbl[b]</code> = broj viđenih brojeva u blokovima iza bloka $b$. Dodavanje broja $x$: povećaj <code>cnt[v]</code> za sve $v$ u bloku od $x$ koji su $&lt; x$ (do $B$ koraka) i <code>cbl[b]</code> za sve blokove $b$ ispred bloka od $x$ (do $N/B$ koraka) — $O(\sqrt N)$. Upit „koliko je viđenih većih od $v$“ je jednostavno <code>cnt[v] + cbl[v / B]</code> — $O(1)$.</p>
+        <pre>void add(int x) {                       // x = vrijednost (0..N-1), B = velicina bloka
+    for (int v = x - 1; v &gt;= x / B * B; v--) cnt[v]++;
+    for (int b = x / B - 1; b &gt;= 0; b--) cbl[b]++;
+}
+int get(int v) { return cnt[v] + cbl[v / B]; }   // koliko je dodanih brojeva vecih od v</pre>
+        <p>Za prolaz zdesna („koliko je viđenih <i>manjih</i>“) upotrijebimo istu strukturu na vrijednostima $N - 1 - P_i$ — manji od $P_k$ postaju veći od $N-1-P_k$.</p>
+
+        <h3>Korak 6: cijeli algoritam</h3>
+        <ol>
+            <li>Izračunaj $f$ i $g$ ($O(N \log N)$ Fenwickom, ili istom sqrt strukturom u $O(N\sqrt N)$).</li>
+            <li>Sortiraj upite Moovim redoslijedom.</li>
+            <li>Prođi upite; za svaki pomak granice dodaj razliku $f$ (ili $g$) u doprinos upita i zapiši zadaću u <code>pre</code> ili <code>suf</code> (s predznakom).</li>
+            <li>Prolaz slijeva sa sqrt strukturom: rješavaj zadaće iz <code>pre</code>. Prolaz zdesna: zadaće iz <code>suf</code>.</li>
+            <li>Prefiksno zbroji doprinose u Moovom redoslijedu — to su odgovori; ispiši ih u izvornom redoslijedu.</li>
+        </ol>
+        <p>Rubni slučajevi: ako je $L = 1$, zadaća za <code>pre</code> ne postoji (nema ničega lijevo) — jednako tako za <code>suf</code> kad je $R = N$. Sve zadaće tada nose točno „nulti“ ispravak, pa ih preskačemo.</p>
 
         <h3>Provjera na prvom primjeru</h3>
-        <p>Interval $[1, 4]$ niza $4, 3, 5, 1$: dodajemo redom: $4$ (0), $3$ (1 veći: +1), $5$ (+0), $1$ (3 veća: +3) → 4. ✓</p>
+        <p>Niz $4, 3, 5, 1, 2$: $f = 0, 1, 1, 4, 7$ (prefiks $4,3,5,1$ ima inverzije $(4,3),(4,1),(3,1),(5,1)$). Upit $[1, 4]$ odmah je $f_4 - f_0 = 4$ ✓. Upit $[2, 4]$ iz stanja $[1, 4]$: lijeva granica ide s 1 na 2, doprinos $g_2 - g_1 = 4 - 7 = -3$ ($g_1 = 7$, $g_2$ = inverzije u $3,5,1,2$ = 4), zadaća „kad znaš $P_5..P_N$, za $k = 1$ dodaj broj viđenih manjih od $P_1 = 4$“: viđen je samo $2$, pa $+1$. Ukupno $4 - 3 + 1 = 2$ ✓.</p>
 
         <h3>Složenost</h3>
-        <p>$O((N + M) \sqrt{M} \log N)$ vremena; odgovori do $N^2/2 \approx 5 \cdot 10^9$ — 64-bitni tip.</p>
-        <p>Rješenje je provjereno na svim službenim testnim podacima (33/33).</p>
+        <p>Pomaka granica je $O(N\sqrt M)$ i svaki košta $O(1)$; dodavanja u sqrt strukturu ima $O(N)$ po $O(\sqrt N)$; sortiranje upita $O(M \log M)$. Ukupno $O((N + M)\sqrt N)$ — oko $6 \cdot 10^7$ jednostavnih operacija, bez logaritma. Memorija: zadaće zauzimaju $O(M)$ zapisa (po najviše dva po upitu). Odgovori idu do $N(N-1)/2 \approx 5 \cdot 10^9$ — <code>long long</code>.</p>
+        <p>Oba rješenja provjerena su na svim službenim testnim podacima (33/33): Moov algoritam s Fenwickom 0.65 s, Moov algoritam s pripremljenim nizovima i sqrt strukturom <b>0.13 s</b> — pet puta brže i s velikom rezervom za sporije računalo.</p>
 
         <h3>Izvor</h3>
         <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jpripreme2022/zadaci/prvi_ispit_zadaci.pdf">PDF-u sa zadacima</a> (<a href="https://hsin.hr/jpripreme2022/">hsin.hr, Juniorske izborne pripreme 2022</a>, prvi izborni ispit). Službeni opis rješenja nije objavljen; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jpripreme2022/zadaci/prvi_ispit_testpodaci.zip">službenim testnim podacima</a>.</p>

@@ -51,6 +51,25 @@ XCPCP</pre></td><td><pre>3</pre></td></tr>
 
         <h3>Korak 1: stanja i graf</h3>
         <p>Za $N \le 3$ moglo se ručno ispisati sve slučajeve (32 „ifa“). Općenito: <b>stanje</b> je raspored pikulica na postoljima. Svaki potez vodi iz jednog stanja u drugo i traje 1 sekundu, pa je pitanje „najmanji broj poteza“ zapravo <b>najkraći put u grafu</b> čiji su čvorovi stanja, a bridovi potezi. Najkraći put u grafu s jednakim duljinama bridova nalazi <b>BFS</b> (pretraga u širinu): iz početnog stanja obiđemo sva stanja na udaljenosti 1, pa 2, … pomoću reda (queue), pamteći za svako stanje kad smo ga prvi put vidjeli.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: pretraživanje u širinu (BFS)</h4>
+
+            <p><b>BFS</b> (engl. <i>breadth-first search</i>) pronalazi najkraći put u grafu u kojem svaki brid (korak) košta 1 — npr. u tablici gdje se krećemo na susjedna polja.</p>
+            <p>Koristimo <b>red</b> (queue — „prvi unutra, prvi vani“). Na početku u red stavimo početni vrh s udaljenošću 0. Zatim ponavljamo: uzmi vrh s početka reda, pogledaj sve njegove susjede; svakom susjedu koji <i>još nema</i> udaljenost upiši udaljenost trenutnog vrha $+1$ i stavi ga na kraj reda. Kad se red isprazni, svi dostižni vrhovi imaju točnu najmanju udaljenost.</p>
+            <p>Zašto radi: red obrađuje vrhove po rastućoj udaljenosti (najprije sve na udaljenosti 0, pa sve na 1, pa sve na 2…), pa je prva udaljenost koju vrh dobije ujedno najmanja. Svaki vrh uđe u red najviše jednom, pa je vrijeme $O(V + E)$ — broj vrhova plus broj bridova.</p>
+            <pre>queue&lt;int&gt; q; dist[start] = 0; q.push(start);
+while (!q.empty()) {
+    int v = q.front(); q.pop();
+    for (int u : susjedi[v]) if (dist[u] == -1) { dist[u] = dist[v] + 1; q.push(u); }
+}</pre>
+        </div>
+        
+        <div class="pojam">
+            <h4>Novi pojam: graf stanja — kad „položaj“ postane vrh grafa</h4>
+
+            <p>Mnoge zagonetke i simulacije možemo gledati kao graf: <b>vrh</b> je cijelo trenutno stanje (raspored pločica, položaj svih figura…), a <b>brid</b> je jedan dopušten potez. „Najmanji broj poteza da dođemo do cilja“ tada je najkraći put u tom grafu — dakle BFS. Da bi to bilo izvedivo, stanja moramo znati <b>kompaktno zapisati</b> (npr. bitmaskom) i mora ih biti dovoljno malo (do nekoliko milijuna).</p>
+        </div>
 
         <h3>Korak 2: koliko ima stanja?</h3>
         <p>Prazno postolje može biti na $N + 1$ mjesta, a svako od preostalih $N$ postolja nosi jednu od dvije boje: $(N + 1) \cdot 2^N$ stanja. Za $N = 20$ to je $21 \cdot 2^{20} \approx 2.2 \cdot 10^7$ — dovoljno malo za BFS ako stanja spremimo <b>kompaktno</b>.</p>
@@ -58,6 +77,18 @@ XCPCP</pre></td><td><pre>3</pre></td></tr>
         <h3>Korak 3: bitmaske</h3>
         <p><b>Bitmaska</b> je običan cijeli broj čiji binarni zapis kodira stanje: $i$-ti bit = 1 ako je $i$-ta <b>neprazna</b> pikulica slijeva crvena. Npr. <code>CPC</code> → $101_2 = 5$. Prazno postolje ne stane u jedan bit (tri opcije), pa ga pamtimo zasebno: stanje je par (maska, pozicija praznog). Udaljenost spremamo u niz veličine $(N+1) \cdot 2^N$ indeksiran s $\text{pozicija} \cdot 2^N + \text{maska}$.</p>
         <p>Zgodna posljedica: <b>klizanje</b> (potez 1) ne mijenja redoslijed neprazne pikulice, pa maska ostaje ista, a pozicija praznog se pomiče za $\pm 1$. <b>Preskok</b> (potez 2) zamjenjuje dvije susjedne pikulice u redoslijedu (one na indeksima $e - 2, e - 1$ ako se skače slijeva, odnosno $e, e + 1$ ako zdesna, gdje je $e$ pozicija praznog) i dopušten je samo ako su im bitovi različiti — tada se ta dva bita u maski invertiraju (XOR), a prazno skoči na mjesto skakača.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: bitmaska — skup kao jedan broj</h4>
+
+            <p>Skup od najviše $k$ stvari (numeriranih $0, 1, \dots, k-1$) možemo zapisati kao jedan cijeli broj s $k$ bitova: bit $i$ je 1 ako je stvar $i$ u skupu. Takav broj zovemo <b>bitmaska</b>. Za $k \le 20$ skup stane u obični <code>int</code>, a svih $2^k$ podskupova su brojevi $0 .. 2^k - 1$ — pa možemo jednostavno <code>for (int m = 0; m &lt; (1 &lt;&lt; k); m++)</code>.</p>
+            <ul>
+                <li>je li $i$ u skupu: <code>(m &gt;&gt; i) &amp; 1</code></li>
+                <li>dodaj $i$: <code>m | (1 &lt;&lt; i)</code>; &nbsp; izbaci $i$: <code>m &amp; ~(1 &lt;&lt; i)</code>; &nbsp; promijeni: <code>m ^ (1 &lt;&lt; i)</code></li>
+                <li>broj jedinica: <code>__builtin_popcount(m)</code></li>
+            </ul>
+            <p>Bitmaske su idealne za dinamičko programiranje po podskupovima (<code>dp[maska]</code>) i za BFS po stanjima kad je stanje neka mala tablica nula i jedinica.</p>
+        </div>
 
         <h3>Korak 4: cilj</h3>
         <p>Ako je crvenih $k$, ciljna maska ima jedinice na prvih $k$ bitova ($2^k - 1$), a prazno je na poziciji $k$. Ako BFS ne dosegne cilj, ispiši $-1$.</p>

@@ -62,18 +62,56 @@
         <h3>Korak 1: labirint → mali graf</h3>
         <p>Važna su samo $K + 2$ posebna polja: ulaz, izlaz i namirnice. Put od ulaza do izlaza posjećuje namirnice u <b>nekom redoslijedu</b>, a između dviju uzastopnih posebnih točaka Krešo ide <b>najkraćim putem</b>. Zato prvo izračunamo udaljenosti između svih parova posebnih polja.</p>
         <p><b>BFS (pretraga u širinu)</b> iz jednog polja nalazi najkraće udaljenosti do svih polja: obrađujemo polja u „valovima“ — prvo sve na udaljenosti 1, pa 2, itd., koristeći red (queue). Jedan BFS je $O(NM)$; pokrenemo ga iz svakog od $K + 2$ posebnih polja: $18 \cdot 10^6$ koraka. Dobivamo tablicu $D[i][j]$.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: pretraživanje u širinu (BFS)</h4>
+
+            <p><b>BFS</b> (engl. <i>breadth-first search</i>) pronalazi najkraći put u grafu u kojem svaki brid (korak) košta 1 — npr. u tablici gdje se krećemo na susjedna polja.</p>
+            <p>Koristimo <b>red</b> (queue — „prvi unutra, prvi vani“). Na početku u red stavimo početni vrh s udaljenošću 0. Zatim ponavljamo: uzmi vrh s početka reda, pogledaj sve njegove susjede; svakom susjedu koji <i>još nema</i> udaljenost upiši udaljenost trenutnog vrha $+1$ i stavi ga na kraj reda. Kad se red isprazni, svi dostižni vrhovi imaju točnu najmanju udaljenost.</p>
+            <p>Zašto radi: red obrađuje vrhove po rastućoj udaljenosti (najprije sve na udaljenosti 0, pa sve na 1, pa sve na 2…), pa je prva udaljenost koju vrh dobije ujedno najmanja. Svaki vrh uđe u red najviše jednom, pa je vrijeme $O(V + E)$ — broj vrhova plus broj bridova.</p>
+            <pre>queue&lt;int&gt; q; dist[start] = 0; q.push(start);
+while (!q.empty()) {
+    int v = q.front(); q.pop();
+    for (int u : susjedi[v]) if (dist[u] == -1) { dist[u] = dist[v] + 1; q.push(u); }
+}</pre>
+        </div>
 
         <h3>Korak 2: redoslijed namirnica</h3>
         <p>Sad tražimo redoslijed obilaska $K$ namirnica koji minimizira $D[U][n_1] + D[n_1][n_2] + \dots + D[n_K][I]$. <b>Sporo</b> ($K \le 6$): isprobaj svih $K! = 720$ redoslijeda. Za $K = 16$ to je $2 \cdot 10^{13}$ — treba dinamičko programiranje.</p>
 
         <h3>Korak 3: DP po podskupovima (bitmaske)</h3>
         <p><b>Bitmaska</b> je broj čiji bitovi kažu koje su namirnice već pokupljene (bit $j$ = 1 ako je $j$-ta pokupljena). Stanje: (skup pokupljenih $mask$, zadnja pokupljena $i$). Neka je $dp[mask][i]$ najmanji broj koraka od ulaza do namirnice $i$ pri čemu su pokupljene točno namirnice iz $mask$ (i $i \in mask$).</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: bitmaska — skup kao jedan broj</h4>
+
+            <p>Skup od najviše $k$ stvari (numeriranih $0, 1, \dots, k-1$) možemo zapisati kao jedan cijeli broj s $k$ bitova: bit $i$ je 1 ako je stvar $i$ u skupu. Takav broj zovemo <b>bitmaska</b>. Za $k \le 20$ skup stane u obični <code>int</code>, a svih $2^k$ podskupova su brojevi $0 .. 2^k - 1$ — pa možemo jednostavno <code>for (int m = 0; m &lt; (1 &lt;&lt; k); m++)</code>.</p>
+            <ul>
+                <li>je li $i$ u skupu: <code>(m &gt;&gt; i) &amp; 1</code></li>
+                <li>dodaj $i$: <code>m | (1 &lt;&lt; i)</code>; &nbsp; izbaci $i$: <code>m &amp; ~(1 &lt;&lt; i)</code>; &nbsp; promijeni: <code>m ^ (1 &lt;&lt; i)</code></li>
+                <li>broj jedinica: <code>__builtin_popcount(m)</code></li>
+            </ul>
+            <p>Bitmaske su idealne za dinamičko programiranje po podskupovima (<code>dp[maska]</code>) i za BFS po stanjima kad je stanje neka mala tablica nula i jedinica.</p>
+        </div>
         <ul>
             <li>početak: $dp[\{i\}][i] = D[U][i]$;</li>
             <li>prijelaz: za svaku $j \notin mask$: $dp[mask \cup \{j\}][j] = \min(\dots, dp[mask][i] + D[i][j])$;</li>
             <li>odgovor: $\min_i dp[\text{sve}][i] + D[i][I]$.</li>
         </ul>
         <p>Zašto to radi: za optimalan put, njegov početni dio do $i$-te pokupljene namirnice je i sam optimalan za odgovarajuće stanje — inače bismo ga zamijenili kraćim. Stanja ima $2^{16} \cdot 16 \approx 10^6$, svako s 16 prijelaza: $\approx 1.7 \cdot 10^7$ operacija.</p>
+        
+        <div class="pojam">
+            <h4>Novi pojam: dinamičko programiranje (DP)</h4>
+
+            <p><b>Dinamičko programiranje</b> je način rješavanja u kojem velik problem rastavimo na <b>manje podprobleme istog oblika</b>, riješimo ih od najmanjih prema većima i svaki odgovor <b>zapamtimo</b> u tablici, da ga nikad ne računamo dvaput.</p>
+            <p>Recept ima tri dijela:</p>
+            <ol>
+                <li><b>Stanje</b> — što točno opisuje podproblem (npr. „prvih $i$ elemenata“, „polje $(x, y)$“, „skup već upotrijebljenih stvari“). Odgovor za stanje zapisujemo kao <code>dp[stanje]</code>.</li>
+                <li><b>Prijelaz</b> — formula kojom se <code>dp[stanje]</code> računa iz <i>već izračunatih</i> manjih stanja.</li>
+                <li><b>Početno stanje</b> (bazni slučaj), npr. <code>dp[0] = 0</code> ili <code>dp[0] = 1</code>.</li>
+            </ol>
+            <p>Najpoznatiji primjer: broj načina da se popnemo $n$ stuba korakom od 1 ili 2 — stanje je $n$, prijelaz <code>dp[n] = dp[n-1] + dp[n-2]</code>, početak <code>dp[0] = dp[1] = 1</code>. Bez pamćenja bi rekurzija trajala eksponencijalno; s tablicom traje $O(n)$. Vrijeme DP-a je otprilike (broj stanja) $\times$ (cijena jednog prijelaza).</p>
+        </div>
 
         <h3>Korak 4: detalji</h3>
         <p>Retke labirinta čitaj kao riječi (<code>scanf("%s")</code>) — u ulazu mogu biti dodatni razmaci na kraju retka. Ako neko polje nije dostupno, udaljenost je „beskonačno“ i taj prijelaz preskačemo. Polje na kojem je Krešo već bio smije se ponovno posjetiti, pa je zbroj najkraćih udaljenosti doista ostvariv.</p>
