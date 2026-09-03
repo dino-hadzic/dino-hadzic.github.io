@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2024 (JHIO 2024)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: 2024</h1>
+        <p><i>Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Zadan je niz od $N$ engleskih riječi, a svaka je jedna od znamenki od nula do devet (<code>Zero</code>, <code>One</code>, …, <code>Nine</code>). Ponuđeni odgovor je niz od $M$ znamenki. Odgovor <b>ima smisla</b> ako se može dobiti iz niza riječi tako da svaka riječ <i>ili</i> predstavlja znamenku <i>ili</i> označava koliko se puta znamenka predstavljena <b>sljedećom</b> riječi uzastopno pojavljuje.</p>
+        <p>Primjer: za riječi <code>Two Zero Two Four</code> smisla imaju 2024 (sve znamenke), 0044 („Two“ = dva puta „Zero“, „Two“ = dva puta „Four“), 0024, 2044 pa i 24 („Two“ znamenka, „Zero“ = nula puta „Two“, „Four“ znamenka). Odgovor 02024 nema smisla, jer bi se morao ponoviti par znamenki, a broj ponavljanja odnosi se samo na jednu sljedeću riječ.</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N$ ($1 \le N \le 1000$); redak s $N$ riječi; $M$ ($1 \le M \le 1000$); redak s $M$-znamenkastim brojem (mogu biti vodeće nule).</p>
+        <h3>Izlazni podaci</h3>
+        <p><code>DA</code> ako odgovor ima smisla, inače <code>NE</code>.</p>
+        <h3>Bodovanje</h3>
+        <p>20 bodova: $N = M = 4$; +20: $N \le 10$; +30: $N, M \le 100$.</p>
+        <h3>Probni primjeri</h3>
+        <pre>ulaz:
+4
+Two Zero Two Four
+4
+2024
+
+izlaz:
+DA</pre>
+        <pre>ulaz:
+4
+Two Zero Two Four
+5
+02024
+
+izlaz:
+NE</pre>
+        <pre>ulaz:
+5
+One Two Three Four Five
+5
+24445
+
+izlaz:
+DA</pre>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: riječi pretvorimo u brojeve</h3>
+        <p>Napravimo popis <code>["Zero", "One", ..., "Nine"]</code>; vrijednost riječi je njezin indeks u popisu. Dobijemo niz brojeva $v_0, v_1, \dots, v_{N-1}$. Odgovor je niz znamenki $s_0, \dots, s_{M-1}$.</p>
+        <h3>Korak 2: zašto „probaj sve“ ne ide izravno?</h3>
+        <p>Za svaku riječ biramo je li znamenka ili brojač. Kod $N = 1000$ to je previše kombinacija za isprobavanje (oko $2^{500}$). Ali primijetimo: kad smo obradili prvih $i$ riječi i njima „potrošili“ prvih $j$ znamenki odgovora, <b>uopće nije važno kako</b> smo to napravili — dalje sve ovisi samo o paru $(i, j)$. To je znak za <b>dinamičko programiranje</b>: pamtimo odgovor za svako stanje $(i, j)$ umjesto da ga računamo iznova.</p>
+        <h3>Korak 3: stanja i prijelazi</h3>
+        <p>Neka je <code>moguce[i][j]</code> = istina ako se riječi od $i$-te do kraja mogu „pretvoriti“ točno u znamenke od $j$-te do kraja. Tražimo <code>moguce[0][0]</code>. Bazni slučaj: <code>moguce[N][M] = istina</code> (ništa više nema ni riječi ni znamenki). Ostala stanja s $i = N$ ili $j = M$ (ali ne oboje) su laž — ostale su riječi bez znamenki ili obrnuto… osim jednog slučaja niže.</p>
+        <p>Iz stanja $(i, j)$ riječ $i$ može biti:</p>
+        <ul>
+            <li><b>znamenka</b>: mora vrijediti $j &lt; M$ i $s_j = v_i$; tada prelazimo u $(i+1, j+1)$.</li>
+            <li><b>brojač</b> za riječ $i+1$ (mora postojati, $i+1 &lt; N$): znamenka $v_{i+1}$ mora se pojaviti $k = v_i$ puta zaredom: $s_j = s_{j+1} = \dots = s_{j+k-1} = v_{i+1}$ (i $j + k \le M$); prelazimo u $(i+2, j+k)$. Za $k = 0$ ne trošimo nijednu znamenku — zato stanje $(i, M)$ može biti istinito i kad je $i &lt; N$!</li>
+        </ul>
+        <p><code>moguce[i][j]</code> je istina ako je barem jedan od prijelaza dopušten i vodi u istinito stanje.</p>
+        <h3>Korak 4: redoslijed računanja</h3>
+        <p>Stanje $(i, j)$ ovisi o stanjima s <b>većim</b> $i$. Zato tablicu punimo od $i = N-1$ prema $0$ (za svaki $j$ od $M$ do $0$). Alternativa je rekurzija s pamćenjem (memoizacija) — isti rezultat.</p>
+        <h3>Složenost</h3>
+        <p>Stanja je $(N+1)(M+1) \approx 10^6$; provjera prijelaza „brojač“ gleda najviše $9$ znamenki. Ukupno oko $10^7$ jednostavnih operacija — trenutačno. Provjera na 3. primjeru: „One“ = jedanput „Two“ → <code>2</code>, „Three“ = triput „Four“ → <code>444</code>, „Five“ → <code>5</code>. Ukupno <code>24445</code>. ✓</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2024/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2024). Službeno rješenje nije objavljeno; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2024/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

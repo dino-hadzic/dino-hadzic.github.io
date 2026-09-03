@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ravnica (JHIO 2022)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Ravnica</h1>
+        <p><i>Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Država se sastoji od $N$ gradova i $N-1$ cesta, a između svaka dva grada postoji jedinstven put (država je <i>stablo</i>). Stjepan želi uništiti najmanji mogući broj cesta tako da nakon toga iz svakog grada izlaze najviše dvije ceste. Koliko cesta uništi?</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N$ ($2 \le N \le 100\,000$), zatim $N-1$ redaka s dva različita broja $A$ i $B$ — gradovi koje spaja cesta.</p>
+        <h3>Izlazni podaci</h3>
+        <p>Traženi broj cesta.</p>
+        <h3>Bodovanje</h3>
+        <p>5 bodova: grad $i$ spojen je s gradom $i+1$; +25: $N \le 14$; +30: $N \le 1000$.</p>
+        <h3>Probni primjeri</h3>
+        <pre>ulaz:
+5
+1 2
+1 3
+2 4
+2 5
+
+izlaz:
+1</pre>
+        <pre>ulaz:
+7
+1 2
+1 3
+2 4
+2 5
+3 6
+3 7
+
+izlaz:
+2</pre>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: zašto nije dovoljno gledati svaki grad zasebno?</h3>
+        <p>Prvi pokušaj: grad sa $d$ cesta treba izgubiti $d-2$ cesta, pa zbrojimo $\max(0, d-2)$ po svim gradovima. To radi za probne primjere, ali je krivo općenito: ako su dva grada s po tri ceste spojena <i>istom</i> cestom, uništavanje te jedne ceste popravi oba grada, a zbroj bi rekao 2. Uništena cesta „pomaže“ na dva mjesta odjednom — zato treba pametnija metoda.</p>
+        <h3>Korak 2: stablo i korijen</h3>
+        <p>Graf s $N$ vrhova, $N-1$ bridova i jedinstvenim putem između svaka dva vrha zove se <b>stablo</b>. Odaberemo bilo koji grad (npr. 1) kao <b>korijen</b>. Tada svaki drugi grad ima točno jednog <b>roditelja</b> (susjeda bližeg korijenu) i neke <b>djecu</b> (ostale susjede). „Podstablo“ grada $v$ su $v$ i svi gradovi ispod njega.</p>
+        <h3>Korak 3: dinamičko programiranje na stablu</h3>
+        <p><b>Dinamičko programiranje</b> (DP) znači: veliki problem rješavamo tako da najprije riješimo manje dijelove, zapamtimo njihove odgovore i od njih složimo veći odgovor. Na stablu su „manji dijelovi“ podstabla djece, pa se odgovori računaju <b>odozdo prema gore</b> (od listova prema korijenu).</p>
+        <p>Za grad $v$ definiramo dvije vrijednosti:</p>
+        <ul>
+            <li>$f_0(v)$ — najmanji broj uništenih cesta <b>unutar podstabla</b> $v$ ako cestu prema roditelju <b>uništimo</b> (ili je nema, kao kod korijena). Tada $v$ smije zadržati najviše <b>2</b> ceste prema djeci.</li>
+            <li>$f_1(v)$ — isto, ali ako cestu prema roditelju <b>zadržimo</b>. Tada $v$ smije zadržati najviše <b>1</b> cestu prema djeci.</li>
+        </ul>
+        <p>Kako izračunati $f_0(v)$ (i analogno $f_1(v)$) kad znamo vrijednosti za svu djecu $c$? Za svako dijete imamo dva izbora:</p>
+        <ul>
+            <li>cestu $v$–$c$ <b>zadržimo</b>: to košta $f_1(c)$ (dijete zna da mu je cesta prema roditelju zadržana);</li>
+            <li>cestu $v$–$c$ <b>uništimo</b>: to košta $1 + f_0(c)$.</li>
+        </ul>
+        <p>Krenimo od toga da <b>sve</b> ceste prema djeci zadržimo: cijena je $\sum_c f_1(c)$. Ako $v$ ima više djece nego smije zadržati, moramo neke ceste uništiti. Uništavanje ceste prema $c$ mijenja cijenu za $\Delta_c = 1 + f_0(c) - f_1(c)$. Uništimo onoliko cesta koliko <i>moramo</i> (broj djece minus dopušteni broj), i to one s <b>najmanjim</b> $\Delta_c$ — jednostavno sortiramo $\Delta$-e.</p>
+        <p>Zašto ne uništavamo više od nužnog? Jer je $\Delta_c \ge 0$: vrijedi $f_1(c) \le f_0(c) + 1$ (uzmi najbolje rješenje za $f_0(c)$, dodaj cestu prema roditelju; ako $c$ sad ima tri ceste, uništi jednu prema djetetu — to košta najviše 1). Dakle dodatno uništavanje nikad ne smanjuje cijenu.</p>
+        <p>Za list (grad bez djece) je $f_0 = f_1 = 0$. Konačni odgovor je $f_0(\text{korijen})$, jer korijen nema cestu prema roditelju.</p>
+        <h3>Korak 4: provjera na drugom primjeru</h3>
+        <p>Korijen 1 ima djecu 2 i 3; svako od njih ima dva lista. Za grad 2: djeca su listovi ($f_0=f_1=0$), $\Delta = 1$ za svakog. $f_0(2) = 0$ (smije zadržati obje ceste), $f_1(2) = 1$ (mora uništiti jednu). Isto za grad 3. Korijen: kreće s $f_1(2)+f_1(3) = 2$, smije zadržati 2 djece, ne mora ništa uništiti: $f_0(1) = 2$. Odgovor 2. ✓</p>
+        <h3>Korak 5: izvedba</h3>
+        <p>Redoslijed „djeca prije roditelja“ dobijemo tako da napravimo DFS/BFS od korijena, zapamtimo redoslijed posjeta i zatim ga obradimo <b>unatrag</b>. Tako izbjegavamo duboku rekurziju ($N$ može biti $100\,000$, a stablo može biti dugačak lanac). Sortiranje $\Delta$-a po svim gradovima ukupno je $O(N \log N)$; a budući da su $\Delta \in \{0, 1\}$, dovoljno je i samo prebrojati nule i jedinice.</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2022/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2022). Službeno rješenje nije objavljeno; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2022/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

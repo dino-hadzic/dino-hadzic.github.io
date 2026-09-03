@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Požar (JHIO 2021)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Požar</h1>
+        <p><i>Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Šuma je tablica s $N$ redaka i $M$ stupaca. Požari počinju u obliku kvadrata ili romba. Polje označimo $(x,y)$.</p>
+        <ul>
+            <li>Kvadratni požar sa središtem $(X_i, Y_i)$ i raširenosti $A_i$ gori na svim poljima za koja je $\max(|X_i - x|, |Y_i - y|) &lt; A_i$.</li>
+            <li>Rombasti požar sa središtem $(X_i, Y_i)$ i raširenosti $A_i$ gori na svim poljima za koja je $|X_i - x| + |Y_i - y| &lt; A_i$.</li>
+        </ul>
+        <p>Ako u nekoj minuti polje gori, u sljedećoj minuti gore i sva četiri susjedna polja. Polja se nikad ne gase. U nultoj minuti gore samo početna područja. Za $Q$ upita odgovori koliko polja gori u minuti $T_i$.</p>
+        <h3>Ulazni podaci</h3>
+        <p>$N, M$ ($1 \le N, M \le 2000$); zatim $K, R, Q$ ($0 \le K, R \le 2000$, $1 \le Q \le 2000$) — broj kvadratnih i rombastih požara te broj upita. Slijedi $K$ redaka $X_i\ Y_i\ A_i$ za kvadrate, $R$ redaka za rombove ($1 \le A_i \le 2000$), pa $Q$ redaka s $T_i$ ($0 \le T_i \le 2000$).</p>
+        <h3>Izlazni podaci</h3>
+        <p>$Q$ redaka — broj gorućih polja u minuti $T_i$.</p>
+        <h3>Bodovanje</h3>
+        <p>15 bodova: $N, M \le 20$; 15 bodova: $A_i = 1$; 20 bodova: $R = 0$; 20 bodova: $K = 0$.</p>
+        <h3>Probni primjer</h3>
+        <pre>ulaz:
+8 10
+1 1 3
+2 3 2
+5 5 2
+0
+1
+2
+
+izlaz:
+14
+29
+41</pre>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: pretvorimo pitanje u „kad se koje polje zapali?“</h3>
+        <p>Umjesto da za svaki upit iznova simuliramo požar, izračunajmo za <b>svako polje</b> tablice broj <code>vrijeme[x][y]</code> — minutu u kojoj se to polje zapali. Tada je odgovor na upit $T$ jednostavno broj polja s <code>vrijeme ≤ T</code>. Ako pripremimo polje <code>broj[t]</code> = koliko se polja zapali točno u minuti $t$, odgovor za $T$ je zbroj <code>broj[0] + broj[1] + ... + broj[T]</code>. Taj zbroj računamo unaprijed (to su <b>prefiksne sume</b>), pa na svaki upit odgovaramo u jednom koraku.</p>
+        <h3>Korak 2: širenje požara je BFS</h3>
+        <p>Požar se svake minute širi na sva susjedna polja — baš tako radi <b>pretraživanje u širinu</b> (BFS, engl. <i>breadth-first search</i>). Za one koji se s BFS-om susreću prvi put:</p>
+        <ul>
+            <li>Imamo <b>red</b> (queue) — kao red u trgovini: ubacujemo na kraj, uzimamo s početka.</li>
+            <li>U red najprije stavimo sva polja koja gore u minuti 0 i za njih zapišemo <code>vrijeme = 0</code>.</li>
+            <li>Zatim ponavljamo: uzmemo polje s početka reda, pogledamo mu četiri susjeda. Svakom susjedu koji još nije zapaljen upišemo <code>vrijeme = vrijeme(trenutnog) + 1</code> i stavimo ga na kraj reda.</li>
+        </ul>
+        <p>Zašto to daje točna vremena? Zato što red obrađuje polja redom po vremenu: prvo sva s vremenom 0, pa sva s vremenom 1, i tako dalje. Kad neko polje prvi put dohvatimo, dohvatili smo ga iz najranijeg mogućeg susjeda. Svako polje uđe u red najviše jednom, pa BFS traje $O(N \cdot M) = 4 \cdot 10^6$ koraka — u redu.</p>
+        <p>Napomena: nije važno iz kojeg je požara koje polje zapaljeno; BFS iz <b>više početnih polja odjednom</b> automatski računa najranije vrijeme za svako polje.</p>
+        <h3>Korak 3: koja polja gore u minuti 0?</h3>
+        <p>Ovo je jedini nezgodni dio. Kad bismo za svaki od $4000$ požara označili sva njegova polja, moglo bi biti do $4000 \cdot 4 \cdot 10^6$ operacija — previše. Trebamo pametnije označavanje.</p>
+        <p>Uočimo da su i kvadrat i romb u svakom retku <b>jedan neprekinuti komad</b> stupaca:</p>
+        <ul>
+            <li>Kvadrat raširenosti $A$: u svakom retku $x$ s $|X - x| \le A-1$ gore stupci od $Y-(A-1)$ do $Y+(A-1)$.</li>
+            <li>Romb raširenosti $A$: u retku $x$ s $|X - x| \le A-1$ preostaje $w = (A-1) - |X-x|$ pa gore stupci od $Y-w$ do $Y+w$.</li>
+        </ul>
+        <p>(Rubove naravno odrežemo na $1 \dots M$ i preskočimo retke izvan $1 \dots N$.)</p>
+        <p>Označiti komad $[l, r]$ u jednom retku možemo u <b>dvije operacije</b> trikom koji se zove <b>razlikovno polje</b> (engl. <i>difference array</i>): u pomoćnoj tablici <code>d</code> napravimo <code>d[x][l] += 1</code> i <code>d[x][r+1] -= 1</code>. Kad na kraju u svakom retku zbrajamo <code>d</code> slijeva nadesno (tekući zbroj), dobivamo za svako polje koliko ga požara pokriva. Polje gori u minuti 0 ako je taj broj veći od 0.</p>
+        <p>Svaki požar zauzima najviše $2A - 1 \le 4000$ redaka, pa označavanje svih požara traje najviše $4000 \cdot 4000 \cdot 2 = 3.2 \cdot 10^7$ jednostavnih operacija. To je brzo.</p>
+        <h3>Korak 4: sve zajedno</h3>
+        <ol>
+            <li>Razlikovnim poljem označimo početne oblike, prođemo retke tekućim zbrojem i pronađemo početno goruća polja.</li>
+            <li>Sva ta polja stavimo u red s vremenom 0 i pokrenemo BFS.</li>
+            <li>Za svako polje koje je BFS dosegnuo uvećamo <code>broj[vrijeme]</code>, napravimo prefiksne sume i odgovaramo na upite. Polja koja BFS nije dosegnuo (to se dogodi samo kad je $K = R = 0$, što ograničenja dopuštaju — tada nema nijednog požara) preskačemo, pa je odgovor na sve upite 0.</li>
+        </ol>
+        <p>Sitnica: neko polje može dobiti vrijeme veće od $2000$ (tablica je do $2000 \times 2000$, pa je najveće moguće vrijeme oko $4000$). Polje <code>broj</code> zato neka ima barem $4001$ mjesto, a upit $T$ gleda samo prvih $T+1$ mjesta.</p>
+        <h3>Složenost</h3>
+        <p>$O(N \cdot M + (K + R) \cdot \max A_i + Q)$, što je u najgorem slučaju nekoliko desetaka milijuna operacija.</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2021/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2021). Službeno rješenje nije objavljeno; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2021/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>

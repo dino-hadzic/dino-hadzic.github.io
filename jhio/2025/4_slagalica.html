@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slagalica (JHIO 2025)</title>
+
+    <!-- UKLJUČIVANJE LATEX-A (MATHJAX) -->
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+</head>
+
+<body>
+    <!-- NAVIGACIJA -->
+    <p><a href="index.html">← Natrag na popis zadataka</a> &nbsp;|&nbsp; <a href="../../index.html">Početna</a></p>
+
+    <div class="zadatak">
+        <h1>ZADATAK: Slagalica</h1>
+        <p><i>Vremensko ograničenje: 1 s, memorijsko ograničenje: 512 MB, 100 bodova.</i></p>
+
+        <p>Zadana je tablica s $N$ redaka i $M$ stupaca, a u svakom polju je 0 ili 1. Jedina operacija je zamjena vrijednosti dvaju susjednih polja (gore/dolje/lijevo/desno). Cilj je u što manje operacija postići:</p>
+        <ol>
+            <li>$p[x][y] \ge p[x+1][y]$ za sve $1 \le x \le N-1$, $1 \le y \le M$;</li>
+            <li>$p[x][y] \ge p[x][y+1]$ za sve $1 \le x \le N$, $1 \le y \le M-1$.</li>
+        </ol>
+        <h3>Ulazni podaci</h3>
+        <p>$N, M$ ($1 \le N, M \le 20$, $4 \le N \cdot M \le 20$); zatim $N$ redaka s po $M$ brojeva (0 ili 1).</p>
+        <h3>Izlazni podaci</h3>
+        <p>Najmanji broj operacija.</p>
+        <h3>Bodovanje</h3>
+        <p>20 bodova: $M = 1$; +20: rješenje je 0, 1, 2 ili 3.</p>
+        <h3>Probni primjeri</h3>
+        <pre>ulaz:
+1 4
+0 1 0 1
+
+izlaz:
+3</pre>
+        <pre>ulaz:
+3 3
+1 0 1
+0 1 0
+1 0 1
+
+izlaz:
+4</pre>
+        <pre>ulaz:
+2 3
+0 0 0
+0 0 1
+
+izlaz:
+3</pre>
+        <p><i>Opis drugog primjera:</i> npr. zamjene $(1,2) \leftrightarrow (1,3)$, $(3,2) \leftrightarrow (3,3)$, $(3,1) \leftrightarrow (2,1)$, $(3,2) \leftrightarrow (3,1)$.</p>
+    </div>
+
+    <hr>
+
+    <div class="rjesenje">
+        <h2>RJEŠENJE:</h2>
+
+        <h3>Korak 1: koliko je stanja tablice?</h3>
+        <p>Tablica ima najviše $20$ polja, a svako je 0 ili 1: ukupno $2^{20} \approx 10^6$ mogućih tablica. Još bolje: zamjena susjednih polja <b>ne mijenja broj jedinica</b>, pa su dostupne samo tablice s istim brojem jedinica kao početna — najviše $\binom{20}{10} = 184\,756$. To je dovoljno malo da <b>posjetimo sva stanja</b>.</p>
+        <h3>Korak 2: tablica kao broj — bitmaska</h3>
+        <p>Polja numeriramo od $0$ do $NM - 1$ (redak $x$, stupac $y$ → indeks $x \cdot M + y$). Tablicu spremimo kao jedan cijeli broj u kojem je $i$-ti bit 1 ako polje $i$ sadrži jedinicu. To se zove <b>bitmaska</b>. Zamjena vrijednosti polja $i$ i $j$ (kad su različite) je jednostavno <code>s ^ (1 &lt;&lt; i) ^ (1 &lt;&lt; j)</code> — oba bita se preokrenu. Ako su vrijednosti jednake, zamjena ništa ne mijenja pa je preskačemo.</p>
+        <h3>Korak 3: najkraći put = BFS</h3>
+        <p>Zamislimo graf u kojem je svako stanje jedan vrh, a brid spaja stanja koja se razlikuju za jednu zamjenu susjednih polja. Tražimo <b>najmanji broj bridova</b> od početnog stanja do bilo kojeg stanja koje zadovoljava oba svojstva. To je posao za <b>pretraživanje u širinu</b> (BFS):</p>
+        <ul>
+            <li>Red (queue) na početku sadrži početnu masku s udaljenošću 0; rječnik (ili veliko polje veličine $2^{NM}$) pamti udaljenost svakog posjećenog stanja.</li>
+            <li>Vadimo stanje s početka reda. Ako zadovoljava svojstva, njegova udaljenost je odgovor — BFS obrađuje stanja po rastućoj udaljenosti pa je prvo takvo stanje ujedno i najbliže.</li>
+            <li>Inače, za svaki par susjednih polja s različitim vrijednostima napravimo novo stanje; ako ga još nismo vidjeli, zapišemo udaljenost $+1$ i stavimo ga u red.</li>
+        </ul>
+        <p>Parove susjednih polja (najviše $2NM \le 40$, u praksi $\le 31$) pripremimo unaprijed u popisu.</p>
+        <h3>Korak 4: provjera svojstava</h3>
+        <p>Za masku prođemo sva polja i provjerimo: bit polja $(x, y)$ nije manji od bita polja $(x+1, y)$ i od bita polja $(x, y+1)$ (ako postoje). To je $O(NM)$ po stanju. Slikovito: jedinice moraju činiti „stepenice“ u gornjem lijevom kutu.</p>
+        <h3>Složenost</h3>
+        <p>Najviše $\approx 185\,000$ stanja, a za svako $\le 31$ mogućih zamjena i provjera od $20$ polja: ukupno oko $10^7$ jednostavnih operacija. Ovakav BFS po stanjima čest je alat za male slagalice (npr. i za „Obratnu kocku“ na koju se zadatak nasmiješio).</p>
+        <h3>Dodatak: elegantnije rješenje</h3>
+        <p>Pomicanje jedinica zamjenama sa susjednim nulama košta točno onoliko koraka koliko je udaljenost (u Manhattan-metrici) između starog i novog položaja jedinice. Zato je najmanji broj operacija za zadani ciljni oblik jednak najjeftinijem <i>uparivanju</i> početnih jedinica s ciljnim poljima. Mogli bismo proći sve „stepenaste“ oblike s istim brojem jedinica i za svaki izračunati najjeftinije uparivanje. To je brže, ali i puno složenije od BFS-a, koji je za ova ograničenja sasvim dovoljan.</p>
+
+        <h3>Izvor</h3>
+        <p>Tekst zadatka prema službenom <a href="https://hsin.hr/jhio2025/zadaci/zadaci.pdf">PDF-u sa zadacima</a> (hsin.hr, JHIO 2025). Službeno rješenje nije objavljeno; rješenje na ovoj stranici napisano je za ovu stranicu i provjereno na <a href="https://hsin.hr/jhio2025/zadaci/test_podaci.zip">službenim testnim podacima</a>.</p>
+    </div>
+
+</body>
+</html>
