@@ -12,6 +12,8 @@
         onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
     <link rel="stylesheet" href="../../../../assets/css/zadatak.css">
     <link rel="stylesheet" href="../../../../assets/css/pozadina.css">
+    <link rel="stylesheet" href="../../../../assets/css/trener.css">
+    <script src="../../../../assets/js/coach-mode.js"></script>
 </head>
 
 <body>
@@ -30,42 +32,104 @@
 
     <hr>
 
-    <div class="rjesenje">
-        <h2>RJEŠENJE:</h2>
-        <p>Umetnuti $T$ u $S$ tako da broj pojavljivanja uzorka $P$ bude najveći.</p>
-        <ul>
-            <li>Promatramo sva umetanja nakon $k$ znakova.</li>
-            <li>Prebrojimo pojavljivanja $P$ u $S$ i u $T$, oduzmemo ona u $S$ koja umetanje razbija (KMP daje pozicije $P$ u $S$ i $T$) i dodamo nova pojavljivanja koja prelaze granice umetnutog $T$.</li>
-        </ul>
-        <h3>a) Mali uzorci, $|P| \le |T|$</h3>
-        <ul>
-            <li>$p$ = duljina najduljeg prefiksa $P$ koji je sufiks $S[:k]$ (faza pretraživanja KMP-a).</li>
-            <li>Postoji li odgovarajući sufiks $P$ (duljine $x = |P| - p$) na početku $T$? Odnosno: je li duljina najduljeg sufiksa $P$ koji završava u $T[L]$ (Z-algoritam) jednaka $L$?</li>
-            <li>Unaprijed izračunamo podudaranja i za kraće prefikse (funkcija neuspjeha KMP-a).</li>
-            <li>Simetrično za granicu između $T$ i $S[k:]$.</li>
-            <li>$O(|S| + |T| + |P|)$.</li>
-        </ul>
-        <h3>b) Veliki uzorci, $|P| &gt; |T|$</h3>
-        <ul>
-            <li>Pojavljivanje se može protezati preko cijelog $T$.</li>
-            <li>Podudara li se $T$ s pomaknutim $P$? KMP pretraživanje $T$ u $P$.</li>
-            <li>Koliko se prefiksa $P$ na kraju $S[:k]$ podudara sa sufiksima $P$ na početku $S[k:]$ (uz $T$ između)?
-                <ul>
-                    <li>svi parovi kraćih prefiksa i sufiksa: $O(|S| \cdot |P|^2)$;</li>
-                    <li>samo kraći prefiksi: $O(|S| \cdot |P|)$ — kao kod malih uzoraka (Z-algoritam).</li>
-                </ul>
-            </li>
-            <li>Stabla funkcija neuspjeha KMP-a $f(i)$ za $P$ i $g(j)$ za obrnuti $P$:
-                <ul>
-                    <li>$x(i, j)$ = broj podudarnih čvorova (s ispravnim zbrojem duljina) na putevima od $i$ i $j$ do korijena;</li>
-                    <li>$x(i, j) = x(i, g(j)) + \mathrm{match}_j(i) = x(f(i), j) + \mathrm{match}_i(j)$;</li>
-                    <li>pretprocesiranje $O(|P|^{1.5})$: $x(i, 0)$ te $x(i', j)$ za dobro raspoređene posebne čvorove $i'$ (uključujući korijen) — podstabla veličine $\sqrt{n}$;</li>
-                    <li>$x(i, j)$: pomičemo se prema korijenu do prvog posebnog čvora ($\le \sqrt{n}$ koraka).</li>
-                </ul>
-            </li>
-            <li>Ukupno $O(|S| + |T| + |P|^{1.5})$.</li>
-        </ul>
+    <section class="naputci">
+        <h2>NAPUTCI</h2>
+        <details class="spoiler naputak">
+            <summary>Naputak 1<span class="spoiler-napomena">klikni za prikaz</span></summary>
+            <div class="spoiler-sadrzaj">
+                <p>Za svaki $k$: broj pojavljivanja $= \mathrm{occ}(S) + \mathrm{occ}(T) - (\text{pojavljivanja u } S \text{ koja } k \text{ razbija}) + (\text{nova pojavljivanja preko granica})$. Prva dva su konstante, treće je prefiksni zbroj nad početcima pojavljivanja u $S$ (KMP).</p>
+            </div>
+        </details>
+        <details class="spoiler naputak">
+            <summary>Naputak 2<span class="spoiler-napomena">klikni za prikaz</span></summary>
+            <div class="spoiler-sadrzaj">
+                <p>Nova pojavljivanja s $|P| \le |T|$ prelaze točno jednu granicu ($S[:k]|T$ ili $T|S[k:]$): za granicu lijevo treba prefiks $P$ koji je sufiks $S[:k]$ (KMP stanje i njegov lanac neuspjeha) uparen s odgovarajućim sufiksom $P$ koji je prefiks $T$ (Z-funkcija $P$ vs $T$). Za $|P| \gt |T|$ pojavljivanje može obuhvatiti cijeli $T$: treba brojati parove (prefiks $P$ na kraju $S[:k]$, sufiks $P$ na početku $S[k:]$) čije duljine zbrojene s $|T|$ daju $|P|$ i $T$ sjeda na sredinu — rješava se na stablima funkcija neuspjeha uz sqrt-dekompoziciju, $O(|P|^{1.5})$.</p>
+            </div>
+        </details>
+    </section>
 
+    <section class="trener">
+        <h2>TRENERSKI NAČIN: korak po korak</h2>
+        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <ol class="koraci">
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 1: rastavi doprinos</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Pojavljivanja u rezultatu: unutar $S[:k]$, unutar $T$, unutar $S[k:]$ (konstante uz prefiksne zbrojeve), ili preko granica. Razbijena pojavljivanja u $S$: ona s početkom $b$ takvim da $b \lt k \lt b + |P|$ — prefiksni zbroj indikatorskih početaka.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 2: jedna granica ($|P| \le |T|$)</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Pojavljivanje preko lijeve granice = prefiks $P$ duljine $\ell$ koji je sufiks $S[:k]$ i $P[\ell:]$ prefiks $T$. Skup takvih $\ell$ za $S[:k]$ je lanac funkcije neuspjeha iz KMP stanja $\pi_k$; skup $\ell$ za koje je $P[\ell:]$ prefiks $T$ je fiksan (iz Z-funkcije $P\#T$). Broj u presjeku: DP po lancu neuspjeha $\mathrm{cnt}[\ell] = \mathrm{cnt}[\mathrm{fail}(\ell)] + [\ell \text{ dobar}]$. Simetrično za desnu granicu s obrnutim nizovima.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 3: preko cijelog $T$ ($|P| \gt |T|$)</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Treba $\ell$ (prefiks $P$ na kraju $S[:k]$), $r$ (sufiks $P$ na početku $S[k:]$) s $\ell + |T| + r = |P|$ i $P[\ell : \ell + |T|] = T$ (pozicije gdje se $T$ pojavljuje u $P$, KMP). Par $(\ell, r)$ leži na lancima neuspjeha dvaju automata ($P$ i obrnuti $P$). Funkcija $x(i, j)$ = broj kompatibilnih parova na lancima iz $i$ i $j$; rekurzija $x(i,j) = x(i, g(j)) + \mathrm{match}$; sqrt-dekompozicija stabla neuspjeha: pretprocesiraj $x$ za $O(\sqrt{|P|})$ „posebnih” čvorova pa svaki upit skoči do najbližeg posebnog u $O(\sqrt{|P|})$ koraka.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Složenost</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>$O(|S| + |T| + |P|^{1.5})$; napomena: mnogi timovi prolaze i s jednostavnijim $O(|S|\cdot\sqrt{|P|})$ ili hashiranjem uz pažljivu implementaciju.</p>
+                    </div>
+                </details>
+            </li>
+        </ol>
+    </section>
+
+    <details class="spoiler rjesenje-spoiler">
+        <summary>RJEŠENJE<span class="spoiler-napomena">klikni za prikaz cijelog rješenja</span></summary>
+        <div class="spoiler-sadrzaj">
+            <div class="rjesenje">
+                <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
+                <p>Umetnuti $T$ u $S$ tako da broj pojavljivanja uzorka $P$ bude najveći.</p>
+                <ul>
+                    <li>Promatramo sva umetanja nakon $k$ znakova.</li>
+                    <li>Prebrojimo pojavljivanja $P$ u $S$ i u $T$, oduzmemo ona u $S$ koja umetanje razbija (KMP daje pozicije $P$ u $S$ i $T$) i dodamo nova pojavljivanja koja prelaze granice umetnutog $T$.</li>
+                </ul>
+                <h3>a) Mali uzorci, $|P| \le |T|$</h3>
+                <ul>
+                    <li>$p$ = duljina najduljeg prefiksa $P$ koji je sufiks $S[:k]$ (faza pretraživanja KMP-a).</li>
+                    <li>Postoji li odgovarajući sufiks $P$ (duljine $x = |P| - p$) na početku $T$? Odnosno: je li duljina najduljeg sufiksa $P$ koji završava u $T[L]$ (Z-algoritam) jednaka $L$?</li>
+                    <li>Unaprijed izračunamo podudaranja i za kraće prefikse (funkcija neuspjeha KMP-a).</li>
+                    <li>Simetrično za granicu između $T$ i $S[k:]$.</li>
+                    <li>$O(|S| + |T| + |P|)$.</li>
+                </ul>
+                <h3>b) Veliki uzorci, $|P| &gt; |T|$</h3>
+                <ul>
+                    <li>Pojavljivanje se može protezati preko cijelog $T$.</li>
+                    <li>Podudara li se $T$ s pomaknutim $P$? KMP pretraživanje $T$ u $P$.</li>
+                    <li>Koliko se prefiksa $P$ na kraju $S[:k]$ podudara sa sufiksima $P$ na početku $S[k:]$ (uz $T$ između)?
+                        <ul>
+                            <li>svi parovi kraćih prefiksa i sufiksa: $O(|S| \cdot |P|^2)$;</li>
+                            <li>samo kraći prefiksi: $O(|S| \cdot |P|)$ — kao kod malih uzoraka (Z-algoritam).</li>
+                        </ul>
+                    </li>
+                    <li>Stabla funkcija neuspjeha KMP-a $f(i)$ za $P$ i $g(j)$ za obrnuti $P$:
+                        <ul>
+                            <li>$x(i, j)$ = broj podudarnih čvorova (s ispravnim zbrojem duljina) na putevima od $i$ i $j$ do korijena;</li>
+                            <li>$x(i, j) = x(i, g(j)) + \mathrm{match}_j(i) = x(f(i), j) + \mathrm{match}_i(j)$;</li>
+                            <li>pretprocesiranje $O(|P|^{1.5})$: $x(i, 0)$ te $x(i', j)$ za dobro raspoređene posebne čvorove $i'$ (uključujući korijen) — podstabla veličine $\sqrt{n}$;</li>
+                            <li>$x(i, j)$: pomičemo se prema korijenu do prvog posebnog čvora ($\le \sqrt{n}$ koraka).</li>
+                        </ul>
+                    </li>
+                    <li>Ukupno $O(|S| + |T| + |P|^{1.5})$.</li>
+                </ul>
+            </div>
+        </div>
+    </details>
+
+    <div class="izvor">
         <h3>Izvor</h3>
         <p>Prijevod službene prezentacije rješenja CERC-a 2022 (Ljubljana, 27. 11. 2022): <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1070&amp;r=1">Solution Presentation (en)</a>. Izvornik je skup prezentacijskih slajdova s natuknicama, pa su i prijevodi rješenja u tom obliku. Tekst zadatka preveden je prema službenim <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1070&amp;r=0">engleskim tekstovima zadataka</a>. Zadatak je dostupan na <a href="https://contest.ucup.ac/contest/1070">Universal Cup Judging System</a>.</p>
     </div>
