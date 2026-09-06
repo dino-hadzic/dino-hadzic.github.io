@@ -12,6 +12,8 @@
         onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
     <link rel="stylesheet" href="../../../../assets/css/zadatak.css">
     <link rel="stylesheet" href="../../../../assets/css/pozadina.css">
+    <link rel="stylesheet" href="../../../../assets/css/trener.css">
+    <script src="../../../../assets/js/coach-mode.js"></script>
 </head>
 
 <body>
@@ -32,14 +34,76 @@
 
     <hr>
 
-    <div class="rjesenje">
-        <h2>RJEŠENJE:</h2>
-        <p>Zadatak se može riješiti linearnim programiranjem pa nabrajanjem zaokruživanja, kopiranjem ILP-rješavača ili heuristikama — ali to nije zamišljeno rješenje.</p>
-        <p>Zamišljeno rješenje je <b>znamenkasti DP</b>. Zadatak je u biti četverodimenzionalna naprtnjača; izravno rješavanje bilo bi barem $O(W^4)$, što je neprihvatljivo.</p>
-        <p>Umjesto toga vrijednosti $x_i$ fiksiramo bit po bit, od najvišeg prema najnižem, i bilježimo preostali volumen u četiri dimenzije. Ako je prije razmatranja $b$-tog bita preostali volumen neke dimenzije veći od $15$ (stvarni volumen je $15 \times 2^b + a_i \bmod 2^b$), ne može se popuniti ni ako za sve preostale bitove stavimo $x_i = 2^b - 1$. Tako dobivamo rješenje u $O(\log W \times 16^4)$, koje se zbog velike konstante teško uklapa u vremensko ograničenje.</p>
-        <p>Granica $15$ nije stroga. Primjerice, ako su brojevi podskupova $1, 1234, 12, 134$ pozitivni, uvijek se parovi $(1, 1234)$ i $(12, 134)$ mogu smanjiti odnosno povećati bez smanjenja odgovora. Dakle u optimalnom rješenju pri jednom bitu koristimo najviše 5 skupova, a gornja granica preostalih volumena spušta se na $9$, što je dovoljno za prolaz.</p>
-        <p>Suptilnijom analizom i stres-testom granica se može spustiti i na $7$.</p>
+    <section class="naputci">
+        <h2>NAPUTCI</h2>
+        <details class="spoiler naputak">
+            <summary>Naputak 1<span class="spoiler-napomena">klikni za prikaz</span></summary>
+            <div class="spoiler-sadrzaj">
+                <p>To je $k$-dimenzionalna neograničena naprtnjača s jednakostima ($k \le 4$, kapaciteti do $10^9$). Predmet $i$ je bitmaska koja dodaje 1 svakoj dimenziji iz maske. Klasični DP po volumenu ne dolazi u obzir.</p>
+            </div>
+        </details>
+        <details class="spoiler naputak">
+            <summary>Naputak 2<span class="spoiler-napomena">klikni za prikaz</span></summary>
+            <div class="spoiler-sadrzaj">
+                <p>Znamenkasti DP po bitovima od najvišeg: odlučuj bit $b$ svakog $x_i$; preostali volumen u svakoj dimenziji, izražen u jedinicama $2^b$, ostaje malen (ako je $\gt 15$, ne može se popuniti nižim bitovima). Uz zamjenske argumente (u optimumu se pri jednom bitu koristi $\le 5$ različitih maski) granica pada na $\approx 9$, stanje $\le 10^4$.</p>
+            </div>
+        </details>
+    </section>
 
+    <section class="trener">
+        <h2>TRENERSKI NAČIN: korak po korak</h2>
+        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <ol class="koraci">
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 1: ILP je mali po dimenziji, velik po volumenu</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Nepoznanica je $15$ (za $k=4$), ograničenja $4$, ali $a_j \le 10^9$. Rješenje LP relaksacije + zaokruživanje nije garantirano; treba egzaktnu strukturu: bitovi od $x_i$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 2: bit-po-bit s ograničenim prijenosom</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Zapiši $x_i = \sum_b x_{i,b}2^b$. Zbroj po dimenziji $j$: $\sum_b 2^b \sum_{i \ni j} x_{i,b} = a_j$. Obrađuj bitove od najvišeg: nakon odluke bitova $\ge b$, preostali $rem_j = a_j - \sum_{b' \ge b} 2^{b'}(\cdots)$ mora biti nenegativan i ostvariv s bitovima $\lt b$: najviše $8$ maski sadrži $j$, svaka doprinosi $\le 2^b - 1$, pa $rem_j \lt 8\cdot 2^b$; službeno rješenje reže pri $rem_j/2^b \gt 15$. Stanje: vektor od 4 malih brojeva.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 3: zamjenski argument smanjuje stanja</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Ako su na istom bitu odabrane maske $S$ i $T$, možemo ih zamijeniti s $S\cap T$ i $S \cup T$ (isti zbroj po dimenzijama) — jedno od toga ne pogoršava cilj, pa optimum bira maske koje čine lanac; lanac u $\{0,1\}^4$ ima $\le 5$ članova (uključujući razmatranje parova), što spušta granicu $rem_j/2^b$ na $9$, dovoljno za $O(\log W \cdot 10^4 \cdot 15)$ po testu.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Algoritam</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>DP od najvišeg bita ($\approx 30$): stanje $(r_0..r_3)$, $r_j \le 9$; prijelaz: za svaku masku odluči $x_{i,b} \in \{0,1\}$ (ili $\le$ granice) — enumeracija lanaca maski; nova stanja $2(r_j) + \text{bit}(a_j, b) - \#\{i \ni j : x_{i,b}=1\}$. Cilj: $\max \sum c_i x_i$ akumulirano s $2^b$. Odgovor u stanju $(0,0,0,0)$ nakon bita $0$.</p>
+                    </div>
+                </details>
+            </li>
+        </ol>
+    </section>
+
+    <details class="spoiler rjesenje-spoiler">
+        <summary>RJEŠENJE<span class="spoiler-napomena">klikni za prikaz cijelog rješenja</span></summary>
+        <div class="spoiler-sadrzaj">
+            <div class="rjesenje">
+                <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
+                <p>Zadatak se može riješiti linearnim programiranjem pa nabrajanjem zaokruživanja, kopiranjem ILP-rješavača ili heuristikama — ali to nije zamišljeno rješenje.</p>
+                <p>Zamišljeno rješenje je <b>znamenkasti DP</b>. Zadatak je u biti četverodimenzionalna naprtnjača; izravno rješavanje bilo bi barem $O(W^4)$, što je neprihvatljivo.</p>
+                <p>Umjesto toga vrijednosti $x_i$ fiksiramo bit po bit, od najvišeg prema najnižem, i bilježimo preostali volumen u četiri dimenzije. Ako je prije razmatranja $b$-tog bita preostali volumen neke dimenzije veći od $15$ (stvarni volumen je $15 \times 2^b + a_i \bmod 2^b$), ne može se popuniti ni ako za sve preostale bitove stavimo $x_i = 2^b - 1$. Tako dobivamo rješenje u $O(\log W \times 16^4)$, koje se zbog velike konstante teško uklapa u vremensko ograničenje.</p>
+                <p>Granica $15$ nije stroga. Primjerice, ako su brojevi podskupova $1, 1234, 12, 134$ pozitivni, uvijek se parovi $(1, 1234)$ i $(12, 134)$ mogu smanjiti odnosno povećati bez smanjenja odgovora. Dakle u optimalnom rješenju pri jednom bitu koristimo najviše 5 skupova, a gornja granica preostalih volumena spušta se na $9$, što je dovoljno za prolaz.</p>
+                <p>Suptilnijom analizom i stres-testom granica se može spustiti i na $7$.</p>
+            </div>
+        </div>
+    </details>
+
+    <div class="izvor">
         <h3>Izvor</h3>
         <p>Prijevod službenog rješenja autora Yuhaa Dua: <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1195&amp;r=1">Tutorial (en)</a>. Tekst zadatka preveden je prema službenim <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1195&amp;r=0">engleskim tekstovima zadataka</a>. Zadatak je dostupan na <a href="https://contest.ucup.ac/contest/1195">Universal Cup Judging System</a>.</p>
     </div>

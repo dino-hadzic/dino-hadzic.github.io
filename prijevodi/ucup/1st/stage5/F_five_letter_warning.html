@@ -12,6 +12,8 @@
         onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
     <link rel="stylesheet" href="../../../../assets/css/zadatak.css">
     <link rel="stylesheet" href="../../../../assets/css/pozadina.css">
+    <link rel="stylesheet" href="../../../../assets/css/trener.css">
+    <script src="../../../../assets/js/coach-mode.js"></script>
 </head>
 
 <body>
@@ -30,20 +32,82 @@
 
     <hr>
 
-    <div class="rjesenje">
-        <h2>RJEŠENJE:</h2>
-        <p>Tražimo podnizove oblika <code>ab?ba</code>. Duljina niza je do $10^6$, a alfabet ima oko $100$ znakova, pa moramo izbjeći i vrijeme $|s| \cdot 100^2$ i memoriju $|s| \cdot 100$.</p>
-        <p>Prolazimo niz slijeva nadesno i održavamo:</p>
-        <ul>
-            <li>$dp_1[a]$ — broj podnizova <code>a</code>,</li>
-            <li>$dp_2[a][b]$ — broj podnizova <code>ab</code>,</li>
-            <li>$dp_3[a][b]$ — broj podnizova <code>ab?</code>,</li>
-            <li>$dp_4[a][b]$ — broj podnizova <code>ab?b</code>.</li>
-        </ul>
-        <p>$dp_1$ i $dp_2$ ažuriramo izravno: za trenutačni znak $c$ vrijedi $dp_2[a][c] \mathrel{+}= dp_1[a]$ za sve $a$, zatim $dp_1[c] \mathrel{+}= 1$.</p>
-        <p>Stanje $dp_3[a][b]$ ne možemo ažurirati za sve parove pri svakom znaku (bilo bi $100^2$ po znaku). Umjesto toga ažuriramo ga lijeno, tek pri sljedećem pojavljivanju znaka $b$: broj novih podnizova <code>ab?</code> nastalih od zadnjeg pojavljivanja $b$ jednak je $dp_2[a][b] \cdot (i - \mathrm{last}_b)$, gdje je $\mathrm{last}_b$ pozicija prethodnog pojavljivanja $b$ (i to prije nego što $dp_2[a][b]$ promijenimo). Time se po znaku obavlja samo $O(100)$ posla.</p>
-        <p>Analogno, $dp_4[a][b] \mathrel{+}= dp_3[a][b]$ kad se pojavi $b$, a odgovor uvećavamo za $dp_4[a][b]$ kad se pojavi $a$. Ključno je stanja ažurirati u ispravnom redoslijedu (od dužih prema kraćima) kako se isti znak ne bi iskoristio dvaput. Ukupno $O(|s| \cdot |\Sigma|)$ vremena i $O(|\Sigma|^2)$ memorije.</p>
+    <section class="naputci">
+        <h2>NAPUTCI</h2>
+        <details class="spoiler naputak">
+            <summary>Naputak 1<span class="spoiler-napomena">klikni za prikaz</span></summary>
+            <div class="spoiler-sadrzaj">
+                <p>Traže se podnizovi oblika <code>ab?ba</code>. Prolaz slijeva s tablicama $dp_1[a]$, $dp_2[a][b]$, $dp_3[a][b]$ (<code>ab?</code>), $dp_4[a][b]$ (<code>ab?b</code>).</p>
+            </div>
+        </details>
+        <details class="spoiler naputak">
+            <summary>Naputak 2<span class="spoiler-napomena">klikni za prikaz</span></summary>
+            <div class="spoiler-sadrzaj">
+                <p>$dp_3$ se ne smije ažurirati za sve parove pri svakom znaku; ažuriraj lijeno kad se ponovno pojavi $b$: $dp_3[a][b] \mathrel{+}= dp_2[a][b] \cdot (i - \mathrm{last}_b)$ (koristi staru vrijednost $dp_2$). Redoslijed ažuriranja: od duljih stanja prema kraćima. $O(|s| \cdot |\Sigma|)$.</p>
+            </div>
+        </details>
+    </section>
 
+    <section class="trener">
+        <h2>TRENERSKI NAČIN: korak po korak</h2>
+        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <ol class="koraci">
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 1: pet stanja</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Podniz duljine $5$ palindrom $\iff$ oblik <code>a b c b a</code> (c proizvoljan). Standardni automat-DP broji prefikse uzorka; problem su $|\Sigma|^2 \approx 10^4$ parova $(a,b)$ po znaku — $10^{10}$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Opažanje 2: zamjena „?” brojem pozicija</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Podniz <code>ab?</code> nastaje iz <code>ab</code> dodavanjem bilo koje kasnije pozicije. Umjesto da za svaki znak dodaš $dp_2[a][b]$ u $dp_3[a][b]$ za sve $a,b$, primijeti da se $dp_3[a][b]$ treba tek kad dođe sljedeći $b$: tada dodaj $dp_2[a][b] \times (\text{broj pozicija od prošlog } b)$. Tako se po znaku obrađuje $O(|\Sigma|)$ parova.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Algoritam: redoslijed</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Pri znaku $c$ na poziciji $i$, od duljih stanja prema kraćima: (1) <code>ab?ba</code> završava znakom $a = c$: $ans \mathrel{+}= \sum_b dp_4[c][b]$; (2) za sve $a$: lijeno dovrši $dp_3[a][c] \mathrel{+}= dp_2[a][c]\cdot(i - \mathrm{last}_c)$ (nove pozicije od prošlog $c$), zatim $dp_4[a][c] \mathrel{+}= dp_3[a][c]$; (3) $dp_2[a][c] \mathrel{+}= dp_1[a]$; (4) $dp_1[c] \mathrel{+}= 1$; $\mathrm{last}_c = i$. Sve modulo $M$ ($M$ ne mora biti prost — koristimo samo zbrajanje i množenje).</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Složenost</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>$O(|s| \cdot |\Sigma|)$ vremena, $O(|\Sigma|^2)$ memorije.</p>
+                    </div>
+                </details>
+            </li>
+        </ol>
+    </section>
+
+    <details class="spoiler rjesenje-spoiler">
+        <summary>RJEŠENJE<span class="spoiler-napomena">klikni za prikaz cijelog rješenja</span></summary>
+        <div class="spoiler-sadrzaj">
+            <div class="rjesenje">
+                <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
+                <p>Tražimo podnizove oblika <code>ab?ba</code>. Duljina niza je do $10^6$, a alfabet ima oko $100$ znakova, pa moramo izbjeći i vrijeme $|s| \cdot 100^2$ i memoriju $|s| \cdot 100$.</p>
+                <p>Prolazimo niz slijeva nadesno i održavamo:</p>
+                <ul>
+                    <li>$dp_1[a]$ — broj podnizova <code>a</code>,</li>
+                    <li>$dp_2[a][b]$ — broj podnizova <code>ab</code>,</li>
+                    <li>$dp_3[a][b]$ — broj podnizova <code>ab?</code>,</li>
+                    <li>$dp_4[a][b]$ — broj podnizova <code>ab?b</code>.</li>
+                </ul>
+                <p>$dp_1$ i $dp_2$ ažuriramo izravno: za trenutačni znak $c$ vrijedi $dp_2[a][c] \mathrel{+}= dp_1[a]$ za sve $a$, zatim $dp_1[c] \mathrel{+}= 1$.</p>
+                <p>Stanje $dp_3[a][b]$ ne možemo ažurirati za sve parove pri svakom znaku (bilo bi $100^2$ po znaku). Umjesto toga ažuriramo ga lijeno, tek pri sljedećem pojavljivanju znaka $b$: broj novih podnizova <code>ab?</code> nastalih od zadnjeg pojavljivanja $b$ jednak je $dp_2[a][b] \cdot (i - \mathrm{last}_b)$, gdje je $\mathrm{last}_b$ pozicija prethodnog pojavljivanja $b$ (i to prije nego što $dp_2[a][b]$ promijenimo). Time se po znaku obavlja samo $O(100)$ posla.</p>
+                <p>Analogno, $dp_4[a][b] \mathrel{+}= dp_3[a][b]$ kad se pojavi $b$, a odgovor uvećavamo za $dp_4[a][b]$ kad se pojavi $a$. Ključno je stanja ažurirati u ispravnom redoslijedu (od dužih prema kraćima) kako se isti znak ne bi iskoristio dvaput. Ukupno $O(|s| \cdot |\Sigma|)$ vremena i $O(|\Sigma|^2)$ memorije.</p>
+            </div>
+        </div>
+    </details>
+
+    <div class="izvor">
         <h3>Izvor</h3>
         <p>Prijevod službene analize zadataka (rukom pisane prezentacije s razjašnjenja zadataka): <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1111&amp;r=1">Analysis (en)</a>. Tekst zadatka preveden je prema službenim <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1111&amp;r=0">engleskim tekstovima zadataka</a>. Zadatak je dostupan na <a href="https://contest.ucup.ac/contest/1111">Universal Cup Judging System</a>.</p>
     </div>
