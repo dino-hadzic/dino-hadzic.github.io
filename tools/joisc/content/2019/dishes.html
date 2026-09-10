@@ -1,0 +1,169 @@
+@@ meta
+naslov = Dva jela
+engleski = Two Dishes
+oznake = monotoni put u mreži N×M, nagrada ovisi samo o stupcu/retku u trenutku koraka (X_i, Y_j binarnim pretraživanjem), pretvorba nagrada za stupce u „kazne po retku” (−Q_j u retku Y_j+1 za stupce ≤ j−1), DP po retcima kao prefiks-max, održavanje razlika d_j ≥ 0, Add/Decrease s kaskadom u std::map, amortizirano O((N+M) log), dodavanja prije smanjenja
+autor_analize = SORTREEW
+
+@@ zadatak
+<h1>Dva jela</h1>
+<p><i>Two Dishes</i> — JOI Spring Camp 2019, dan 2.</p>
+<p>Jelo A ima $N$ koraka (trajanja $A_i$), jelo B ima $M$ koraka ($B_j$); koraci svakog jela idu redom, bez prekida i bez pauza, uz proizvoljno preplitanje. Ako $i$-ti korak A završi do trenutka $S_i$, dobiva se $P_i$ bodova (može biti negativno); ako $j$-ti korak B završi do $T_j$, dobiva se $Q_j$. Maksimiziraj zbroj bodova.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N,M\le10^6$; $A_i,B_j\le10^9$; $S_i,T_j\le2\cdot10^{15}$; $|P_i|,|Q_j|\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(5) $N,M\le2\cdot10^5$, svi $S_i=T_j$ jednaki.</li>
+    <li>(3) $N,M\le12$, $P_i=Q_j=1$.</li>
+    <li>(7) $N,M\le2000$, $P_i=Q_j=1$.</li>
+    <li>(39) $N,M\le2\cdot10^5$, $P_i=Q_j=1$.</li>
+    <li>(11) $N,M\le2\cdot10^5$, $P_i,Q_j\ge1$.</li>
+    <li>(9) $P_i,Q_j\ge1$.</li>
+    <li>(17) $N,M\le2\cdot10^5$.</li>
+    <li>(9) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>4 3
+2 1 1
+3 8 1
+2 13 1
+1 13 1
+3 6 1
+2 11 1
+2 15 1</pre></div>
+    <div><h4>Izlaz</h4><pre>6</pre></div>
+</div>
+
+@@ rjesenje
+<h2>1. Put u mreži</h2>
+<p>Stanje $(i,j)$ = obavljeno $i$ koraka A i $j$ koraka B; korak A = pomak dolje, korak B = pomak desno; put od $(0,0)$ do $(N,M)$. Vrijeme je određeno stanjem: $\mathrm{SA}_i+\mathrm{SB}_j$ (prefiksne sume). Korak $A_i$ izveden u stupcu $j$ donosi $P_i$ iff $\mathrm{SB}_j\le S_i-\mathrm{SA}_i$, tj. iff $j\le X_i$ ($X_i$ binarnim pretraživanjem; $X_i=-1$ nikad, $X_i=M$ uvijek). Slično, korak $B_j$ u retku $i$ donosi $Q_j$ iff $i\le Y_j$.</p>
+<p>$O(NM)$ DP po mreži daje podzadatke do 3: $dp[i][j]=\max(dp[i-1][j]+[j\le X_i]P_i,\ dp[i][j-1]+[i\le Y_j]Q_j)$.</p>
+
+<h2>2. Sve nagrade kao „uvjet na stupac pri silasku”</h2>
+<p>Nagrada $Q_j$ (pomak desno u stupcu $j$ u retku $\le Y_j$) ekvivalentna je: <b>silazak iz retka $Y_j$ u redak $Y_j+1$ dogodi se u stupcu $\ge j$</b> (put je monoton). Ako $Y_j\ge N$: uvijek — dodaj $Q_j$ u bazu. Ako $Y_j\lt0$ (kasni i s nula A-koraka): nikad. Inače: dodaj $Q_j$ u bazu i stavi <b>događaj</b> u redak $Y_j+1$: „ako je stupac silaska $\le j-1$, dobij $-Q_j$”. A-nagrade su već događaji: u retku $i$, „ako je stupac $\le X_i$, dobij $P_i$”.</p>
+<p>Sada je sve: put ide dolje u retku $i$ u stupcu $j$ i skuplja $E_i(j)=\sum_{\text{događaji }(c,w)\text{ retka }i,\ j\le c}w$; pomaci desno su besplatni.</p>
+
+<h2>3. DP po retcima = prefiks-max</h2>
+<p>$g_i(j)$ = najbolja vrijednost ako silazimo iz retka $i-1$ u redak $i$ u stupcu $j$. Tada</p>
+<p class="formula">$g_{i+1}(j)=\max_{j'\le j}\bigl(g_i(j')+E_i(j')\bigr),\qquad g_1\equiv0,\qquad \text{odgovor}=\text{baza}+\max_j\bigl(g_N(j)+E_N(j)\bigr).$</p>
+<p>$g$ je nepadajuća (prefiks-max). Držimo $g(0)$ i razlike $d_j=g(j)-g(j-1)\ge0$, samo nenul $d_j$ u <code>std::map</code>. Događaj $(c,w)$ = dodaj $w$ na prefiks $[0,c]$: $g(0)\mathrel{+}=w$, $d_{c+1}\mathrel{-}=w$ (ako $c+1\le M$).</p>
+<ul>
+    <li>$w\lt0$ (<b>Add</b>): $d_{c+1}$ raste — ostaje $\ge0$, ništa više.</li>
+    <li>$w\gt0$ (<b>Decrease</b>): $d_{c+1}$ bi mogao pasti pod 0; prefiks-max to popravlja kaskadno: $v=w$; idi po prvom $y\ge c+1$ s $d_y\gt0$: ako $d_y\ge v$, $d_y\mathrel{-}=v$, kraj; inače $v\mathrel{-}=d_y$, obriši $d_y$, nastavi. Ako ponestane pozicija, ostatak se gubi.</li>
+</ul>
+<p><b>Redoslijed u retku:</b> prvo svi Add, pa svi Decrease (kaskada je prefiks-max, a on smije komutirati samo s nepadajućim dodatcima — vidi trenerski umetak). Amortizacija: svaki Add stvara $\le1$ nenul $d$; svaka kaskada briše one koje prođe; ukupno $O((N+M)\log(N+M))$. Na kraju $g(M)=g(0)+\sum d$.</p>
+<p class="trener-umetak"><b>Zašto Add prije Decrease.</b> Točan prijelaz je $\mathrm{pm}(g+E)$ gdje je $E$ zbroj svih događaja retka i $\mathrm{pm}$ prefiks-max. Kaskadno „Decrease” izvodi $\mathrm{pm}$ odmah. Vrijedi $\mathrm{pm}(\mathrm{pm}(F)+a)=\mathrm{pm}(F+a)$ za <i>nerastuće</i> $a$ (dodavanje pozitivnog $w$ na prefiks): $\mathrm{pm}(F)(j)+a(j)=F(j^*)+a(j)\le F(j^*)+a(j^*)$. Za neopadajuće $a$ (negativan $w$) to <b>ne</b> vrijedi: $g=[0,0]$, prvo $+3$ na $[0,0]$ → $[3,3]$, pa $-5$ na $[0,0]$ → $[-2,3]$; a $\mathrm{pm}([0,0]+[3,0]+[-5,0])=[-2,0]$. Zato negativne prvo.</p>
+
+<h2>Podzadatak 1</h2>
+<p>Svi rokovi jednaki: bitno je samo koliko koraka svakog jela stane do roka; za svaki broj $a$ A-koraka najveći $b$ binarnim pretraživanjem (i obrnuto), maksimiziraj zbroj prefiksa. $O(N\log M+M\log N)$.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Mreža</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Vrijeme ovisi samo o $(i,j)$; nagrada koraka ovisi samo o tome „gdje je drugo jelo”. Nacrtaj pragove $X_i$ (po retcima) i $Y_j$ (po stupcima).</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Jedna vrsta događaja</summary>
+        <div class="spoiler-sadrzaj">
+            <p>„Desni pomak u stupcu $j$ iznad retka $Y_j$” = „silazak u retku $Y_j+1$ desno od $j-1$”. Uzmi $Q_j$ unaprijed i kazni suprotno.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Razlike umjesto vrijednosti</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Prefiks-max nepadajuće funkcije + dodatak na prefiksu: razlike se mijenjaju u $O(1)$ mjesta, s kaskadom kod negativnih razlika. Amortiziraj.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Decrease prije Add u istom retku → WA (protuprimjer u rješenju).</li>
+        <li>Indeksi $\pm1$: događaj za $Q_j$ ide u redak $Y_j+1$ sa stupcem $c=j-1$; A-događaj u redak $i$ s $c=X_i$; razlika koja se mijenja je $d_{c+1}$.</li>
+        <li>$Y_j\ge N$ ili $X_i\ge M$: čista baza, bez događaja; $X_i\lt0$ / $Y_j\lt0$: preskoči.</li>
+        <li>Zbrojevi do $2\cdot10^{15}$ i bodovi do $2\cdot10^{15}$ — 64-bit.</li>
+        <li>$N,M=10^6$: čitanje ulaza brzo; <code>map</code> je OK, ali izbjegni nepotrebne alokacije.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Zadatak, podzadatak 1, pregled">
+    <s n="1">Naslov; SORTREEW.</s>
+    <s n="2">Pročitajte zadatak.</s>
+    <s n="3">Podzadatak 1: svi rokovi jednaki → važan je samo broj koraka svakog jela do roka; fiksiraj broj karija, binarno traži broj donburija (i obrnuto). $O(N\log M+M\log N)$.</s>
+    <s n="4">Puno podzadataka: 12 / 2000 / 200 000 / 10⁶ × ($P,Q=1$ / pozitivni / bez ograničenja).</s>
+</slajdovi>
+
+<slajdovi from="5" to="9" vrsta="koraci" naslov="Mreža i O(NM) DP">
+    <s n="5">Nema praznina, koraci su fiksni ⇒ dobiva li se nagrada ovisi samo o tome koliko je drugo jelo napredovalo.</s>
+    <s n="6">Mreža $N\times M$: crte između redaka/stupaca; prolazak crtom donosi $P_i$/$Q_j$; maksimalan put gore-lijevo → dolje-desno. Tablica dosega binarnim pretraživanjem.</s>
+    <s n="7">Podzadatak 2: sve kombinacije, $O(2^{N+M})$.</s>
+    <s n="8">Podzadatak 3: DP po mreži.</s>
+    <s n="9">$DP[n][m]=\max(DP[n-1][m]+f_1,\ DP[n][m-1]+f_2)$; $O(NM)$. Ovo bi svi trebali uzeti.</s>
+</slajdovi>
+
+<h2>Pozitivni P, Q <span class="bodovi">4–6: 59 bodova</span></h2>
+<slajdovi from="10" to="20" vrsta="koraci" naslov="Tablica razlika">
+    <s n="10">Ograničenja prevelika za DP, ali ne vidi se ništa drugo — pogledajmo tablicu.</s>
+    <s n="11">$DP[n][m]-DP[n][m-1]$ se malo mijenja po retcima (primjer 1); iz nje se DP rekonstruira.</s>
+    <s n="12">Malo promjena ⇒ recikliraj tablicu retka $n-1$ za redak $n$ i „lijeno” ažuriraj.</s>
+    <s n="13">Drugi primjer: iste opažene malene promjene razlika.</s>
+    <s n="14">Kako to uočiti? DP je jedan od dva izraza; $f_1,f_2$ imaju po dvije vrijednosti ⇒ razlike se malo mijenjaju.</s>
+    <s n="15">Ako lijevo od polja ima crta, $DP[n][m]-DP[n][m-1]=Q[m]$. Slučajno?</s>
+    <s n="16">Razlog: vodoravnu crtu bolje je proći što lijevije (odgodi dok se nagrada još može uzeti).</s>
+    <s n="17">Pa i $DP[n][m]-DP[n][m-1]-Q[m]$ se malo mijenja…</s>
+    <s n="18">…ali gubi nenegativnost; tamo gdje nema crte lijevo stavi običnu razliku (i dalje rekonstruktivno).</s>
+    <s n="19">Tablica.</s>
+    <s n="20">Tablica.</s>
+</slajdovi>
+
+<slajdovi from="21" to="31" vrsta="koraci" naslov="Kako ažurirati razlike">
+    <s n="21">Kako ažurirati (teški dio)?</s>
+    <s n="22">Ekstremni primjer za odvajanje vertikalnih i horizontalnih promjena.</s>
+    <s n="23">Definicija Diff: s crtom lijevo $=DP-DP-Q[m]=0$; bez $=DP[n][m]-DP[n][m-1]$.</s>
+    <s n="24">Kad nestane vertikalna crta: Diff dolje-desno od nje dobiva $+Q[m]$ (izraz se samo promijeni).</s>
+    <s n="25">Kad nestane horizontalna crta u $(n,m)$: ako $DP[n][m]-DP[n][m-1]\ge P[n]$, $DP[n][m]$ ostaje, $DP[n][m-1]$ raste za $k$ → Diff pada za $k$.</s>
+    <s n="26">Grubo: ako je razlika $\lt k$, prijelaz postaje „slijeva”; višak se propagira desno.</s>
+    <s n="27">Detaljno: $DP[n][m]=DP[n][m-1]+f$; Diff postaje 0.</s>
+    <s n="28">Dalje sve vrijednosti slijeva rastu ⇒ ponovi argument s $Q[m]-\mathrm{diff}$ umjesto $Q[m]$.</s>
+    <s n="29">Složenost: dodavanja $O(M)$; smanjenja s propagacijom amortizirano $O(N+M)$ (svaki prolaz briše polja).</s>
+    <s n="30">Pozicije u <code>set</code>: ukupno $O((N+M)\log(N+M))$.</s>
+    <s n="31">Podzadaci 4–5: samo jedna razina propagacije → samo $P,Q=1$; s intervalnim stablom umjesto razlika → samo $2\cdot10^5$.</s>
+</slajdovi>
+
+<h2>Puno rješenje <span class="bodovi">7–8: 26 bodova</span></h2>
+<slajdovi from="32" to="42" vrsta="koraci" naslov="Negativne nagrade: Add i Decrease">
+    <s n="32">Bez ograničenja na predznak: treba ispravno rukovati Diffom kad crta nestane.</s>
+    <s n="33">Vertikalna crta ($Q\gt0$) nestane: Diff dolje-desno $+Q$ (prijelaz odozgo mora proći crtu, slijeva ne).</s>
+    <s n="34">Za pozitivne isto; za negativne: gdje je prije padalo sad raste i obrnuto.</s>
+    <s n="35">Redak: $P_i\gt0$ nestane → smanjenje (s propagacijom); $P_i\lt0$ → dodavanje.</s>
+    <s n="36">Stupac: $Q_j\gt0$ nestane → dodavanje; $Q_j\lt0$ → smanjenje (s propagacijom).</s>
+    <s n="37">Asimetrija nije redak/stupac nego predznak (jer je Diff $\ge0$).</s>
+    <s n="38">Operacije: Add$(x,v)$; Decrease$(x,v)$: ako $\mathrm{diff}[x]\lt v$, postavi 0 i nastavi na sljedećem $y\gt x$ s $v-\mathrm{diff}[x]$; inače oduzmi.</s>
+    <s n="39">Redak $i$: $P_i\gt0$ → Decrease$(x,P_i)$; $P_i\lt0$ → Add$(x,-P_i)$.</s>
+    <s n="40">Stupac $j$: $Q_j\gt0$ → Add$(x,Q_j)$; $Q_j\lt0$ → Decrease$(x,-Q_j)$.</s>
+    <s n="41">Iz crta i tablice razlika rekonstruiraj $DP[N][M]$; amortizirano $O((N+M)\log(N+M))$.</s>
+    <s n="42">Implementacija: operacije na poljima i na crtama → puno $\pm1$. Po retku razdvoji dodavanja i smanjenja: <b>dodavanja prvo</b>, inače WA.</s>
+</slajdovi>
+
+<slajdovi from="43" to="43" naslov="Statistika">
+    <s n="43">15 bodova: 11; 10: 5; 0: 2; 3: 1; 54: 1; 65: 1.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Mreža $(i,j)$; pragovi $X_i,Y_j$; B-nagrade pretvori u kazne pri silasku.</li>
+        <li>$g_{i+1}=\mathrm{pm}(g_i+E_i)$; drži nenegativne razlike u mapi; Add / Decrease s kaskadom.</li>
+        <li>Add prije Decrease; $O((N+M)\log)$.</li>
+    </ul>
+</div>

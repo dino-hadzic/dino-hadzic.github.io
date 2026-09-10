@@ -1,0 +1,134 @@
+@@ meta
+naslov = Teleporter 2
+engleski = Teleporter 2
+oznake = intervali [S_i,T_i), najveći broj uzastopnih teleporta = maksimalan skup disjunktnih intervala = min broj probadajućih točaka (dualnost), odaberi K „ražnjića”, plati intervale između susjednih, F(l,r)=Σ C_j za l<S_j, T_j≤r je Monge, monotone minima O(KN log N), Aliens/Lagrange po broju ražnjića + lijeno segmentno stablo (dodaj na prefiks, min) O(N log N log(N·maxC))
+autor_analize = blackyuki
+
+@@ zadatak
+<h1>Teleporter 2</h1>
+<p><i>Teleporter 2</i> — JOI 2025/2026 Final Stage, dan 2.</p>
+<p>Točke $1..N$ na jednosmjernoj stazi. Uređaj $i$ teleportira s $S_i$ na $T_i$ ($S_i\lt T_i$). Bitaro kreće s 1 prema $N$; u točki $j$ hoda na $j+1$ ili koristi uređaj sa $S_i=j$. Uništavanje uređaja $i$ košta $C_i$. Najmanji ukupni trošak takav da <b>ni na jednoj ruti</b> Bitaro ne teleportira više od $K$ puta.</p>
+<h3>Ograničenja</h3>
+<p>$2\le N\le10^5$, $1\le K\le M\le10^5$, $C_i\le10^9$.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(5) $K=1$.</li>
+    <li>(3) $N,M\le20$.</li>
+    <li>(29) $N,M\le500$.</li>
+    <li>(23) $N,M\le4000$.</li>
+    <li>(24) $N,M\le40\,000$.</li>
+    <li>(16) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<pre>8 4 1
+1 4 3
+2 3 5
+3 6 2
+5 8 2</pre>
+<p>Izlaz <code>4</code>: uništi uređaje 3 i 4; s uređajima $1\to4$ i $2\to3$ nikad ne teleportira dvaput. (S uređajima 1 i 4 mogao bi: $1\to4$, hodaj do 5, $5\to8$.)</p>
+
+@@ rjesenje
+<h2>Preformulacija i dualnost</h2>
+<p>Uređaj $=$ poluotvoreni interval $[S_i,T_i)$; Bitaro može uzeti uređaje $i$ pa $j$ ⇔ $T_i\le S_j$ ⇔ intervali su disjunktni. Najveći broj teleporta na ruti = najveći skup <b>disjunktnih</b> intervala (interval scheduling). Dualno: to je jednako <b>najmanjem broju točaka („ražnjića”)</b> koje probadaju sve intervale ($p\in[S_j,T_j)$): greedy po $T$ bira interval, stavi ražnjić u $T-1$, izbaci probodene — broj ražnjića = broj odabranih disjunktnih intervala, a manje ražnjića očito ne može. Dakle: <b>odaberi $K$ ražnjića</b> i plati sve intervale koje nijedan ne probada.</p>
+
+<h2>Podzadaci 1–3 <span class="bodovi">37</span></h2>
+<ul>
+    <li><b>$K=1$:</b> jedan ražnjić $p$; trošak = $\sum C_j$ po intervalima s $p\notin[S_j,T_j)$ = ukupno − (zbroj probodenih); prefiksne sume, $O(N+M)$.</li>
+    <li><b>$N,M\le20$:</b> bitmaska.</li>
+    <li><b>$N,M\le500$:</b> dodaj ražnjiće-stražare $0$ i $N+1$. Za odabrane $0=p_1\lt\dots\lt p_{K+2}=N+1$ trošak je $\sum F(p_t,p_{t+1})$, gdje $F(l,r)=\sum\{C_j: l\lt S_j,\ T_j\le r\}$ (intervali strogo između). $dp[k][r]=\min_l dp[k-1][l]+F(l,r)$; $F$ iz 2D prefiksnih suma u $O(1)$: $O(KN^2)$. (Bez dualnosti: DP po greedy-odabranim intervalima, prijelaz $i\to j$ plaća intervale $i\lt j'\lt j$ sa $S_{j'}\ge T_i$.)</li>
+</ul>
+
+<h2>Monge i monotone minima <span class="bodovi">60</span></h2>
+<p>$F$ je <b>Monge</b>: doprinos jednog intervala je $[l\lt S_j]\cdot[r\ge T_j]$, produkt nerastuće funkcije u $l$ i neopadajuće u $r$, pa za $a\lt b$, $c\lt d$: $F(a,c)+F(b,d)\le F(a,d)+F(b,c)$ (produkt $(x_a-x_b)(y_c-y_d)\le0$); zbroj Monge funkcija je Monge. Zato je optimalni $l$ za $dp[k][r]$ neopadajući u $r$ ⇒ <b>monotone minima</b> (podijeli-pa-vladaj po $r$) računa sloj u $O(N\log N)$: ukupno $O(KN\log N)$.</p>
+
+<h2>Aliens (Lagrange) <span class="bodovi">100</span></h2>
+<p>Monge ⇒ optimum $g(K)$ je <b>konveksan u $K$</b>. Dodaj kaznu $\lambda$ po ražnjiću i makni ograničenje broja: $h(\lambda)=\min_{\text{skup}}(\text{trošak}+\lambda\cdot\#)$. Binarno traži $\lambda\in[0,\sum C]$ tako da optimalan broj ražnjića bude $K$ (uz dogovor za izjednačenja); odgovor $h(\lambda)-\lambda K$. Jedno računanje $h$: 1D DP $dp[r]=\min_{l\lt r}\big(dp[l]+F(l,r)\big)+\lambda$ slijeva nadesno; vrijednosti $dp[l]+F(l,r)$ za sve $l$ drži u <b>lijenom segmentnom stablu</b>: kad $r$ dosegne $T_j$, dodaj $C_j$ na sve $l\lt S_j$ (prefiks); upit = globalni min. Alternative: set susjednih razlika („klizni minimum”), ili običan segment razlika s max prefiksne sume (kao u Dangu). Vrijeme $O(N\log N\log(N\max C))$ — s dobrom konstantom 100, inače podzadatak 5.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Što je zapravo „najviše $K$ teleporta na svakoj ruti”?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Najveći skup disjunktnih intervala $[S,T)$ ima $\le K$ članova ⇔ postoji $K$ točaka koje probadaju sve preostale intervale.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Cijena između susjednih ražnjića</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Uništeni su intervali koji stanu strogo između: $F(l,r)$. Je li $F$ Monge? (Da — zbroj indikatora „pravokutnika”.)</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Skini $K$</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Konveksnost po $K$ dopušta Aliens; unutra DP s dodavanjem na prefiks i globalnim minimumom.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zatvoreni umjesto poluotvorenih intervala: $T_i=S_j$ <b>jest</b> lančano.</li>
+        <li>Aliens: pri izjednačenju biraj konzistentno (npr. najmanji broj ražnjića) i uzmi $\lambda$ na granici; odgovor $h(\lambda)-\lambda K$ vrijedi i kad točno $K$ nije postignut.</li>
+        <li>Ražnjić u točki $N$ ili $0$ ne probada ništa korisno — stražari $0$ i $N+1$ su fiksni, a $K$ pravih se biraju iz $1..N-1$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Zadatak">
+    <s n="1">Naslov; blackyuki.</s>
+    <s n="2">Podzadatak 0: pregled.</s>
+    <s n="3">Poluotvoreni intervali $[S_i,T_i)$; uništavanjem (trošak $C_i$) postići da je odgovor interval schedulinga $\le K$.</s>
+    <s n="4">$N,M\le10^5$, $C\le10^9$.</s>
+</slajdovi>
+
+<h2>Mali podzadaci <span class="bodovi">37</span></h2>
+<slajdovi from="5" to="15" vrsta="koraci" naslov="K=1, bitmaska, DP s dualnošću">
+    <s n="5">Podzadatak 1: $K=1$.</s>
+    <s n="6">„Odgovor 1” ⇔ $\max S_i\lt\min T_i$; za svaki $j$ zbroj $C_i$ sa $S_i\le j\lt T_i$ prefiksnim sumama; $O(N+M)$.</s>
+    <s n="7">Alternativa — dualnost: „odgovor $K$” ⇔ treba $K$ ražnjića da se probodu svi intervali; za $K=1$ isto rješenje.</s>
+    <s n="8">Podzadatak 2.</s>
+    <s n="9">Bitmaska; 3 boda.</s>
+    <s n="10">Podzadatak 3.</s>
+    <s n="11">Greedy interval schedulinga: sortiraj po $T$ (pa $S$); dodaj stražare $(-1,0,\infty)$ i $(N,N+1,\infty)$.</s>
+    <s n="12">Da greedy odabere $0=i_1\lt\dots\lt i_k=M+1$: između $i_1$ i $i_2$ obriši sve $j$ koje bi greedy uzeo — $i_1\lt j\lt i_2$ i $S_j\ge T_{i_1}$.</s>
+    <s n="13">$dp[k][i]$: gledano do $i$, odabrano $k$ intervala s $i$ zadnjim; prijelaz 2D prefiksima $O(1)$; $O(KM^2)$.</s>
+    <s n="14">Dualno: ražnjići $0$ i $N+1$ fiksni; za $0=i_1\lt\dots\lt i_k=N+1$ trošak prijelaza $i_1\to i_2$ = $\sum C_j$ za $i_1\lt S_j\lt T_j\le i_2$.</s>
+    <s n="15">Sličan DP, 2D prefiksi, $O(KN^2)$.</s>
+</slajdovi>
+
+<h2>Monge <span class="bodovi">60</span></h2>
+<slajdovi from="16" to="22" vrsta="koraci" naslov="Monotone minima">
+    <s n="16">Podzadatak 4.</s>
+    <s n="17">Dualna verzija; $F[i_1][i_2]$ = zbroj troškova intervala strogo između — Monge.</s>
+    <s n="18">Definicija Monge (tatyam).</s>
+    <s n="19">Dokaz: doprinos jednog intervala je Monge, zbroj Monge funkcija je Monge.</s>
+    <s n="20">Ubrzanje DP-a Monge svojstvom (JOISC 2023 chorus).</s>
+    <s n="21">$f(k,r)$ = optimalni $l$ za $dp[k+1][r]$ neopadajući u $r$ ⇒ monotone minima; $O(KN\log N)$.</s>
+    <s n="22">Alternativa: inline DP s lijenim segmentnim stablom (teška konstanta); moguće i bez lijenog — vidi podzadatak 6.</s>
+</slajdovi>
+
+<h2>Aliens <span class="bodovi">100</span></h2>
+<slajdovi from="23" to="29" vrsta="koraci" naslov="Lagrangeova relaksacija">
+    <s n="23">Podzadaci 5–6.</s>
+    <s n="24">Alien DP (tatyam).</s>
+    <s n="25">Dodaj $X$ na svaki brid i računaj najkraći put brzo: (1) lijeno stablo dodaj-na-interval/max, (2) starry sky tree, (3) <code>std::set</code> razlika susjednih točaka s brisanjem nepotrebnih (kao klizni minimum).</s>
+    <s n="26">(4) običan segment nad razlikama i max prefiksne sume — „jeste li ponovili jučerašnji zadatak?”</s>
+    <s n="27">$O(N\log N\log(N\max C))$; s dobrom konstantom 100, inače podzadatak 5.</s>
+    <s n="28">Raspodjela bodova.</s>
+    <s n="29">84: 1, 60: 3, 37: 7, 32: 5, 8: 7, 3: 4, 0: 3.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Dualnost: umjesto ograničiti disjunktne intervale, odaberi $K$ probadajućih točaka i plati sve između susjednih.</li>
+        <li>Cijena je Monge ⇒ monotone minima; konveksnost po $K$ ⇒ Aliens s lijenim segmentnim stablom.</li>
+    </ul>
+</div>

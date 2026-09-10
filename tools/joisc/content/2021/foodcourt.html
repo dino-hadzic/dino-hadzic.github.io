@@ -1,0 +1,174 @@
+@@ meta
+naslov = Restoranski centar
+engleski = Food Court
+oznake = segmentno stablo, lijena propagacija, kompozicija operatora, offline, sweep
+autor_analize = Hiraki Kōsuke
+
+@@ zadatak
+<h1>Restoranski centar</h1>
+<p><i>Food Court</i> — JOI Spring Camp 2021, dan 1.</p>
+<p>U nizu je $N$ restorana, ispred svakoga red (queue). Postoji $M$ grupa. Dogodi se $Q$ događaja:</p>
+<ul>
+    <li><b>Pridruživanje</b> ($T_i = 1$; $L_i, R_i, C_i, K_i$): u red svakog restorana $L_i..R_i$ na kraj stane $K_i$ osoba iz grupe $C_i$.</li>
+    <li><b>Odlazak</b> ($T_i = 2$; $L_i, R_i, K_i$): iz reda svakog restorana $L_i..R_i$ odlazi prvih $K_i$ osoba (ili sve, ako ih je manje).</li>
+    <li><b>Posluživanje</b> ($T_i = 3$; $A_i, B_i$): ako red restorana $A_i$ ima barem $B_i$ osoba, $B_i$-ta osoba od početka dobiva desert — ispiši njezinu grupu; inače ispiši $0$.</li>
+</ul>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N, M, Q \le 250\,000$; $1 \le K_i \le 10^9$; $1 \le B_i \le 10^{15}$; postoji barem jedno posluživanje.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(2) $N, Q \le 2000$; $K_i = 1$.</li>
+    <li>(5) $N, Q \le 2000$.</li>
+    <li>(7) $N, Q \le 65\,000$; u pridruživanjima $R_i - L_i \le 10$ i $K_i = 1$.</li>
+    <li>(21) $M = 1$.</li>
+    <li>(15) $N, Q \le 65\,000$; $K_i = 1$.</li>
+    <li>(13) $N, Q \le 65\,000$; nema odlazaka.</li>
+    <li>(26) $N, Q \le 65\,000$.</li>
+    <li>(11) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>3 5 7
+1 2 3 5 2
+1 1 2 2 4
+3 2 3
+2 1 3 3
+3 1 2
+1 2 3 4 2
+3 3 2</pre></div>
+    <div><h4>Izlaz</h4><pre>2
+0
+4</pre></div>
+</div>
+<p>Nakon prva dva događaja redovi su $()$, $(5,5,2,2,2,2)$, $(5,5)$; 3. osoba u redu 2 je iz grupe 2. Odlazak 3 osobe: $()$, $(2,2,2)$, $()$; red 1 nema 2 osobe → 0. Pridruživanje grupe 4: $()$, $(2,2,2,4,4)$, $(4,4)$; 2. u redu 3 je grupa 4.</p>
+
+@@ rjesenje
+<h2>Podijeli na dvije polovice</h2>
+<p><b>Prva polovica (podzadatak 4, $M = 1$):</b> koliko je osoba u redu $A$ u trenutku upita? Po duljinama redova događaji su: dodaj $K$ na $[L, R]$; oduzmi $K$ na $[L, R]$ pa uzmi $\max$ s $0$; točkasti upit. Svaki događaj je operator oblika $x \mapsto \max(x + a, b)$ (dodavanje: $a = K, b = -\infty$; odlazak: $a = -K, b = 0$). Ti se operatori <b>komponiraju</b>: nakon $(a_1, b_1)$ pa $(a_2, b_2)$ dobivamo $\max(x + a_1 + a_2, \max(b_1 + a_2, b_2))$ — opet isti oblik. Segmentno stablo s lijenim operatorima na intervalu (bez agregata, „dualno” stablo): pri primjeni na $[L, R]$ prvo spusti stare operatore s puta do rastavnih čvorova (jer kompozicija nije komutativna — na svakom putu korijen–list stariji operatori moraju biti ispod novijih), zatim komponiraj novi operator na rastavne čvorove; točkasti upit: komponiraj od lista prema korijenu i primijeni na $0$. $O(\log N)$ po događaju.</p>
+<p><b>Svođenje na slučaj bez odlazaka.</b> Za posluživanje na $A$ s traženim $B \le s$ (gdje je $s$ trenutna duljina reda): neka je $t$ ukupan broj osoba koje su se <i>ikad</i> pridružile redu $A$ do tog trenutka (obično zbrajanje na intervalu, točkasti upit). Odlasci uklanjaju samo s početka, pa je tražena osoba $\;r = t - s + B$-ta osoba koja se ikad pridružila redu $A$. Preostaje: <i>koje pridruživanje je donijelo $r$-tu osobu u red $A$?</i> — to je podzadatak 6.</p>
+<h2>Druga polovica (podzadatak 6)</h2>
+<p>Offline. Za svaki restoran drži skup neriješenih upita $(r, \text{id})$ sortiran po $r$; u segmentnom stablu (maksimum + dodavanje na interval) vrijednost $\mathrm{val}[A] = (\text{dosad pridruženo u } A) - r_{\min}(A)$, ili $-\infty$ ako nema upita. Prolazi pridruživanja kronološki: dodaj $K$ na $[L, R]$; dok je globalni maksimum $\ge 0$, nađi tu poziciju $A$: pridruživanje koje se upravo dogodilo sadrži $r_{\min}$-tu osobu → odgovor tog upita je $C$ tog pridruživanja; izbaci upit i postavi $\mathrm{val}[A] \mathrel{+}= r_{\text{stari}} - r_{\text{novi}}$ (ili $-\infty$). Svaki upit „ispali” točno jednom → $O((N + Q)\log N)$ ukupno.</p>
+<p><b>Zašto ispaljuje pravo pridruživanje:</b> $\mathrm{val}[A] \ge 0$ prvi put upravo kad kumulativni broj pridruženih dosegne $r$, tj. pridruživanjem koje sadrži $r$-tu osobu; kako je $r \le t$, to se dogodi najkasnije u trenutku upita.</p>
+<h2>Alternativa: sweep po restoranima</h2>
+<p>Zamijeni uloge: prolazi restorane $1..N$, a segmentno stablo je indeksirano <b>vremenom</b> (indeksom događaja). Događaj s intervalom $[L, R]$ „uključi” na poziciji svog indeksa kad stigneš do $L$ i isključi nakon $R$. Prva polovica: stablo čuva kompoziciju operatora — točkasta promjena, upit kompozicije na prefiksu $[0, q]$. Druga polovica: stablo zbroja $K$ po vremenu; traži najmanji $x$ s prefiksnim zbrojem $\ge r$ — <b>spust po stablu</b> u $O(\log Q)$ (binarno pretraživanje s upitom po prefiksu daje $\log^2$ i TLE za zadnji podzadatak). Paralelno binarno pretraživanje također radi, ali s dva logaritma.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Riješi $M = 1$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Tad je bitna samo duljina reda. Zapiši tri operacije kao operacije nad nizom duljina. Koja je od njih „neobična”?</p>
+                <p class="pitanje">$x \mapsto \max(x - K, 0)$. Pokaži da se $x \mapsto \max(x + a, b)$ komponira u isti oblik.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Odlasci uklanjaju samo s početka</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ako znaš trenutnu duljinu $s$ i ukupno ikad pridruženih $t$, koji je redni broj tražene osobe među <i>svima ikad pridruženima</i>? Time odlasci nestaju iz zadatka.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Tko je donio $r$-tu osobu?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Offline: znaš sva pitanja unaprijed. Prolazi pridruživanja kronološki i „čekaj” da kumulativni zbroj na poziciji dosegne prag. Kako pratiti sve pozicije istodobno? (max-stablo s dodavanjem na interval.)</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Lijeni operatori bez spuštanja (push-down): kompozicija $\max(x+a, b)$ nije komutativna — redoslijed je bitan.</li>
+        <li>Prekoračenje: zbrojevi do $2.5\cdot10^5 \cdot 10^9$, $B$ do $10^{15}$ — 64-bitni tipovi; $-\infty$ dovoljno malen, ali bez overflowa pri zbrajanju.</li>
+        <li>Više upita na istom restoranu — ne pretpostavljaj različite pozicije (drži sortirani skup po restoranu).</li>
+        <li>Odgovor $0$ kad $B > s$ — provjeri prije svođenja.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak i podzadaci">
+    <s n="1">Naslovni slajd: JOI 2021 Spring Camp, dan 1 — <i>Food Court</i>; analiza: Hiraki Kōsuke.</s>
+    <s n="2"><b>Sažetak.</b> $N$ redova; tri vrste upita kronološki: „pridruživanje” (push $K$ kopija broja $C$ u redove $L..R$), „odlazak” (pop $K$ iz redova $L..R$, ili do praznog), „posluživanje” (ima li red $A$ barem $B$ elemenata; ako da, ispiši $B$-ti).</s>
+    <s n="3">Podzadaci: (2) $O(NQ)$, $K = 1$; (5) $O(NQ)$; (7) uski push-evi po jedan; (21) $M = 1$; (15) $K = 1$; (13) bez pop-a; (26) $\log^2$; (11) $\log$.</s>
+    <s n="4">Prva tri podzadatka su izravna (označeno ✔).</s>
+    <s n="5">Svaki podzadatak može biti nit vodilja; konačnih rješenja je više. Prikazat ćemo dva.</s>
+</slajdovi>
+
+<h2>Prva polovica: duljine redova ($M = 1$) <span class="bodovi">21 bod</span></h2>
+<slajdovi from="6" to="20" vrsta="koraci" naslov="Dodavanje na interval i točkasti upit">
+    <s n="6">$M = 1$: svi brojevi su 1; posluživanje daje 1 ako red $A$ ima $\ge B$ elemenata, inače 0 → dovoljno znati duljinu reda $A$.</s>
+    <s n="7">Preformulacija po duljinama: pridruživanje′ = dodaj $K$ na $[L, R]$; odlazak′ = oduzmi $K$ na $[L, R]$ pa $\max$ s $0$; posluživanje′ = vrijednost na $[A]$.</s>
+    <s n="8">Bez $\max$ bio bi to poznati problem: dodavanje na interval, točkasti upit — „dualno segmentno stablo”.</s>
+    <s n="9">Primjer: dodaj 4 na $[1, 8]$.</s>
+    <s n="10">(Rastav intervala na čvorove.)</s>
+    <s n="11">Operator $+4$ zapisan u čvoru ✔.</s>
+    <s n="12">Dodaj 3 na $[4, 11]$ uz postojeće operatore $+4, +3, +6, +1, +2, +5$.</s>
+    <s n="13">Rastav intervala…</s>
+    <s n="14">…</s>
+    <s n="15">…</s>
+    <s n="16">Operatori na putu se spuštaju…</s>
+    <s n="17">… i komponiraju: $+3$ i $+6$ postaju $+10$…</s>
+    <s n="18">… vrijednosti se zapisuju u odgovarajuće čvorove.</s>
+    <s n="19">Konačno stanje ✔.</s>
+    <s n="20">To je „prva polovica” izvornog zadatka, tj. podzadatak 4.</s>
+</slajdovi>
+<slajdovi from="26" to="28" vrsta="koraci" naslov="Operator max(x + a, b)">
+    <s n="26">Riješimo prvu polovicu: dodaj $K$; oduzmi $K$ i $\max$ s 0; točkasti upit.</s>
+    <s n="27">Dualno segmentno stablo; za samo dodavanje operator je $x \leftarrow x + A$.</s>
+    <s n="28">Uzmimo operator $x \leftarrow \max(x + A, B)$: pridruživanje = $\max(x + K, -\infty)$, odlazak = $\max(x - K, 0)$. Dva se operatora komponiraju u isti oblik i vrijedi asocijativnost → riješeno.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kompozicija</b> „prvo $(a_1, b_1)$, zatim $(a_2, b_2)$”: $\max(\max(x + a_1, b_1) + a_2,\, b_2) = \max(x + a_1 + a_2,\ \max(b_1 + a_2, b_2))$, dakle $(a_1 + a_2,\ \max(b_1 + a_2, b_2))$. Nije komutativna, pa u lijenom stablu <i>obavezno</i> spuštaj operatore s puta prije nego upišeš novi (slajdovi 16–18 to i prikazuju). Pripazi na $-\infty + a$: koristi sentinel poput $-4\cdot10^{18}$ i ograniči zbroj ili tretiraj $-\infty$ posebno.</p>
+</div>
+
+<h2>Svođenje na slučaj bez odlazaka</h2>
+<slajdovi from="21" to="25" vrsta="koraci" naslov="Redni broj među svima ikad pridruženima">
+    <s n="21">Želimo $B$-ti element reda $A$ u trenutku upita; znamo duljinu $s$ ($\ge B$), tj. prva polovica je riješena.</s>
+    <s n="22">Broj elemenata koji su se <i>ikad</i> pridružili redu $A$ do tog trenutka, $t$, dobivamo dualnim stablom (dodavanje na interval, točkasti upit).</s>
+    <s n="23">Traženi element je $t - s + B$-ti koji se pridružio redu $A$ od početka → sveli smo na slučaj bez pop-a (podzadatak 6) — „druga polovica”.</s>
+    <s n="24">Plan: izračunaj duljinu u trenutku upita (prva polovica; podz. 4) → svedi na slučaj bez pop-a → riješi ga (druga polovica; podz. 6).</s>
+    <s n="25">Odavde postoji više rješenja.</s>
+</slajdovi>
+
+<h2>Druga polovica: bez odlazaka <span class="bodovi">13 bodova</span></h2>
+<slajdovi from="29" to="33" vrsta="koraci" naslov="Pragovi koji ispaljuju">
+    <s n="29">Radi jednostavnosti: sve pitane pozicije različite.</s>
+    <s n="30">Niz: na poziciji $A$ pitanoj za $B$-ti element vrijednost $-B$; nepitane pozicije $-\infty$. Prolazi pridruživanja kronološki: dodaj $K$ na pridružene pozicije; dok postoji pozicija s vrijednošću $\ge 0$, zapiši joj indeks upita i postavi $-\infty$.</s>
+    <s n="31">Pozicija prvi put postane $\ge 0$ upravo pridruživanjem koje sadrži $B$-ti element, pa je zapisano pridruživanje ono čiji element je odgovor.</s>
+    <s n="32">Time znamo iz kojeg pridruživanja dolazi odgovor → druga polovica riješena.</s>
+    <s n="33">Prva + druga polovica: $O(N + Q\log N)$ — puni bodovi.</s>
+</slajdovi>
+
+<h2>Alternativno rješenje: sweep po restoranima</h2>
+<slajdovi from="34" to="43" vrsta="koraci" naslov="Vrijeme kao os stabla">
+    <s n="34">Svi upiti su poznati unaprijed → obrađuj restorane redom, a „vremenska os” su indeksi upita. Podjela na polovice je ista.</s>
+    <s n="35">Prva polovica: na poziciju $[q]$ stavi/ukloni operator $x \leftarrow x + K$ ili $x \leftarrow \max(x - K, 0)$; traži kompoziciju operatora na $[0, q]$. Sad je to obično segmentno stablo (točkasta promjena, upit na intervalu).</s>
+    <s n="36">Druga polovica: na poziciju $[q]$ stavi/ukloni $K$; nađi najmanji $x$ s prefiksnim zbrojem $[0, x] \ge B$.</s>
+    <s n="37">Binarno pretraživanje na segmentnom stablu.</s>
+    <s n="38">Implementiraj zajedno s prvom polovicom…</s>
+    <s n="39">… TLE!</s>
+    <s n="40">Spust treba biti $O(\log N)$.</s>
+    <s n="41">Od korijena: ako lijevo dijete ima zbroj $\ge x$, idi lijevo; inače oduzmi zbroj lijevog djeteta od $x$ i idi desno; do lista.</s>
+    <s n="42">To je $O(\log N)$ → AC.</s>
+    <s n="43">Bez sweepa moguć je i paralelni binary search, ali s dva logaritma — vjerojatno bez punih bodova.</s>
+</slajdovi>
+<slajdovi from="44" to="45" naslov="Raspodjela bodova">
+    <s n="44">Raspodjela bodova.</s>
+    <s n="45">2 boda: 1; 7: 4; 14: 3; 21: 1; 27: 1; 35: 1; 89: 2; 100: 1.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Duljine redova: operatori $\max(x + a, b)$ se komponiraju → lijeno stablo s push-downom.</li>
+        <li>Odlasci nestaju: traži $t - s + B$-tu ikad pridruženu osobu.</li>
+        <li>Offline pragovi (max-stablo) ili sweep po restoranima s vremenskom osi i spustom po stablu.</li>
+    </ul>
+</div>

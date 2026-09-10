@@ -1,0 +1,212 @@
+@@ meta
+naslov = Sklapanje prijateljstava na Joitteru je zabavno
+engleski = Making Friends on Joitter is Fun
+oznake = union-find, spajanje manjeg u veće, grafovi, održavanje odgovora
+autor_analize = tozangezan
+
+@@ zadatak
+<h1>Sklapanje prijateljstava na Joitteru je zabavno</h1>
+<p><i>Making Friends on Joitter is Fun</i> — JOI Spring Camp 2020, dan 2.</p>
+<p>Na društvenoj mreži Joitter korisnik može <b>pratiti</b> drugoga (ne sebe, i svakoga najviše jednom); praćenje nije nužno uzajamno. $N$ korisnika počinje bez ikakvih praćenja. Tijekom $M$ dana, $i$-tog dana korisnik $A_i$ počne pratiti korisnika $B_i$.</p>
+<p>Joitter planira jednom održati <b>događaj druženja</b>, koji teče ovako:</p>
+<ol>
+    <li>Odaberi korisnika $x$.</li>
+    <li>Odaberi korisnika $y$ kojega $x$ trenutno prati.</li>
+    <li>Odaberi korisnika $z \ne x$ takvog da $x$ ne prati $z$, $y$ prati $z$ i $z$ prati $y$.</li>
+    <li>$x$ počne pratiti $z$.</li>
+    <li>Ponavljaj dok se ne može odabrati nijedna trojka $(x, y, z)$.</li>
+</ol>
+<p>Za svaki dan $i$ odredi <b>najveći mogući ukupan broj praćenja</b> (zbroj po svim korisnicima broja korisnika koje prate) nakon događaja druženja održanog neposredno nakon $i$-tog praćenja.</p>
+<h3>Ulaz</h3>
+<pre>N M
+A_1 B_1
+⋮
+A_M B_M</pre>
+<h3>Izlaz</h3>
+<p>$M$ redaka; u $i$-tom traženi broj za dan $i$.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$2 \le N \le 100\,000$, $1 \le M \le 300\,000$.</li>
+    <li>$A_i \ne B_i$; parovi $(A_i, B_i)$ su različiti.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(1 bod) $N \le 50$.</li>
+    <li>(16 bodova) $N \le 2000$.</li>
+    <li>(83 boda) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>4 6
+1 2
+2 3
+3 2
+1 3
+3 4
+4 3</pre></div>
+    <div><h4>Izlaz 1</h4><pre>1
+2
+4
+4
+5
+9</pre></div>
+    <div><h4>Ulaz 2</h4><pre>6 10
+1 2
+2 3
+3 4
+4 5
+5 6
+6 5
+5 4
+4 3
+3 2
+2 1</pre></div>
+    <div><h4>Izlaz 2</h4><pre>1
+2
+3
+4
+5
+7
+11
+17
+25
+30</pre></div>
+</div>
+<p>Dan 3 primjera 1: $2$ i $3$ prate jedno drugo, pa $1$ (koji prati $2$) počne pratiti $3$: ukupno $4$. Dan 6: $3 \leftrightarrow 4$ uzajamno; $1$ i $2$ počnu pratiti $4$, a $4$ počne pratiti $2$: ukupno $9$.</p>
+
+@@ rjesenje
+<h2>Što događaj zapravo radi</h2>
+<p>Ako $y \leftrightarrow z$ (uzajamno praćenje), svatko tko prati $y$ počne pratiti i $z$. Uzajamno povezani korisnici stoga se ponašaju kao jedan: <b>grupa</b> uzajamno povezanih korisnika (komponenta grafa uzajamnih bridova, uz zatvaranje) postaje klika u kojoj svatko prati svakoga, a ako netko izvan grupe prati bilo kojeg člana, prati sve članove. Nadalje, ako korisnik $x$ iz grupe $P$ prati grupu $Q$, a netko iz $Q$ prati $P$, tada $x$ prati sve u $Q$, a taj netko prati sve u $P$, i nastaju uzajamni parovi → $P$ i $Q$ se <b>spajaju</b> u jednu grupu. To može lančano izazvati nova spajanja.</p>
+<p>Odgovor u trenutku kad više nema spajanja:
+\[ \sum_{\text{grupe } G} |G|\,(|G|-1) \;+\; \sum_{\text{grupe } G} |G| \cdot \bigl|\{x \notin G : x \text{ prati } G\}\bigr| . \]</p>
+<p>Odgovor ne ovisi o redoslijedu izbora (događaj je zatvaranje pod pravilom), pa je „najveći mogući” samo taj jedinstveni ishod. Također, graf se svaki dan samo nadograđuje — ne treba počinjati ispočetka.</p>
+
+<h2>Struktura</h2>
+<p>Union-find za grupe. Za svaku grupu $G$ (korijen) čuvamo:</p>
+<ul>
+    <li><code>clanovi[G]</code> — skup članova;</li>
+    <li><code>prate[G]</code> — skup <i>korisnika</i> izvan $G$ koji prate $G$ (praćenje se broji jednom po korisniku);</li>
+    <li><code>iz[G]</code> — skup grupa iz kojih netko prati $G$; <code>u[G]</code> — skup grupa koje netko iz $G$ prati.</li>
+</ul>
+<p><b>Dodavanje brida $x \to y$.</b> $P = \mathrm{find}(x)$, $Q = \mathrm{find}(y)$. Ako $P = Q$ ili $x \in$ <code>prate[Q]</code>, ništa. Inače ubaci $x$ u <code>prate[Q]</code> (odgovor $+= |Q|$), $P$ u <code>iz[Q]</code>, $Q$ u <code>u[P]</code>. Ako je i $Q \in$ <code>iz[P]</code> (netko iz $Q$ prati $P$), stavi par $(P, Q)$ u <b>red</b> za spajanje.</p>
+<p><b>Spajanje (BFS po redu).</b> Uzmi par $(P, Q)$, zamijeni korijenima; ako su jednaki preskoči. Manju strukturu $S$ ulijevamo u veću $L$ (po ukupnoj veličini skupova). Skini stare doprinose obiju grupa iz odgovora, izbriši međusobne bridove ($S$ iz <code>iz[L]</code>, <code>u[L]</code> i obrnuto; korisnike iz $S$ iz <code>prate[L]</code> i obrnuto), zatim: članovi se spoje; <code>prate[S]</code> ulijemo u <code>prate[L]</code>; za svaku grupu $R \in$ <code>u[S]</code> zamijeni $S$ s $L$ u <code>iz[R]</code>, dodaj $R$ u <code>u[L]</code> i ako je $R \in$ <code>iz[L]</code> stavi $(L, R)$ u red; simetrično za $R \in$ <code>iz[S]</code>. Na kraju dodaj nove doprinose $|L|(|L|-1) + |L|\cdot|\mathrm{prate}[L]|$.</p>
+<p><b>Složenost.</b> Svaki element pri ulijevanju prelazi u bar dvostruko veću strukturu → $O((N + M)\log(N+M))$ premještanja, uz $\log$ za skupove: $O(M \log^2 M)$.</p>
+<p class="trener-napomena">Službena analiza staje na „samo spajaš komponente, manju u veću, $O(N\log^2 N)$ — ako dobro implementiraš”. Gornji opis je ta „dobra implementacija” raspisana; analiza preporučuje i pregled urednih AtCoder rješenja (npr. tutor nxteru).</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Simuliraj pravilo na malom primjeru</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Uzmi $A \to B \leftrightarrow C$. Što se dogodi? A ako je $A \to B \leftrightarrow C \leftrightarrow D$? Kad se pojavi i $C \to A$?</p>
+                <p class="pitanje">Zaključak: uzajamno povezani korisnici su „jedna osoba”; praćenje grupe u oba smjera između grupa stapa ih u jednu.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Napiši formulu za odgovor</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kad više nema spajanja, koliko bridova ima unutar grupe? Koliko iz jednog vanjskog pratitelja prema grupi? Zbroji.</p>
+                <p class="pitanje">$\sum |G|(|G|-1) + \sum |G|\cdot(\text{broj vanjskih pratitelja } G)$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 2: bilo kakva implementacija spajanja</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Union-find + skupovi bridova između grupa; svaki dan dodaj brid i spajaj dok ima što. $O(N^2\log N)$ je dovoljno za $N \le 2000$. Pripazi na lančana spajanja: koristi red (BFS), a ne rekurziju — rekurzija mijenja strukture usred iteracije.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 3: manje u veće</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Koje skupove treba premještati pri spajanju? Ako uvijek iteriraš po manjem, koliko puta jedan element može biti premješten? Pazi: „manji” mjeri veličinom skupova koje premještaš, ne brojem članova.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Brojati praćenja po (korisnik, član grupe) umjesto (korisnik, grupa) → dupliciranje kad korisnik već prati grupu.</li>
+        <li>Zaboraviti pri spajanju obrisati bridove <i>između</i> $S$ i $L$ (oni postaju unutarnji i ulaze u $|G|(|G|-1)$).</li>
+        <li>Rekurzivno spajanje (DFS) koje mijenja skup po kojem se iterira; koristi red.</li>
+        <li>Ne ažurirati <code>iz[R]</code>/<code>u[R]</code> susjednih grupa nakon promjene korijena → kasnije „nevidljiva” spajanja.</li>
+        <li>Odgovor ne stane u 32 bita? $N(N-1) \le 10^{10}$ → 64 bita.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="7" naslov="Uvod (i mala šala)">
+    <s n="1">Naslovni slajd: <i>Making Friends on Joitter is Fun</i>, analiza: tozangezan.</s>
+    <s n="2">Naslov zadatka s upitnikom.</s>
+    <s n="3"><i>Making Friends is Fun</i> — zadatak s JOI Spring Campa 2014.</s>
+    <s n="4"><i>Joitter</i> — zadatak s JOI kvalifikacija 2011.</s>
+    <s n="5">Dva stara zadatka preklopljena…</s>
+    <s n="6">…i mnogo upitnika: naslov je spoj dvaju starih naslova.</s>
+    <s n="7"><b>Sažetak.</b> Svaki dan u usmjereni graf dolazi po jedan brid; za svaki dan pitamo koliko bridova graf ima nakon ponavljanja operacije. Slika: $x \to y \leftrightarrow z$ daje novi (crveni) brid $x \to z$.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">1 bod</span></h2>
+<slajd n="8"><b>Osnovno.</b> Ne treba svaki dan graditi graf ispočetka: grafu s kojim smo izračunali jučerašnji odgovor samo dodamo novi brid. Traženje trojki i dodavanje bridova po definiciji → $O(N^3)$, 1 bod.</slajd>
+
+<h2>Opažanja</h2>
+<slajdovi from="9" to="11" vrsta="koraci" naslov="Grupe, bridovi među grupama, lančana spajanja">
+    <s n="9">Ako je $A \leftrightarrow B \leftrightarrow C$, nastaje $A \leftrightarrow C$: dva vrha s bridovima u oba smjera možemo <b>identificirati</b>. Koristimo union-find.</s>
+    <s n="10">Ako $x$ prati $y$, prati i sve ostale vrhove $y$-ove komponente. Zato brid pamtimo kao par (korisnik $x$, komponenta $A$).</s>
+    <s n="11">Jedno spajanje može lančano izazvati nova: parove za spajanje obrađujemo <b>BFS-om</b> (DFS bi „razbio” informacije o bridovima usred obrade). Slika: komponente $\{1\}$, $\{2\}$, $\{3\}$ → $\{1,2\}$, $\{3\}$ → novo spajanje.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">16 bodova</span></h2>
+<slajd n="12">Vrhove s bridovima u oba smjera držimo kao komponente union-finda; bridove među komponentama u <code>set</code>-ovima. Svaki dan dodaj brid i spajaj komponente. Uz urednu implementaciju $O(N^2\log N)$ ili $O(N^2)$; 17 bodova.</slajd>
+
+<h2>Podzadatak 3 <span class="bodovi">83 boda</span></h2>
+<slajd n="13">Zapravo samo spajamo komponente. Spajanjem <b>manje u veću</b> složenost pada: uz dobru implementaciju $O(N\log^2 N)$, 100 bodova.</slajd>
+<div class="trener-umetak">
+    <p><b>Što znači „dobra implementacija”.</b> Neka je za grupu $G$: $c_G$ = broj članova, $p_G$ = broj vanjskih korisnika koji prate $G$. Odgovor $= \sum_G c_G(c_G - 1) + c_G\,p_G$. Održavaj ga inkrementalno:</p>
+<pre><code>dodaj(x → y):
+  P = find(x), Q = find(y); ako P == Q: gotovo
+  ako x ∈ prate[Q]: gotovo
+  prate[Q] += x; ans += c_Q; iz[Q] += P; u[P] += Q
+  ako Q ∈ iz[P]: red.push((P, Q))
+  dok red nije prazan:
+    (P, Q) = red.pop(); P = find(P); Q = find(Q); ako P == Q: nastavi
+    spoji(P, Q)
+
+spoji(P, Q):   # S = manji (po |clanovi|+|prate|+|iz|+|u|), L = veći
+  ans -= c_S(c_S-1) + c_S p_S + c_L(c_L-1) + c_L p_L
+  za x ∈ clanovi[S]: prate[L] -= x ;  za x ∈ clanovi[L]: prate[S] -= x
+  iz[L] -= S; u[L] -= S; iz[S] -= L; u[S] -= L
+  union-find: roditelj[S] = L; clanovi[L] ∪= clanovi[S]
+  prate[L] ∪= prate[S]
+  za R ∈ u[S]:  iz[R] -= S; iz[R] += L; u[L] += R; ako R ∈ iz[L]: red.push((L, R))
+  za R ∈ iz[S]: u[R] -= S; u[R] += L; iz[L] += R; ako R ∈ u[L]:  red.push((L, R))
+  ans += c_L(c_L-1) + c_L p_L      # s novim c_L, p_L</code></pre>
+    <p>Napomena o brisanju „$x \in$ <code>clanovi</code>$[S]$ iz <code>prate</code>$[L]$”: to je iteracija po manjoj strani, pa ostaje unutar amortizacije. Ukupno je svaki korisnik ili grupa premješten $O(\log)$ puta, a svaka operacija nad <code>set</code>-om košta $O(\log)$: $O((N+M)\log^2)$. Ako želiš izbjeći <code>std::set</code>, koristi <code>unordered_set</code> ili sortirane vektore; s $M = 3\cdot 10^5$ i <code>set</code> prolazi u 2 s.</p>
+</div>
+
+<slajdovi from="14" to="20" naslov="Distribucija bodova i ponavljanje poruke">
+    <s n="14">Distribucija bodova.</s>
+    <s n="15">Stupci: $0$ bodova — $11$ sudionika, $1$ bod — $7$, $17$ bodova — $0$, $100$ bodova — $1$.</s>
+    <s n="16">Isti graf s velikim upitnikom: samo je jedan sudionik riješio zadatak.</s>
+    <s n="17">(Ponovljeni slajd.)</s>
+    <s n="18">Ponovno slajd podzadatka 3: „samo spajanje komponenata, manju u veću, $O(N\log^2 N)$ uz dobru implementaciju”.</s>
+    <s n="19">Naglasak na <b>„dobru”</b> (上手に) implementaciju.</s>
+    <s n="20">…i tekst prekriven upitnicima: „dobra implementacija” je upravo ono što je većini nedostajalo.</s>
+</slajdovi>
+
+<slajd n="21"><b>Primjer za 100 bodova.</b> Službeno rješenje s JOI stranice daje 100; još je poučnije pogledati čista i kratka rješenja na AtCoderu — spominje se posebno uredna implementacija tutora nxterua (<a href="https://atcoder.jp/contests/joisc2020/submissions/16220023" target="_blank" rel="noopener">AtCoder submission 16220023</a>).</slajd>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Uzajamno povezani korisnici čine grupu (kliku); praćenje jednoga člana = praćenje cijele grupe.</li>
+        <li>Praćenje između dviju grupa u oba smjera stapa ih; spajanja obradi redom (BFS).</li>
+        <li>Odgovor $\sum c_G(c_G-1) + c_G p_G$ održavaj inkrementalno; spajaj manje u veće za $O(M\log^2 M)$.</li>
+    </ul>
+</div>

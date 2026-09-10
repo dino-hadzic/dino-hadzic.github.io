@@ -1,0 +1,232 @@
+@@ meta
+naslov = IOI groznica
+engleski = IOI Fever
+oznake = geometrija, Dijkstra, sortiranje po klasama, simulacija događaja
+autor_analize = E869120
+
+@@ zadatak
+<h1>IOI groznica</h1>
+<p><i>IOI Fever</i> — JOI Spring Camp 2021, dan 1.</p>
+<p>U ravnini je $N$ kuća s različitim koordinatama $(X_i, Y_i)$; u svakoj živi građanin $i$. U trenutku $0$ svaki građanin bira jedan od smjerova istok/zapad/jug/sjever i kreće se njime brzinom $1$ zauvijek. Građanin $1$ je u trenutku $0$ zaražen IOI groznicom. Kad se zaraženi i nezaraženi građanin nađu na <b>istim koordinatama</b>, nezaraženi se zarazi (trajno). Drugih načina prijenosa nema.</p>
+<p>Odredi <b>najveći mogući broj zaraženih</b> u trenutku $10^{100}$ ako građani biraju smjerove najnepovoljnije.</p>
+<h3>Ulaz</h3>
+<pre>N
+X_1 Y_1
+⋮
+X_N Y_N</pre>
+<h3>Izlaz</h3>
+<p>Najveći mogući broj zaraženih.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N \le 100\,000$, $0 \le X_i, Y_i \le 5\cdot 10^8$, sve točke različite.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(5 bodova) $N \le 7$; svi $X_i$ različiti, svi $Y_i$ različiti.</li>
+    <li>(8 bodova) $N \le 15$; svi $X_i$ različiti, svi $Y_i$ različiti.</li>
+    <li>(6 bodova) $N \le 100$; svi $X_i$ različiti, svi $Y_i$ različiti; $(X_1, Y_1) = (0, 0)$.</li>
+    <li>(6 bodova) $N \le 100$; svi $X_i$ različiti, svi $Y_i$ različiti.</li>
+    <li>(12 bodova) $N \le 3000$.</li>
+    <li>(32 boda) Svi $X_i$ različiti, svi $Y_i$ različiti.</li>
+    <li>(31 bod) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>2
+0 0
+4 3</pre></div>
+    <div><h4>Izlaz 1</h4><pre>1</pre></div>
+    <div><h4>Ulaz 2</h4><pre>3
+1 2
+2 1
+4 3</pre></div>
+    <div><h4>Izlaz 2</h4><pre>3</pre></div>
+    <div><h4>Ulaz 3</h4><pre>2
+20 20
+20 21</pre></div>
+    <div><h4>Izlaz 3</h4><pre>2</pre></div>
+</div>
+<p>Primjer 2: građanin 1 ide istočno, 2 sjeverno, 3 zapadno. U $t = 1$ građani 1 i 2 su u $(2,2)$ → 2 se zarazi; u $t = 2$ građani 2 i 3 su u $(2, 3)$ → 3 se zarazi. Primjer 3: 1 ide sjeverno, 2 južno; sastaju se u $t = 0.5$.</p>
+
+@@ rjesenje
+<h2>1. Smjer svakoga je (gotovo) prisiljen</h2>
+<p>Postavi građanina 1 u ishodište. Zaraženi su u trenutku $t$ unutar <b>Manhattanske kugle</b> $|x| + |y| \le t$ (raste brzinom $1$, svi se kreću brzinom $1$). Građanin na $(x, y)$ koji ide <i>lijevo</i> ikad uđe u kuglu samo ako $|y| \le x$: za $t \le x$ treba $x + |y| - t \le t$, tj. $t \ge (x+|y|)/2$, što je $\le x$ točno kad $|y| \le x$; za $t > x$ uvjet je $|y| \le x$. Analogno: dolje samo ako $|x| \le y$, gore samo ako $|x| \le -y$, desno samo ako $|y| \le -x$. Ravnina se dijeli dijagonalama $y = \pm x$ na četiri regije; točka <b>strogo</b> unutar regije ima <b>jedan</b> mogući smjer (prema ishodištu, „preko širine” regije), točka <b>na dijagonali</b> ima dva.</p>
+<p>Dijagonale razriješi smjer građanina 1 (isprobaj sva 4, rotacijom svedi na „desno”). Ako 1 ide desno, zaraženi <b>na rubu kugle</b> mogu biti samo: građanin 1 na osi $+x$, građani s NE/SE dijagonale koji se kreću vertikalno nakon što ih 1 zarazi u $(a, 0)$, te građani s NW/SW dijagonale koji idu desno (nakon prelaska $x = 0$). Svi imaju $x \ge 0$. Građanin s dijagonale je do trenutka $|x|$ izvan kugle, a potom stalno <b>na rubu</b> — pa ga može zaraziti samo netko na rubu. Odatle: $(a, a)$ → dolje (lijevo bi ga odvelo na rub s $x < 0$, gdje nikad nema zaraženih), $(a, -a)$ → gore, $(-a, \pm a)$ → desno (vertikalno bi ostao na rubu s $x = -a < 0$).</p>
+<p><b>Pravilo</b> (građanin 1 ide desno, relativne koordinate): $x \le -|y|$ → desno; inače $y \ge |x|$ → dolje; inače $y \le -|x|$ → gore; inače → lijevo. Smjer „prema ishodištu“ ne pomaže ako nikad ne uđe u kuglu — takvi se ionako ne zaraze, pa im je izbor nevažan.</p>
+
+<h2>2. Simulacija: $O(N^2\log N)$</h2>
+<p>Dvoje se sudare najviše jednom: čeoni sudar na istom pravcu (isti $x$ ili isti $y$, suprotni smjerovi; u polovištu), ili okomiti sudar u kutu — moguće samo ako su na istoj dijagonali ($x - y$ jednak ili $x + y$ jednak) i oba idu prema kutu. Izračunaj sve sudare, sortiraj po vremenu, prolazi redom: ako je točno jedan zaražen, zarazi drugoga. To je podzadatak 5.</p>
+
+<h2>3. Dijkstra s valovima zaraze: $O(N\log N)$</h2>
+<p>$\mathrm{dist}[i]$ = trenutak zaraze. Zaražen $i$ nakon $\mathrm{dist}[i]$ putuje svojom polupravcem i uzrokuje <b>val</b> zaraze duž tri „klase” točaka ispred sebe (npr. za $i$ koji ide desno po retku $y = c$: lijevo-kretači u istom retku — čeoni; dolje-kretači na dijagonali $x - y = x_i - c$; gore-kretači na dijagonali $x + y = x_i + c$). U svakoj klasi sortiraj točke; iz $i$ binarnim pretraživanjem nađi <b>prvu</b> točku $k$ koju val stigne nakon $\mathrm{dist}[i]$ (npr. lijevo-kretač s $x_k - x_i \ge 2\,\mathrm{dist}[i]$, vrijeme $(x_k - x_i)/2$). Da bi val nastavio dalje, uvedi <b>stanja</b>: $(k, \text{smjer vala})$ — trenutak kad kroz točku sudara $k$ prolazi zaraženi val tog smjera. <b>Lančani bridovi</b> između susjednih točaka iste klase i istog smjera: $(k, \to) \to (k', \to)$ težine $(x_{k'} - x_k)/2$ (čeono) odnosno $x_{k'} - x_k$ (dijagonalno) — postoje neovisno o tome tko val nosi, jer nositelj vala nastavlja ravno. $\mathrm{dist}[k] = \min$ po stanjima $k$; iz $\mathrm{dist}[k]$ (osobna zaraza) kreću novi valovi u tri klase.</p>
+<p>Stanja $\le 4N$, lančanih bridova $O(N)$, dinamičkih bridova $O(N)$ (po jedan po klasi iz svake osobe, binarnim pretraživanjem): Dijkstra $O(N\log N)$. Pomnoži koordinate s $2$ da vremena budu cijela. Ponovi za 4 smjera građanina 1, uzmi maksimum broja konačnih $\mathrm{dist}$.</p>
+<p class="trener-napomena">Zašto lančani brid $(k,\to)\to(k',\to)$ ne griješi: on tvrdi samo da <i>isti</i> nositelj vala (zaražen desno-kretač) stiže do $k'$ nakon $k$ — točno, jer se nositelj ne zaustavlja. Ne tvrdi da $k$ zarazi $k'$ ($k$ ide u suprotnom smjeru). Zato su stanja po smjeru vala nužna; $\mathrm{dist}[k]$ sam po sebi ne smije se „lančati”.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Gdje zaraza može biti u trenutku $t$?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Svi idu brzinom 1. Dokaži: zaraženi su unutar $|x - X_1| + |y - Y_1| \le t$. Što slijedi za građanina koji se udaljava od $(X_1, Y_1)$?</p>
+                <p class="pitanje">Nikad se ne zarazi → svaki ima najviše 2 smisla smjera ($2^N$ za podzadatak 2).</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Suzi na jedan smjer</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Za točku strogo unutar jedne od četiri regije između dijagonala, provjeri koji od dva „približavajuća” smjera uopće uđe u kuglu. Za točke na dijagonali razmisli o rubu kugle: tko je na rubu i s koje strane?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Sudari</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Nabroji kad se dvije osobe s fiksnim smjerovima sudare: isti pravac suprotno; okomito samo na zajedničkoj dijagonali. Za $N \le 3000$ sortiraj sve sudare i simuliraj.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Od $N^2$ bridova do $N$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Iz zaraženog $i$ zaraza „putuje” njegovom zrakom; u svakoj klasi zarazi točke redom. Kako predstaviti „val koji nastavlja” bez brida na svaku točku? Trebaš li stanje po smjeru vala? Što bi pošlo po zlu da lančaš obične $\mathrm{dist}$ vrijednosti?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Vremena sudara su polucijela — udvostruči koordinate.</li>
+        <li>Sudar u „kutu” zahtijeva da <i>oboje</i> idu prema kutu (i da kut dosegnu nakon zaraze).</li>
+        <li>Točke na dijagonalama u podzadacima 6–7 (koordinate se mogu podudarati) — pravilo mora biti dosljedno s rotacijom.</li>
+        <li>Lančanje $\mathrm{dist}[k]$ umjesto stanja vala — daje prevelike odgovore.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Uvod">
+    <s n="1">Naslovni slajd: <i>IOI Fever</i>, analiza: E869120.</s>
+    <s n="2"><b>Sažetak.</b> Svatko bira jedan od 4 smjera i kreće se brzinom 1; tko dođe na iste koordinate kao zaraženi, zarazi se; početno je zaražen samo građanin 1. Najveći mogući konačni broj zaraženih?</s>
+    <s n="3">Ograničenja po podzadacima: $N \le 7, 15, 100, 100, 3000, 10^5, 10^5$; u podzadacima 1–4 i 6 sve koordinate različite; u 3 je $(X_1, Y_1) = (0,0)$.</s>
+    <s n="4">Plan izlaganja: uvod, podzadaci 1–6, puni bodovi.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">5 bodova</span></h2>
+<slajdovi from="5" to="15" vrsta="koraci" naslov="Iscrpno pretraživanje i simulacija događaja">
+    <s n="5">Mala ograničenja → prvo pomisli na iscrpno pretraživanje.</s>
+    <s n="6">Svaki građanin bira jedan od 4 smjera → $4^N$ kombinacija.</s>
+    <s n="7">$4^7 = 16384$ — može.</s>
+    <s n="8">Kako simulirati? Koordinate do $5\cdot10^8$ — ne možemo sekundu po sekundu.</s>
+    <s n="9">Napomena: „sudar” = dvoje na istim koordinatama.</s>
+    <s n="10">Izračunajmo „trenutak sljedeće zaraze”: parovi koji se mogu zaraziti u primjeru: (1,2), (1,3), (2,3).</s>
+    <s n="11">1 i 2 se sudaraju za 3 s.</s>
+    <s n="12">1 i 3 za 5 s.</s>
+    <s n="13">1 i 4 se ne sudaraju.</s>
+    <s n="14">Sljedeća zaraza: za 3 s.</s>
+    <s n="15">Provjera svih parova: $O(N^2)$ po koraku; zaraza se dogodi najviše $N-1$ puta → $O(N^3)$ po kombinaciji; ukupno $O(4^N N^3)$. 5 bodova.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">8 bodova</span></h2>
+<slajdovi from="16" to="23" vrsta="koraci" naslov="Samo prema građaninu 1">
+    <s n="16">Plan: podzadatak 2.</s>
+    <s n="17">$N \le 15$: možemo li smjerove suziti s 4 na 2?</s>
+    <s n="18"><b>Ključno svojstvo:</b> nakon $t$ sekundi zaraza je samo unutar Manhattanske udaljenosti $t$ od početnog položaja građanina 1 (slika širenja).</s>
+    <s n="19">Pitanje: što ako se građanin udaljava od početnog položaja građanina 1?</s>
+    <s n="20">Slika: građanin 2 se udaljava 0, 1, 2 s.</s>
+    <s n="21">Njegova Manhattanska udaljenost raste za 1 svake sekunde → nikad ne uđe u zaraženo područje!</s>
+    <s n="22"><b>Zaključak:</b> svatko ide prema građaninu 1; inače se nikad ne zarazi.</s>
+    <s n="23">Smjerova prema $(X_1, Y_1)$ ima najviše 2 → $2^N$ kombinacija × $O(N^3)$ simulacija; stane za $N \le 15$. Ukupno 13 bodova.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">6 bodova</span></h2>
+<slajdovi from="24" to="36" vrsta="koraci" naslov="Građanin 1 u ishodištu">
+    <s n="24">Plan: podzadatak 3.</s>
+    <s n="25">$N \le 100$: eksponencijalno ne prolazi. Promotrimo $(X_1, Y_1) = (0, 0)$. (Posebni slučajevi su općenito korisni za razmišljanje i kad nema takvog podzadatka.)</s>
+    <s n="26">Tada svi ostali optimalno idu dolje ili lijevo (nitko nije u lijevom-donjem području).</s>
+    <s n="27">Ponovno: nakon $t$ sekundi zaraza je unutar Manhattanske udaljenosti $t$.</s>
+    <s n="28">Što ako građanin 3 (ispod dijagonale) krene dolje? Trenutak 1: udaljenost…</s>
+    <s n="29">Trenutak 2…</s>
+    <s n="30">Trenutak 3…</s>
+    <s n="31">Trenutak 4…</s>
+    <s n="32">Manhattanska udaljenost mu se smanjuje sporije od rasta zaraženog područja tek nakon što prođe os — nikad ne uđe u područje!</s>
+    <s n="33"><b>Uvjeti</b> za $(X_1, Y_1) = (0,0)$: $X_i > Y_i$ → lijevo; $X_i < Y_i$ → dolje; $X_i = Y_i$ → okomito na smjer građanina 1.</s>
+    <s n="34">Slike: građanin 1 ide desno / gore.</s>
+    <s n="35">Kad je smjer građanina 1 zadan, svi ostali smjerovi su određeni; 1 ide gore ili desno → 2 simulacije × $O(N^3)$. Ukupno 19 bodova.</s>
+    <s n="36">Dodatak: u testovima ovog podzadatka, $X_i \ne Y_i$ → nikad zaražen; $X_i = Y_i$ → zaražen ako ide okomito na 1. Odgovor = broj $i \ge 2$ s $X_i = Y_i$ (10 redaka koda).</s>
+</slajdovi>
+
+<h2>Podzadatak 4 <span class="bodovi">6 bodova</span></h2>
+<slajdovi from="37" to="42" vrsta="koraci" naslov="Smjer građanina 1 određuje sve">
+    <s n="37">Plan: podzadatak 4.</s>
+    <s n="38">Možemo li proširiti svojstvo iz podzadatka 3 — određuje li smjer građanina 1 sve ostale smjerove?</s>
+    <s n="39">Da, određuje.</s>
+    <s n="40">Građanin 1 ide desno: područje iz podzadatka 3 (slika) proširujemo…</s>
+    <s n="41">… i smjerovi svih ostalih su jednoznačni (slika s četiri regije).</s>
+    <s n="42">Isto vrijedi za ostala tri smjera građanina 1; rotacija za $90^\circ$ pojednostavljuje implementaciju. Srodan zadatak: M-SOLUTIONS 2020 F „Air Safety”. Ukupno 25 bodova.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Dokaz jednoznačnosti</b> (slajd 41 daje samo sliku). Točka strogo unutar regije: samo jedan od dva „približavajuća” smjera ikad uđe u kuglu $|x|+|y| \le t$ (računica u <i>Rješenju</i>). Točka na dijagonali, npr. $(a, a)$ uz 1 koji ide desno: oba smjera dovode je na rub kugle u trenutku $a$ i drže je na rubu zauvijek. Na rubu kugle zaraženi su samo građanin 1 na $+x$ osi i oni koje je on ili lanac takvih zarazio krećući se „prema van”; svi imaju $x \ge 0$. Lijevo od $x = 0$ na rubu nema zaraženih, pa $(a,a)$ mora dolje (susret s 1 u $(a, 0)$), a $(-a, a)$ mora desno (može ga zaraziti gore-kretač s $(s, -s)$ u $(s, a)$ u trenutku $s + a$).</p>
+</div>
+
+<h2>Podzadatak 5 <span class="bodovi">12 bodova</span></h2>
+<slajdovi from="43" to="51" vrsta="koraci" naslov="Simulacija sortiranim sudarima">
+    <s n="43">Plan: podzadatak 5.</s>
+    <s n="44">Smjerovi su $O(1)$ kombinacija, ali simulacija $O(N^3)$ ne stane. Može li $O(N^2\log N)$?</s>
+    <s n="45"><b>Svojstvo:</b> dvoje se sudare najviše jednom. Sortiraj sudare po vremenu unaprijed.</s>
+    <s n="46">Primjer: sudari (3,4) u $t=1$, (1,2) u $t=2$, (1,4) u $t=5$. Trenutak 0.</s>
+    <s n="47">$t = 1$: 3 i 4 oboje nezaraženi → ništa.</s>
+    <s n="48">$t = 2$: 1 je zaražen → 2 se zarazi.</s>
+    <s n="49">$t = 5$: 1 zaražen → 4 se zarazi.</s>
+    <s n="50">Zaraženih: 3.</s>
+    <s n="51">Ukupno $O(N^2\log N)$; $N \le 3000$ prolazi s rezervom. (Podzadatak 6 preskačemo.) Ukupno 37 bodova.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">63 boda</span></h2>
+<slajdovi from="52" to="58" vrsta="koraci" naslov="Dijkstra i tri obrasca sudara">
+    <s n="52">Plan: puni bodovi.</s>
+    <s n="53">Treba simulacija u $O(N\log N)$.</s>
+    <s n="54"><b>Ideja:</b> svedi na najkraći put: $\mathrm{dist}[i]$ = prvi trenutak zaraze građanina $i$; Dijkstra.</s>
+    <s n="55">Naivna Dijkstra: izvadi $pos$; za svaki $j$ koji se sudara s $pos$ nakon $\mathrm{dist}[pos]$ u trenutku $t$, brid $pos \to j$ duljine $t - \mathrm{dist}[pos]$. $O(N^2\log N)$.</s>
+    <s n="56">Možemo li smanjiti broj bridova?</s>
+    <s n="57">Sudari se događaju u samo <b>3 obrasca</b>: [0] jednak $x - y$; [1] jednak $x + y$; [2] jednak $x$ ili $y$.</s>
+    <s n="58">Promotrimo samo obrazac [0].</s>
+</slajdovi>
+<slajdovi from="59" to="67" vrsta="koraci" naslov="Lančani bridovi i stanja po obrascu">
+    <s n="59">Za jednak $x - y$: „prije” (bridovi iz 1 na sve) i „poslije” (bridovi samo na susjeda) uz $\mathrm{dist}[1] = 0$.</s>
+    <s n="60">Isto uz $\mathrm{dist}[2] = 0$.</s>
+    <s n="61">Uz $\mathrm{dist}[1] = 3$.</s>
+    <s n="62">Uz $\mathrm{dist}[1] = 4$: bridovi $3 \to 4$, $4 \to 5$ itd. koriste se uvijek iznova → broj različitih bridova pada.</s>
+    <s n="63">Ako sve točke imaju isti $X_i - Y_i$, „poslije” koristi samo dvije vrste bridova: A. između susjednih točaka u poretku po $X$; B. iz $pos$ na prvu točku s kojom se sudari nakon $\mathrm{dist}[pos]$ (dinamički, ovisno o Dijkstri).</s>
+    <s n="64">A i B zajedno imaju $O(N)$ bridova.</s>
+    <s n="65">Time je riješen slučaj samo jednog obrasca. Za sva tri: stanje $\mathrm{dist}[pos][0/1/2]$ omogućuje „prelazak” između obrazaca.</s>
+    <s n="66">$\mathrm{dist}[pos][p]$ = prethodni brid bio je u smjeru obrasca $p$. Uz pravilno postavljene bridove obrađuju se i promjene obrasca/smjera (detalji izostavljeni zbog prostora).</s>
+    <s n="67">Dijkstra s $O(N)$ vrhova i bridova: $O(N\log N)$. Implementacija je zahtjevna — tutorsko rješenje 266 redaka. 100 bodova.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Izostavljeni detalji, konkretno.</b> Za osobu $k$ uvedi stanja $(k, d)$ za svaki od tri smjera $d \ne$ smjer($k$) — „val zaraze smjera $d$ prolazi kroz točku gdje bi val sudario $k$”. Za osobu $i$ zaraženu u $\mathrm{dist}[i]$ (smjer npr. desno, redak $y = c$):</p>
+    <ul>
+        <li>čeono: lijevo-kretači u retku $c$ sortirani po $x$; prvi $k$ s $x_k \ge x_i + 2\,\mathrm{dist}[i]$ → $(k, \to)$ s vremenom $(x_k - x_i)/2$;</li>
+        <li>dijagonala $x - y = x_i - c$: dolje-kretači sortirani po $x$; prvi s $x_k \ge x_i + \mathrm{dist}[i]$ → $(k, \to)$ s vremenom $x_k - x_i$;</li>
+        <li>dijagonala $x + y = x_i + c$: gore-kretači; isto.</li>
+    </ul>
+    <p>Lančani bridovi unaprijed: za susjedne $k, k'$ iste klase i istog smjera $(k, d) \to (k', d)$ s težinom „vrijeme da nositelj vala prijeđe od točke sudara $k$ do točke sudara $k'$”. $\mathrm{dist}[k] = \min_d \mathrm{dist}[k][d]$, a iz osobne zaraze $k$ pokreću se nova tri vala. Sve u jednoj Dijkstri nad $\le 4N$ stanja.</p>
+</div>
+<slajdovi from="68" to="70" naslov="Raspodjela bodova">
+    <s n="68">Raspodjela bodova.</s>
+    <s n="69">Prosjek 15.8, standardna devijacija 11.0 (na kampu).</s>
+    <s n="70">Histogram bodova.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Zaraza živi u Manhattanskoj kugli radijusa $t$; to prisiljava smjer svake osobe (uz smjer građanina 1 i za dijagonale).</li>
+        <li>Sudari: čeono na istom pravcu ili okomito na istoj dijagonali; sortirana simulacija je $O(N^2\log N)$.</li>
+        <li>Dijkstra s valovima: dinamički brid na prvu točku klase + lančani bridovi među susjedima, stanja po smjeru vala: $O(N\log N)$.</li>
+    </ul>
+</div>

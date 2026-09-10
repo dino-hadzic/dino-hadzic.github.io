@@ -1,0 +1,189 @@
+@@ meta
+naslov = JOI tura
+engleski = JOI Tour
+oznake = stablo, prebrojavanje puteva 0-1-2, diferencijsko ažuriranje, HLD, statičko top-stablo (rake/compress), centroidna dekompozicija, Eulerova tura + BIT
+tip = Interaktivni zadatak (joitour.cpp)
+autor_analize = tatyam
+
+@@ zadatak
+<h1>JOI tura</h1>
+<p><i>JOI Tour</i> — JOI Spring Camp 2024, dan 3.</p>
+<p>Stablo s $N$ gradova; grad $i$ ima restoran tipa $F_i\in\{0,1,2\}$ (sok, omlet, sladoled). Dobra tura je trojka $(i_0,i_1,i_2)$ tipova $0,1,2$ takva da putovanje $i_0\to i_1\to i_2$ najkraćim putevima <b>ne prolazi istom cestom dvaput</b> (tj. $i_1$ leži na putu $i_0$–$i_2$). $Q$ promjena tipa; nakon inicijalizacije i nakon svake promjene vrati broj dobrih tura.</p>
+<ul>
+    <li><code>void init(int N, std::vector&lt;int&gt; F, std::vector&lt;int&gt; U, std::vector&lt;int&gt; V, int Q)</code></li>
+    <li><code>void change(int X, int Y)</code> — novi tip različit od starog; <code>long long num_tours()</code> — $Q+1$ puta.</li>
+</ul>
+<h3>Ograničenja</h3>
+<ul><li>$3\le N\le200\,000$; $0\le Q\le50\,000$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $N\le400$, $Q\le100$.</li>
+    <li>(8) $N\le4\,000$, $Q\le1\,000$.</li>
+    <li>(6) $Q=0$.</li>
+    <li>(16) Put: $U_j=j$, $V_j=j+1$.</li>
+    <li>(16) Potpuno binarno stablo: $U_j=\lfloor j/2\rfloor$, $V_j=j+1$.</li>
+    <li>(34) $N\le100\,000$, $Q\le25\,000$.</li>
+    <li>(14) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<p><code>init(3, [0,1,2], [0,1], [1,2], 2)</code>; <code>num_tours()</code> → 1; <code>change(2,0)</code>; <code>num_tours()</code> → 0; <code>change(0,2)</code>; <code>num_tours()</code> → 1 (tura $(2,1,0)$).</p>
+
+@@ rjesenje
+<h2>Statički odgovor</h2>
+<p>Trojka je dobra iff je $i_1$ na putu $i_0$–$i_2$. Fiksiraj $i_1$ (tip 1): $i_0$ i $i_2$ moraju biti u <b>različitim smjerovima</b> od $i_1$: $\#0\cdot\#2 - \sum_{\text{smjer}}\#0_{d}\cdot\#2_{d}$. Broj nula/dvojki po smjerovima = veličine podstabala i komplement → $O(N)$ ukupno (podzadatak 3). <b>Diferencijalno</b> (podzadatak 2): pri promjeni $X$ oduzmi ture koje koriste $X$, promijeni, dodaj nove; ture s $X$ kao 0: DFS iz $X$ zbraja broj jedinica na putu do svake dvojke; $O(N)$ po upitu.</p>
+
+<h2>Spajanje klastera <span class="bodovi">put, binarno stablo, općenito</span></h2>
+<p>Za put: segmentno stablo; čvor pamti $c_0,c_1,c_2$, broj uređenih parova $0\text{-}1$, $1\text{-}2$, $1\text{-}0$, $2\text{-}1$ i broj puteva $0\text{-}1\text{-}2$ (obje orijentacije). Generalizacija na stablo: klaster = skup vrhova s <b>gornjim</b> vrhom (i za segmente teškog puta <b>donjim</b>). Podaci klastera:</p>
+<ul>
+    <li>$c_0,c_1,c_2$; $p_1$ = broj jedinica <b>na hrptu</b> (put gornji–donji);</li>
+    <li>$a_{10}$ = broj parova (jedinica $u$, nula $v$) gdje je $u$ na putu od gornjeg vrha do $v$; $a_{12}$ analogno;</li>
+    <li>$d_{10}, d_{12}$ = isto, ali od <b>donjeg</b> vrha;</li>
+    <li>$\mathit{ans}$ = broj tura unutar klastera.</li>
+</ul>
+<p><b>Compress</b> ($P_1$ iznad $P_2$ na istom teškom putu): $a_{10}=a_{10}^1+a_{10}^2+p_1^1c_0^2$, $d_{10}=d_{10}^1+d_{10}^2+c_0^1p_1^2$ (i za 2), $p_1=p_1^1+p_1^2$,</p>
+<p class="formula">$\mathit{ans}=\mathit{ans}^1+\mathit{ans}^2+d_{10}^1c_2^2+c_0^1a_{12}^2+d_{12}^1c_0^2+c_2^1a_{10}^2.$</p>
+<p>(Tura s $0$ u $P_1$, $2$ u $P_2$: jedinica je ili u $P_1$ na putu od nule do donjeg vrha, ili u $P_2$ na putu od gornjeg vrha do dvojke.) <b>Rake</b> (lagano podstablo $C$ s gornjim vrhom $v$ pripaja se klasteru $D$ hrpta $\{v\}$, gdje su $a=d$): $a_{10}=a_{10}^D+a_{10}^C+p_1^D c_0^C$, $\mathit{ans}$ istom formulom ($D$ igra $P_1$, $C$ igra $P_2$). Točkasti klaster vrha: $c_{F_v}=1$, $p_1=[F_v=1]$.</p>
+<p><b>Struktura</b>: HLD + segmentno stablo po teškom putu, promjena se propagira uz $O(\log N)$ puteva → $O(N\log N+Q\log^2N)$; ili <b>statičko top-stablo</b> (spajanja rake/compress u balansiranom binarnom stablu visine $O(\log N)$) → $O((N+Q)\log N)$. Alternativa A: centroidna dekompozicija; po centroidu drži $\#0,\#2$ po smjerovima i broj puteva „$X$-1-0”, „$X$-1-2” po smjerovima; promjena tipa mijenja $O(\log N)$ centroidnih stabala, a razlike broja puteva daju BIT-ovi nad Eulerovom turom (broj jedinica na putu do korijena / u podstablu): $O(N\log N+Q\log^2N)$.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Prevedi uvjet</summary>
+            <div class="spoiler-sadrzaj">
+                <p>„Nijedna cesta dvaput” ⟺ $i_1$ je na putu $i_0$–$i_2$. Fiksiraj jedinicu: nula i dvojka u različitim smjerovima. Izračunaj statički odgovor u $O(N)$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Put pa stablo</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Na putu: koje podatke segment mora pamtiti da se dva susjedna segmenta spoje u $O(1)$? Zatim: kako isti podaci žive na podstablu i na segmentu teškog puta?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Dvije orijentacije</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Za segment hrpta trebaš parove (1,0) orijentirane od gornjeg i od donjeg vrha, te broj jedinica na hrptu (samo one su preci svega ispod).</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Pri spajanju koristiti sve jedinice klastera umjesto samo onih <b>na hrptu</b> kao pretke donjeg dijela.</li>
+        <li>Zaboraviti simetričan član (0 dolje, 2 gore) — tura ima dvije orijentacije u odnosu na korijen.</li>
+        <li>Dvostruko brojanje gornjeg vrha pri rake-u: podatke vrha nosi njegov brid prema roditelju ili točkasti klaster, ne oba.</li>
+        <li>64-bitni odgovor ($\approx N^3/27$).</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="7" naslov="Zadatak">
+    <s n="1">Naslov; analiza: tatyam.</s>
+    <s n="2">Stablo s $N$ vrhova označenih $0,1,2$; online upiti: promijeni oznaku vrha $X$ u $Y$, ispiši broj $0\text{-}1\text{-}2$ puteva.</s>
+    <s n="3">Primjer.</s>
+    <s n="4">Primjer.</s>
+    <s n="5">Primjer.</s>
+    <s n="6">Primjer.</s>
+    <s n="7">Podzadaci i ciljne složenosti: $O(QN^2)$, $O(N^2+QN)$, $O(N)$, $O((N+Q)\log N)$ ×2, $O(N\log N+Q\log^2N)$.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–3 <span class="bodovi">20 bodova</span></h2>
+<slajdovi from="8" to="27" vrsta="koraci" naslov="Statički i diferencijalno">
+    <s n="8">Zaboravi promjene: prebroji $0\text{-}1\text{-}2$ puteve u $O(N^2)$.</s>
+    <s n="9">Fiksiraj nulu; prebroji puteve iz nje u $O(N)$.</s>
+    <s n="10">Na putu: fiksiraj nulu…</s>
+    <s n="11">…broj jedinica od nule do svake pozicije…</s>
+    <s n="12">…za fiksiranu nulu i dvojku broj puteva = broj jedinica između.</s>
+    <s n="13">Na stablu isto uz DFS.</s>
+    <s n="14">Broj jedinica od nule do svakog vrha.</s>
+    <s n="15">Za fiksiranu nulu i dvojku broj puteva = jedinice na putu među njima.</s>
+    <s n="16">Podzadatak 2: $\Theta(N^2)$ po upitu je TLE → diferencijalno.</s>
+    <s n="17">Diferencijalno računanje.</s>
+    <s n="18">1. prebroji puteve koji koriste $X$ i oduzmi; 2. promijeni $F_X$; 3. prebroji i dodaj.</s>
+    <s n="19">$F_X=0$: kao prije; $F_X=2$: obrni; $F_X=1$: ?</s>
+    <s n="20">Broj puteva s zadanom jedinicom.</s>
+    <s n="21">Nula i dvojka moraju biti u različitim smjerovima od jedinice.</s>
+    <s n="22">(U istom smjeru bi se brid prošao dvaput.)</s>
+    <s n="23">Prebroji nule i dvojke po smjerovima: $\#0\cdot\#2-\sum_d \#0_d\cdot\#2_d$.</s>
+    <s n="24">Podzadatak 3 ($Q=0$): treba $O(N)$; iskoristi „broj puteva sa zadanom jedinicom”.</s>
+    <s n="25">Po smjerovima od jedinice broj nula i dvojki.</s>
+    <s n="26">Za sve vrhove i sve smjerove.</s>
+    <s n="27">Dovoljno je za sva podstabla: $O(N)$.</s>
+</slajdovi>
+
+<h2>Podzadaci 4–5 <span class="bodovi">32 boda</span></h2>
+<slajdovi from="28" to="46" vrsta="koraci" naslov="Segmentno stablo na putu i na binarnom stablu">
+    <s n="28">Put: bez promjena DP $\mathit{dp}[i][j]$ = do $i$, poklopljeno $j$ znakova; s promjenama…</s>
+    <s n="29">…stavi DP na segmentno stablo.</s>
+    <s n="30">Svaki segment pamti: broj $0,1,2$; broj $0\text{-}1$, $1\text{-}2$, $1\text{-}0$, $2\text{-}1$; broj $0\text{-}1\text{-}2$ (obje orijentacije).</s>
+    <s n="31">Potpuno binarno stablo: struktura je gotovo segmentno stablo — isto?</s>
+    <s n="32">Želimo broj puteva u podstablu; kako spojiti podstabla?</s>
+    <s n="33">Nabroji sve oblike puta $0\text{-}1\text{-}2$ u odnosu na središnji vrh.</s>
+    <s n="34">Bez središnjeg vrha…</s>
+    <s n="35">Bez središnjeg vrha.</s>
+    <s n="36">Bez središnjeg vrha.</s>
+    <s n="37">Bez središnjeg vrha.</s>
+    <s n="38">Bez središnjeg vrha.</s>
+    <s n="39">Bez središnjeg vrha.</s>
+    <s n="40">Sa središnjim vrhom…</s>
+    <s n="41">Sa središnjim vrhom.</s>
+    <s n="42">Sa središnjim vrhom.</s>
+    <s n="43">Sa središnjim vrhom.</s>
+    <s n="44">Sa središnjim vrhom.</s>
+    <s n="45">Sa središnjim vrhom.</s>
+    <s n="46">Podstablo brida $u$ pamti: broj $0,1,2$; broj puteva $u\text{-}1\text{-}0$ i $u\text{-}1\text{-}2$; broj $0\text{-}1\text{-}2$ puteva.</s>
+</slajdovi>
+
+<h2>Podzadaci 6–7 <span class="bodovi">48 bodova</span></h2>
+<slajdovi from="47" to="57" vrsta="koraci" naslov="A: centroidna dekompozicija">
+    <s n="47">Generaliziraj.</s>
+    <s n="48">1. rastavi stablo na strukture male visine (kao segmentno stablo); 2. u svakoj broji $0,1,2$ i $0\text{-}1$, $1\text{-}2$ itd.</s>
+    <s n="49">Puteva koji koriste vrh $X$: ako je $F_X=0$: broj $X\text{-}1\text{-}2$; $F_X=1$: nule/dvojke po smjerovima; $F_X=2$: $X\text{-}1\text{-}0$.</s>
+    <s n="50">Puteva koji prolaze kroz $X$: nule/dvojke po smjerovima od $X$ i $X\text{-}1\text{-}(0/2)$ puteva po smjerovima.</s>
+    <s n="51">Za svako stablo dekompozicije (centroid $X$): ukupno $0,2$; po smjerovima $0,2$; ukupno $X\text{-}1\text{-}0$, $X\text{-}1\text{-}2$; po smjerovima isto.</s>
+    <s n="52">Promjena vrha mijenja $O(\log N)$ stabala dekompozicije.</s>
+    <s n="53">Treba razliku broja $X\text{-}1\text{-}(0/2)$ puteva po smjeru u $O(\log N)$.</s>
+    <s n="54">Brisanje dvojke u vrhu: smjer gubi onoliko puteva koliko je jedinica na putu $X$–vrh. Brisanje jedinice: gubi onoliko koliko je dvojki u podstablu vrha.</s>
+    <s n="55">Jedinice na putu do korijena: Eulerova tura po bridovima s težinom $+1$ na silasku, $-1$ na uzlasku + BIT: $O(\log N)$.</s>
+    <s n="56">Dvojke u podstablu: Eulerova tura po vrhovima + BIT.</s>
+    <s n="57">Sve zajedno: $O(N\log N+Q\log^2N)$ uz dosta upornosti.</s>
+</slajdovi>
+<slajdovi from="58" to="65" vrsta="koraci" naslov="B: HL dekompozicija">
+    <s n="58">Put se rješava segmentnim stablom → HLD rastavlja na $O(\log N)$ puteva.</s>
+    <s n="59">Po teškom putu segmentno stablo.</s>
+    <s n="60">Promjena u vrhu…</s>
+    <s n="61">…ažuriraj njegov segment…</s>
+    <s n="62">…rezultat cijelog podstabla ide kao točkasto ažuriranje u segmentno stablo puta iznad…</s>
+    <s n="63">…i tako dalje prema gore.</s>
+    <s n="64">Čvor pamti: broj $0,2$; broj jedinica na hrptu (lijevi/desni kraj); broj $1\text{-}(0/2)$ puteva; broj $0\text{-}1\text{-}2$. $O(N\log N+Q\log^2N)$.</s>
+    <s n="65">Može i $O((N+Q)\log N)$!</s>
+</slajdovi>
+<slajdovi from="66" to="74" vrsta="koraci" naslov="C: statičko top-stablo">
+    <s n="66">Statičko top-stablo: generalizacija segmentnog stabla na stabla; implementacija možda i jednostavnija.</s>
+    <s n="67">Top-stablo radi s bridovima → zakorijeni i stavi podatke vrha na brid prema roditelju.</s>
+    <s n="68">Gradnja na teškom putu: segmente spajaj tako da minimiziraš visinu.</s>
+    <s n="69">Lagana podstabla: po podstablu čvor, spajaj minimizirajući visinu.</s>
+    <s n="70">Podaci kao kod HLD-a; uravnoteženo spajanje po broju vrhova daje visinu $O(\log N)$ → ažuriranje u $O(\log N)$.</s>
+    <s n="71">Spajanje: <b>rake</b> — dva podstabla zajedničkog korijena; „segment hrpta” + „podstablo”.</s>
+    <s n="72"><b>compress</b> — uzastopni segmenti teškog puta.</s>
+    <s n="73">Sve što se računa s rake/compress ide u $O(\log N)$ po upitu; s Link-Cut stablom dobiva se dinamičko top-stablo (dodavanje/brisanje bridova).</s>
+    <s n="74">Statistika (JOI).</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kompletan skup podataka i formule (slajdovi 64, 70 ih samo nabrajaju).</b> Klaster: $c_0,c_1,c_2$; $p_1$ (jedinice na hrptu); $a_{10},a_{12}$ (jedinica na putu od <i>gornjeg</i> vrha do nule/dvojke); $d_{10},d_{12}$ (od <i>donjeg</i> vrha); $\mathit{ans}$. Compress $P_1$ (gore) + $P_2$ (dolje): $c=c^1+c^2$, $p_1=p_1^1+p_1^2$, $a_{1t}=a_{1t}^1+a_{1t}^2+p_1^1c_t^2$, $d_{1t}=d_{1t}^1+d_{1t}^2+c_t^1p_1^2$ za $t\in\{0,2\}$, $\mathit{ans}=\mathit{ans}^1+\mathit{ans}^2+d_{10}^1c_2^2+c_0^1a_{12}^2+d_{12}^1c_0^2+c_2^1a_{10}^2$. Rake laganog podstabla $C$ na vrh $v$ (klaster $D$ s hrptom $\{v\}$, pa $a^D=d^D$): iste formule s $D$ kao $P_1$ i $C$ kao $P_2$, ali $p_1$ ostaje $p_1^D$ (jedinice iz $C$ nisu na hrptu) i $d^C$ se ne koristi. Provjera na lancu $0\text{-}1\text{-}2$: compress(1,2) daje $a_{12}=1$; compress(0, ·) daje $\mathit{ans}=c_0^1a_{12}^2=1$.</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Dobra tura ⟺ jedinica na putu nula–dvojka; fiksiranjem jedinice statički $O(N)$.</li>
+        <li>Klasteri s $c_\ast$, $p_1$, $a_{1\ast}$, $d_{1\ast}$, $\mathit{ans}$ spajaju se u $O(1)$ (rake/compress).</li>
+        <li>HLD: $O(N\log N+Q\log^2N)$; statičko top-stablo: $O((N+Q)\log N)$; alternativa centroidi + BIT.</li>
+    </ul>
+</div>

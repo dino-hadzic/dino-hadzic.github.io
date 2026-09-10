@@ -1,0 +1,188 @@
+@@ meta
+naslov = Berba
+engleski = Harvest
+oznake = funkcijski graf, ciklusi i stabla, offline upiti, Fenwickovo stablo, Eulerova tura
+autor_analize = JOI tutori
+
+@@ zadatak
+<h1>Berba</h1>
+<p><i>Harvest</i> — JOI Spring Camp 2020, dan 3.</p>
+<p>Farma IOI leži oko kružnog jezera opsega $L$ metara. Ima $N$ radnika i $M$ stabala jabuka. Radnik $i$ na početku stoji $A_i$ metara od najsjevernije točke (u smjeru kazaljke); stablo $j$ je $B_j$ metara od nje. Svi $A_i$ i $B_j$ su međusobno različiti i nijedno stablo nije na početnom položaju radnika.</p>
+<p>Svako stablo nosi najviše jednu jabuku; kad se jabuka ubere, nova izraste točno $C$ sekundi kasnije. U trenutku $0$ svako stablo ima jabuku i svi radnici kreću u smjeru kazaljke brzinom $1$ m/s. Radnik koji dođe do stabla s jabukom uvijek je ubere (i ako je jabuka izrasla točno u trenutku dolaska). Branje ne troši vrijeme.</p>
+<p>Za $Q$ upita $(V_k, T_k)$ odredi koliko je jabuka radnik $V_k$ ubrao do trenutka $T_k$ (uključivo).</p>
+<h3>Ulaz</h3>
+<pre>N M L C
+A_1 … A_N
+B_1 … B_M
+Q
+V_1 T_1
+⋮
+V_Q T_Q</pre>
+<h3>Izlaz</h3>
+<p>$Q$ redaka s odgovorima.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N, M, Q \le 200\,000$; $N + M \le L \le 10^9$; $1 \le C \le 10^9$.</li>
+    <li>$0 \le A_1 < \cdots < A_N < L$; $0 \le B_1 < \cdots < B_M < L$; $A_i \ne B_j$.</li>
+    <li>$1 \le T_k \le 10^{18}$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(5 bodova) $N, M, Q \le 3000$.</li>
+    <li>(20 bodova) $T_k \ge 10^{15}$ za sve $k$.</li>
+    <li>(75 bodova) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>3 2 7 3
+1 4 6
+0 5
+3
+1 7
+2 3
+3 8</pre></div>
+    <div><h4>Izlaz 1</h4><pre>2
+1
+1</pre></div>
+    <div><h4>Ulaz 2</h4><pre>5 3 20 6
+0 4 8 12 16
+2 11 14
+9
+4 1932
+2 93787
+1 89
+5 98124798
+1 2684
+1 137598
+3 2
+3 8375
+4 237</pre></div>
+    <div><h4>Izlaz 2</h4><pre>146
+7035
+7
+7359360
+202
+10320
+0
+628
+18</pre></div>
+</div>
+<p>Primjer 1: u trenutku $1$ radnik 2 bere sa stabla 2, radnik 3 sa stabla 1; u trenutku $3$ radnik 2 dolazi do stabla 1 bez jabuke; u $4$ radnik 1 bere sa stabla 2; u $6$ radnik 1 bere sa stabla 1; u $8$ radnik 2 bere sa stabla 2.</p>
+
+@@ rjesenje
+<h2>1. Promjena sustava: radnici stoje, jabuke putuju</h2>
+<p>Svi radnici idu istom brzinom, pa u njihovu sustavu radnici stoje, a stabla kruže <b>protiv</b> kazaljke. Nakon što stablo preda jabuku radniku $x$, sljedeću (koja izraste za $C$) uzima prvi radnik kojeg stablo susretne nakon toga — a to je uvijek isti radnik $\mathrm{nxt}(x)$, neovisan o stablu: prvi radnik $y$ za kojeg je pomak $o_y = (A_x - A_y) \bmod L$ (plus eventualno cijeli krugovi $kL$) barem $C$. Označi $d(x) = \min\{o_y + kL \ge C\}$ — vrijeme između dviju uzastopnih berbi iste „jabuke-štafete”. Dakle: <b>funkcijski graf</b> $x \to \mathrm{nxt}(x)$ s težinama $d(x)$ (ciklusi s obješenim stablima), a svako stablo $j$ je <b>žeton</b> koji kreće od radnika $x_j$ (prvog koji ga dosegne) u trenutku $a_j = (B_j - A_{x_j}) \bmod L$ i putuje bridovima; svaki posjet žetona radniku = jedna ubrana jabuka.</p>
+<p><b>Upit $(v, T)$</b> = broj posjeta žetona vrhu $v$ do trenutka $T$.</p>
+
+<h2>2. Vrhovi na stablima i vrhovi na ciklusu</h2>
+<p>U svakoj komponenti prereži ciklus u odabranom vrhu $c$ (ukloni brid koji ulazi u $c$): komponenta postaje stablo s korijenom $c$, a žetoni koji bi ušli u $c$ tim bridom umjesto toga „izviru” u $c$ periodički s periodom $D$ = duljina ciklusa (zbroj težina). Neka je $\mathrm{dep}(u)$ vremenska udaljenost od $u$ do $c$, a $p(v) = D - \mathrm{dep}(v)$ za $v$ na ciklusu (vrijeme od $c$ do $v$).</p>
+<ul>
+    <li><b>Jednokratni prolasci</b> (za svaki $v \ne c$): žeton $j$ prolazi kroz $v$ prije dolaska u $c$ ako je $x_j$ u podstablu $v$; trenutak je $a_j + \mathrm{dep}(x_j) - \mathrm{dep}(v)$. Brojimo $j$ s $\mathrm{tin}(x_j) \in [\mathrm{tin}(v), \mathrm{tout}(v)]$ i $a_j + \mathrm{dep}(x_j) \le T + \mathrm{dep}(v)$ — <b>2D dominacija offline</b> (sweep po vrijednosti, Fenwick po Eulerovoj turi).</li>
+    <li><b>Periodički prolasci</b> (za $v$ na ciklusu): žeton $j$ prvi put stigne u $c$ u $a'_j = a_j + \mathrm{dep}(x_j)$, pa u $v$ stiže u $a'_j + p(v) + kD$, $k \ge 0$. Uz $T' = T - p(v)$ traženo je $\sum_j \max\bigl(0, \lfloor (T' - a'_j)/D \rfloor + 1\bigr)$. Za $v = c$ uzmi $p(c) = 0$ i preskoči jednokratni dio (prvi dolazak je već u periodičkom).</li>
+</ul>
+<p><b>Periodički zbroj brzo.</b> Zapiši $a'_j = b_j D + c_j$ ($0 \le c_j < D$) i $T' = pD + q$. Za $a'_j \le T'$ pribrojnik je $p - b_j + 1$ ako $c_j \le q$, inače $p - b_j$. Dakle
+\[ \sum_{a'_j \le T'} (p + 1 - b_j) \;-\; \#\{j : a'_j \le T',\ c_j > q\}. \]
+Prvi dio: sortiraj $a'_j$, prefiksni zbrojevi $b_j$, binarno pretraživanje. Drugi dio: opet 2D dominacija offline (sweep po $a'_j$, Fenwick po $c_j$). Ukupno $O((N + M + Q)\log(N+M))$.</p>
+<p class="trener-napomena">Podzadatak 2 ($T \ge 10^{15}$): svaki žeton je već stigao do ciklusa, pa je uvjet $a'_j \le T'$ uvijek ispunjen i treba samo brojanje po $c_j$; stabla su trivijalna (žeton je prošao ili neće nikad).</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Promijeni promatrača</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Svi se kreću jednako brzo. Što vidi radnik? Tko ubere sljedeću jabuku sa stabla nakon što ju je ubrao radnik $x$ — ovisi li to o stablu?</p>
+                <p class="pitanje">Ne ovisi: uvijek je to prvi radnik na udaljenosti $\ge C$ iza $x$ (protiv kazaljke). Nastaje funkcijski graf radnika.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 1: simuliraj žetone</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Svako stablo je žeton koji šeta grafom. Na stablu grafa svaki vrh vidi žeton najviše jednom, na ciklusu periodički. Za male ulaze zapiši sve trenutke posjeta, $O(NM + QM)$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 2: beskonačno vrijeme</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kad je $T$ ogroman, svaki žeton je stigao kamo može. Za vrh stabla: koliko žetona kreće iz njegova podstabla (jedan DFS). Za vrh ciklusa: $\sum_j \lfloor (T' - a'_j)/D \rfloor + 1$ — rastavi $a'_j = b_j D + c_j$ i $T' = pD + q$; koje dvije statistike trebaš?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 3: sve offline</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Oba uvjeta („u podstablu i stigao do $T$”, „$a'_j \le T'$ i $c_j > q$”) su prebrojavanja točaka u pravokutniku. Sortiraj upite i točke po jednoj koordinati, Fenwick po drugoj.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Krivo $d(x)$ kad su svi radnici bliži od $C$: tada je sljedeći opet $x$ nakon $\lceil C/L \rceil$ krugova (općenito: najmanji $o_y + kL \ge C$).</li>
+        <li>Dvostruko brojanje prvog dolaska u vrh reza $c$.</li>
+        <li>Prelijevanje: $a'_j$ do $\sim 10^{14}$, $T$ do $10^{18}$; koristi 64-bitne tipove i pazi na $T' = T - p(v)$ koje može biti negativno (tada je periodički dio $0$).</li>
+        <li>Zaboraviti da komponenata (ciklusa) može biti više — $D$, $c$ i skup žetona su po komponenti.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="3" naslov="Sažetak i promjena sustava">
+    <s n="1">Naslovni slajd: <i>Harvest</i>.</s>
+    <s n="2"><b>Sažetak.</b> Ljudi i stabla jabuka na kružnici; ljudi se kreću jednakom brzinom u smjeru kazaljke; stablo daje plod $C$ sekundi nakon berbe. Upiti: koliko je jabuka osoba ubrala do zadanog trenutka?</s>
+    <s n="3">Isto, ali u sustavu radnika: <b>jabuke se kreću protiv kazaljke</b>, ljudi stoje.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">5 bodova</span></h2>
+<slajdovi from="4" to="8" vrsta="koraci" naslov="Funkcijski graf radnika">
+    <s n="4">Nakon što stablo preda jabuku osobi $x$, sljedeću daje prvoj osobi koja se nađe barem $C$ dalje protiv kazaljke od $x$. Nacrtaj brid $x \to y$.</s>
+    <s n="5">Svaki vrh ima izlazni stupanj $1$ → graf je skup ciklusa s obješenim stablima.</s>
+    <s n="6">Svako stablo jabuke kreće iz nekog vrha i „dijeli” jabuke duž bridova.</s>
+    <s n="7">Vrhove u dijelu stabla posjećuje najviše jednom; vrhove na ciklusu periodički.</s>
+    <s n="8">Upiti za vrhove stabla: zabilježi koja jabuka stiže kada. Za vrhove ciklusa: kada prvi put stiže. $O(NM + QM)$ ili bilo što slično.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">20 bodova</span></h2>
+<slajdovi from="9" to="16" vrsta="koraci" naslov="Ogromno T: sve je već stiglo">
+    <s n="9">Vrijeme je golemo: svaka jabuka je već bar jednom posjetila svaki vrh do kojeg može doći.</s>
+    <s n="10">Upit za vrh stabla: broj jabuka koje mogu doći do njega = broj jabuka koje kreću iz njegova podstabla. Jedan DFS.</s>
+    <s n="11">Upiti za ciklus: prereži ciklus na nekom bridu i pretvori ga u stablo.</s>
+    <s n="12">(Slika reza.)</s>
+    <s n="13">Sad je sve stablo; jabuke koje bi kružile obrađujemo kao jabuke koje <b>periodički izviru</b> na mjestu reza.</s>
+    <s n="14">Treba znati koliko periodičkih jabuka stiže. Neka je $x$ vrh izvora: broj jabuka u vrhu $Y$ do $T$ = broj jabuka u $X$ do $T - (\text{vrijeme od } x \text{ do } y)$.</s>
+    <s n="15">Dovoljno je odgovarati na upite u vrhu $x$. Jabuka $r$ izvire u trenucima $a_r + Dt$ ($t = 0, 1, \ldots$; $D$ = vrijeme obilaska ciklusa). Odgovor za $T$: $\sum \lfloor (T - a_r)/D \rfloor + 1$.</s>
+    <s n="16">$a_r = b_r D + c_r$, $T = pD + q$: ako $c_r \le q$ pribrojnik je $p - b_r + 1$, inače $p - b_r$. Sortiraj po $c_r$ i drži prefiksne zbrojeve: $O(\log M)$ po upitu; ukupno $O((N+M)\log N + Q\log M)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">75 bodova</span></h2>
+<slajdovi from="17" to="22" vrsta="koraci" naslov="Offline 2D prebrojavanje">
+    <s n="17">Vrh stabla $y$ s korijenom $x$: jabuke u $y$ do $T$ = jabuke koje mogu doći do $y$ i stižu u $x$ do $T + (\text{vrijeme } y \to x)$.</s>
+    <s n="18">Numeriraj vrhove Eulerovom turom: „može doći do $y$” = početni vrh u rasponu ture. Za svaku jabuku nacrtaj točku (redni broj početnog vrha, trenutak dolaska u $x$): upit je broj točaka u pravokutniku.</s>
+    <s n="19">Upiti su offline → sweep + BIT, $O((M+Q)\log M)$.</s>
+    <s n="20">Vrhovi ciklusa: kao prije obradimo periodičke jabuke; tražimo $\sum \max(\lfloor (T - a_r)/D \rfloor + 1, 0)$.</s>
+    <s n="21">Kao u podzadatku 2: točke $(a_r, a_r \bmod D)$ s težinama; zbroj težina u pravokutniku — sweep + BIT, $O((M+Q)\log M)$.</s>
+    <s n="22">Sve zajedno: $O((N+M)\log N + (M+Q)\log M)$.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Detalji koje slajdovi preskaču.</b></p>
+    <ul>
+        <li><i>Sljedbenik.</i> $A$ je sortiran; za $x$ binarno traži najveći $A_y \le A_x - r$ (gdje je $C = qL + r$), uz omatanje; ako takav ne postoji unutar kruga, $y = x$ uz dodatni krug. $d(x) = (A_x - A_y) \bmod L + qL$ (ili $+ (q+1)L$ pri omatanju na samog sebe).</li>
+        <li><i>Početak žetona.</i> Stablo $B_j$ prvi doseže radnik s najvećim $A_x \le B_j$ (ili $A_N$ uz omatanje) u trenutku $a_j = (B_j - A_x) \bmod L$.</li>
+        <li><i>Rez.</i> Za svaki ciklus odaberi $c$; $\mathrm{dep}$ računaj po stablu s korijenom $c$ (obrni bridove, BFS/DFS iterativno). Za žeton $j$: $a'_j = a_j + \mathrm{dep}(x_j)$. Za $v$ na ciklusu $p(v) = D - \mathrm{dep}(v)$ ($p(c) = 0$).</li>
+        <li><i>Težine u 2D zbroju</i> (slajd 21): umjesto težina možeš odvojeno brojati $\#\{a'_j \le T'\}$ i $\sum b_j$ prefiksima nad sortiranim $a'_j$, a Fenwickom samo $\#\{a'_j \le T',\ c_j > q\}$ — to je oblik iz <i>Rješenja</i>.</li>
+    </ul>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>U sustavu radnika stablo predaje jabuke po fiksnom lancu radnika → funkcijski graf s vremenskim težinama.</li>
+        <li>Prereži ciklus: jednokratni prolasci = 2D prebrojavanje po Eulerovoj turi; periodički = $\sum \lfloor (T'-a')/D\rfloor + 1$ s rastavom po ostatku.</li>
+        <li>Sve offline sa sortiranjem i Fenwickom, $O((N+M+Q)\log)$.</li>
+    </ul>
+</div>

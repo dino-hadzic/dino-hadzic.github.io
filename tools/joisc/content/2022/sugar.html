@@ -1,0 +1,163 @@
+@@ meta
+naslov = Mravi i šećer
+engleski = Ants and Sugar
+oznake = bipartitno sparivanje, Hallov teorem, deficijencija, segmentno stablo, lijena propagacija, offline, min-plus spajanje
+autor_analize = Kawasaki Riku
+
+@@ zadatak
+<h1>Mravi i šećer</h1>
+<p><i>Ants and Sugar</i> — JOI Spring Camp 2022, dan 3.</p>
+<p>Na pravcu se izvodi $Q$ operacija: <b>1 X A</b> stavlja $A$ mrava u točku $X$; <b>2 X A</b> stavlja $A$ kockica šećera u točku $X$. Svaki mrav može pojesti jednu kockicu na udaljenosti $\le L$. Nakon svake operacije ispiši najveći mogući broj pojedenih kockica (mravi se zapravo ne miču).</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$Q \le 500\,000$, $1 \le L \le 10^9$, $0 \le X \le 10^9$, $1 \le A \le 10^9$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $Q \le 3000$.</li>
+    <li>(16) $L = 1$, $X_i \le Q-1$, $X_i + T_i$ paran (mravi na parnim, šećer na neparnim koordinatama ili obrnuto).</li>
+    <li>(26) Prvo svih $Q/2$ operacija s mravima, zatim samo šećer.</li>
+    <li>(52) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>4 1
+1 1 1
+2 2 1
+1 3 1
+2 0 1</pre></div>
+    <div><h4>Izlaz</h4><pre>0
+1
+1
+2</pre></div>
+</div>
+
+@@ rjesenje
+<h2>Model: bipartitno sparivanje i deficijencija</h2>
+<p>Odgovor je najveće sparivanje mrava i kockica s bridom ako je udaljenost $\le L$. Po Hallovu teoremu (verzija s deficijencijom):</p>
+$$\text{sparivanje} = \min_{S \subseteq \text{mravi}}\bigl(A - |S| + |N(S)|\bigr),$$
+<p>gdje je $A$ ukupan broj mrava, a $N(S)$ kockice dostupne nekom mravu iz $S$. Jer $N(S)$ ovisi samo o <i>pozicijama</i>, $S$ uzimamo kao skup pozicija (sve mrave na poziciji ili nijednog). Isto se može izvesti i iz greedyja za podzadatak 1: najlijeviji mrav i najlijevija kockica — spari ih ako možeš, inače odbaci lijevi.</p>
+<p><b>Offline kompresija.</b> Poredaj sve pozicije mrava koje će se <i>ikad</i> pojaviti: $x_0 < x_1 < \dots$. Varijable $x_i \in \{0,1\}$ („pozicija $i$ u $S$”). Kockica težine $w$ na koordinati $y$ djeluje na neprekidan interval indeksa $[l, r]$ (pozicije u $[y-L, y+L]$, binarnim pretraživanjem). Minimiziramo</p>
+$$F(x) = \sum_i (-\text{mravi}_i)\,x_i + \sum_{\text{kockice}} w\cdot[\exists i \in [l,r]: x_i = 1].$$
+<p>Pozicije s 0 mrava smiju biti u $S$ — nikad ne pomažu, pa ne kvare minimum.</p>
+
+<h2>Ključna zamjena: „ILI” → „broj blokova”</h2>
+<p>$[\exists\, x_i = 1 \text{ na } [l,r]]$ zamijeni sa $\sum_{i=l}^{r} x_i - \sum_{i=l}^{r-1} x_i x_{i+1}$ = <b>broj maksimalnih blokova jedinica</b> unutar $[l,r]$. To je $\ge$ pravi ILI, pa minimum nikad nije premali. Postiže li se optimum? <b>Lema:</b> ako je $x_a = x_b = 1$, $x_i = 0$ za $a < i < b$ i $a, b$ su u intervalu iste kockice (pa $x_b - x_a \le 2L$), smijemo postaviti $x_i = 1$ za sve $a < i < b$. Dokaz: svaka kockica koja djeluje na neki takav $i$ djeluje i na $a$ ili na $b$ (ako je $y' \le x_i$ i $y' > x_a + L$, tada $x_b - y' < x_b - x_a - L \le L$; simetrično), pa se njezin ILI ne mijenja, a član mrava samo pada. Ponavljanjem: u optimumu je skup odabranih unutar svakog intervala kockice <b>jedan blok</b>, gdje su ILI i broj blokova jednaki.</p>
+<p>Sad je $F(x) = \sum_i c_i x_i - \sum_i d_i x_i x_{i+1}$ s $c_i = -\text{mravi}_i + (\text{težina kockica koje pokrivaju } i)$ i $d_i$ = težina kockica koje pokrivaju i $i$ i $i+1$. Novi mravi: točkasto $c_i \mathrel{-}= A$. Nova kockica: $c_i \mathrel{+}= w$ na $[l,r]$ i $d_i \mathrel{+}= w$ na $[l, r-1]$.</p>
+
+<h2>Segmentno stablo</h2>
+<p>Čvor za interval pamti $f[s][t]$ = minimalni $F$ unutar intervala po <b>nepraznim</b> $x$ s lijevim krajem $s$ i desnim $t$ ($4$ vrijednosti; za list $f[1][1] = c_i$, ostalo $+\infty$), te težinu granice $d_{mid}$ između djece. Spajanje: $\min_{u,v}\, f_L[s][u] + f_R[v][t] - d_{mid}\,[u=v=1]$, plus slučajevi „lijevo prazno” ($s = 0$, uzmi $f_R[\cdot][t]$) i „desno prazno”. Odgovor: $A + \min(0, \min_{s,t} f_{\text{korijen}}[s][t])$.</p>
+<p><b>Dodavanje kockice</b> na čvor potpuno unutar $[l,r]$: $F$ svakog $x$ raste za $w\cdot(\text{broj blokova})$; po lemi (interval kockice pokriva cijeli čvor, pa su $a,b$ udaljeni $\le 2L$) minimizator ima jedan blok, dakle <b>sva četiri $f$ rastu točno za $w$</b> — zato pamtimo minimume po nepraznim $x$ (prazni imaju $F = 0$ i ne rastu). Lijena oznaka „$+w$” dodaje $w$ i granicama $d_{mid}$ svih potomaka (svaka je unutar $[l,r]$). $O(\log Q)$ po operaciji, ukupno $O(Q\log Q)$.</p>
+
+<h2>Podzadaci</h2>
+<ul>
+    <li><b>$L = 1$, parnost:</b> kockica djeluje na točno dva susjedna indeksa; lokalni doprinos, isto segmentno stablo bez lijenosti — 16.</li>
+    <li><b>Mravi pa šećer:</b> zamijeni uloge (skupovi $S$ po pozicijama kockica, koje su offline poznate); dodavanje kockice je točkasto — 26.</li>
+</ul>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što se traži?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Najveće bipartitno sparivanje s multiplicitetima. Kako ga karakterizira Hallov teorem (deficijencija)? Zašto je dovoljno birati cijele pozicije?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zapiši cilj kao funkciju 0/1 varijabli</summary>
+            <div class="spoiler-sadrzaj">
+                <p>$-\text{mravi}_i x_i$ plus $w\cdot$[ILI po intervalu]. ILI nije lokalan. Kako ga zamijeniti nečim što je zbroj članova s jednom ili dvije susjedne varijable?</p>
+                <p class="pitanje">Broj blokova jedinica: $\sum x_i - \sum x_i x_{i+1}$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Smijemo li?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Zamjena precjenjuje kad ima više blokova. Dokaži da se rupa između dvaju odabranih unutar intervala iste kockice smije zapuniti bez gubitka (koristi $x_b - x_a \le 2L$).</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Intervalno dodavanje kockice</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Čvor potpuno pokriven: koliko raste minimum? Zašto točno $w$ za neprazne konfiguracije? Što s granicom između djece?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Pamtiti minimum uključujući praznu konfiguraciju — onda lijeni „$+w$” nije točan. Prazan slučaj dodaj tek u korijenu ($\min(0, \cdot)$).</li>
+        <li>Zaboraviti $d_{mid}$ pri lijenoj propagaciji: granice svih potomaka pokrivenog čvora također dobivaju $+w$.</li>
+        <li>Odvojen BIT za granice daje dodatan $\log$ — može proći, ali nije potrebno.</li>
+        <li>Prelijevanje: zbrojevi do $5\cdot10^5\cdot10^9$ — 64 bita; $+\infty$ birati dovoljno velik, ali ne blizu prelijevanja pri zbrajanju.</li>
+        <li>Interval $[l, r]$ kockice može biti prazan (nema pozicija mrava u $[y-L, y+L]$) — preskoči.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="3" naslov="Zadatak">
+    <s n="1">Naslovni slajd: <i>Ants and Sugar</i>; analiza: Kawasaki Riku.</s>
+    <s n="2"><b>Sažetak.</b> Mravi i kockice na pravcu; svaki mrav ide do kockice na udaljenosti $\le L$; maksimiziraj broj pojedenih kockica; upiti dodaju mrave i kockice.</s>
+    <s n="3">Mrav i kockica na udaljenosti $\le L$ mogu se spariti — traži se najveće sparivanje.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">6 bodova</span></h2>
+<slajdovi from="4" to="6" vrsta="koraci" naslov="Greedy">
+    <s n="4">Za svaki upit $O(N)$: liste (pozicija, broj) mrava i kockica sortirane po poziciji.</s>
+    <s n="5">Gledaj najlijevijeg mrava i najlijeviju kockicu: spari ako možeš; inače odbaci lijevi (više nikad ne može biti sparen). Greedy je optimalan jer ne gubi ništa kasnije.</s>
+    <s n="6">$O(N)$ po upitu, $O(Q^2)$ — 6 bodova (i s dodatnim $\log$ prolazi).</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">16 bodova</span></h2>
+<slajdovi from="7" to="15" vrsta="koraci" naslov="Hall i segmentno stablo">
+    <s n="7">Parnost razdvaja mrave i kockice; $L = 1$ → samo susjedne točke se sparuju.</s>
+    <s n="8">Hallov teorem olakšava; na IOI syllabusu je „siv”, ali na JOI kampu se pojavljuje.</s>
+    <s n="9">$A$ = ukupno mrava; za podskup mrava $S$ neka je $T$ skup kockica sparivih s $S$.</s>
+    <s n="10">Očito sparivanje $\le A - |S| + |T|$; Hall: minimum tog izraza jednak je najvećem sparivanju. Može se dokazati i promatranjem greedyja iz podzadatka 1.</s>
+    <s n="11">Mravi na istoj poziciji: svi ili nijedan. Za svaku poziciju $1, 3, 5, \ldots$ odluči; radi udobnosti dopuštene i pozicije s 0 mrava.</s>
+    <s n="12">0/1 niz $x_0, x_1, \ldots$: $x_i = 1$ daje $-(\text{mravi na } 2i-1)$; $x_i = 1$ ili $x_{i+1} = 1$ daje $+(\text{kockice na } 2i)$.</s>
+    <s n="13">Ukupan rezultat je zbroj lokalnih — stavi na segmentno stablo.</s>
+    <s n="14">Čvor pamti $\min(-|S|+|T|)$ unutar sebe; zbog spajanja, 4 varijante po tome jesu li lijevi/desni kraj odabrani.</s>
+    <s n="15">Spajanje $[a,b]$ i $[b+1,c]$ koristi broj kockica između $b$ i $b+1$. $O(\log Q)$ po upitu — 16 bodova.</s>
+</slajdovi>
+
+<h2>Podzadaci 3–4 <span class="bodovi">78 bodova</span></h2>
+<slajdovi from="16" to="23" vrsta="koraci" naslov="Lokalizacija za veliki L">
+    <s n="16">Za veliki $L$ rezultat se naizgled ne rastavlja na lokalne članove… a zapravo se rastavlja.</s>
+    <s n="17">Pozicije mrava sortirane; $x_i$ = koristi se. Kockica doprinosi $+1$ ako je bar jedan od $x_l, \ldots, x_r$ jednak 1.</s>
+    <s n="18">Preoblikuj: $+1$ za svaki $x_i = 1$ ($l \le i \le r$), $-1$ za svaki par $x_i = x_{i+1} = 1$ ($l \le i < r$).</s>
+    <s n="19">Preoblikovani doprinos nikad nije manji od pravog; minimiziramo, pa ne možemo dobiti premalen rezultat. Treba pokazati da se optimum postiže.</s>
+    <s n="20">Ako je $x_a = x_b = 1$ ($l \le a < b \le r$) i $x_i = 0$ između, smijemo sve između postaviti na 1.</s>
+    <s n="21">Kockica koja djeluje na neki $i$ između nužno djeluje i na $x_a$ ili $x_b$ (zbog uvjeta udaljenosti), pa zapunjavanje ne šteti.</s>
+    <s n="22">Dakle za svaku kockicu odabrani unutar $[l,r]$ čine jedan neprekidan blok — doprinos je točan.</s>
+    <s n="23">Podzadatak 3: ako su pozicije kockica poznate unaprijed, ažuriranja mrava rade kao u podzadatku 2 (zamijeni uloge jer dolaze mravi pa kockice). $O(Q\log Q)$ — 26 bodova.</s>
+</slajdovi>
+<slajdovi from="24" to="30" vrsta="koraci" naslov="Intervalno dodavanje kockica">
+    <s n="24">Podzadatak 4: dodaj operaciju u segmentno stablo — dodavanje kockice kao intervalno dodavanje.</s>
+    <s n="25">Kockica djeluje na $x_l..x_r$: intervalni upit na $[l,r]$; promotri čvor potpuno pokriven.</s>
+    <s n="26">Čvor pamti $\min(-|S|+|T|)$; dodavanjem $W$ kockica minimum bi trebao porasti za $W$ — osim ako je $|S| = 0$.</s>
+    <s n="27">Zato pamti minimum <b>uz pretpostavku $|S| > 0$</b>.</s>
+    <s n="28">Pri spajanju treba broj kockica koje djeluju na granicu djece; zaseban BIT dodaje $\log$ (brzi BIT možda prolazi).</s>
+    <s n="29">Može unutar istog stabla: svaki čvor pamti broj kockica na granici svoje djece; lijena propagacija kao kod intervalnog dodavanja.</s>
+    <s n="30">$O(\log Q)$ po upitu, ukupno $O(Q\log Q)$ — puni bodovi.</s>
+</slajdovi>
+<slajdovi from="31" to="31" naslov="Bodovi">
+    <s n="31">Raspodjela bodova.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Sparivanje = $\min_S (A - |S| + |N(S)|)$; $S$ po pozicijama mrava (offline poznatim).</li>
+        <li>ILI po intervalu → broj blokova ($\sum x_i - \sum x_i x_{i+1}$); lema o zapunjavanju rupa opravdava zamjenu.</li>
+        <li>Segmentno stablo s 4 minimuma po nepraznim konfiguracijama, granicama $d_{mid}$ i lijenim „$+w$”: $O(Q\log Q)$.</li>
+    </ul>
+</div>

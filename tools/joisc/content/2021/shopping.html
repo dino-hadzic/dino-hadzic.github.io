@@ -1,0 +1,202 @@
+@@ meta
+naslov = Kupovina
+engleski = Shopping
+oznake = komunikacija, dvosmjerna komunikacija, Cartesian tree, binarno pretraživanje, segmentno stablo, kodiranje
+tip = Komunikacijski zadatak (Anna.cpp, Bruno.cpp)
+autor_analize = Takaya Yūta
+
+@@ zadatak
+<h1>Kupovina</h1>
+<p><i>Shopping</i> — JOI Spring Camp 2021, dan 2. Komunikacijski zadatak s dva programa.</p>
+<p>Trgovina ima $N$ artikala $0..N-1$ s međusobno različitim cijenama $P_i$. Anna zna $N, L, R$ i želi kupiti najjeftiniji artikl s indeksom u $[L, R]$. Bruno zna $N$ i sve cijene, ali ne zna $L, R$. Komuniciraju slanjem pojedinačnih znakova 0/1: Anna smije poslati <b>najviše 18</b> znakova, Bruno najviše 10 000 — a što manje, to bolje.</p>
+<h3>Sučelje</h3>
+<pre>// Anna.cpp
+void InitA(int N, int L, int R);
+void ReceiveA(bool x);   // znak od Brune
+int Answer();            // indeks u [L, R]
+void SendA(bool y);      // poziva Anna
+
+// Bruno.cpp
+void InitB(int N, std::vector&lt;int&gt; P);
+void ReceiveB(bool y);   // znak od Anne
+void SendB(bool x);      // poziva Bruno</pre>
+<p>Grader drži dva reda znakova; dok je neki red neprazan, skida znak i poziva odgovarajući <code>Receive</code>. Ako su oba neprazna, redoslijed nije određen. Kad su oba prazna, poziva se <code>Answer</code>.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N \le 1\,000\,000$, $0 \le L \le R \le N-1$, $1 \le P_i \le N$, $P_i$ različiti.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(1) $N \le 1000$.</li>
+    <li>(9) $N \le 10\,000$.</li>
+    <li>(90) Bez dodatnih ograničenja. Neka je $T$ najveći broj znakova koje Bruno pošalje u nekom testu: $T \le 300$ → 90 bodova; $300 < T \le 1000$ → $65 + \lfloor 25\cdot\frac{1000 - T}{700}\rfloor$; $1000 < T \le 5000$ → $25 + \lfloor 40\cdot\frac{5000-T}{4000}\rfloor$; $5000 < T \le 10\,000$ → $\lfloor 25\cdot\frac{10000-T}{5000}\rfloor$.</li>
+</ol>
+<h3>Primjer</h3>
+<p>$N = 4$, $L = 0$, $R = 2$, $P = (3, 1, 4, 2)$. Anna pošalje <code>1</code>, <code>0</code>; Bruno pošalje <code>1</code>; <code>Answer()</code> vraća 1.</p>
+
+@@ rjesenje
+<h2>Alat: Cartesian tree i LCA</h2>
+<p>Cartesian tree niza: korijen je indeks minimuma, lijevo/desno podstablo su Cartesian tree-ovi lijevog/desnog dijela. Indeks minimuma na $[L, R]$ je <b>LCA</b> listova $L$ i $R$. Stablo ne pamti vrijednosti, samo poredak — a to je sve što Anni treba. Bruno ga šalje u $2M - 2$ bita: konstrukcija stogom (idi slijeva; dok je vrh stoga veći od trenutnog, <code>pop</code> i pošalji 0; <code>push</code> i pošalji 1).</p>
+
+<h2>Grubo (podzadaci 1–2)</h2>
+<p>Bruno pošalje cijeli niz: $N\log N$ bita. Ili: Anna pošalje $L$ ($\log N$ bita), Bruno za svaki $X \ge L$ pošalje je li $X$ minimum na $[L, X]$ ($N$ bita); odgovor je najveći takav $X \le R$.</p>
+
+<h2>Jedan zna $X \in [L, R]$ → binarno pretraživanje</h2>
+<p>Pretpostavimo da Bruno zna neki $X \in [L, R]$. Definiraj rastuće intervale $I_1 = [X, X]$, $I_{n+1}$ = $I_n$ produljen za jedan element na stranu na kojoj je <b>nova vrijednost veća</b> (minimum intervala raste najsporije). Ključna tvrdnja: ako $[L, R] \subseteq I_n$, odgovor je u $I_n$; ako nije, odgovor je <b>izvan $I_n$ ili jednak $\arg\min I_n$</b>. (Dokaz u umetku analize.) Anna na pitanje „je li $[L,R] \subseteq I_n$?” odgovara 1 bitom, pa Bruno binarno traži $l < r$ s $[L,R] \not\subseteq I_l$, $[L,R] \subseteq I_r$; zatim pošalje $\arg\min I_l$ i Cartesian tree niza $I_r \setminus I_l$ s ubačenim tim jednim predstavnikom: $\log N + 2(r - l)$ bita. Jedan korak: Anna 1 bit, Bruno $\approx \log_2 V$ bita za poziciju intervala ($V$ preostalih elemenata, dijeli se s 2 svaki korak).</p>
+
+<h2>Kako Bruno dobiva $X$: segmentno stablo sa širokim listovima</h2>
+<p>Anna promatra segmentno stablo nad $[0, N)$ dubine 13 (listovi ~$N/2^{13} \approx 122$ elementa) i šalje <b>najdublji čvor koji sadrži $[L, R]$</b>. Ako to nije list, granica između njegove djece $m$ je u $[L, R)$ — zajedničko poznato $X = m$! Ako je list, Bruno pošalje Cartesian tree lista ($\approx 244$ bita). Kodiranje: dubina 0–1 s 3 bita, 2–13 s 4 bita (Kraft: $2/8 + 12/16 = 1$), pa indeks čvora s $d$ bita. Preostalih $k = 18 - (3\text{ ili }4) - d$ Anninih bita ide u binarno pretraživanje.</p>
+<p>Bruno ukupno: $\frac{k(2\log_2 N - k - 2d - 1)}{2} + \frac{N}{2^{k+d-1}}$; najgore za $d = 2$: $12\cdot 23/2 + 10^6/2^{13} \approx 260 < 300$. 100 bodova. Općenito: Anna $\log N$, Bruno $\tfrac12\log^2 N + O(\log N)$ bita.</p>
+
+<h2>Druge razine</h2>
+<ul>
+    <li><b>Bucketi</b> (32 b.): Anna šalje buckete od $L$ i $R$; Bruno šalje $\arg\min$ srednjih bucketa i Cartesian tree $2B + 1$ kandidata; $B \approx 1400$.</li>
+    <li><b>Centroidna dekompozicija Cartesian tree-a</b> (80 b.): Bruno šalje interval podstabla centroida, Anna odgovara je li $[L,R]$ unutra; broj vrhova pada faktorom $\alpha = 1/\varphi$ po koraku (najgori slučaj čvorovi stupnja 3); nakon 18 koraka $\approx 186$ vrhova, ukupno $\approx 870$ bita.</li>
+</ul>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što Anna uopće treba znati?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ne cijene — samo <i>poredak</i>: indeks minimuma na rasponu ovisi jedino o Cartesian tree-u. Koliko bita treba za binarno stablo na $M$ vrhova?</p>
+                <p class="pitanje">$2M - 2$ (Catalan $\le 4^{M-1}$).</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Anna ima samo 18 bita, a $\log_2 N = 20$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ne može poslati ni $L$. Dakle mora odgovarati na <i>Brunina pitanja</i> po 1 bit — koje pitanje polovi kandidate? „Je li $[L,R]$ unutar ovog intervala?” — kakav interval Bruno mora izabrati da negativan odgovor također nešto kaže?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Rastući intervali oko $X$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ako $X \in [L,R]$ i intervali oko $X$ rastu prema većoj vrijednosti: dokaži da negativan odgovor znači „odgovor je izvan $I_n$ ili je baš $\arg\min I_n$”. Ključ: element odmah izvan $I_n$ na strani koju $[L,R]$ prelazi manji je od svega u $I_n$ osim možda minimuma.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zajednički $X$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kako Anna s malo bita opiše točku koja je sigurno u $[L,R]$ i koju Bruno može rekonstruirati? Najdublji čvor segmentnog stabla koji sadrži $[L,R]$ — njegova sredina.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Protokol nije „pošalji niz, čekaj odgovor” kao jedan korak — svaki znak stiže zasebnim pozivom; broji primljene znakove i sam vodi stanje protokola. Ne šalji dok očekuješ znakove od druge strane (redoslijed uz oba neprazna reda nije određen).</li>
+        <li>Slanje intervala $I_n$: Anna ga ne može rekonstruirati iz $n$ (ne zna $P$) — Bruno šalje njegov položaj unutar preostalog raspona.</li>
+        <li>Zaboravljen predstavnik $\arg\min I_l$ u konačnom Cartesian tree-u.</li>
+        <li>Anna i Bruno moraju identično računati sve „zajedničke” stvari (podjelu segmentnog stabla, kodove dubina).</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="2" naslov="Zadatak">
+    <s n="1">Naslovni slajd: <i>Shopping</i>; analiza: Takaya Yūta.</s>
+    <s n="2"><b>Sažetak.</b> $N$ artikala; Anna želi najjeftiniji među $L..R$. Ne zna cijene — komunicira s Brunom koji ih zna.</s>
+</slajdovi>
+<slajdovi from="3" to="8" vrsta="koraci" naslov="Primjer komunikacije">
+    <s n="3">Anna drži $[0, 2]$ i želi reći „$L = 0$”; Bruno drži $3, 1, 4, 2$.</s>
+    <s n="4">Anna šalje znak 0.</s>
+    <s n="5">Bruno prima 1. bit: 0.</s>
+    <s n="6">Anna šalje još jedan 0.</s>
+    <s n="7">Bruno prima 2. bit: 0.</s>
+    <s n="8">Bruno zaključuje $L = 0$.</s>
+</slajdovi>
+<slajdovi from="9" to="12" vrsta="koraci" naslov="Napomene o modelu komunikacije">
+    <s n="9">Vrlo je važno točno razumjeti način komunikacije. „Dvosmjerna komunikacija” može značiti razmjenu <i>nizova</i> 0/1 ili razmjenu <i>pojedinačnih znakova</i> — načini slanja informacija bitno se razlikuju.</s>
+    <s n="10">Ovdje je riječ o drugom: šalju se pojedinačni znakovi. Nema „čekam da druga strana završi korak, pa šaljem svoj” kao ugrađene operacije — sve to gradiš sam.</s>
+    <s n="11">Dvosmjerna komunikacija rijetko se viđa: to je komunikacijski zadatak u kojem natjecatelj ima slobodu ne samo u obradi upita nego i u <i>sadržaju</i> upita. Za razliku od običnih komunikacijskih zadataka, ključno je što pitati drugu stranu.</s>
+    <s n="12">Prethodni primjer: <i>Two Transportations</i> (JOI 2018/2019 Spring Camp).</s>
+</slajdovi>
+<slajdovi from="13" to="16" vrsta="koraci" naslov="Formulacija i podzadaci 1–2">
+    <s n="13">Formulacija: Anna ima interval $[L,R]$, Bruno niz $P$. Anna komunikacijom želi indeks minimuma $P$ na $[L,R]$. S koliko komunikacije je to moguće?</s>
+    <s n="14"><b>Podzadatak 1</b> ($N \le 1000$): Bruno pošalje sve vrijednosti, $\log_2 N$ bita po vrijednosti. Anna 0 bita, Bruno $N\log_2 N$ bita.</s>
+    <s n="15"><b>Podzadatak 2</b> ($N \le 10\,000$): Anna pošalje $L$ ($\log_2 N$ bita). Bruno za svaki $X \ge L$ pošalje je li $X$ minimum $P$ na $[L, X]$ ($N$ bita).</s>
+    <s n="16">Odgovor je najveći takav $X \le R$. Anna $\log_2 N$, Bruno $N$ bita.</s>
+</slajdovi>
+
+<h2>Podzadatak 3: tri rješenja</h2>
+<slajdovi from="17" to="17" naslov="Pregled">
+    <s n="17">Predstavljamo tri rješenja: 1. bucketi (32 b.); 2. centroidna dekompozicija Cartesian tree-a (80 b.); 3. binarno pretraživanje (100 b.).</s>
+</slajdovi>
+
+<h3>Bucketi <span class="bodovi">32 boda</span></h3>
+<slajdovi from="18" to="28" vrsta="koraci" naslov="Bucketi i Cartesian tree">
+    <s n="18">Fiksiraj veličinu bucketa $B$ (poznata objema stranama); podijeli $P$ na $N/B$ komada duljine $B$. Anna šalje brojeve bucketa u kojima su $L$ i $R$: $2\log_2(N/B) - 1$ bita.</s>
+    <s n="19">Neka su to bucketi $l$ i $r$. Traženi indeks je u bucketu $l$, ili je minimum bucketa $l+1..r-1$, ili je u bucketu $r$.</s>
+    <s n="20">Bruno prvo pošalje indeks minimuma bucketa $l+1..r-1$ ($\log_2 N$ bita), pa informaciju o Cartesian tree-u $2B+1$ kandidata.</s>
+    <s n="21"><b>Cartesian tree</b> niza $Q$: korijenjeno binarno stablo čiji su vrhovi indeksi; korijen je indeks minimuma; lijevo podstablo je Cartesian tree podniza lijevo od minimuma, desno — desno.</s>
+    <s n="22">Primjer: niz $5, 9, 3, 1, 7, 4, 6, 2, 8$ i njegov Cartesian tree (indeksi $0..8$).</s>
+    <s n="23">Svojstvo: stablo ne pamti vrijednost minimuma, ali pamti njegov indeks. Indeks minimuma na $[L,R]$ je LCA vrhova $L$ i $R$. Zato nije potreban cijeli niz — dovoljno je poslati Cartesian tree.</s>
+    <s n="24">Broj binarnih stabala s $M$ vrhova je Catalanov broj, najviše $4^{M-1}$; konstrukcija Cartesian tree-a daje kodiranje u $2M - 2$ bita.</s>
+    <s n="25">Konstrukcija: prazan stog $S$; prolazi $Q$ slijeva. Dok je vrh stoga veći od trenutne vrijednosti: <code>pop</code>. Inače <code>push</code> trenutnu i prijeđi na sljedeću.</s>
+    <s n="26">Slanje: pri svakom <code>pop</code> pošalji 0, pri svakom <code>push</code> pošalji 1.</s>
+    <s n="27">Ukupno: Anna $2\log_2(N/B) - 1$; Bruno $\log_2 N$ za minimum sredine + $4B$ za Cartesian tree kandidata.</s>
+    <s n="28">Anna $2\log_2(N/B) - 1$ bita, Bruno $4B + \log_2 N$ bita; uz $B \approx 1400$ oko 32 boda.</s>
+</slajdovi>
+
+<h3>Centroidna dekompozicija <span class="bodovi">80 bodova</span></h3>
+<slajdovi from="29" to="42" vrsta="koraci" naslov="Polovljenje stabla">
+    <s n="29">Ponovno: odgovor je LCA vrhova $L$ i $R$ u Cartesian tree-u. Preformulacija: Anna ima dva vrha, Bruno binarno stablo; Anna želi LCA u Bruninom stablu.</s>
+    <s n="30">Podstablo vrha $v$ odgovara intervalu $[l, r]$. Bruno pošalje $l, r$; Anna vrati 1 ako $[L,R] \subseteq [l,r]$, inače 0. Što Bruno saznaje?</s>
+    <s n="31">Ako je $[L,R] \subseteq [l,r]$, LCA je unutar $[l,r]$. Inače — jer je $[l,r]$ točno podstablo vrha $v$ — LCA sigurno nije u $[l,r]$.</s>
+    <s n="32">Bruno dakle zna je li odgovor u $[l,r]$. Ako $[l,r]$ ima duljinu blizu $N/2$, broj vrhova se polovi? 18 koraka → 4 vrha → AC?</s>
+    <s n="33">Nije tako jednostavno.</s>
+    <s n="34">Algoritam: 18 puta — Bruno bira $[l,r]$ (podstablo) duljine najbliže $V/2$ ($V$ preostalih vrhova) i šalje ga ($2\log_2 V - 1$ bita); Anna provjeri i obriše nepotrebne vrhove. Na kraju Bruno pošalje Cartesian tree preostalih vrhova ($2V - 2$ bita).</s>
+    <s n="35">Procjena: centroid $x$ i veličine okolnih podstabala $a, b, c$.</s>
+    <s n="36">$a, b, c \le V/2$. Ako je stupanj $\le 2$, jedan korak polovi. Dalje: stupanj 3.</s>
+    <s n="37">Neka $a \ge b \ge c$. Nakon jednog koraka veličina je najviše $b + c$; nakon dva najviše $b$.</s>
+    <s n="38">Ako $\alpha$ zadovoljava „$b + c \le \alpha V$ ili $b \le \alpha^2 V$”, po koraku (osim zadnjeg) broj vrhova pada faktorom $\alpha$.</s>
+    <s n="39">Ako $b + c > \alpha V$ i $b > \alpha^2 V$: $V > a + \alpha V \ge b + \alpha V > (\alpha^2 + \alpha)V$, pa $\alpha^2 + \alpha = 1$ zadovoljava — $\alpha$ je recipročna vrijednost zlatnog reza.</s>
+    <s n="40">Zadnji korak smanjuje samo na $b + c$, učinkovitost $2/3$. Preostaje najviše $10^6 \cdot \alpha^{17} \cdot \tfrac23 \approx 186$ vrhova.</s>
+    <s n="41">Najgori slučaj: rekurzivna struktura veličina $S, S, S, 2S+1, 3S+2$.</s>
+    <s n="42">Prvih 18 koraka: $2\log_2 V - 1$ pada s 39 na 16, ukupno $\approx (39 + 16)\cdot 18/2 \approx 500$ bita; završni Cartesian tree $\approx 370$; zajedno $\approx 870$ — oko 80 bodova.</s>
+</slajdovi>
+
+<h3>Binarno pretraživanje <span class="bodovi">100 bodova</span></h3>
+<slajdovi from="43" to="47" vrsta="koraci" naslov="Kad Bruno zna X u [L, R]">
+    <s n="43">Pretpostavimo da Bruno zna neki indeks $X \in [L,R]$. Tada jedan korak polovi broj elemenata: moglo bi se binarno tražiti po roditeljima $X$ u Cartesian tree-u, ali pokazujemo drugu metodu.</s>
+    <s n="44">Od $[X,X]$ širi interval po jedan element: duljine $n+1$ nastaje produljenjem duljine $n$ lijevo ili desno — na stranu <b>veće</b> nove vrijednosti (minimum intervala ostaje što veći). $I_n$ = interval duljine $n$.</s>
+    <s n="45">Ako $[L,R] \subseteq I_n$, odgovor je u $I_n$. Ako nije, odgovor je izvan $I_n$ ili jednak indeksu minimuma $I_n$.</s>
+    <s n="46">Kad se nađu $l, r$ s $[L,R] \not\subseteq I_l$, $[L,R] \subseteq I_r$, Bruno pošalje indeks minimuma $I_l$ i Cartesian tree niza $I_r \setminus I_l$ zajedno s tim jednim elementom: $\log_2 N + 2(r - l)$ bita.</s>
+    <s n="47">$k$ koraka binarnog pretraživanja → $r - l = N/2^k$. Korak: Anna 1 bit, Bruno $\log_2 V - 1$ bita. Anna $k$ bita, Bruno $\frac{k(2\log_2 N - k - 1)}{2} + N/2^{k-1}$ bita.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Dokaz tvrdnje sa slajda 45.</b> Neka $[L,R] \not\subseteq I_n = [a,b]$, recimo $R > b$, i neka je $m^* = \arg\min I_n$. Kad je $m^*$ dodan (širenjem ulijevo), lijeva vrijednost $P[m^*]$ bila je veća od desne kandidatkinje. Da je desna kandidatkinja bila unutar konačnog $I_n$, bila bi veća od $P[m^*]$ — proturječje. Dakle desni kraj je već tada bio $b$, a desni kandidat $P[b+1] < P[m^*]$. Kako je $b + 1 \in [L,R]$, nijedan element $I_n$ osim možda $m^*$ ne može biti minimum na $[L,R]$. (Ako je desni kraj bio rub niza, $R > b$ je nemoguće.)</p>
+</div>
+<slajdovi from="48" to="58" vrsta="koraci" naslov="Kako obje strane dobivaju X">
+    <s n="48">Pretpostavka „Bruno zna $X \in [L,R]$” ne vrijedi. Anna mora poslati tu informaciju.</s>
+    <s n="49">Promatraj segmentno stablo nad indeksima — s proširenim (širokim) listovima.</s>
+    <s n="50">Anna pošalje najdublji čvor koji sadrži $[L,R]$.</s>
+    <s n="51">Primjer: $L$ i $R$ u stablu…</s>
+    <s n="52">…najdublji zajednički čvor…</s>
+    <s n="53">…njegova sredina leži unutar $[L,R]$ — to je zajednički $X$.</s>
+    <s n="54">Svaka razina dubine polovi mogući raspon. Dakle manje koraka binarnog pretraživanja nadoknađuje se dubinom — učinkovitost je gotovo ista.</s>
+    <s n="55">Kodiranje dubine: dubine 0 i 1 s 3 bita, dubine 2–13 s 4 bita ($\tfrac18\cdot2 + \tfrac1{16}\cdot12 = 1$ — prefiksni kod postoji). Zatim indeks čvora na dubini $d$: $d$ bita.</s>
+    <s n="56">Anni ostaje $k$ bita; Bruno napravi $k$ koraka binarnog pretraživanja i pošalje Cartesian tree. Bruno: $\frac{k(2\log_2 N - k - 2d - 1)}{2} + N/2^{k+d-1}$; maksimum kod $d = 2$: $12\cdot23/2 + 10^6/2^{13} \approx 260$. Ukupno unutar 300 bita — 100 bodova.</s>
+    <s n="57">Općenito: Anna šalje dubinu najdubljeg čvora ($\log\log N$ bita) i čvor ($d$ bita).</s>
+    <s n="58">Bruno radi $\log N - \log\log N - d$ koraka binarnog pretraživanja pa šalje Cartesian tree. Ukupno: Anna $\log N$ bita, Bruno $\tfrac12(\log N)^2 + O(\log N)$ bita.</s>
+</slajdovi>
+<slajdovi from="59" to="59" naslov="Raspodjela bodova">
+    <s n="59">Raspodjela bodova natjecatelja (prosjek 4.3 — najteži zadatak kampa).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Anni je dovoljan Cartesian tree (LCA = minimum raspona); $M$ vrhova = $2M-2$ bita.</li>
+        <li>Ako obje strane znaju $X \in [L,R]$: rastući intervali oko $X$ prema većoj vrijednosti daju pitanje s 1-bitnim odgovorom koje polovi kandidate.</li>
+        <li>Zajednički $X$: sredina najdubljeg čvora segmentnog stabla koji sadrži $[L,R]$; Anna $\le 18$ bita, Bruno $\le 300$.</li>
+    </ul>
+</div>

@@ -1,0 +1,234 @@
+@@ meta
+naslov = Posljednja bitka
+engleski = The Last Battle
+oznake = komunikacijski zadatak, kodiranje, adversarijalni šum, većinsko glasanje, oznaka položaja, brojanje kodova, simulirano kaljenje
+tip = Komunikacijski zadatak (Anna.cpp + Bruno.cpp)
+autor_analize = Yoneda Masataka (e869120)
+
+@@ zadatak
+<h1>Posljednja bitka</h1>
+<p><i>The Last Battle</i> — JOI Spring Camp 2023, dan 4.</p>
+<p>Ploča $8\times8$. Anna dobije $X, Y$ i niz $S$ od $N \le 43$ slova <code>A</code>/<code>B</code>. Ona boji <b>49 polja</b> izvan retka $X$ i stupca $Y$ plavo ili crveno. Zatim voditelj Bitaro (protivnički, ne slučajno) boji preostalih <b>15 polja</b> retka $X$ i stupca $Y$. Bruno vidi ploču i $N$ (ne vidi $X, Y$) i mora reproducirati $S$.</p>
+<h3>Sučelje</h3>
+<ul>
+    <li><code>void Anna(int X, int Y, int N, std::string S)</code> — poziva <code>Paint(a, b, c)</code> točno 49 puta, po jednom za svako polje $a\ne X$, $b\ne Y$; $c=0$ plavo, $c=1$ crveno.</li>
+    <li><code>std::string Bruno(int N, std::vector&lt;std::vector&lt;int&gt;&gt; T)</code> — vraća niz duljine $N$.</li>
+</ul>
+<h3>Bodovanje</h3>
+<p>$L^*$ = najveći $L$ takav da su svi izazovi s $N_i \le L$ dobiveni (ako svi uspiju, $L^*=43$). Bodovi rastu s $L^*$: npr. $2\to8$, $12\to24$, $36\to62$, $38\to68$, $39\to71$, $40\to74$, $41\to77$, $42\to84$, $43\to100$. $Q \le 20\,000$ izazova; Anna i Bruno su odvojeni procesi.</p>
+<h3>Primjer komunikacije</h3>
+<div class="primjeri">
+    <div><h4>Ulaz gradera</h4><pre>2
+0 0 1 B
+5 7 8 AAAABBBB</pre></div>
+    <div><h4>Pozivi</h4><pre>Anna(0, 0, 1, "B")   → 49× Paint(...)
+Bruno(1, T)          → "B"
+Anna(5, 7, 8, "AAAABBBB")
+Bruno(8, T)          → "AAAABBBB"</pre></div>
+</div>
+
+@@ rjesenje
+<h2>Faza 1 — brojanje crvenih ($N\le2$)</h2>
+<p>Anna kontrolira 49 polja, Bitaro 15. Za $N=1$: sve plavo (0–15 crvenih) ili sve crveno (49–64). Za $N=2$: Anna oboji $0/16/32/48$ crvenih; Bitaro doda 0–15 pa Bruno dijeli s 16.</p>
+
+<h2>Faza 2 — većina po zonama ($N\le12$)</h2>
+<p>Podijeli ploču u zone, $i$-to slovo = boja zone $i$; Bruno uzima većinu u zoni. U četiri kvadranta $4\times4$ Anna uvijek boji $\ge 9$ od 16 polja (najviše jedan redak i jedan stupac zone su Bitarovi: $16-4-4+1=9$) — većina. Dijagonalne zone od 8 polja (jedno po retku i stupcu): Anna boji $\ge 6$ → $N=8$. Pametnija podjela na 12 zona u kojima Anna boji $\ge 3/5$ polja → $N=12$.</p>
+
+<h2>Faza 3 — Bruno saznaje $X, Y$ ($N\le38$)</h2>
+<p>Da Bruno zna $X,Y$, znao bi točno koja je polja Anna bojila i mogao ih čitati kao bitove. Među četiri kvadranta $4\times4$ barem je jedan <b>potpuno Annin</b> (onaj čiji redovi ne sadrže $X$, a stupci $Y$). U njemu: kut $2\times2$ oboji <b>sve crveno</b> kao oznaku, u ostalim kvadrantima u kutu $2\times2$ postavi bar jedno plavo (Anna u svakom kutu $2\times2$ ima bar jedno svoje polje jer redak $X$ i stupac $Y$ pokrivaju najviše 3 polja kuta). Bruno nađe jedini potpuno crveni kut → zna kvadrant; u tom kvadrantu 6 bitova = $(X,Y)$. Za slova ostaje $49 - 4 - 6 - 3 = 36$ Anninih polja (4 za oznaku, 6 za kod, 3 plava „anti-oznake” u ostalim kutovima).</p>
+<p><b>Ušteda:</b> položaj oznake već otkriva u kojem je kvadrantu $(X,Y)$ (redak $X$ nije među redovima označenog kvadranta, isto stupac) — 16 mogućnosti, dovoljna su 4 bita → $N=38$. Oznaka od 3 dijagonalna polja umjesto kuta $2\times2$ štedi još jedno → $N=39$.</p>
+
+<h2>Faza 4 — dijagonala + kaljenje ($N=43$)</h2>
+<p>Zapiši $(X,Y)$ <b>samo u 8 dijagonalnih polja</b>. Tada za slova ostaje: $49-6 = 43$ polja ako $X\ne Y$ (Anna boji 6 dijagonalnih), $49-7=42$ ako $X=Y$. Problem: dijagonalna polja $(X,X)$ i $(Y,Y)$ boji Bitaro, pa Annin dijagonalni kod za $(X,Y)$ Bruno vidi kao jednu od 4 (ili 2 ako $X=Y$) varijanti. Skupovi varijanti za različite $(X,Y)$ moraju biti disjunktni: $56\cdot4 + 8\cdot2 = 240 \le 256$ — postoji li takvo kodiranje? Pronađeno <b>simuliranim kaljenjem</b> (offline; tablica se ugradi u kod).</p>
+<p>Za $N=43$ uz $X=Y$ ostaje 42 polja: kodiraj u dijagonalu i <b>zadnje slovo</b>: $56\cdot4 + 8\cdot2\cdot2 = 256$ — točno popuni sve uzorke! Kaljenje s $O(1)$ ažuriranjem rezultata (∼$10^8$–$10^9$ koraka) nalazi savršeno pakiranje. Bruno: pročita 8 dijagonalnih bitova → tablica daje $(X,Y)$ (i možda 43. slovo) → čita preostala Annina polja u dogovorenom redoslijedu.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Tko što kontrolira</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Anna 49 polja, Bitaro 15 — i to protivnički. Koja informacija sigurno preživi bilo kakvo Bitarovo bojenje? (Zbroj crvenih do na 15.)</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zone i većina</summary>
+            <div class="spoiler-sadrzaj">
+                <p>U zoni od $k$ polja Bitaro ima najviše koliko? Kad je Annina većina sigurna? Zašto dijagonalne zone rade bolje od kvadrata?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Brunu treba $(X,Y)$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ako Bruno zna $X,Y$, sva Annina polja su čisti bitovi. Kako Anna može zapisati $X,Y$ tako da Bruno zna <i>gdje</i> to čita, iako ne zna $X,Y$? (Oznaka koju Bitaro ne može ni napraviti ni uništiti.)</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Brojanje za dijagonalu</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Koliko različitih 8-bitnih uzoraka Bruno može vidjeti za zadani $(X,Y)$? Zbroji po svim $(X,Y)$; usporedi s 256. Kako iskoristiti preostalu „prazninu” da dobiješ još jedno slovo kad $X=Y$?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Pretpostaviti slučajnog Bitara — pravi grader je adversarijalan; svaka odluka Bruna mora biti točna za <i>sve</i> Bitarove izbore.</li>
+        <li>Anna i Bruno su odvojeni procesi: nema zajedničkih globalnih varijabli; tablica kodova mora biti u oba izvorna koda (ili deterministički generirana isto).</li>
+        <li>Točno 49 poziva <code>Paint</code>, svako polje jednom, nikad u retku $X$ ili stupcu $Y$.</li>
+        <li>Kad $N$ je manji od kapaciteta, Bruno vraća točno $N$ slova (višak je pogreška).</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="9" naslov="Zadatak i plan">
+    <s n="1">Naslov; analiza: Yoneda Masataka (e869120).</s>
+    <s n="2">Anna želi Bruni prenijeti niz od $N$ slova A/B — na propisani način.</s>
+    <s n="3">Anna boji 49 polja izvan retka $X$ i stupca $Y$.</s>
+    <s n="4">(Ilustracija.)</s>
+    <s n="5">Bitaro boji preostalih 15 polja, skriveno od oboje.</s>
+    <s n="6">(Ilustracija.)</s>
+    <s n="7">Bruno gleda ploču (ne zna $X,Y$) i pogađa niz.</s>
+    <s n="8">Dulji niz — više bodova. Dokle možeš?</s>
+    <s n="9">Plan: faza 1 ($N\le2$), faza 2 ($N\le12$), faza 3 ($N\le38$), faza 4 ($N\le43$).</s>
+</slajdovi>
+
+<h2>Faza 1 <span class="bodovi">8 bodova</span></h2>
+<slajdovi from="10" to="33" vrsta="koraci" naslov="Brojanje crvenih">
+    <s n="10">Ideja: razlikuj po broju crvenih.</s>
+    <s n="11">$N=1$: A → sve plavo, B → sve crveno; Bruno: A ako crvenih $\le 32$.</s>
+    <s n="12">Primjer za A…</s>
+    <s n="13">Anna sve plavo.</s>
+    <s n="14">Bitaro boji ostatak.</s>
+    <s n="15">Crvenih $\le 32$ (11) → A.</s>
+    <s n="16">Primjer za B…</s>
+    <s n="17">Anna sve crveno.</s>
+    <s n="18">Bitaro boji ostatak.</s>
+    <s n="19">Crvenih $> 32$ (57) → B.</s>
+    <s n="20">Zašto radi?</s>
+    <s n="21">Sve plavo → 0–15 crvenih.</s>
+    <s n="22">Sve crveno → 49–64 crvenih.</s>
+    <s n="23">Doradom i $N=2$.</s>
+    <s n="24">AA/AB/BA/BB → 0/16/32/48 crvenih; Bruno gleda interval po 16. Anna bira 0–49 crvenih.</s>
+    <s n="25">Primjer AB…</s>
+    <s n="26">Anna 16 crvenih.</s>
+    <s n="27">Bitaro boji.</s>
+    <s n="28">16–31 → AB.</s>
+    <s n="29">Primjer BB…</s>
+    <s n="30">Anna 48 crvenih.</s>
+    <s n="31">Bitaro boji.</s>
+    <s n="32">48–63 → BB.</s>
+    <s n="33">8 bodova.</s>
+</slajdovi>
+
+<h2>Faza 2 <span class="bodovi">24 boda</span></h2>
+<slajdovi from="34" to="56" vrsta="koraci" naslov="Većina po zonama">
+    <s n="34">Ideja: većinsko glasanje po zonama.</s>
+    <s n="35">$N=4$: četiri kvadranta $4\times4$.</s>
+    <s n="36">Slovo $i$ = boja Anninih polja u zoni $i$.</s>
+    <s n="37">Bruno: većina u zoni.</s>
+    <s n="38">Primjer ABBA…</s>
+    <s n="39">Zona 1 plava.</s>
+    <s n="40">Zona 2 crvena.</s>
+    <s n="41">Zona 3 crvena.</s>
+    <s n="42">Zona 4 plava.</s>
+    <s n="43">Bitaro boji ostatak.</s>
+    <s n="44">Bruno broji po zonama.</s>
+    <s n="45">Zona 1: više plavih → A.</s>
+    <s n="46">Zona 2: crveno → B.</s>
+    <s n="47">Zona 3: B.</s>
+    <s n="48">Zona 4: A.</s>
+    <s n="49">ABBA pogođeno.</s>
+    <s n="50">Dokaz: u svakom kvadrantu Anna boji $\ge 9$ od 16 — kontrolira većinu.</s>
+    <s n="51">Doradom $N=8$.</s>
+    <s n="52">Zone dosad kvadratne…</s>
+    <s n="53">Dijagonalne zone (po jedno polje u svakom retku i stupcu): Anna boji $\ge 6$ od 8 → većina; $N=8$.</s>
+    <s n="54">Doradom $N=12$.</s>
+    <s n="55">Podjela na 12 zona u kojima Anna boji $\ge 3/5$ polja.</s>
+    <s n="56">24 boda.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto $\ge 9$ i $\ge 6$.</b> Bitarova polja su unija jednog retka i jednog stupca. Kvadrant $4\times4$ siječe redak u najviše 4 i stupac u najviše 4 polja, s preklapanjem 1: najviše $7$ Bitarovih, $\ge 9$ Anninih. Dijagonalna zona ima po jedno polje u svakom retku i stupcu: redak $X$ uzima 1, stupac $Y$ uzima 1 → najviše 2 Bitarova, $\ge 6$ Anninih. Zona sa $\ge 3/5$ Anninih polja daje sigurnu većinu jer je $3/5 > 1/2$ i Bitaro ne može stvoriti neriješeno.</p>
+</div>
+
+<h2>Faza 3 <span class="bodovi">68–71 bodova</span></h2>
+<slajdovi from="57" to="86" vrsta="koraci" naslov="Zapisati X, Y">
+    <s n="57">Ideja: omogući Bruni da pročita $X,Y$.</s>
+    <s n="58">Kad bi Bruno znao $X,Y$, znao bi točno Annina polja — mnogo slova.</s>
+    <s n="59">Ali Bruno ne vidi $X,Y$…</s>
+    <s n="60">Kako ih pročitati?</s>
+    <s n="61">(1/3) Bar jedan kvadrant $4\times4$ potpuno je Annin (× = polja koja Anna ne može bojiti).</s>
+    <s n="62">(2/3) U njega upiši $(X,Y)$: 64 mogućnosti → $\log_2 64 = 6$ polja.</s>
+    <s n="63">(3/3) Oznaka: kut $2\times2$ tog kvadranta sav crven; u ostalim kvadrantima u kutu bar jedno plavo.</s>
+    <s n="64">Može li Bruno pročitati $X,Y$?</s>
+    <s n="65">Postoji točno jedan potpuno crveni kut $2\times2$ — pored njega su $X,Y$.</s>
+    <s n="66">Bruno gleda kutove!</s>
+    <s n="67">Nakon $X,Y$?</s>
+    <s n="68">Preostalih Anninih polja: 36.</s>
+    <s n="69">Odozgo-lijevo redom slova 1..36 → $N=36$.</s>
+    <s n="70">Primjer: 18 A pa 18 B, $X=4$, $Y=7$.</s>
+    <s n="71">Gornji lijevi kvadrant je slobodan.</s>
+    <s n="72">Upiši $X=4$ (crveno-plavo-plavo = 100), $Y=7$ (crveno-crveno-crveno = 111).</s>
+    <s n="73">Gornji lijevi kut sav crven; ostali kutovi dobiju jedno plavo.</s>
+    <s n="74">Ostala polja redom bojama slova (A plavo, B crveno).</s>
+    <s n="75">Bitaro boji ostatak.</s>
+    <s n="76">Može li Bruno dekodirati?</s>
+    <s n="77">Bruno gleda ploču.</s>
+    <s n="78">Jedini sav crveni kut je gornji lijevi → tu su $X,Y$.</s>
+    <s n="79">Čita $(X,Y)=(4,7)$.</s>
+    <s n="80">Zna gdje su slova → rekonstruira.</s>
+    <s n="81">36 slova točno.</s>
+    <s n="82">Doradom $N=38$.</s>
+    <s n="83">Za $(X,Y)$ trošimo 6 polja, ali položaj crvenog kuta već kaže kvadrant u kojem je $(X,Y)$: 16 mogućnosti.</s>
+    <s n="84">Dovoljna su 4 polja → 2 slova više.</s>
+    <s n="85">68 bodova!</s>
+    <s n="86">Dodatak: oznaka od 3 dijagonalna polja umjesto kuta $2\times2$ → $N=39$ (71 bod).</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto oznaka radi protiv Bitara.</b> Anna kut $2\times2$ „označenog” kvadranta boji u cijelosti (sva su polja njena), pa je sigurno sav crven. U svakom drugom kutu $2\times2$ redak $X$ i stupac $Y$ pokrivaju najviše $2+2-1=3$ polja, dakle Anna ima bar jedno i može ga obojiti plavo — Bitaro ne može stvoriti lažni crveni kut. Kvadrant je „potpuno Annin” točno kad $X$ nije u njegovim redovima i $Y$ nije u njegovim stupcima; takav uvijek postoji (izaberi polovicu redova bez $X$ i polovicu stupaca bez $Y$).</p>
+</div>
+
+<h2>Faza 4 <span class="bodovi">84–100 bodova</span></h2>
+<slajdovi from="87" to="102" vrsta="koraci" naslov="Dijagonala i kaljenje">
+    <s n="87">Ideja: iskoristi dijagonalu.</s>
+    <s n="88">Čitaj $(X,Y)$ samo iz 8 dijagonalnih polja.</s>
+    <s n="89">Ako uspije: $X=Y$ → 42 polja za slova.</s>
+    <s n="90">$X\ne Y$ → 43 polja.</s>
+    <s n="91">Dakle $N=42$ — ali je li izvedivo?</s>
+    <s n="92">$X\ne Y$: Anna postavi 6 dijagonalnih polja, Bitaro 2 → $2^2=4$ mogućih uzoraka dijagonale.</s>
+    <s n="93">Primjer: Annin „crv-crv-pl-pl-crv-pl” daje 4 uzorka.</s>
+    <s n="94">$X=Y$: Bitaro 1 polje → 2 uzorka.</s>
+    <s n="95">Ukupno uzoraka (s višestrukostima): $56\cdot4 + 8\cdot2 = 240$.</s>
+    <s n="96">Svi moraju biti različiti: smjestiti 240 u $2^8=256$. Moguće?</s>
+    <s n="97">Simulirano kaljenje to konstruira.</s>
+    <s n="98">$N=43$: kad $X=Y$ ostaje samo 42 polja — zapiši u dijagonalu i <b>zadnje slovo</b>.</s>
+    <s n="99">Uzorci: $56\cdot4\cdot1 + 8\cdot2\cdot2 = 256$ — točno sve!</s>
+    <s n="100">Savršeno pakiranje 256 u 256 — izgleda teško…</s>
+    <s n="101">Ubrzano kaljenje uspijeva: $10^8$–$10^9$ iteracija, ocjena se mora ažurirati u $O(1)$.</s>
+    <s n="102">100 bodova!</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kako izgleda kaljenje.</b> 72 „koda” (64 para $(X,Y)$ + 8 dodatnih za $X=Y$ s drugim zadnjim slovom), svaki 8-bitni uzorak $v$. Skup vidljivih uzoraka za kod $(X,Y,v)$: $v$ s bitovima $X$ i $Y$ postavljenima na sve kombinacije. Ocjena = broj uzoraka iz $\{0..255\}$ pokrivenih bar jednom (cilj 256, tj. bez kolizija jer je zbroj veličina točno 256). Potez: promijeni $v$ jednog koda; uz brojač pokrivenosti po uzorku promjena ocjene je $O(1)$. Prihvaćaj pogoršanja s vjerojatnošću $e^{\Delta/T}$ uz padajuću temperaturu. Gotovu tablicu (72 bajta) ugradi u <code>Anna.cpp</code> i <code>Bruno.cpp</code>.</p>
+    <p><b>Dekodiranje.</b> Bruno iz 8 dijagonalnih bitova tablicom dobije $(X,Y)$ (i, ako $X=Y$, 43. slovo), zatim čita polja izvan retka $X$, stupca $Y$ i dijagonale u dogovorenom redoslijedu; prvih $N$ (ili $N-1$) bitova su slova.</p>
+</div>
+<slajdovi from="103" to="105" naslov="Sažetak i statistika">
+    <s n="103">Sažetak rješenja.</s>
+    <s n="104">Faza 1: broj crvenih. Faza 2: zone i većina. Faza 3: Bruno čita $X,Y$. Faza 4: $X,Y$ na dijagonali + kaljenjem konstruirano kodiranje.</s>
+    <s n="105">Raspodjela bodova (prosjek 29,5).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Protivnički šum na 15 polja: većina po zonama daje do 12 slova.</li>
+        <li>Oznaka koju Bitaro ne može falsificirati + zapis $(X,Y)$ → Bruno zna Annina polja: 38–39 slova.</li>
+        <li>$(X,Y)$ na dijagonali: $56\cdot4+8\cdot2\cdot2=256$ uzoraka savršeno upakiranih kaljenjem → 43 slova.</li>
+    </ul>
+</div>

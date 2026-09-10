@@ -1,0 +1,148 @@
+@@ meta
+naslov = Pogrešno napisano
+engleski = Misspelling
+oznake = stringovi, leksikografski poredak, DP, prebrojavanje, stog/deque, amortizacija
+autor_analize = ynymxiaolongbao (Yoneyama Eiji)
+
+@@ zadatak
+<h1>Pogrešno napisano</h1>
+<p><i>Misspelling</i> — JOI Spring Camp 2022, dan 1.</p>
+<p>Predsjednik K zaboravio je niz $S$ duljine $N$ od malih slova. Neka je $T_i$ niz dobiven brisanjem $i$-tog znaka iz $S$. Pamti $M$ relacija $T_{A_j} \le T_{B_j}$ (leksikografski, $A_j \ne B_j$, parovi različiti). Prebroji nizove $S$ koji zadovoljavaju sve relacije, modulo $10^9 + 7$.</p>
+<h3>Ulaz</h3>
+<pre>N M
+A_1 B_1
+...
+A_M B_M</pre>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$2 \le N \le 500\,000$, $1 \le M \le 500\,000$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(8) $N \le 10$.</li>
+    <li>(20) $N \le 200$.</li>
+    <li>(29) $M = N - 1$ i relacije čine lanac $T_{P_1} \le T_{P_2} \le \dots \le T_{P_N}$ za neku permutaciju $P$.</li>
+    <li>(32) $N \le 20\,000$.</li>
+    <li>(11) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>3 2
+1 3
+3 2</pre></div>
+    <div><h4>Izlaz</h4><pre>5876</pre></div>
+</div>
+<p>Za $S = $ <code>bab</code>: $T_1 = $ <code>ab</code>, $T_2 = $ <code>bb</code>, $T_3 = $ <code>ba</code>; vrijedi $T_1 \le T_3 \le T_2$. Za <code>aab</code> ne vrijedi $T_1 \le T_3$.</p>
+
+@@ rjesenje
+<h2>Kako se uspoređuju $T_i$ i $T_j$?</h2>
+<p>Za $i < j$ nizovi $T_i$ i $T_j$ dijele prefiks $S_{1..i-1}$ i sufiks $S_{j+1..N}$. Na položaju $k \in [i, j-1]$ $T_i$ ima $S_{k+1}$, a $T_j$ ima $S_k$. Neka je $k$ <b>prvi indeks $\ge i$ sa $S_k \ne S_{k+1}$</b>. Ako je $k \ge j$: $T_i = T_j$. Inače $T_i < T_j \iff S_k > S_{k+1}$. Dakle sve ovisi samo o <b>smjerovima</b> susjednih parova (znak $<$, $=$ ili $>$ između $S_k$ i $S_{k+1}$).</p>
+<p>Relacija $(A, B)$ s $l = \min(A, B)$, $r = \max(A, B)$: neka je $k$ prva promjena $\ge l$. Ako je $k < r$, smjer mora biti $S_k > S_{k+1}$ kad je $A < B$, odnosno $S_k < S_{k+1}$ kad je $A > B$. Ako je $k \ge r$, relacija je automatski ispunjena (jednakost).</p>
+
+<h2>DP odostraga</h2>
+<p>Gradimo $S$ od kraja. Stanje: $(pos, x, c, op)$ — postavljeni su $S_{pos..N}$, $S_{pos} = c$, $x$ je najmanji indeks $\ge pos$ sa $S_x \ne S_{x+1}$ (ili $\infty$), a $op \in \{<, >\}$ smjer u $x$. Prijelazi na $pos - 1$: isto slovo ($x, op$ ostaju) ili drugo slovo $c'$ (novi $x = pos - 1$, $op$ = odnos $c'$ i $c$). Kad dođemo na $pos = l$ neke relacije, <b>poništi</b> stanja s $x < r$ i krivim $op$. $O(N^2 \cdot K)$ — podzadatak 2.</p>
+
+<h2>Puni bodovi: stogovi po $(c, op)$</h2>
+<p>Za svaki par $(c, op)$ drži spremnik s vrijednostima indeksiranima po $x$. „Isto slovo” ne mijenja ništa. „Drugo slovo” dodaje na početak novi element $x = pos - 1$ s vrijednošću $\sum$ svih stanja s $c \ne c'$ (grand total minus total za $c'$; drži zbrojeve po spremniku). Poništavanje $x < r$: budući da $x$ dodajemo u <b>padajućem</b> redoslijedu, elementi s $x < r$ su <b>prefiks</b> spremnika — skidaj s početka dok je $x < r$ (svaki element se skine najviše jednom). Posebno stanje „bez promjene” ($x = \infty$, sufiks jednakih slova) nikad se ne poništava. Ukupno $O(N \cdot K)$ uz $K = 26$; odgovor je zbroj svih stanja na $pos = 1$.</p>
+<p><b>Podzadatak 3</b> (lanac): u sortiranom poretku nizova $T$, promjena $S_k \ne S_{k+1}$ zahtijeva da $T_{k+1}, \dots, T_N$ čine uzastopni blok, a jednakost da su $T_k$ i $T_{k+1}$ na istoj strani; to je i dovoljno, pa se $x$ može izbaciti iz stanja — $O(N \cdot \text{poly}(K))$.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Usporedi $T_2$ i $T_6$ ručno</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Napiši oba niza ispod $S$. Gdje se prvi put razlikuju? Što o tome odlučuje?</p>
+                <p class="pitanje">Prva promjena slova nakon $i$ — i njezin smjer.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Što DP treba pamtiti</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Gradi odostraga. Za provjeru relacije $(l, r)$ na trenutku $pos = l$ dovoljno je znati gdje je prva promjena i kojeg je smjera — zašto?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Ubrzanje</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Prijelaz „isto slovo” je identitet — nemoj ga izvoditi. „Poništi $x < r$” — kojim redoslijedom nastaju $x$? Što je s time prefiks?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Smjer: za $A < B$ i prvu promjenu $k < B$ treba $S_k > S_{k+1}$ (jer $T_A$ na tom mjestu ima $S_{k+1}$).</li>
+        <li>Stanje „još bez promjene” mora preživjeti sve relacije.</li>
+        <li>Grupiraj relacije po $l = \min(A, B)$ i primijeni ih sve prije prijelaza na $pos - 1$.</li>
+        <li>Zbrojevi po spremniku moraju se ažurirati i pri skidanju s početka.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak">
+    <s n="1">Naslovni slajd: <i>Misspelling</i>; analiza: ynymxiaolongbao (Yoneyama Eiji).</s>
+    <s n="2">$S$ = niz malih slova, npr. <code>acccbba</code>.</s>
+    <s n="3">$T_i$ = $S$ bez $i$-tog znaka.</s>
+    <s n="4">Primjer svih $T_i$.</s>
+    <s n="5">Zadano je $M$ relacija $T_i \le T_j$; prebroji $S$ koji ih zadovoljavaju.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">8 bodova</span></h2>
+<slajdovi from="6" to="14" vrsta="koraci" naslov="Što znači $T_i \le T_j$?">
+    <s n="6">Što znači $T_i \le T_j$ za $i < j$?</s>
+    <s n="7">Primjer: $T_2$ i $T_6$.</s>
+    <s n="8">Usporedi ih znak po znak.</s>
+    <s n="9">Izdvojeno: $T_2$ i $T_6$.</s>
+    <s n="10">Početak i kraj su isti — gledaj samo $S[i..j]$.</s>
+    <s n="11">…</s>
+    <s n="12">Prva razlika nastaje na prvom mjestu $k \ge i$ gdje se slovo mijenja: $T_i$ ima $S_{k+1}$, $T_j$ ima $S_k$.</s>
+    <s n="13">Ako se do $j$ slovo ne promijeni, $T_i = T_j$.</s>
+    <s n="14">Odnos $T_i, T_j$ ovisi samo o odnosima $S_k$ i $S_{k+1}$. Fiksiraj za svaki $k$ jedan od $<, =, >$ ($3^{N-1}$ mogućnosti), prebroji $S$ DP-om i provjeri relacije: $O(3^N \text{poly}(N)\text{poly}(K))$.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">20 bodova</span></h2>
+<slajdovi from="15" to="19" vrsta="koraci" naslov="DP odostraga">
+    <s n="15">Gradimo $S$ odostraga i zapisujemo odnose susjeda; želimo znati odnos $T_2$ i $T_6$.</s>
+    <s n="16">…</s>
+    <s n="17">Treba: postoji li promjena od $i = 2$ do $j = 6$ i kojeg je smjera.</s>
+    <s n="18">Dovoljno je pamtiti položaj i vrstu <b>najljevijeg</b> (zadnje zapisanog) $<$ ili $>$ → ključ DP-a.</s>
+    <s n="19">$dp[pos][x][c][op]$: postavljeno do $S_{pos} = c$; $x$ najmanji $\ge pos$ sa $S_x \ne S_{x+1}$; $op$ smjer. $O(N^2\text{poly}(K))$.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">29 bodova</span></h2>
+<slajdovi from="20" to="26" vrsta="koraci" naslov="Poznat sortirani poredak">
+    <s n="20">Sortirani poredak $T$-ova je zadan. Ako $S_k \ne S_{k+1}$, tada $T_{k+1}, \dots, T_N$ čine uzastopni blok u tom poretku.</s>
+    <s n="21">…</s>
+    <s n="22">Primjer: $T_2, T_3$ manji od $T_4..T_8$; $T_1$ veći od $T_4..T_8$.</s>
+    <s n="23">Ako $S_k = S_{k+1}$, $T_k$ i $T_{k+1}$ su na istoj strani.</s>
+    <s n="24">…</s>
+    <s n="25">Ti su uvjeti i dovoljni → nužno i dovoljno.</s>
+    <s n="26">DP odostraga bez $x$: $dp[pos][c][op]$; prijelaz $S_{pos-1} \ne S_{pos}$ samo ako je $T_{pos..N}$ blok. $O(N\text{poly}(K))$.</s>
+</slajdovi>
+
+<h2>Podzadaci 4–5 <span class="bodovi">43 boda</span></h2>
+<slajdovi from="27" to="31" vrsta="koraci" naslov="Ubrzanje strukturama">
+    <s n="27">Prijelaz $dp[pos][x][c][op] \to dp[pos-1][x][c][op]$ (isto slovo) je identitet — dijeli vrijednosti po $(x, c, op)$ i ne radi ništa pri promjeni $pos$.</s>
+    <s n="28">Ostali prijelazi: za određeni $(c, op)$ postavi na 0 sve $x < r$ (relacija); za $(c, c', op, op')$ dodaj zbroj svih $dp[x][c][op]$ u $dp[pos][c'][op']$ (novo slovo).</s>
+    <s n="29">Lijeno segmentno stablo po $(c, op)$: postavljanje intervala na 0, zbroj cijelog, točkasto ažuriranje → $O(N\log N\,\text{poly}(K))$.</s>
+    <s n="30">Ili stog po $(c, op)$: brisanje s lijeva, zbroj, dodavanje s lijeva → $O(N\text{poly}(K))$.</s>
+    <s n="31">Alternative: <code>set</code>/<code>priority_queue</code> (isto), ili 2D prefiksne sume.</s>
+</slajdovi>
+<slajdovi from="32" to="32" naslov="Raspodjela bodova">
+    <s n="32">Raspodjela bodova: 0, 8, 28, 100.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>$T_i$ vs $T_j$ odlučuje prva promjena slova nakon $\min(i,j)$ i njezin smjer.</li>
+        <li>DP odostraga s pamćenjem prve promjene; relacije poništavaju stanja.</li>
+        <li>Po $(c, op)$ stog: poništavanje = skidanje prefiksa, novo slovo = dodavanje na početak; $O(NK)$.</li>
+    </ul>
+</div>

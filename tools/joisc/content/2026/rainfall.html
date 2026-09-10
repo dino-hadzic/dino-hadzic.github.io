@@ -1,0 +1,130 @@
+@@ meta
+naslov = Trokutasta kiša
+engleski = Triangular Rainfall
+oznake = trokutasta mreža → afinom transformacijom pravokutne koordinate, T_i = {a≤x, b≤y, x+y≤c}, površina u malim trokutima = 2·euklidska, sortiraj po c padajuće i skeniraj pravcem x+y=c: unutar x+y≤c_i trokuti su kvadranti [a,∞)×[b,∞), razina „≥k pokrivenosti” je monotona stepenica h_k, ažuriranje h_k=min(h_k, max(h_{k−1},b)) na [a,∞) po segmentima (set), promijenjenim segmentima dodaj površinu ∩ {x+y≤c_i}, O(NK log N)
+autor_analize = Nishimoto Masaki (maspy)
+
+@@ zadatak
+<h1>Trokutasta kiša</h1>
+<p><i>Triangular Rainfall</i> — JOI 2025/2026 Final Stage, dan 3.</p>
+<p>Zemlja je jednakostranični trokut stranice $L$ podijeljen na $L^2$ jediničnih trokuta („regija”). Rešetkaste točke $(x,y)$, $0\le y\le L$, $0\le x\le L-y$. Na dan $i$ kiša pada u trokutu $T_i$ s vrhovima $(X_i,Y_i),(X_i+Z_i,Y_i),(X_i,Y_i+Z_i)$; regija je „kišna” tog dana ako je cijela unutar $T_i$. Za svaki $k=1..K$ ispiši broj regija kišnih barem $k$ dana.</p>
+<h3>Ograničenja</h3>
+<p>$2\le L\le10^9$, $2\le N\le2\cdot10^5$, $1\le K\le5$, $X_i+Y_i+Z_i\le L$.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(4) $N=2$, $K=2$.</li>
+    <li>(5) $L\le100$, $N\le100$.</li>
+    <li>(5) $L\le1000$.</li>
+    <li>(7) $N\le2000$.</li>
+    <li>(10) $X_i=0$, $K=1$.</li>
+    <li>(10) $X_i=0$.</li>
+    <li>(23) $K=1$.</li>
+    <li>(18) $K\le2$.</li>
+    <li>(18) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<pre>5 2 2
+1 0 3
+0 1 4</pre>
+<p>Izlaz: <code>21</code>, <code>4</code> (prvi trokut ima $9$ regija, drugi $16$, presjek $4$).</p>
+
+@@ rjesenje
+<h2>Koordinate</h2>
+<p>Afina transformacija pretvara trokutastu mrežu u običnu: rešetkaste točke $\to\mathbb Z^2$, svaka jedinična ćelija $=2$ regije (gornji i donji trokut), a $T_i=\{a_i\le x,\ b_i\le y,\ x+y\le c_i\}$ s $a_i=X_i$, $b_i=Y_i$, $c_i=X_i+Y_i+Z_i$ — pravokutni trokut površine $Z_i^2/2$, tj. $Z_i^2$ regija. <b>Broj regija = 2 × euklidska površina</b> (sve figure su unije regija, pa je to egzaktno).</p>
+
+<h2>Mali podzadaci <span class="bodovi">21</span></h2>
+<ul>
+    <li><b>$N=2$:</b> presjek dvaju takvih trokuta je istog oblika: $(\max a,\max b,\min c)$, površina $\max(0,c-a-b)^2$ regija.</li>
+    <li><b>$L\le1000$:</b> brojač po regijama; po retku $y$ trokut pokriva interval $x$ ⇒ razlikovno polje, $O(NL+L^2)$.</li>
+    <li><b>$N\le2000$:</b> kompresija po skupovima $\{a_i\}$ i $\{b_i\}$ u $O(N^2)$ pravokutnika; $T_i$ potpuno pokriva neke (2D prefiksi) i djelomično $O(N)$ duž hipotenuze — obradi ih posebno.</li>
+</ul>
+
+<h2>Zajednička hipotenuza ($X_i=0$) <span class="bodovi">20</span></h2>
+<p>Rotacijom postaje $c_i=L$ za sve: $T_i=[a_i,\infty)\times[b_i,\infty)\cap\{x+y\le L\}$. Za kvadrante je „pokriveno $\ge k$ puta” <b>stepenica</b>: $h_k(x)=$ najmanji $y$ s $\ge k$ kvadranata iznad, nerastuća u $x$. Odgovor $=$ površina ispod pravca $x+y\le L$ i iznad $h_k$ — zbroj po konstantnim komadima stepenice, svaki komad $\cap$ poluravnina u $O(1)$.</p>
+
+<h2>Skeniranje pravcem $x+y=c$ <span class="bodovi">100</span></h2>
+<p>Sortiraj $T_i$ po $c_i$ <b>padajuće</b> i dodaji jedan po jedan, održavajući stepenice $h_1\le h_2\le\dots\le h_K$ <b>kvadranata</b> $[a_j,\infty)\times[b_j,\infty)$. Ključ: unutar poluravnine $x+y\le c_i$ svaki već dodani trokut ($c_j\ge c_i$) <b>jednak je svom kvadrantu</b>, a $T_i$ izvan te poluravnine ne pokriva ništa. Zato je promjena odgovora za razinu $k$ pri dodavanju $T_i$ točno
+\[\text{površina}\Big(\{\text{točke gdje broj kvadranata postaje }k\}\cap\{x+y\le c_i\}\Big).\]
+Ažuriranje za $k=K,\dots,1$: na $x\ge a_i$ postavi $h_k\gets\min\big(h_k,\max(h_{k-1},b_i)\big)$ ($h_0\equiv-\infty$). Stepenice drži kao nizove konstantnih segmenata (<code>std::set</code>); za svaki segment koji se spusti sa stare na novu visinu dodaj površinu tog pravokutnog komada presječenog s $x+y\le c_i$ (razlika trokuta, $O(1)$). Analiza tvrdi ukupno $O(N)$ promjena segmenata po razini (novi komad ili poprimi konstantu $b_i$ ili se slijepi uz $h_{k-1}$), pa je sve $O(NK\log N)$. Ako konstanta smeta: kompresija koordinata i 64-arno stablo umjesto seta.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Maknite trokutastu mrežu</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Linearna transformacija: $T_i=\{a\le x,b\le y,x+y\le c\}$; regije = 2 × površina.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Zašto sortirati po $c$ padajuće?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Ispod pravca $x+y=c_i$ stariji trokuti izgledaju kao kvadranti — geometrija se svodi na stepenice.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Više razina</summary>
+        <div class="spoiler-sadrzaj">
+            <p>$h_k$ nova $=\min(h_k,\max(h_{k-1},b))$ na $x\ge a$, računaj od $k=K$ prema 1 da koristiš stare $h_{k-1}$.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Ažuriranje razina od $k=1$ prema gore koristi već izmijenjeni $h_{k-1}$.</li>
+        <li>Površina pravokutnika ∩ poluravnina: pazi na slučajeve kad pravac siječe 0, 1 ili 2 strane.</li>
+        <li>Odgovori do $L^2\approx10^{18}$ — 64-bitni tipovi; ne množi $L\cdot L$ u 32 bita.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak i koordinate">
+    <s n="1">Naslov; maspy.</s>
+    <s n="2">Trokutasta mreža (može beskonačna); inkrementi na jednakostranične trokute; površina dijela s $\ge k$ za $k=1..5$.</s>
+    <s n="3">Savjet: na natjecanju s dozvoljenim materijalima nosi trokutasti papir; inače linearno preslikaj u pravokutne koordinate (uz rizik da se simetrije slabije vide).</s>
+    <s n="4">Razne mrežne papire.</s>
+    <s n="5">Zamjena pravokutnim koordinatama — analiza dalje koristi taj oblik.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–4 <span class="bodovi">21</span></h2>
+<slajdovi from="6" to="12" vrsta="koraci" naslov="Geometrija, grubo, kompresija">
+    <s n="6">$N=2$: trokuti $a_i\le x,b_i\le y,x+y\le c_i$; presjek istog oblika; translacijom $0\le x,0\le y,x+y\le c$; po predznaku $c$. Slabo pomaže za testiranje — preskoči ako ciljaš više.</s>
+    <s n="7">$L,N\le100$: nabroji regije unutar $T_i$; koordinate regija — ili razdvoji gornje/donje trokute ili sve numeriraj.</s>
+    <s n="8">Numeracija obaju orijentacija (slika).</s>
+    <s n="9">$L\le1000$: $O(L^2)$ regija, frekvencije; imos/prefiksi; $O(NL+L^2)$ dovoljno (po $x$ petlja, po $y$ intervalno dodavanje); više smjerova prefiksa daje $O(N+L^2)$, nepotrebno.</s>
+    <s n="10">$N\le2000$: kompresija — sve presječne koordinate su previše; reži samo po skupovima $a_i$ i $b_i$.</s>
+    <s n="11">Slika.</s>
+    <s n="12">$O(N^2)$ pravokutnika; $T_i$ potpuno pokriva neke (kao podzadatak 3) i djelomično $O(N)$ po trokutu — obradi ih; malo mučno.</s>
+</slajdovi>
+
+<h2>$X_i=0$ <span class="bodovi">20</span></h2>
+<slajdovi from="13" to="15" vrsta="koraci" naslov="Zajednička hipotenuza">
+    <s n="13">Rotiraj tako da je $X_i+Y_i+Z_i=L$: $T_i=[a_i,\infty)\times[b_i,\infty)$ presječen s $x+y\le L$.</s>
+    <s n="14">Ignoriraj $x+y\le L$: dio s $\ge k$ kvadranata je $O(NK)$ pravokutnika; za svaki dodaj površinu dijela s $x+y\le L$.</s>
+    <s n="15">Slika.</s>
+</slajdovi>
+
+<h2>Puno rješenje <span class="bodovi">100</span></h2>
+<slajdovi from="16" to="22" vrsta="koraci" naslov="Scan-line po x+y=c">
+    <s n="16">$T_i=\{a_i\le x,b_i\le y,x+y\le c_i\}$; bez uvjeta $x+y\le c_i$ razina $\ge k$ je jednostavna ⇒ obradi $x+y=c$ kao scan-line.</s>
+    <s n="17">Sortiraj po $c_i$ padajuće, dodaj jedan po jedan, održavaj odgovor (ne samo dio $c_i\le x+y$); pri svakom dodavanju razlikovno ažuriraj.</s>
+    <s n="18">Bitna je samo višestrukost u dijelu $x+y\le c_i$ ⇒ tamo $T_j$ smiješ zamijeniti kvadrantom $[a_j,\infty)\times[b_j,\infty)$.</s>
+    <s n="19">Dakle: održavaj multiskup kvadranata; pri dodavanju dohvati kako se mijenjaju dijelovi s $0,1,\dots,K$ preklapanja; za promijenjene dijelove dodaj površinu s $x+y\le c_i$.</s>
+    <s n="20">$K=1$: unija kvadranata; kao niz $h_0,h_1,\dots=\infty$ i upit $h_j\gets\min(h_j,x)$ za $j\ge i$ uz izvještaj o promjeni; $h$ je nerastući ⇒ konstantni segmenti, ukupno $O(N)$ promjena.</s>
+    <s n="21">Slika.</s>
+    <s n="22">$K=5$: isto, razine $k=1..K$ su nerastući nizovi; segmentni prikaz, $O(N)$ promjena po razini; dobra konstanta ⇒ 100, inače podzadatak 8; umjesto seta kompresija + 64-arno stablo.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Pravokutne koordinate: trokut $=\{a\le x,b\le y,x+y\le c\}$; regije $=2\times$ površina.</li>
+        <li>Scan-line po $c$ padajuće pretvara trokute u kvadrante; razine pokrivenosti su stepenice s $O(N)$ promjena svaka.</li>
+    </ul>
+</div>

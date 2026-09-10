@@ -1,0 +1,131 @@
+@@ meta
+naslov = Označeni gradovi
+engleski = Designated Cities
+oznake = stablo s usmjerenim cijenama traka, E=1: rerooting, E=2: cost(u,v) = (cost(u)+cost(v) − W(u,v))/2 DP kao dijametar, lema: jedan kraj optimalnog para R je u nekom optimalnom rješenju za svako E ≥ 2, ukorijeni u R, biraj listove greedy (dekompozicija po najdužem putu / priority_queue), sortirane vrijednosti lanaca, odgovor = ukupno − prefiks, O(N log N)
+autor_analize = maroon
+
+@@ zadatak
+<h1>Označeni gradovi</h1>
+<p><i>Designated Cities</i> — JOI Spring Camp 2019, dan 3.</p>
+<p>Stablo s $N$ gradova; cesta $i$ ima traku $A_i\to B_i$ cijene $C_i$ i traku $B_i\to A_i$ cijene $D_i$. Označavanje grada $x$ asfaltira, na svakoj cesti, traku usmjerenu <b>prema</b> $x$ (od daljeg kraja k bližem). Za $Q$ planova: označi točno $E_j$ gradova tako da zbroj cijena <b>neasfaltiranih</b> traka bude minimalan; ispiši taj zbroj.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N\le2\cdot10^5$; $C_i,D_i\le10^9$; $Q\le N$; $1\le E_j\le N$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $N\le16$.</li>
+    <li>(7) $Q=1$, $E_1=1$.</li>
+    <li>(9) $Q=1$, $E_1=2$.</li>
+    <li>(17) $N\le2000$.</li>
+    <li>(17) $Q=1$.</li>
+    <li>(44) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>4
+1 2 1 2
+1 3 3 4
+1 4 5 6
+2
+1
+2</pre></div>
+    <div><h4>Izlaz</h4><pre>9
+1</pre></div>
+</div>
+
+@@ rjesenje
+<h2>$E=1$: rerooting <span class="bodovi">7</span></h2>
+<p>$\mathrm{cost}(v)$ = zbroj traka koje <i>ne</i> vode prema $v$. Izračunaj za korijen DFS-om, pa pri prelasku $v\to u$ preko brida $e$: zamijeni doprinos $e$ (jedna traka umjesto druge). $O(N)$.</p>
+
+<h2>$E=2$ <span class="bodovi">9</span></h2>
+<p>Za par $(u,v)$ asfaltirano je: sve trake prema $u$, plus na putu $u$–$v$ i trake prema $v$. Simetrično po $v$; zbrajanjem:</p>
+<p class="formula">$\mathrm{cost}(u,v)=\frac{\mathrm{cost}(u)+\mathrm{cost}(v)-W(u,v)}2,\qquad W(u,v)=\text{zbroj obiju traka na putu }u\text{–}v.$</p>
+<p>Minimiziraj DP-om kao za dijametar: uz $\mathrm{paved}(x)=\text{total}-\mathrm{cost}(x)$, $f(v)=\max_{c}(f(c)+W(v,c))$ s bazom $f(\text{list})=\mathrm{paved}(\text{list})$; najbolji par kombinira dva najveća djeteta u vrhu (ili dijete + $\mathrm{paved}(v)$). Zapamti krajeve.</p>
+
+<h2>Ukorijeni u listu i biraj listove greedy <span class="bodovi">24</span></h2>
+<p>Ako je $E\ge$ broj listova, odgovor je 0 (svi listovi ⇒ sve trake). Inače su svi odabrani gradovi listovi (ne-list pomakni prema listu — ne gubi se). Fiksiraj jedan odabrani list $R$ kao korijen: sve trake prema $R$ su asfaltirane; ostaju „silazne” trake, a svaki daljnji odabrani list $L$ asfaltira silazne trake na putu $R\to L$. Dakle: <b>odaberi $E-1$ listova da unija puteva od korijena pokrije najveću težinu silaznih traka</b>.</p>
+<p>Greedy je točan: uzmi put najveće težine (list $L$); svako rješenje bez $L$ može se prepraviti da ga sadrži bez gubitka. Implementacija: <b>dekompozicija po najtežem putu</b> — svaki vrh bira dijete s najvećom silaznom težinom lanca; lanci imaju težine; sortiraj silazno; odgovor za $E$ je $\text{total}_\downarrow-\sum$ prvih $E-1$. (Ili <code>priority_queue</code>: izvadi najteži put, ubaci najteže puteve podstabala koja put odvaja.) $O(N\log N)$ po fiksiranom $R$; probati sve listove daje $O(N^2\log N)$ — podzadatak 4.</p>
+
+<h2>Lema koja spašava <span class="bodovi">100</span></h2>
+<p><b>Neka je $R$ jedan od dva grada optimalnog rješenja za $E=2$. Za svako $E\ge2$ postoji optimalno rješenje koje sadrži $R$.</b> Dakle: jedan korijen, jedan greedy, svi odgovori u $O(N\log N)$ (plus $E=1$ posebno).</p>
+<p class="trener-umetak"><b>Skica dokaza (indukcija po $E$).</b> Pretpostavi da postoji optimum za $E$ koji sadrži $R$; uzmi bilo koji optimum $S'$ za $E+1$. „Unutarnji” vrh rješenja = vrh na putu između dva odabrana. Ako $S$ (optimum za $E$ s $R$) i $S'$ dijele unutarnji vrh $c$, pokreni greedy iz $c$: greedy iz zajedničkog vrha reproducira oba (greedy je optimalan za svaku veličinu iz istog korijena, a $R$ je u greedy-nizu prije ostalih jer je dio optimalnog para). Ako ne dijele, postoji vrh iz $S'$ čije dodavanje u $S$ daje rješenje veličine $E+1$ ne lošije od $S'$ — a sadrži $R$. Ključ: struktura „pokrivenih traka” je unija puteva, pa se dobitci pojedinih listova preklapaju samo na zajedničkim prefiksima.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Preformuliraj</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Cijena = ukupno − asfaltirano; asfaltirano = trake „prema nekom odabranom”. Ukorijeni u odabrani vrh: ostaju silazne trake i putevi do drugih odabranih.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Pokrivanje puteva od korijena listovima</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Klasika: dekompozicija po najtežem lancu, sortiraj lance. Prvih $k$ = optimalno pokrivanje s $k$ listova.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Koji korijen?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Ne možeš sve; pokušaj dokazati da kraj optimalnog para radi za svako $E\ge2$ (kao što je kraj dijametra uvijek najdalji vrh).</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>$E=1$ ne slijedi iz ukorijenjenja u $R$ — riješi rerootingom.</li>
+        <li>Smjer traka: „prema $x$” = od daljeg ka bližem; pazi koji od $C_i,D_i$ je silazna traka nakon ukorijenjenja.</li>
+        <li>$E\ge\#$listova ⇒ 0; za $N=2$ oba su vrha listovi.</li>
+        <li>Odgovori su nerastući u $E$; ako nisu, pogrešan korijen ili predznak u formuli za par.</li>
+        <li>64-bit: zbrojevi do $4\cdot10^{14}$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak, E = 1, E = 2">
+    <s n="1">Naslov; maroon.</s>
+    <s n="2">Stablo, dvije cijene po bridu; odabir vrha nulira cijene traka prema njemu; minimiziraj zbroj za razne brojeve odabranih.</s>
+    <s n="3">$N\le16$: svih $2^N$ podskupova, DFS; $O(N^22^N)$.</s>
+    <s n="4">$E=1$: izračunaj za vrh 0, pa susjedni vrh razlikuje se samo u bridu između — DFS, $O(N)$.</s>
+    <s n="5">$E=2$: cijena para = (zbroj pojedinačnih + težina puta u obje strane)/2 [u terminima asfaltiranog]; DP kao za dijametar, $O(N)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 4 <span class="bodovi">17 bodova</span></h2>
+<slajdovi from="6" to="11" vrsta="koraci" naslov="Greedy po listovima">
+    <s n="6">$E\ge$ listova ⇒ 0; inače svi odabrani su listovi (ne-list pomakni prema listu).</s>
+    <s n="7">Fiksiraj jedan list ($O(N)$ izbora), ukorijeni; trake prema korijenu su 0; odabrani list nulira put korijen–list; maksimiziraj pokrivenu težinu.</s>
+    <s n="8">Greedy (najveći dobitak sljedeći) je točan: najteži put korijen–list $L$ — svako rješenje bez $L$ preradi tako da ga sadrži bez gubitka.</s>
+    <s n="9">Način 1: segmentno stablo nad listovima s intervalnim oduzimanjem dobitka.</s>
+    <s n="10">Način 2: <code>priority_queue</code> puteva: izvadi najteži, put razdvaja stablo na podstabla — ubaci njihove najteže puteve. Jednostavnije.</s>
+    <s n="11">Oba $O(N\log N)$; s $O(N)$ korijena ukupno $O(N^2\log N)$.</s>
+</slajdovi>
+
+<slajdovi from="12" to="12" naslov="Podzadatak 5">
+    <s n="12">$Q=1$: nepotreban za 100; skica: pomiči korijen na susjedni vrh i prati promjene skupa cijena u redu ($O(1)$ promjena po pomaku).</s>
+</slajdovi>
+
+<h2>Puno rješenje <span class="bodovi">44 boda</span></h2>
+<slajdovi from="13" to="16" vrsta="koraci" naslov="Lema o zajedničkom vrhu">
+    <s n="13">Ne možemo sve listove; ali jedan vrh $R$ optimalnog rješenja za $E=2$ pripada nekom optimalnom rješenju za svako $E\ge2$.</s>
+    <s n="14">Indukcija: pretpostavi za $K$; uzmi bilo koje rješenje za $K+1$; „unutarnji” vrh = na putu između odabranih. Ako dijele unutarnji vrh, greedy iz njega daje oboje.</s>
+    <s n="15">Ako ne dijele, pogodan vrh iz $K+1$-rješenja dodan $K$-rješenju nije lošiji od $K+1$-rješenja.</s>
+    <s n="16">Jedan korijen ⇒ $O(N\log N)$.</s>
+</slajdovi>
+
+<slajdovi from="17" to="17" naslov="Statistika">
+    <s n="17">0: 1; 6: 3; 7: 1; 13: 8; 16: 1; 22: 1; 30: 1; 39: 4; 100: 1.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>$E=1$ rerooting; $E=2$ DP po paru ($\mathrm{cost}(u)+\mathrm{cost}(v)-W$)/2.</li>
+        <li>Ukorijeni u kraj optimalnog para; greedy po najtežim lancima; prefiksne sume.</li>
+    </ul>
+</div>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JOISC 2019 — Dva prijevoza</title>
+    <script src="../../../assets/js/asset-errors.js"></script>
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../assets/css/pozadina.css">
+    <link rel="stylesheet" href="../../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../../assets/css/joisc.css">
+    <script src="../../../assets/js/coach-mode.js"></script>
+    <script src="../../../assets/js/joisc.js"></script>
+</head>
+
+<body>
+<div class="joisc-stranica">
+    <p class="navigacija"><a href="index.html">← Natrag na JOISC 2019</a> · <a href="../index.html">JOISC</a> · <a href="../../../index.html">Početna</a></p>
+    <div class="sadrzaj">
+    <header class="joisc-zaglavlje">
+        <p class="podnaslov">JOI Spring Camp 2019 · Dan 2 · zadatak 3</p>
+        <h1>Dva prijevoza</h1>
+        <p class="podnaslov"><i>Two Transportations</i></p>
+        <ul class="joisc-oznake">
+            <li class="tezina" style="--tezina: 0.694" title="Prosječan rezultat natjecatelja na kampu: 24.5/100">Težina: teži · prosjek 24.5/100</li>
+            <li>Vrijeme: 1.5 s</li>
+            <li>Memorija: 256 MB</li>
+            <li>komunikacijski (Azer.cpp</li>
+            <li>Baijan.cpp)</li>
+            <li>distribuirana Dijkstra: svaka strana šalje min kandidatsku udaljenost među svojim bridovima iz obrađenih vrhova</li>
+            <li>manja strana šalje indeks vrha</li>
+            <li>slanje razlike prema zadnjoj obrađenoj udaljenosti (≤500 → 9 bita)</li>
+            <li>9+9+11 = 29 bita po vrhu</li>
+            <li>1999·29 = 57 971 ≤ 58 000</li>
+            <li>automat stanja u callbackovima</li>
+        </ul>
+    </header>
+    <nav class="tabovi" role="tablist" aria-label="Dijelovi zadatka">
+        <a href="#zadatak" role="tab" class="tab-zadatak" aria-selected="true" aria-controls="zadatak" id="tab-zadatak">Zadatak</a>
+        <a href="#rjesenje" role="tab" class="tab-rjesenje" aria-selected="false" aria-controls="rjesenje" id="tab-rjesenje">Rješenje</a>
+        <a href="#trener" role="tab" class="tab-trener" aria-selected="false" aria-controls="trener" id="tab-trener">Trenerski mod</a>
+    </nav>
+    <section id="zadatak" class="tab-panel" role="tabpanel" aria-labelledby="tab-zadatak">
+        <h2 class="naslov-sekcije">Zadatak</h2>
+        <div class="zadatak">
+<h1>Dva prijevoza</h1>
+<p><i>Two Transportations</i> — JOI Spring Camp 2019, dan 2. <b>Komunikacijski.</b></p>
+<p>$N\le2000$ gradova; $A\le5\cdot10^5$ željezničkih linija (zna ih Azer) i $B\le5\cdot10^5$ autobusnih (zna ih Baijan), sve cijene u $[1,500]$, graf povezan. Programi komuniciraju bitovima (<code>SendA</code>/<code>SendB</code>, primaju kroz <code>ReceiveA</code>/<code>ReceiveB</code>); ukupno <b>$\le58\,000$ bitova</b>. Azer na kraju (<code>Answer()</code>) mora vratiti najkraće udaljenosti od grada 0 do svih.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $A=0$.</li>
+    <li>(8) $B\le1000$.</li>
+    <li>(8) $A+B=N-1$ (stablo).</li>
+    <li>(38) $N\le900$.</li>
+    <li>(14) $N\le1100$.</li>
+    <li>(10) $N\le1400$.</li>
+    <li>(16) Bez dodatnih ograničenja.</li>
+</ol>
+        </div>
+    </section>
+    <section id="rjesenje" class="tab-panel" role="tabpanel" aria-labelledby="tab-rjesenje">
+        <h2 class="naslov-sekcije">Rješenje</h2>
+        <div class="rjesenje">
+            <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake u trenerskom modu.</p>
+<h2>Proračun bitova</h2>
+<p>Vrh: 11 bita ($N\le2000\lt2^{11}$). Udaljenost $\lt2000\cdot500=10^6\lt2^{20}$: 20 bita. Slanje svih udaljenosti (podzadatak 1): $1999\cdot20=39\,980$. Slanje svih Baijanovih bridova ($B\le1000$): $1000\cdot31=31\,000$. Stablo: Baijanov skup bridova je šuma; svakom bridu pridruži jedan vrh (dijete), pa u $k$-tom koraku pošalji (drugi kraj, težina) brida vrha $k$: $1999\cdot20$ bita.</p>
+
+<h2>Distribuirana Dijkstra <span class="bodovi">100 bodova</span></h2>
+<p>Obje strane simuliraju istu Dijkstru nad <b>unijom</b> grafova, ali svaka relaksira samo svoje bridove. Invarijanta: obje znaju skup obrađenih vrhova i njihove udaljenosti. Korak:</p>
+<ol>
+    <li>Svaka strana izračuna svoj kandidat: najmanja privremena udaljenost među <i>svojim</i> bridovima iz obrađenih u neobrađene vrhove. Prava sljedeća udaljenost je minimum ta dva kandidata.</li>
+    <li>Obje pošalju kandidat; strana s manjim (kod izjednačenja fiksno Azer) zatim pošalje 11-bitni indeks vrha. Obje dodaju taj vrh s tom udaljenosti.</li>
+</ol>
+<p><b>Kompresija:</b> ako je zadnja obrađena udaljenost $z$, sljedeća je u $[z,z+500]$ (prethodnik na najkraćem putu je već obrađen, težina $\le500$). Šalji <b>razliku</b> $\in[0,500]$ u 9 bita (npr. 511 = „nemam kandidata”). Po vrhu: $9+9+11=29$ bita; $1999\cdot29=57\,971\le58\,000$. ✓</p>
+<p>Varijante: puna udaljenost + vrh s obje strane (62 bita) prolazi $N\le935$; udaljenost s obje + vrh s jedne (51) do $N\le1137$; razlike bez štednje vrha (40) do $N\le1450$.</p>
+<p class="trener-umetak"><b>Implementacija.</b> Komunikacija je asinkrona po callbackovima: drži brojač primljenih bitova i akumulator; kad se skupi 9 (ili 11) bita, obradi i pošalji sljedeće. Redoslijed: Azer u <code>InitA</code> odmah šalje svoj prvi kandidat; Baijan u <code>InitB</code> isto. Kad strana primi tuđi kandidat: usporedi; pobjednik šalje vrh, gubitnik čeka 11 bita. Nakon dodavanja vrha obje ponovno pošalju kandidat. Kandidat računaj u $O(N)$ po koraku iz polja privremenih udaljenosti (relaksiraj susjede dodanog vrha) — ukupno $O(N^2+A+B)$.</p>
+            <a class="kartica-analize" href="transportations-editorial.html">
+                <span class="ikona" aria-hidden="true">📖</span>
+                <span>Cijela analiza rješenja (editorial)<small>Prevedena i proširena službena prezentacija (101 slajdova) s interaktivnim prikazom koraka.</small></span>
+            </a>
+        </div>
+    </section>
+    <section id="trener" class="tab-panel" role="tabpanel" aria-labelledby="tab-trener">
+        <h2 class="naslov-sekcije">Trenerski mod</h2>
+        <div class="trener-panel">
+            <h2>TRENERSKI MOD: korak po korak</h2>
+            <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Što svatko može sam?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Dijkstra po koracima: sljedeći vrh je globalni minimum privremenih udaljenosti — svaka strana zna minimum svog dijela.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Prebroji bitove po vrhu</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Budžet $58000/1999\approx29$ bita. Vrh treba 11; ostaje 18 za dvije udaljenosti → 9 svaka. Što je ograničeno s $2^9$?</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Razlike</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Udaljenosti se obrađuju rastuće i skok je $\le\max$ težine $=500$.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Izjednačeni kandidati: dogovor tko šalje vrh mora biti isti na obje strane.</li>
+        <li>Strana bez kandidata mora poslati poseban kod (npr. 511), a ne 0.</li>
+        <li>Razlika može biti točno 500 → treba 9 bita, ne 8.</li>
+        <li>Ne šalji ništa nakon $N-1$ koraka; broji korake da se ne pređe limit.</li>
+        <li>Zaključavanje stanja: obje strane moraju simetrično prijeći u „čekam vrh” ili „šaljem vrh”.</li>
+    </ul>
+</div>
+        </div>
+    </section>
+    <section class="izvor">
+        <h3>Izvor</h3>
+        <ul>
+            <li><a href="https://www.ioi-jp.org/camp/2019/2019-sp-tasks/day2/transportations-en.pdf">Službeni tekst zadatka (engleski, PDF)</a></li>
+            <li><a href="https://www.ioi-jp.org/camp/2019/2019-sp-tasks/day2/transportations-review.pdf">Službena prezentacija rješenja (japanski, PDF)</a></li>
+            <li><a href="https://www.ioi-jp.org/camp/2019/2019-sp-tasks/index.html">Stranica kampa JOI 2018/2019 Spring Camp</a></li>
+        </ul>
+    </section>
+    </div>
+</div>
+</body>
+</html>

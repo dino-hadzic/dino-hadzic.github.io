@@ -1,0 +1,198 @@
+@@ meta
+naslov = Tjelohranitelj
+engleski = Bodyguard
+oznake = geometrija, rotacija 45°, DP na mreži, kompresija koordinata, Convex Hull Trick, Li Chao stablo, offline
+autor_analize = Hoshii Tomohito
+
+@@ zadatak
+<h1>Tjelohranitelj</h1>
+<p><i>Bodyguard</i> — JOI Spring Camp 2021, dan 3.</p>
+<p>Ulica je brojevni pravac. VIP $i$ kreće u trenutku $T_i$ iz $A_i$ i hoda brzinom 1 do $B_i$ ($A_i \ne B_i$). Tjelohranitelj hoda brzinom najviše 1, u svakom trenutku čuva najviše jednog VIP-a (može početi/prestati usred šetnje, u bilo kojem realnom trenutku) i za svaku jedinicu <b>puta</b> prohodanog uz VIP-a $i$ dobiva $C_i$ (parno). Za $Q$ projekata: tjelohranitelj počinje u trenutku $P_j$ na koordinati $X_j$; ispiši maksimalnu ukupnu nagradu (uvijek je cijeli broj).</p>
+<h3>Ulaz</h3>
+<pre>N Q
+T_1 A_1 B_1 C_1
+...
+P_1 X_1
+...</pre>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N \le 2800$, $1 \le Q \le 3\,000\,000$.</li>
+    <li>Sve veličine u $[1, 10^9]$; $C_i$ paran.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $T_i, A_i, B_i, P_j, X_j \le 3000$.</li>
+    <li>(7) $Q = 1$.</li>
+    <li>(15) $Q \le 3000$.</li>
+    <li>(20) $Q \le 40\,000$.</li>
+    <li>(52) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>2 2
+1 2 1 4
+3 1 3 2
+1 2
+3 3</pre></div>
+    <div><h4>Izlaz</h4><pre>8
+2</pre></div>
+</div>
+<p>Projekt 1: čuvaj VIP-a 1 od $t=1$ do $2$ (nagrada 4), čekaj na 1 do $t=3$, čuvaj VIP-a 2 do $t=5$ (nagrada 4).</p>
+
+@@ rjesenje
+<h2>Rotacija za 45°</h2>
+<p>U ravnini (vrijeme $t$, koordinata $x$) VIP-ovi su segmenti nagiba $\pm1$, a tjelohranitelj iz $(t, x)$ može doći u $(t', x')$ točno kad $t' - t \ge |x' - x|$. Uvedi $u = t + x$, $v = t - x$. Tada je dostižnost jednostavno $u' \ge u$ i $v' \ge v$ (<b>monotoni putevi</b>), a VIP koji hoda udesno postaje <b>horizontalni</b> segment ($v$ stalno, $u$ raste), ulijevo — <b>vertikalni</b>. Uz VIP-a se po jedinici $u$ (odnosno $v$) zaradi $C_i/2$ — zato je $C_i$ paran.</p>
+
+<h2>DP na komprimiranoj mreži</h2>
+<p>Krajevi segmenata daju $\le 2N$ različitih $u$ i $\le 2N$ različitih $v$ → mreža $O(N^2)$. Optimalni put smije se zamijeniti „stubištem” po linijama mreže (nagrada se skuplja samo na segmentima, a oni leže na linijama mreže; sva raskrižja su čvorovi mreže). Neka je $w_h[k][j]$ najveći $C/2$ među horizontalnim segmentima koji pokrivaju brid $(u_k, u_{k+1})$ u retku $v_j$ (analogno $w_v$). Tada</p>
+<p class="formula">$dp[k][j] = \max\bigl(dp[k+1][j] + w_h[k][j]\,(u_{k+1} - u_k),\ dp[k][j+1] + w_v[k][j]\,(v_{j+1} - v_j)\bigr)$,</p>
+<p>od gornjeg desnog kuta prema dolje-lijevo. Punjenje $w$: $O(N)$ po segmentu. Sve $O(N^2)$; memorija $\approx 3\cdot 2800^2$ brojeva — u redu.</p>
+
+<h2>Upiti</h2>
+<p>Početak $(u_0, v_0)$ nije na mreži. Neka je $u_k \le u_0 < u_{k+1}$ i $v_l \le v_0 < v_{l+1}$. Optimalno je otići <b>ravno gore do nekog retka</b> $v_j \ge v_0$ pa hodati udesno do $u_{k+1}$ (ulaz u redak desnije od $u_0$ ne može biti bolji), ili <b>ravno desno do nekog stupca</b> $u_i \ge u_0$ pa gore do $v_{l+1}$:</p>
+<p class="formula">$\max_{j:\,v_j \ge v_0}\bigl[w_h[k][j]\,(u_{k+1} - u_0) + dp[k+1][j]\bigr],\qquad \max_{i:\,u_i \ge u_0}\bigl[w_v[i][l]\,(v_{l+1} - v_0) + dp[i][l+1]\bigr].$</p>
+<p>To je $O(N)$ po upitu — $O(N^2 + NQ)$, dovoljno za $Q \le 40\,000$.</p>
+
+<h2>Puni bodovi: pravci i CHT</h2>
+<p>Za fiksni stupac-ćeliju $k$ i redak $j$ izraz je <b>linearna funkcija od $u_0$</b>: $y = -w_h[k][j]\cdot u_0 + \bigl(w_h[k][j]\,u_{k+1} + dp[k+1][j]\bigr)$. Upit traži maksimum po recima $j$ s $v_j \ge v_0$. Offline: grupiraj upite po $k$, sortiraj po $v_0$ silazno, dodaj retke $j$ silazno po $v_j$ i upitaj maksimum pravaca u točki $u_0$ — <b>Li Chao stablo</b> nad sortiranim $u_0$-ovima upita te grupe (nagibi nisu monotoni). Isto simetrično za stupce. Ukupno $O(N^2\log Q + Q\log Q)$ — s $N^2 \approx 7.8\cdot10^6$ umetanja pravaca to je u redu uz 25 s.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Nacrtaj (vrijeme, koordinata)</summary>
+            <div class="spoiler-sadrzaj">
+                <p>VIP-ovi su dijagonalni segmenti; tjelohranitelj se kreće unutar „svjetlosnog stošca”. Koja zamjena koordinata čini stožac kvadrantom, a segmente osnima paralelnima?</p>
+                <p class="pitanje">$u = t + x$, $v = t - x$. Zašto je $C$ paran?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>$N \le 2800$ vrišti $O(N^2)$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Komprimiraj obje osi i radi DP na mreži od desnog gornjeg kuta. Uvjeri se da je dovoljno hodati po linijama mreže.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Upit izvan mreže</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ne dodaj $Q$ upita u kompresiju ($O((N+Q)^2)$!). Iz početka idi ravno do neke linije mreže. Koliko kandidata? Koji je oblik svakog kandidata kao funkcije početne koordinate?</p>
+                <p class="pitanje">$O(N)$ kandidata; svaki je pravac u $u_0$ — zato CHT/Li Chao uz sweep po $v_0$.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Miješanje „nagrada po jedinici puta” s rotiranim koordinatama: po jedinici $u$ zarađuje se $C/2$.</li>
+        <li>Zaboravljen izbor maksimalnog $C$ kad se više segmenata preklapa na istom bridu mreže.</li>
+        <li>Upit s $u_0 > u_{\max}$ ili $v_0 > v_{\max}$: odgovor 0, nema ćelije $k$/$l$.</li>
+        <li>Nagrade do $10^9\cdot10^9$ — 64-bitni tipovi; brzo čitanje ulaza za $3\cdot10^6$ upita.</li>
+        <li>Li Chao po realnim $u_0$ do $2\cdot10^9$ radi i s dubinom 31, ali indeksiranje po sortiranim upitima štedi memoriju.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="11" vrsta="koraci" naslov="Zadatak i zašto je C paran">
+    <s n="1">Naslovni slajd: <i>Bodyguard</i>; analiza: Hoshii Tomohito.</s>
+    <s n="2"><b>Sažetak.</b> VIP $i$ kreće u $T_i$ iz $A_i$ brzinom 1 i stiže u $B_i$ u $T_i + |A_i - B_i|$. Nagrada = vrijeme uz VIP-a $\times C_i$. Iz $(P_j, X_j)$ maksimiziraj nagradu. $N \le 2800$, $Q \le 3\cdot10^6$, sve $\le 10^9$, $C_i$ paran.</s>
+    <s n="3">Ponovljeno: ograničenja.</s>
+    <s n="4">$C_i$ paran — <b>zašto?</b></s>
+    <s n="5">Crtamo ravninu vrijeme–koordinata.</s>
+    <s n="6">VIP 1 kao dijagonalni segment.</s>
+    <s n="7">VIP 2 — segment suprotnog nagiba.</s>
+    <s n="8">Segmenti se sijeku.</s>
+    <s n="9">Koordinata sjecišta možda nije cijeli broj…</s>
+    <s n="10">…konkretno, korak je $1/2$.</s>
+    <s n="11">Zato udvostruči koordinate i vremena (ekvivalentno: radi u rotiranim koordinatama $t \pm x$).</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">6 bodova</span></h2>
+<slajdovi from="12" to="14" vrsta="koraci" naslov="DP po vremenu i koordinati">
+    <s n="12">Ograničenja $T_i, A_i, B_i, P_j, X_j \le 3000$.</s>
+    <s n="13">Mala mreža vrijeme × koordinata.</s>
+    <s n="14">$DP[\text{vrijeme}][\text{koordinata}]$ = najveća buduća nagrada; računaj unatrag u vremenu. Prijelaz s $O(N)$ po ćeliji je TLE — predizračunaj najbolji VIP po dijagonalnom koraku u $O(\sum|A_i - B_i|)$. DP je $O(\text{koord}_{\max}\cdot\text{vrijeme}_{\max})$.</s>
+</slajdovi>
+
+<h2>Podzadatak 2: $Q = 1$ <span class="bodovi">7 bodova</span></h2>
+<slajdovi from="15" to="24" vrsta="koraci" naslov="Kad ne znaš dalje">
+    <s n="15">$Q = 1$.</s>
+    <s n="16">$Q = 1$…</s>
+    <s n="17">$Q = 1$ — „ne razumijem što s tim”.</s>
+    <s n="18">(Šala: „Kraj. Produkcija: JOI.”)</s>
+    <s n="19"><b>Kad ne možeš riješiti:</b> 1. razmišljaj dalje — istraži svojstva zadatka; 2. „čitaj” ograničenja — vrlo mali ili vrlo veliki brojevi sugeriraju što treba (najteži su oni oko $10^5$); 3. eksperimentiraj — rukom, crtajući; 4. nabroji sve tehnike koje znaš i pokušaj ih primijeniti; 5. prijeđi na drugi zadatak — i bijeg je strategija.</s>
+    <s n="20">Savjet 1: više razmatranja.</s>
+    <s n="21">Savjet 2: zaključi iz ograničenja.</s>
+    <s n="22">Savjet 3: eksperimentiraj.</s>
+    <s n="23">Savjet 4: nabroji poznata rješenja.</s>
+    <s n="24">Savjet 5: drugi zadatak.</s>
+</slajdovi>
+<slajdovi from="25" to="37" vrsta="koraci" naslov="Rotacija i DP na komprimiranoj mreži">
+    <s n="25">Natrag na $Q = 1$.</s>
+    <s n="26">$N \le 2800$ → $O(N^2)$ ili $O(N^2\log N)$?</s>
+    <s n="27">Vrijednosti do $10^9$ → želimo komprimirati koordinate.</s>
+    <s n="28">Slika: četiri VIP-a u ravnini vrijeme–koordinata.</s>
+    <s n="29">Mreža za kompresiju…</s>
+    <s n="30">…ali kretanje je dijagonalno — kompresija po osima ne prati segmente.</s>
+    <s n="31">Što sad?</s>
+    <s n="32">→ Rotiraj za 45°.</s>
+    <s n="33">Nakon rotacije segmenti su horizontalni ili vertikalni.</s>
+    <s n="34">Dostižni skup postaje kvadrant: kretanje samo „desno” i „gore”.</s>
+    <s n="35">Komprimiraj koordinate rotiranih segmenata i početne točke ($O(N\log N)$), DP od kasnijih vremena unatrag na mreži, $O(N^2)$.</s>
+    <s n="36">Slika: rotirana mreža sa segmentima.</s>
+    <s n="37">Početna točka je čvor mreže; DP daje odgovor.</s>
+</slajdovi>
+
+<h2>Podzadaci 3–4 <span class="bodovi">35 bodova</span></h2>
+<slajdovi from="38" to="53" vrsta="koraci" naslov="Upiti izvan mreže">
+    <s n="38"><b>Podzadatak 3</b> ($Q \le 3000$): komprimiraj segmente i sve početne točke zajedno, DP od kasnijeg vremena: $O((N+Q)^2)$.</s>
+    <s n="39"><b>Podzadatak 4</b>: ista ideja — rotiraj, komprimiraj, DP…</s>
+    <s n="40">…ali $Q \le 40\,000$.</s>
+    <s n="41">Rješenje podzadatka 3 ima DP $O((N+Q)^2)$.</s>
+    <s n="42">(Šala: „Kraj.”)</s>
+    <s n="43">Treba li zaista komprimirati i početne točke?</s>
+    <s n="44">Koordinate početaka ne sudjeluju u prijelazima DP-a…</s>
+    <s n="45">…dakle nisu potrebne u mreži.</s>
+    <s n="46">Slika: mreža samo od segmenata (podzadaci 2–3).</s>
+    <s n="47">Početak na mreži: put stubištem do kraja.</s>
+    <s n="48">Što kad početak nije čvor mreže?</s>
+    <s n="49">Dovoljno je doći do neke linije mreže.</s>
+    <s n="50">Idi ravno gore do retka, pa udesno do sljedećeg stupca…</s>
+    <s n="51">…ili ravno desno do stupca, pa gore do sljedećeg retka; odande vrijedi DP.</s>
+    <s n="52">Po upitu $O(N)$ kandidata (svi retci iznad, svi stupci desno).</s>
+    <s n="53">Ukupno $O(N^2 + NQ)$.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">52 boda</span></h2>
+<slajdovi from="54" to="63" vrsta="koraci" naslov="Kandidati su pravci → Convex Hull Trick">
+    <s n="54">Pristup kao u podzadatku 4.</s>
+    <s n="55">Gdje je usko grlo?</s>
+    <s n="56">$O(N)$ po upitu (crveno: pojas kandidata).</s>
+    <s n="57">Može li se to ubrzati?</s>
+    <s n="58">Želimo sažeti informacije o „intervalima” od početne točke do prve linije mreže (zeleno).</s>
+    <s n="59">Pogledaj svojstva svakog takvog intervala.</s>
+    <s n="60">Vrijednost kandidata je <b>linearna funkcija</b> položaja početka unutar ćelije.</s>
+    <s n="61">→ <b>Convex Hull Trick</b>.</s>
+    <s n="62">Sweep ravninom: dodavanje pravca $O(1)$ (amortizirano), maksimum po upitu $O(\log N)$. Ukupno $O(N^2 + Q\log N)$.</s>
+    <s n="63">(Šala: „Kraj. Produkcija: CHT.”)</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Konkretno.</b> Za upit u stupcu-ćeliji $k$ ($u_k \le u_0 < u_{k+1}$) i redak $j$ s $v_j \ge v_0$: $f_j(u_0) = -w_h[k][j]\,u_0 + w_h[k][j]\,u_{k+1} + dp[k+1][j]$. Grupiraj upite po $k$, obradi ih silazno po $v_0$ i dodavaj retke $j$ silazno po $v_j$ — u svakom trenutku skup pravaca je točno „retci iznad”. Nagibi $-w_h[k][j]$ nisu sortirani, pa je najjednostavnije <b>Li Chao stablo</b> nad sortiranim $u_0$-ovima grupe ($O(\log)$ dodavanje i upit). Simetrično po stupcima za redak-ćeliju $l$. Ukupno $\approx 2N^2$ umetanja i $2Q$ upita.</p>
+</div>
+<slajdovi from="64" to="65" naslov="Raspodjela bodova">
+    <s n="64">Raspodjela bodova (idealna, po autoru): svi 100.</s>
+    <s n="65">Raspodjela bodova (stvarna): 0 b. — 2, 6 — 1, 13 — 1, 48 — 6, 100 — 4.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>$u = t + x$, $v = t - x$: dostižnost = monotonost, VIP-ovi = osni segmenti, nagrada $C/2$ po jedinici.</li>
+        <li>Mreža samo od krajeva segmenata ($O(N^2)$) i DP unatrag; upiti ulaze ravno do prve linije mreže.</li>
+        <li>Kandidati po upitu su pravci u početnoj koordinati → sweep + Li Chao/CHT, $O(N^2\log + Q\log)$.</li>
+    </ul>
+</div>

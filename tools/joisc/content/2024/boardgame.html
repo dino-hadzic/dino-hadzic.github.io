@@ -1,0 +1,212 @@
+@@ meta
+naslov = Društvena igra
+engleski = Board Game
+oznake = najkraći putevi, BFS/0-1 BFS, funkcija troška kao minimum pravaca, konkavna omotnica, slojeviti graf, podrezivanje stanja, balansiranje sqrt
+autor_analize = Nishimoto Masaki (maspy)
+
+@@ zadatak
+<h1>Društvena igra</h1>
+<p><i>Board Game</i> — JOI Spring Camp 2024, dan 2.</p>
+<p>Ploča: povezan graf s $N$ polja i $M$ staza. Polje je <b>ponovno aktivirajuće</b> (<code>0</code>) ili <b>zaustavno</b> (<code>1</code>). $K$ igrača, igrač $p$ počinje na $X_p$. Igrači igraju redom $1,2,\dots,K,1,\dots$; u svom potezu igrač <b>mora</b> pomaknuti figuru na susjedno polje; ako je to polje ponovno aktivirajuće, nastavlja pomicati; ako je zaustavno, potez završava. Za svaki $T=1..N$: najmanji <b>ukupni broj pomaka svih igrača</b> dok figura igrača 1 ne stane na polje $T$ (i usred poteza).</p>
+<h3>Ograničenja</h3>
+<ul>
+    <li>$2 \le N, K \le 50\,000$; $1 \le M \le 50\,000$; graf povezan, bez višestrukih bridova.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(3) Nema zaustavnih polja.</li>
+    <li>(7) Točno jedno zaustavno polje.</li>
+    <li>(7) Točno dva zaustavna polja.</li>
+    <li>(19) $N, M, K \le 3\,000$.</li>
+    <li>(23) $K = 2$.</li>
+    <li>(9) $K \le 100$.</li>
+    <li>(23) $N, M, K \le 30\,000$.</li>
+    <li>(9) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5 5 2
+1 2
+2 3
+2 4
+3 5
+4 5
+01000
+1 5</pre></div>
+    <div><h4>Izlaz</h4><pre>0
+1
+4
+4
+5</pre></div>
+</div>
+<p>$T=3$: igrač 1 ide $1\to2$ (zaustavno, potez gotov); igrač 2 ide $5\to3\to2$ (staje); igrač 1 ide $2\to3$. Ukupno 4.</p>
+
+@@ rjesenje
+<h2>Razdvajanje igrača 1 i ostalih</h2>
+<p>Igra nema natjecateljski element — svi surađuju. Ako igrač 1 do $T$ stane na zaustavno polje $n$ puta (dolazak na $T$ ne broji se), svaki od ostalih $K-1$ igrača odigra <b>točno $n$ poteza</b>. Zato</p>
+<p class="formula">$\displaystyle \text{ans}(T) = \min_{n\ge0}\Big(\mathit{dist}_n(T) + G(n)\Big),\quad G(n) = \sum_{p\ge2} g_p(n),$</p>
+<p>gdje je $\mathit{dist}_n(T)$ najmanje pomaka igrača 1 do $T$ uz točno $n$ zaustavljanja, a $g_p(n)$ najmanje pomaka igrača $p$ za $n$ poteza.</p>
+
+<h2>Trošak drugog igrača: minimum dvaju pravaca</h2>
+<p>Potez počinje na nekom polju i završava prvim dolaskom na zaustavno polje; svaki potez košta $\ge1$. Iz zaustavnog polja potez košta $1$ ako ima <b>zaustavnog susjeda</b> („dobro” polje: par susjednih zaustavnih polja omogućuje $1$ po potezu zauvijek — skači tamo-amo), inače $2$ (na susjeda i natrag). Zato za $n\ge1$</p>
+<p class="formula">$g_p(n) = \min\big(2n + \alpha_p,\; n + \beta_p\big),\qquad \alpha_p = D_p - 2,\quad g_p(0)=0,$</p>
+<p>gdje je $D_p\ge1$ najmanje pomaka od $X_p$ do zaustavnog polja (za $X_p$ zaustavno: 1 ako ima zaustavnog susjeda, inače 2), a $\beta_p$ najmanja vrijednost $\ell - t$ po šetnjama od $X_p$ do dobrog polja s $\ell$ pomaka i $t$ završenih poteza. $\beta_p$ je najkraći put gdje pomak na zaustavno polje košta 0, a na ponovno aktivirajuće 1 (0-1 BFS unatrag od dobrih polja). <b>Zašto točno min:</b> strategija „bez jedinica” košta $D_p + 2(n-1)$; strategija s jedinicama prvo stigne do dobrog polja ($\ell$ pomaka, $t$ poteza) pa dalje po 1: $n + (\ell - t)$ za $n\ge t$, a za $n \lt t$ skraćena šetnja (prvih $n$ poteza) košta $\le \ell-(t-n)$ jer svaki izbačeni potez košta $\ge1$. Donja granica: potez košta 1 samo s dobrog polja.</p>
+
+<h2>$K$ malen: $G$ je minimum od $K$ pravaca <span class="bodovi">podzadaci 5–6</span></h2>
+<p>$\sum_p \min(f_p,h_p) = \min$ po svim izborima $\sum$ odabranih — a među $2^{K-1}$ zbrojeva pravaca donju omotnicu čine samo $K$: sortiraj pragove $d_p = \beta_p-\alpha_p$ i za $j=0..K-1$ uzmi pravac $a_j n + b_j$ s $a_j = 2(K-1)-j$, $b_j = \sum_p\alpha_p + \sum_{i\le j} d_{(i)}$. Za fiksni pravac zadatak igrača 1 je najkraći put u kojem <b>svako zaustavljanje košta $1 + a_j$</b>, običan pomak 1: Dijkstra ili linearni „dva reda” BFS (dvije težine). Sloj $n=0$ ($G(0)=0$, $b_j$ može biti negativan!) obradi zasebno: BFS bez zaustavnih polja. $O(K(N+M))$.</p>
+
+<h2>$K$ velik: podrezivanje po broju zaustavljanja <span class="bodovi">podzadaci 7–8</span></h2>
+<p>Svako zaustavljanje košta ostale bar $K-1$. Ako optimalan put prolazi stanjem $(v,n)$, zamjena prefiksa putem s najmanje zaustavljanja do $v$ ($n_{\min}(v)$, $\le N$ pomaka) mijenja pomake za $\le N$, a $G$ smanjuje za $\ge (n-n_{\min}(v))(K-1)$; dakle $n \le n_{\min}(v) + N/(K-1)$. BFS po stanjima $(v,n)$ (težina 1, pomak na zaustavno polje $n\to n+1$) s tim podrezivanjem ima $O(N^2/K)$ stanja i $O(MN/K)$ prijelaza. Zatim $\text{ans}(T)=\min_n \mathit{dist}_n(T)+G(n)$, gdje $G(n) = 2n(K-1)+\sum\alpha_p - \sum_p\max(0,n-d_p)$ računaj sortiranjem pragova.</p>
+<p><b>Balans</b>: $K \le \sqrt{N+M}$ → $K$ najkraćih puteva; inače slojeviti BFS. Ukupno $O((N+M)^{1.5})$. Za brzinu: linearni algoritmi umjesto Dijkstre, pažljiva granica podrezivanja, $O(N)$ memorije po sloju.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Rastavi trošak</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ako igrač 1 stane $n$ puta, što točno rade ostali? Zapiši ukupni trošak kao „igrač 1 s $n$ zaustavljanja” + „ostali s $n$ poteza”.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Kako izgleda $g_p(n)$?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Koliko najmanje košta potez iz zaustavnog polja? Kada je moguće 1? Nacrtaj graf $g_p$: nagib 2 pa nagib 1. Dokaži da je točno minimum dvaju pravaca.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zbroj minimuma pravaca</summary>
+            <div class="spoiler-sadrzaj">
+                <p>$\sum_p\min(\cdot,\cdot)$ je minimum od $2^{K-1}$ pravaca — ali samo $K$ ih je na omotnici. Zašto se onda trošak igrača 1 s fiksiranim pravcem rješava jednom Dijkstrom?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Kad je $K$ velik</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Svako dodatno zaustavljanje košta $\ge K-1$; koliko se maksimalno dodatnih zaustavljanja isplati u odnosu na put s najmanje zaustavljanja?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Dolazak na $T$ <b>ne broji se</b> kao zaustavljanje; početno polje $X_1$ nije zaustavljanje.</li>
+        <li>Igrač koji stoji na zaustavnom polju mora se pomaknuti: udaljenost 0 ne postoji, potez košta 1 ili 2.</li>
+        <li>$n=0$ posebno: $G(0)=0$, ali pravci daju $b_j$ (može biti i negativan zbog $\alpha_p=-1$).</li>
+        <li>Nema zaustavnih polja (podzadatak 1): nema dobrih polja, $\beta=\infty$; igrač 1 samo BFS-a.</li>
+        <li>Odgovori do $\approx N\cdot 2K \approx 5\cdot10^9$: 64-bitni tip.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="15" naslov="Zadatak">
+    <s n="1">Naslov; analiza: Nishimoto Masaki (maspy).</s>
+    <s n="2">$K$ figura, pravila pomicanja (pročitaj tekst pažljivo), najmanji broj poteza do cilja. Igra je „za $K$ igrača”, ali bez natjecanja — sve pomiče jedna osoba.</s>
+    <s n="3">Pravila pomicanja — ilustracija.</s>
+    <s n="4">Ilustracija.</s>
+    <s n="5">Ilustracija.</s>
+    <s n="6">Ilustracija.</s>
+    <s n="7">Ilustracija.</s>
+    <s n="8">Ilustracija.</s>
+    <s n="9">Ilustracija.</s>
+    <s n="10">Ilustracija.</s>
+    <s n="11">Ilustracija.</s>
+    <s n="12">Ilustracija.</s>
+    <s n="13">Ilustracija.</s>
+    <s n="14">Ilustracija.</s>
+    <s n="15">Ilustracija.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–3 <span class="bodovi">17 bodova</span></h2>
+<slajdovi from="16" to="28" vrsta="koraci" naslov="0, 1, 2 zaustavna polja">
+    <s n="16">Podzadatak 1: bez zaustavnih polja.</s>
+    <s n="17">Igrač 1 se samo kreće: najkraći put s jediničnim težinama, BFS, $O(N+M)$.</s>
+    <s n="18">Podsjetnik na algoritme najkraćih puteva (0-1 BFS, BFS, Dijkstra, Floyd–Warshall, Bellman–Ford/SPFA): složenosti, negativni bridovi, negativni ciklusi.</s>
+    <s n="19">Podzadatak 2: jedno zaustavno polje.</s>
+    <s n="20">Igrač 1: do $T$ bez gaženja zaustavnog polja ili s jednim gaženjem. Ostali: do (jedinog) zaustavnog polja.</s>
+    <s n="21">Sve troje je izračunljivo; odluku ostavi za kraj.</s>
+    <s n="22">Rješenje: za igrača 1 izračunaj pomake s 0 i 1 zaustavljanjem; za ostale pomake do zaustavljanja.</s>
+    <s n="23">Igrač 1: najkraći put na $2N$ stanja; ostali: najkraći put od zaustavnog polja.</s>
+    <s n="24">Oprez: za igrača 1 dolazak na $T$ ne broji se; za ostale udaljenost 0 od zaustavnog polja znači potez od 2 pomaka.</s>
+    <s n="25">Podzadatak 3: dva zaustavna polja.</s>
+    <s n="26">Igrač 1: 0, 1 ili 2 zaustavljanja. Ostali: do jednog od dva zaustavna polja; drugi potez završi u 1 ili 2 pomaka.</s>
+    <s n="27">Sve izračunljivo.</s>
+    <s n="28">Igrač 1: najkraći put na $3N$ stanja; ostali: dva najkraća puta + provjera jesu li zaustavna polja susjedna.</s>
+</slajdovi>
+
+<h2>Podzadatak 4 <span class="bodovi">19 bodova</span></h2>
+<slajdovi from="29" to="34" vrsta="koraci" naslov="$N^2$ stanja">
+    <s n="29">Podzadatak 4: $N,M,K\le3000$.</s>
+    <s n="30">Fiksiraj broj zaustavljanja $n$ igrača 1: treba (a) pomaci igrača 1 do $T$ s $n$ zaustavljanja, (b) pomaci ostalih za $n$ poteza; za sve $n=0..N$.</s>
+    <s n="31">(a) najkraći put na $N^2$ stanja: $\mathit{dist}[k][T]$ = najmanje pomaka do $T$ uz $k$ zaustavljanja prije dolaska (zaustavljanje na $T$ ne broji se).</s>
+    <s n="32">(b) dva pristupa; drugi dolazi u podzadatku 5.</s>
+    <s n="33">Stanje $(v,k)$: potez počinje na $v$, cilj još $k$ poteza; $(v,k)\to(w,k)$ ili $(w,k-1)$ za susjedne $v,w$. Udaljenost do $(\cdot,0)$?</s>
+    <s n="34">Najkraći put unatrag od $(\cdot,0)$.</s>
+</slajdovi>
+<slajdovi from="35" to="40" naslov="Savjeti za implementaciju">
+    <s n="35">Podzadaci 1–4 (36): tko je dotle stigao, razumije sve elemente zadatka; stanja su jednostavna, sve je BFS, ali točna implementacija je zahtjevna.</s>
+    <s n="36">Precizno definiraj varijable: „$\mathit{dist}[k][T]$ = najmanje pomaka do $T$ uz $k$ zaustavljanja prije dolaska (bez $T$)”.</s>
+    <s n="37">Prije kodiranja provjeri odgovara li definicija na pitanje broji li se zaustavljanje na $T$; komentari u kodu pomažu.</s>
+    <s n="38">Oporavak od grešaka: brzo napiši (1) naivno rješenje točno po tekstu zadatka, (2) generator malih slučajnih testova.</s>
+    <s n="39">Naivno: stanje = položaji svih figura + čiji je red; najkraći put po svim stanjima.</s>
+    <s n="40">Generator u Pythonu; ne mora strogo poštovati ograničenja (npr. višestruki bridovi).</s>
+</slajdovi>
+
+<h2>Podzadatak 5 <span class="bodovi">23 boda</span></h2>
+<slajdovi from="41" to="52" vrsta="koraci" naslov="$K=2$: trošak kao pravac">
+    <s n="41">Od podzadatka 5 traži se bolja složenost.</s>
+    <s n="42">$N^2$ vrijednosti za igrača 1 je previše; ograničiti $n$ nije lako (velik $n$ vs. malen nije očito usporediv). Odvojeno računanje ne prolazi.</s>
+    <s n="43">Ideja: pomaci ostalih su prilično jednostavna funkcija od $n$ → radi izravno s ukupnim troškom.</s>
+    <s n="44">Od drugog poteza nadalje: završi potez u 1 pomaku, u 2 pomaka, ili putuj da bi kasnije završavao u 1.</s>
+    <s n="45">Funkcija: $0$ za $n=0$; nagib 2 do nekud, zatim nagib 1.</s>
+    <s n="46">Nagib 2: najkraći put (lako). Nagib 1: $\mathit{dp}[v]$ = najmanji $c$ takav da od $v$ trošak postane $n+c$ — također najkraći put.</s>
+    <s n="47">Lijevo i desno ponašanje se razlikuju — treba li točno znati broj zaustavljanja?</s>
+    <s n="48">Minimum je min dvaju pravaca; smijemo dopustiti i odabir „ne-minimalnog” pravca (samo precjenjuje), pa riješi s oba.</s>
+    <s n="49">Za igrača 2 nađi dva pravca; za svaki odluči da se koristi i riješi dvaput; ukupni trošak postaje najkraći put na $2N$ stanja.</s>
+    <s n="50">S pravcem $an+b$: pomak $v\to w$ košta $1+a$ ako između dolazi potez igrača 2 (tj. $S[v]=1$, $v\ne X_1$), inače 1.</s>
+    <s n="51">Dijkstra $O((N+M)\log N)$; s dvije težine i linearno: dva reda (po zadnjoj težini), uzimaj manji vrh.</s>
+    <s n="52">Oprez: 0 zaustavljanja odvojeno. Ako je početak uz zaustavno polje: $n=0,1,2,3,4 \mapsto 0,1,3,5,7$.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto smijemo „odabrati pravac”.</b> $\text{ans}(T)=\min_n[\mathit{dist}_n(T)+\min(2n+\alpha, n+\beta)] = \min\big(\min_n[\mathit{dist}_n(T)+2n+\alpha],\ \min_n[\mathit{dist}_n(T)+n+\beta]\big)$ — minimumi komutiraju. A $\min_n[\mathit{dist}_n(T)+an]$ je jedan najkraći put gdje svako zaustavljanje košta dodatnih $a$: nema potrebe pamtiti $n$. Za $K-1$ igrača isto vrijedi po komponentama, pa dobivamo $2^{K-1}$ pravaca, od kojih samo $K$ leži na donjoj omotnici (izbor „nagib 1” isplati se za igrače s najmanjim pragom $d_p=\beta_p-\alpha_p$, i to za prefiks sortiranog niza).</p>
+</div>
+
+<h2>Podzadatak 6 <span class="bodovi">9 bodova</span></h2>
+<slajdovi from="53" to="55" vrsta="koraci" naslov="$K\le100$">
+    <s n="53">Podzadatak 6.</s>
+    <s n="54">Rješenje podzadatka 5 generalizira: svaki igrač ima pravce nagiba 1 i 2; za svakog odaberi jedan i zbroji.</s>
+    <s n="55">Strategije ostalih opisuju pravci nagiba $K-1, K, \dots, 2(K-1)$; za svaki riješi kao u podzadatku 5: $O(K(N+M))$.</s>
+</slajdovi>
+
+<h2>Podzadaci 7–8 <span class="bodovi">32 boda</span></h2>
+<slajdovi from="56" to="61" vrsta="koraci" naslov="Podrezivanje i balans">
+    <s n="56">Zadnja dva podzadatka slična su; ista ideja.</s>
+    <s n="57">Podsjetnik: $N^2$ stanja igrača 1 je previše…</s>
+    <s n="58">…ali za velik $K$ raspon $n$ se <b>može</b> ograničiti.</s>
+    <s n="59">Svako zaustavljanje košta bar $K-1$; $n$ dodatnih zaustavljanja mora uštedjeti $n(K-1)$ pomaka igrača 1 — nemoguće za $n > N/(K-1)$. Dakle $n \le n_{\min} + N/(K-1)$: $O(N^2/K)$ stanja.</s>
+    <s n="60">Sažetak: izračunaj funkcije troška ostalih i zbroji ih (prefiksni zbrojevi); $K$ malen (malo nagiba) → podzadatak 6; $K$ velik → slojeviti najkraći put s podrezivanjem; kombinacija $O((N+M)^{1.5})$.</s>
+    <s n="61">Ako TLE: prilagodi prag između pristupa, linearni najkraći putevi umjesto Dijkstre, preciznije podrezivanje, $O(N)$ memorije.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Precizna granica podrezivanja.</b> Neka optimalan put za $T$ prolazi stanjem $(v,n)$, a $n_{\min}(v)$ je najmanji broj zaustavljanja do $v$ (0-1 BFS: pomak na zaustavno polje težine 1, inače 0; taj put je jednostavan, dakle $\le N-1$ pomaka). Zamijeni prefiks: pomaci se povećaju za $\le N$, a $G$ padne za $\ge (n-n_{\min}(v))(K-1)$ jer je $g_p(n+1)-g_p(n)\ge1$ za svakog igrača. Za optimalnost mora biti $(n-n_{\min}(v))(K-1)\le N$. U BFS-u po $(v,n)$ jednostavno ne guraj stanja s $n > n_{\min}(v) + \lfloor N/(K-1)\rfloor$.</p>
+</div>
+<slajdovi from="62" to="63" naslov="Statistika">
+    <s n="62">Raspodjela bodova (JOI, 23 natjecatelja).</s>
+    <s n="63">Raspodjela bodova (JOIG, 9 natjecatelja).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Ukupno = pomaci igrača 1 s $n$ zaustavljanja + $\sum_p g_p(n)$, $g_p(n)=\min(2n+\alpha_p, n+\beta_p)$.</li>
+        <li>$G(n)$ je minimum od $K$ pravaca → $K$ najkraćih puteva sa „zaustavljanje košta $1+a$”.</li>
+        <li>Velik $K$: BFS po $(v,n)$ s $n\le n_{\min}(v)+N/(K-1)$; balans daje $O((N+M)^{1.5})$.</li>
+    </ul>
+</div>

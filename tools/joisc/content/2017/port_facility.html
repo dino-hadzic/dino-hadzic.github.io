@@ -1,0 +1,157 @@
+@@ meta
+naslov = Lučka postrojenja
+engleski = Port Facility
+oznake = intervali, dva stoga, graf „križanja” intervala, bipartitnost, 2^(broj komponenti), BFS sa segmentnim stablom sortiranih listi i amortiziranim brisanjem, divide & conquer, provjera simulacijom stogova
+autor_analize = DEGwer
+
+@@ zadatak
+<h1>Lučka postrojenja</h1>
+<p><i>Port Facility</i> — JOI Spring Camp 2017, dan 1.</p>
+<p>$N$ kontejnera; $i$-ti stiže u trenutku $A_i$ i odlazi u $B_i$ (svih $2N$ trenutaka različiti). Postoje dva stoga: kontejner se stavlja na vrh jednog od njih, a uzima se samo s vrha. Koliko je načina odabira stoga po kontejneru tako da je sve izvedivo? Modulo $10^9+7$.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N\le10^6$; $1\le A_i\lt B_i\le2N$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(10) $N\le20$.</li>
+    <li>(12) $N\le2000$.</li>
+    <li>(56) $N\le100\,000$.</li>
+    <li>(22) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>4
+1 3
+2 5
+4 8
+6 7</pre></div>
+    <div><h4>Izlaz</h4><pre>4</pre></div>
+</div>
+<p>Kontejneri 1 i 2 moraju biti na različitim stogovima (A,B ili B,A); kontejner 3 mora biti na stogu kontejnera 1; kontejner 4 bilo gdje: $2\cdot2=4$.</p>
+
+@@ rjesenje
+<h2>Graf križanja</h2>
+<p>Dva intervala $[A_i,B_i]$ i $[A_j,B_j]$ smiju na isti stog iff su disjunktni ili ugniježđeni; ako se <i>križaju</i> ($A_i\lt A_j\lt B_i\lt B_j$) moraju na različite. Graf s bridovima među križajućima: nije bipartitan → 0; inače $2^{\text{broj komponenti}}$. Problem: bridova može biti $\Theta(N^2)$.</p>
+
+<h2>Bipartitnost: simulacija</h2>
+<p>Obradi događaje po vremenu. Otvoreni intervali na jednom stogu čine ugniježđeni lanac; vrh ima najmanji $B$. Novi interval smije na stog čiji vrh ima $B\gt B_i$; ako oba mogu, stavi ga na onaj s <i>manjim</i> vrhom (čuvaj veći slobodan — exchange argument). Ako ne može nigdje → 0. $O(N)$ uz stogove.</p>
+
+<h2>Komponente u $O(N\log N)$ (službeno rj. 1)</h2>
+<p>BFS, ali susjede enumeriraj bez gledanja već posjećenih. Susjedi $[L,R]$: (a) intervali koji počinju prije $L$ i završavaju u $(L,R)$; (b) koji počinju u $(L,R)$ i završavaju iza $R$. Za (a): segmentno stablo nad koordinatama $R'$; u čvoru lista $L'$-ova intervala čiji je $R'$ u čvoru, sortirana uzlazno. Upit: rastavi $(L,R)$ na $O(\log)$ čvorova; u svakom skidaj s početka dok je $L'\lt L$ — skinuti su susjedi (posjeti ih ako već nisu). Svaki element ispadne najviše jednom po čvoru → ukupno $O(N\log N)$. Simetrično stablo za (b). Boje dodijeli BFS-om, a valjanost provjeri gornjom simulacijom uz zadane boje. Konstanta je velika za $N=10^6$: bez <code>vector</code>-a po čvoru, jedan veliki niz s offsetima.</p>
+
+<h2>Alternativa: divide &amp; conquer (rj. 2)</h2>
+<p>Podijeli vremensku os na pola; intervali lijevo, desno i oni preko sredine. Bridovi lijevo–preko: interval preko sredine ovisi samo o lijevom kraju; sortiraj ih i umjesto svih bridova stavi bridove „težine 0” (ista boja) između susjednih intervala preko sredine koje isti lijevi interval oba sadrži, plus po jedan brid iz svakog lijevog. Bridovi preko–preko: točke $(A,B)$; „gore-lijevo/dolje-desno” parovi križaju; opet ekvivalentan graf s $O(N)$ bridova. Ukupno $O(N\log N)$.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Kad dva kontejnera smetaju?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Nacrtaj intervale boravka. Ugniježđeni: gornji ode prije. Disjunktni: nikad zajedno. Križanje: donji bi trebao izaći dok je gornji na njemu. Dakle uvjet je lokalan po paru → graf → bipartitnost.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Prebroji, ne konstruiraj</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Svaka komponenta bipartitnog grafa ima točno 2 bojanja. Treba samo broj komponenti i test bipartitnosti — test je lako simulacijom s dva stoga.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>BFS bez $N^2$ bridova</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Bridovi prema već posjećenim vrhovima su beskorisni. Treba struktura iz koje se „neposjećeni susjedi $[L,R]$” vade i <b>brišu</b> u amortiziranom vremenu. Segmentno stablo sortiranih listi to daje.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>„Zapamti samo jednog predstavnika” pri spajanju u DSU-u — gubi bridove (protuprimjer: $[1,10],[2,6],[3,11],[4,7]$: zadnji se križa samo s $[2,6]$).</li>
+        <li>Rekurzivni BFS/DFS za $N=10^6$ → stack overflow; koristi red.</li>
+        <li>Prazan graf: odgovor $2^N$, ne 1.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="3" naslov="Zadatak i podzadatak 1">
+    <s n="1">Naslov; analiza: DEGwer.</s>
+    <s n="2">$N$ kontejnera, dva stoga, $[A_i,B_i]$; broj načina; $N\le10^6$.</s>
+    <s n="3">$N\le20$: $O(2^NN)$ iscrpno.</s>
+</slajdovi>
+
+<h2>Opažanje <span class="bodovi">+12 bodova</span></h2>
+<slajdovi from="4" to="11" vrsta="koraci" naslov="Graf križanja">
+    <s n="4">Vremenska os, kontejner = interval; kad dva mogu na isti stog?</s>
+    <s n="5">① disjunktni.</s>
+    <s n="6">② jedan sadrži drugi.</s>
+    <s n="7">Inače (križanje) ne mogu.</s>
+    <s n="8">Podjela na A i B: križajući parovi ne smiju na isti.</s>
+    <s n="9">Graf s bridovima među križajućima: nije bipartitan → 0; inače $2^{\text{komponente}}$.</s>
+    <s n="10">$N\le2000$: svi bridovi, $O(N^2)$.</s>
+    <s n="11">Podzadaci 3, 4: ubrzanje; $O(N\log^2N)$ odnosno $O(N\log N)$; više pristupa.</s>
+</slajdovi>
+
+<h2>Puno rješenje ① <span class="bodovi">78 bodova</span></h2>
+<slajdovi from="12" to="27" vrsta="koraci" naslov="Segmentno stablo listi + BFS">
+    <s n="12">BFS/DFS na $O(N^2)$ bridova ne ide; prvo komponente.</s>
+    <s n="13">Bridovi prema posjećenima nepotrebni; želimo ih „brisati” grupno.</s>
+    <s n="14">Susjedi $[L,R]$: počinju prije $L$ i završavaju unutar; ili počinju unutar i završavaju iza $R$. Simetrično.</s>
+    <s n="15">Kako naći prvi tip?</s>
+    <s n="16">Segmentno stablo.</s>
+    <s n="17">Enumeracija.</s>
+    <s n="18">Svaki čvor drži niz.</s>
+    <s n="19">Slika.</s>
+    <s n="20">Za $[L,R]$ stavi $L$ u nizove čvorova koji sadrže $R$, uzlazno; primjer $[1,5]$.</s>
+    <s n="21">Primjer $[2,3]$.</s>
+    <s n="22">Upit: desni kraj u $[3,6]$, lijevi prije 3?</s>
+    <s n="23">Vrijednosti $\lt3$ u tim čvorovima.</s>
+    <s n="24">Pogledaj sve vrijednosti $\le$ prag u tim čvorovima; pogledane briši.</s>
+    <s n="25">Isto stablo za drugi tip; BFS daje komponente.</s>
+    <s n="26">Bipartitnost: uz dobivene strane doslovno simuliraj stogove.</s>
+    <s n="27">Dodavanje uzlazno $O(N\log N)$, brisanja $O(N\log N)$, bridova $O(N)$; teška konstanta — bez <code>vector</code>.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto je skidanje s početka ispravno.</b> U čvoru su $L'$-ovi sortirani uzlazno; susjedi trenutnog $[L,R]$ u tom čvoru su točno oni s $L'\lt L$ — prefiks liste. Skinuti prefiks više nikad ne treba: svaki skinuti interval je sada posjećen, a bridovi prema posjećenima nisu potrebni za komponente. Element s $L'\ge L$ zaustavlja skidanje, ali ostaje za kasnije upite s većim $L$.</p>
+</div>
+
+<h2>Puno rješenje ② <span class="bodovi">alternativa</span></h2>
+<slajdovi from="28" to="47" vrsta="koraci" naslov="Divide &amp; conquer">
+    <s n="28">Rješenje ②.</s>
+    <s n="29">Podijeli pa vladaj.</s>
+    <s n="30">Sredina $M$: intervali u $[L,M]$ (①), u $[M+1,R]$ (②), preko sredine (③).</s>
+    <s n="31">① i ② rekurzivno; bridovi ①–①, ②–②, ①–③, ②–③, ③–③.</s>
+    <s n="32">①–③: za ③ bitan samo lijevi kraj; sortiraj ③ po lijevom kraju.</s>
+    <s n="33">Slika.</s>
+    <s n="34">Za svaki ① nađi raspon ③ čiji je lijevi kraj u njemu; svi bridovi — previše.</s>
+    <s n="35">Susjedni ③ koje isti ① oba sadrži: brid težine 0 (ista boja).</s>
+    <s n="36">Plus po jedan brid iz svakog ① na jedan ③ iz raspona.</s>
+    <s n="37">Ekvivalentan graf s $O(\text{broj intervala})$ bridova, $O(\text{duljina})$.</s>
+    <s n="38">③–③.</s>
+    <s n="39">Točke $(A,B)$; podijeli po tome ima li točka nešto dolje-lijevo.</s>
+    <s n="40">Bridovi među parovima „dolje-desno / gore-lijevo”.</s>
+    <s n="41">Ako među crvenima postoji takav par — trokut → nije bipartitan.</s>
+    <s n="42">Slika.</s>
+    <s n="43">Bridova $O(N^2)$.</s>
+    <s n="44">Susjedne točke spoji bridovima 0 → $O(N)$ ekvivalentnih bridova.</s>
+    <s n="45">$O(k\log k)$ po razini.</s>
+    <s n="46">Ukupno $O(N\log N)$.</s>
+    <s n="47">Postoje i druga rješenja — potražite ih.</s>
+</slajdovi>
+
+<slajdovi from="48" to="48" naslov="Statistika">
+    <s n="48">100 (1), 78 (2), 22 (8), 10 (1), 0 (2).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Križanje = brid; odgovor $2^{\text{komponente}}$ ili 0.</li>
+        <li>Bipartitnost simulacijom dva stoga; komponente BFS-om nad segmentnim stablom sortiranih listi s amortiziranim skidanjem.</li>
+        <li>Alternativa: D&amp;C s bridovima težine 0 između susjeda.</li>
+    </ul>
+</div>
