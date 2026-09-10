@@ -1,0 +1,180 @@
+@@ meta
+naslov = Vijeće
+engleski = Council
+oznake = bitmaske, SOS DP, zeta-transformacija po podskupovima i nadskupovima, popcount, prebrojavanje, maksimum po podskupu
+autor_analize = tatyam
+
+@@ zadatak
+<h1>Vijeće</h1>
+<p><i>Council</i> — JOI Spring Camp 2023, dan 2.</p>
+<p>$N$ vijećnika glasa o $M$ prijedloga; $A_{i,j} = 1$ znači da vijećnik $i$ glasa <i>za</i> prijedlog $j$. Ždrijebom se bira predsjednik, on bira zamjenika među ostalima; ta dvojica <b>ne glasaju</b>. Prijedlog prolazi ako dobije barem $\lfloor N/2 \rfloor$ glasova <i>za</i>. Za svakog vijećnika $i$ kao predsjednika ispiši najveći mogući broj usvojenih prijedloga (uz najbolji izbor zamjenika).</p>
+<h3>Ograničenja</h3>
+<ul>
+    <li>$3 \le N \le 300\,000$, $1 \le M \le 20$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(8) $N \le 300$.</li>
+    <li>(8) $N \le 3\,000$.</li>
+    <li>(6) $M \le 2$.</li>
+    <li>(19) $M \le 10$.</li>
+    <li>(15) $M \le 14$.</li>
+    <li>(22) $M \le 17$.</li>
+    <li>(22) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>3 3
+1 0 0
+1 1 0
+1 1 1</pre></div>
+    <div><h4>Izlaz</h4><pre>3
+3
+2</pre></div>
+</div>
+<p>Predsjednik 1 i zamjenik 2: glasa samo vijećnik 3 i sva tri prijedloga dobivaju $1 \ge \lfloor 3/2 \rfloor$ glas.</p>
+
+@@ rjesenje
+<h2>Predračun i bitmaske</h2>
+<p>Zbroji glasove po prijedlogu ($O(NM)$). Kad su predsjednik $i$ i zamjenik $j$ izabrani, samo njihova dva glasa otpadaju, pa je za svaki prijedlog bitno koliko ima glasova u odnosu na prag $T = \lfloor N/2 \rfloor$:</p>
+<ul>
+    <li>$\ge T+2$: prolazi uvijek — maska <code>two</code>;</li>
+    <li>$= T+1$: prolazi osim ako su <b>oba</b> glasala za — maska <code>one</code>;</li>
+    <li>$= T$: prolazi samo ako <b>nijedan</b> nije glasao za — maska <code>zero</code>;</li>
+    <li>$< T$: nikad.</li>
+</ul>
+<p>Reci vijećnika su maske $A_i \in \{0,1\}^M$. Za par $(i,j)$: <code>accept = two | (one &amp; ~(A[i] &amp; A[j])) | (zero &amp; ~(A[i] | A[j]))</code>, odgovor je <code>popcount(accept)</code>. To daje $O(N^2)$ za podzadatak 2 (podzadatak 1 je $O(N^3M)$ naivno).</p>
+<p>Podzadatak 4 ($M \le 10$): ima najviše $2^M$ različitih redaka; grupiraj iste i za svakog predsjednika prođi po svim tipovima: $O(N\,2^M)$; za $M\le14$ prođi sve parove tipova, $O(NM + 4^M)$.</p>
+
+<h2>Fiksiraj predsjednika</h2>
+<p>Za fiksni $i$ definiraj <code>ONE = two | (one &amp; ~A[i])</code> (prolazi bez obzira na $j$) i <code>ZERO = (one &amp; A[i]) | (zero &amp; ~A[i])</code> (prolazi točno ako $j$ <i>nije</i> za). Tada je <code>accept = ONE | (ZERO &amp; ~A[j])</code>, pa treba maksimizirati $|\mathrm{ZERO} \cap \overline{A_j}|$ po $j \ne i$. Označimo $B_j = \overline{A_j}$ (komplement). Zadatak: za svaku masku $Z$ (koja se pojavi kao ZERO) nađi $\max_{j\ne i} |Z \cap B_j|$.</p>
+<p>Podzadatak 6 ($M \le 17$): za svaki par $x \subseteq Z$ broji ljude s $B_j \supseteq x$ i točno određenim ostatkom — zeta-transformacija po podskupovima uz „vraćanje” samo unutar $Z$; $O(3^M M)$.</p>
+
+<h2>Puni bodovi: dvije SOS transformacije, $O(2^M M^2)$</h2>
+<p>Zaboravimo načas uvjet $j\ne i$. Vrijednost $\max_j |Z \cap B_j|$ = najveći popcount skupa $b$ koji je <b>podskup nekog $B_j$</b> i podskup $Z$:</p>
+<ol>
+    <li><code>dp1[b] = 1</code> ako postoji $j$ s $b \subseteq B_j$: postavi <code>dp1[B_j] = 1</code> i napravi kumulativni OR <b>prema podskupovima</b> (SOS, $O(2^M M)$).</li>
+    <li>Za svaki $b$ s <code>dp1[b]=1</code> stavi <code>dp2[b] = popcount(b)</code>, pa kumulativni max <b>prema nadskupovima</b>; <code>dp2[Z]</code> je odgovor za $Z$.</li>
+</ol>
+<p><b>Uvjet $j \ne i$:</b> umjesto „postoji” broji koliko. <code>dp1[b]</code> = broj $j$ s $b \subseteq B_j$ (zbroj po podskupovima); <code>dp2[k][Z]</code> = broj skupova $b\subseteq Z$ popcounta $k$ s pripadnim brojem ljudi — zbroj po nadskupovima za svaki $k$. Za predsjednika $i$ s maskom $Z$ sam $i$ pridonosi točno $\binom{|Z\cap B_i|}{k}$ u <code>dp2[k][Z]</code>; odgovor je najveći $k$ za koji je <code>dp2[k][Z]</code> strogo veći od toga. Ukupno $O(NM + 2^M M^2)$; analiza spominje da se može i $O(2^M M)$.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što se stvarno mijenja?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kad se dvojica isključe, ukupni zbroj glasova po prijedlogu pada za 0, 1 ili 2. Podijeli prijedloge u četiri razreda prema udaljenosti od praga. Koja dva razreda uopće ovise o izboru?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zapiši kao bitmaske</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Izvedi izraz za skup usvojenih prijedloga iz $A_i, A_j$ i tri maske. Zatim fiksiraj $i$ i svedi na: maksimiziraj $|Z \cap \overline{A_j}|$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Maksimum presjeka sa skupom iz familije</summary>
+            <div class="spoiler-sadrzaj">
+                <p>$\max_j |Z\cap B_j|$ = najveći podskup $Z$ koji je podskup nekog $B_j$. Koje dvije SOS-transformacije (podskupovi, pa nadskupovi) to daju u $O(2^M M)$?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Izbaci sebe</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Zašto se „postoji” zamjenjuje s „koliko”? Kako iz brojanja po popcountu ukloniti doprinos samog predsjednika?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Prag je $\lfloor N/2\rfloor$ glasova <i>za</i> (ne strogo više od polovine).</li>
+        <li>Zaboraviti $j \ne i$ — predsjednik ne može biti sam sebi zamjenik.</li>
+        <li>Sporo brojanje bitova: koristi <code>__builtin_popcount</code> (grader ima <code>-march=native</code>), a ne tablicu od $2^{20}$ (promašaji cachea) ni petlju po bitovima.</li>
+        <li>Zbrajanje po podskupovima i po nadskupovima su različiti smjerovi petlje — ne miješaj.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak i podzadaci">
+    <s n="1">Naslov; analiza: tatyam.</s>
+    <s n="2">$N$ ljudi glasa o $M$ prijedloga; za svakog $i$: izaberi $j\ne i$, isključi oboje, maksimiziraj broj prijedloga s natpolovičnom ($\ge\lfloor N/2\rfloor$) podrškom.</s>
+    <s n="3">Podzadaci (JOI) i ciljane složenosti: $O(N^3M)$, $O(N^2M)$, $M\le2$, $O(N2^M)$, $O(NM+4^M)$, $O(NM+3^MM)$, $O(NM+2^MM^2)$.</s>
+    <s n="4">Ista tablica za JOIG bodovanje.</s>
+    <s n="5">Podzadatak 1: dovoljno je $O(N^3M)$.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–2 <span class="bodovi">16 bodova</span></h2>
+<slajdovi from="6" to="21" vrsta="koraci" naslov="Naivno, predračun i bitovi">
+    <s n="6">Predsjednik × zamjenik × zbrajanje glasova: $O(N^3M)$.</s>
+    <s n="7">Mijenjaju se samo dva čovjeka — ponovno zbrajanje je rasipno!</s>
+    <s n="8">Predračunaj zbrojeve ($O(NM)$), za par ukloni dvojicu ($O(M)$): $O(N^2M)$.</s>
+    <s n="9">Isto, sažeto.</s>
+    <s n="10"><b>Tehnika:</b> cijeli broj kao niz bitova (<code>| &amp; ^ &lt;&lt; &gt;&gt;</code>) — provjera para pada s $O(M)$ na $O(1)$.</s>
+    <s n="11">Čitanje: <code>A[i] |= a &lt;&lt; j</code>.</s>
+    <s n="12">Četiri razreda prijedloga: prolazi uvijek; prolazi ako bar jedan od dvojice nije za; prolazi ako obojica nisu za; pada uvijek. Bitna su samo srednja dva.</s>
+    <s n="13">Maske <code>two</code> ($\ge T+2$ glasova), <code>one</code> ($T+1$), <code>zero</code> ($T$).</s>
+    <s n="14"><code>accept = two | one &amp; ~(A[i] &amp; A[j]) | zero &amp; ~(A[i] | A[j])</code>; prebroji bitove.</s>
+    <s n="15">popcount u C++20 (<code>std::popcount</code>)… zašto ne i ranije.</s>
+    <s n="16"><code>bitset::count</code> ili <code>__builtin_popcount</code>; uz <code>-march=native</code> prevodi se u instrukciju POPCNT.</s>
+    <s n="17">Ručno petljom po bitovima: $O(M)$.</s>
+    <s n="18">Tablica $2^{20}$: $O(1)$.</s>
+    <s n="19">Kviz: što je brže, petlja ili tablica?</s>
+    <s n="20">Petlja! Pristup memoriji izvan cachea puno je sporiji od bitovnih operacija i zbrajanja.</s>
+    <s n="21">„Pametni” popcount maskama <code>0x55555555, 0x33333333, …</code>: $O(\log M)$.</s>
+</slajdovi>
+
+<h2>Podzadaci 4–5 <span class="bodovi">34 boda</span></h2>
+<slajdovi from="22" to="27" vrsta="koraci" naslov="Sažimanje istih tipova">
+    <s n="22">Za $M \le 10$ postoji samo $2^M = 1024$ tipova ljudi.</s>
+    <s n="23">Primjer.</s>
+    <s n="24">Dva čovjeka istog tipa kao predsjednici daju istu situaciju — i isti odgovor.</s>
+    <s n="25">Bitno je samo kojih su tipova predsjednik i zamjenik: dovoljno je proći $2^M \times 2^M$ parova (uz brojnost tipova, zbog $j\ne i$).</s>
+    <s n="26">Sažmi iste tipove, pa kao u podzadatku 2 provjeri sve parove: $O(NM + 4^M)$.</s>
+    <s n="27">Cilj: $O(NM + 3^M M)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 6 <span class="bodovi">22 boda</span></h2>
+<slajdovi from="28" to="31" vrsta="koraci" naslov="Fiksiraj predsjednika">
+    <s n="28">Za fiksni $i$ dovoljne su dvije maske: prijedlozi koji ovise o $j$ (efektivno na pragu) i oni koji prolaze bez obzira na $j$.</s>
+    <s n="29"><code>ONE = two | (one &amp; ~A[i])</code>, <code>ZERO = (one &amp; A[i]) | (zero &amp; ~A[i])</code>, <code>accept = ONE | (ZERO &amp; ~A[j])</code>.</s>
+    <s n="30">Maksimiziraj <code>popcnt(ZERO &amp; ~A[j])</code>: među prijedlozima iz ZERO tražimo čovjeka (osim $i$) s najviše nula.</s>
+    <s n="31">Za sve parove $x \subseteq \mathrm{ZERO}$ ($3^M$) broji ljude protiv svega u $x$, za sve u $\mathrm{ZERO}\setminus x$: zeta-transformacija ($M$-dimenzionalne prefiksne sume) i vraćanje samo na koordinatama ZERO: $O(3^M M)$.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">22 boda</span></h2>
+<slajdovi from="32" to="39" vrsta="koraci" naslov="Dvije SOS transformacije">
+    <s n="32">Želimo $O(2^M\,\mathrm{poly}(M))$.</s>
+    <s n="33">Komplementiraj $A_j$: za svaki ZERO traži $\max_{j\ne i} |\mathrm{ZERO}\cap A_j|$.</s>
+    <s n="34">Zaboravi uvjet $j\ne i$: $\max_j |\mathrm{ZERO}\cap A_j|$.</s>
+    <s n="35">To je najveći popcount skupa koji nastane smanjivanjem nekog $A_j$ do podskupa ZERO. Predračunaj $B = \{b \mid \exists j: b\subseteq A_j\}$ kumulativnim OR-om prema podskupovima, $O(2^M M)$. Ostaje $\max\{|b| : b\in B,\ b\subseteq \mathrm{ZERO}\}$.</s>
+    <s n="36">Sad povećavaj $b$ do ZERO: kumulativni chmax prema nadskupovima — odgovor za svaki ZERO u $O(2^M M)$.</s>
+    <s n="37">Sažetak: <code>dp1[A_j]=1</code>; OR po podskupovima; <code>dp2[b]=popcnt(b)</code> gdje <code>dp1[b]</code>; chmax po nadskupovima. Kako izbaciti samog sebe?</s>
+    <s n="38">Broji umjesto „postoji”: <code>dp1</code> zbraja po podskupovima; <code>dp2[k][b]</code> broji po popcountu $k$; zbroj po nadskupovima za svaki $k$.</s>
+    <s n="39">Vlastiti doprinos lako je izračunati i oduzeti. $O(2^M M^2)$; moguće i $O(2^M M)$ (izostavljeno).</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kako točno „oduzeti sebe”.</b> Za predsjednika $i$ s maskom $Z$ i komplementom $B_i$: vrijednost <code>dp2[k][Z]</code> = broj parova ($j$, $b$) s $b \subseteq Z$, $b\subseteq B_j$, $|b|=k$. Sam $i$ pridonosi točno $\binom{|Z\cap B_i|}{k}$ takvih parova. Odgovor je najveći $k$ za koji je <code>dp2[k][Z]</code> $> \binom{|Z\cap B_i|}{k}$ — postoji drugi $j$ s $|Z\cap B_j| \ge k$. Ukupno $O(M)$ po predsjedniku uz predračunate binomne koeficijente (64-bitni brojači: vrijednosti su do $N\cdot 2^M$).</p>
+    <p><b>Zašto dvije transformacije daju maksimum presjeka.</b> $|Z\cap B_j| = \max\{|b| : b\subseteq Z,\ b\subseteq B_j\}$ (uzmi $b = Z\cap B_j$). Prvi prolaz (po podskupovima) računa za svaki $b$ koliko $B_j$ ga sadrži; drugi (po nadskupovima) skuplja sve $b\subseteq Z$. Rastavljanje po $k=|b|$ potrebno je samo zato što maksimum, za razliku od zbroja, ne dopušta oduzimanje.</p>
+</div>
+<slajdovi from="40" to="41" naslov="Statistika">
+    <s n="40">Raspodjela bodova (JOI).</s>
+    <s n="41">Raspodjela bodova (JOIG).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Samo prijedlozi na pragu ($T$ i $T+1$ glasova) ovise o paru; sve stane u tri maske.</li>
+        <li>Fiksiraj predsjednika: maksimiziraj $|Z\cap\overline{A_j}|$.</li>
+        <li>Zbroj po podskupovima, pa po nadskupovima (po popcountu), uz oduzimanje vlastitog doprinosa: $O(NM + 2^M M^2)$.</li>
+    </ul>
+</div>

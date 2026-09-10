@@ -1,0 +1,207 @@
+@@ meta
+naslov = Međugradski autobus
+engleski = Long Distance Coach
+oznake = periodično piće, točka punjenja (i cilj) = „pravo otpustiti” sufiks putnika s D < S mod T, cijena W·⌊S/T⌋ + C_j, DP po putnicima sortiranim po D, blokovi, Convex Hull Trick, overflow (__int128)
+autor_analize = Imanishi Kensuke (japlj)
+
+@@ zadatak
+<h1>Međugradski autobus</h1>
+<p><i>Long Distance Coach</i> — JOI Spring Camp 2017, dan 3.</p>
+<p>Autobus kreće u $t=0$, stiže u $t=X$. Na putu $N$ točaka punjenja u vremenima $S_i$; voda košta $W$ po litri (može se puniti i prije polaska; spremnik je na početku prazan). Vozač pije u $0,T,2T,\dots$; putnik $j$ pije u $D_j+kT$ ($1\le D_j\lt T$, $D_j$ različiti). Ako nema vode kad putnik želi piti, izlazi i vraćamo mu $C_j$. Vozaču nikad ne smije nedostajati voda. Nitko ne pije točno u trenutku punjenja ili dolaska. Minimalni ukupni trošak.</p>
+<h3>Ograničenja</h3>
+<ul><li>$X\le10^{12}$; $N,M\le200\,000$; $W\le10^6$; $C_j\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(16) $N,M\le8$.</li>
+    <li>(30) $N,M\le100$.</li>
+    <li>(25) $N,M\le2000$.</li>
+    <li>(29) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>19 1 4 8 7
+10
+1 20
+2 10
+4 5
+6 5</pre></div>
+    <div><h4>Izlaz</h4><pre>103</pre></div>
+</div>
+<p>7 litara na početku, 4 na punjenju: putnik 2 izlazi u $t=9$, putnik 3 u $t=18$; $11\cdot8+10+5=103$.</p>
+
+@@ rjesenje
+<h2>Tko može biti otpušten gdje</h2>
+<p>Sortiraj putnike po $D$. Za točku punjenja $S$ (uključi i <b>cilj $X$</b> kao točku!) neka je $q=\lfloor S/T\rfloor$, $r=S\bmod T$. U ciklusu $q$ prvo pije vozač (u $qT$, mora dobiti vodu), zatim putnici s $D\lt r$ redom; voda može „ponestati” nakon nekog od njih, pa točka $S$ može otpustiti točno jedan <i>sufiks</i> $[l,p]$ putnika s $D\lt r$ ($p$ = zadnji takav). Otpušteni putnik popio je $q$ litara: ukupna cijena $Wq+C_j$; dovezeni popije $f_j=\lfloor (X-D_j)/T\rfloor+1$ litara. Sve što nije otpuštanje je fiksno (vozač pije $\lfloor X/T\rfloor+1$).</p>
+<p>Ako više točaka ima $r$ u istoj „rupi” između $D_p$ i $D_{p+1}$, korisna je samo ona s najmanjim $q$ (jeftinija). Otpušteni blokovi različitih točaka su disjunktni i uzastopni u poretku po $D$; završavaju točno na svom $p$.</p>
+
+<h2>DP i CHT</h2>
+<p>$dp[i]$ = min trošak za putnike $1..i$ (odlučeno). $dp[i]=dp[i-1]+Wf_i$ (dovezi), ili ako postoji točka s $p=i$ i najmanjim $q$: $dp[i]=\min_{l\lt i}\big(dp[l]+\sum_{k=l+1}^{i}C_k+Wq(i-l)\big)$. Uz prefiks $P_C$: $dp[i]=P_C[i]+Wqi+\min_l\big(dp[l]-P_C[l]-Wl\cdot q\big)$ — minimum linearnih funkcija u $q$ s nagibima $-Wl$ (monotono padaju kako $l$ raste). Convex Hull Trick: dodavanje u sortiranom poretku nagiba, upiti binarnom pretragom (ili Li Chao). $O((N+M)\log)$.</p>
+<p>Odgovor: $W(\lfloor X/T\rfloor+1)+dp[M]$. Vrijednosti do $\sim10^{12}\cdot10^6\cdot\ldots$ — usporedbe presjeka u CHT-u prelaze 64 bita: <code>__int128</code>, razlomačka usporedba ili pažljivi <code>long double</code>.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Nacrtaj vrijeme modulo $T$</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Vozač u 0, putnici na $D_j$, točke punjenja na $S\bmod T$ u ciklusu $\lfloor S/T\rfloor$. Tko može ostati bez vode neposredno prije $S$? Sufiks onih s $D\lt r$ — a vozač nikad.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Cijena je aditivna</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Otpuštanje $j$ u točki s $q$: $Wq+C_j$; dovoz: $Wf_j$. Ne zaboravi cilj $X$ kao točku (primjer 1 to koristi).</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Od $O(M^2)$ do CHT</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Prijelaz „blok $[l+1,i]$ u točki $q$” razdvoji na dio ovisan o $l$ i o $q$: $dp[l]-P_C[l]-Wl\cdot q$ je pravac u $q$. Nagibi dolaze sortirano.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zaboraviti cilj $X$ kao točku otpuštanja.</li>
+        <li>Više točaka u istoj rupi: uzeti prvu po vremenu (najmanji $q$), ne bilo koju.</li>
+        <li>Overflow u CHT-u pri usporedbi presjeka.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="59" naslov="Zadatak — animirani primjer">
+    <s n="1">Naslov; analiza: japlj.</s>
+    <s n="2">Autobus želi do cilja.</s>
+    <s n="3">Spremnik ima vodu.</s>
+    <s n="4">„Ja vozim.”</s>
+    <s n="5">Krećemo.</s>
+    <s n="6">Vožnja.</s>
+    <s n="7">Pijem vodu.</s>
+    <s n="8">Pijem.</s>
+    <s n="9">Dalje.</s>
+    <s n="10">Dalje.</s>
+    <s n="11">Pijem.</s>
+    <s n="12">Dalje.</s>
+    <s n="13">Dalje.</s>
+    <s n="14">Stigli na točku punjenja.</s>
+    <s n="15">Punimo koliko želimo.</s>
+    <s n="16">Dalje.</s>
+    <s n="17">Dalje.</s>
+    <s n="18">Pijem.</s>
+    <s n="19">Pijem.</s>
+    <s n="20">Dalje.</s>
+    <s n="21">Dalje.</s>
+    <s n="22">Pijem.</s>
+    <s n="23">Pijem.</s>
+    <s n="24">Dalje.</s>
+    <s n="25">Dalje.</s>
+    <s n="26">Pijem.</s>
+    <s n="27">Dalje.</s>
+    <s n="28">Dalje.</s>
+    <s n="29">Točka punjenja.</s>
+    <s n="30">Punimo malo.</s>
+    <s n="31">Dalje.</s>
+    <s n="32">Dalje.</s>
+    <s n="33">Pijem.</s>
+    <s n="34">Dalje.</s>
+    <s n="35">Dalje.</s>
+    <s n="36">Pijem… ha?</s>
+    <s n="37">Nema vode.</s>
+    <s n="38">Ljutnja.</s>
+    <s n="39">„Ne ostajem u autobusu bez vode! Idem kući!”</s>
+    <s n="40">Putnik odlazi.</s>
+    <s n="41">Dalje.</s>
+    <s n="42">Dalje.</s>
+    <s n="43">Dalje.</s>
+    <s n="44">Pijem… hm??</s>
+    <s n="45">Nema vode.</s>
+    <s n="46">„Bez vode? Neoprostivo!”</s>
+    <s n="47">Odlazi.</s>
+    <s n="48">Dalje.</s>
+    <s n="49">Dalje.</s>
+    <s n="50">Točka punjenja.</s>
+    <s n="51">Punimo.</s>
+    <s n="52">Dalje.</s>
+    <s n="53">Dalje.</s>
+    <s n="54">Pijem.</s>
+    <s n="55">Dalje.</s>
+    <s n="56">Dalje.</s>
+    <s n="57">Cilj.</s>
+    <s n="58">Sažetak: voda $W$/litra; vozač i putnici piju periodično ($D_j+kT$); bez vode putnik odlazi (trošak $C_j$); vozač ne smije ostati bez vode.</s>
+    <s n="59">Ograničenja: $T\le X\le10^{12}$, $N,M\le2\cdot10^5$, $D_j\lt T$, $C_j\le10^9$.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 i struktura <span class="bodovi">16 bodova</span></h2>
+<slajdovi from="60" to="78" vrsta="koraci" naslov="Tko može otići gdje">
+    <s n="60">$N,M\le8$: iscrpno? Ali pijenja ima stotine milijardi…</s>
+    <s n="61">Crtež po ciklusima $T$: koliko puniti na svakoj točki? Prvo punjenje ne mora biti ovdje.</s>
+    <s n="62">Odluči: 6 litara ovdje.</s>
+    <s n="63">Netko odlazi.</s>
+    <s n="64">Odlazi.</s>
+    <s n="65">Zatim 0–3 litre.</s>
+    <s n="66">…</s>
+    <s n="67">Po točki $O(M)$ kandidata, ukupno $O((M+1)^{N+1})$ — možda prođe.</s>
+    <s n="68">Pogled: ova točka ima „pravo otpustiti” ovog čovjeka.</s>
+    <s n="69">Ova točka…</s>
+    <s n="70">…ovako.</s>
+    <s n="71">…ili ovako.</s>
+    <s n="72">…ili ovako.</s>
+    <s n="73">…ili ovako: sufiks.</s>
+    <s n="74">Sigurni podzadatak 1: odluči za svakog putnika ($2^M$), tada su punjenja određena.</s>
+    <s n="75">Preformulacija: točka → interval putnika koje može otpustiti.</s>
+    <s n="76">Slika.</s>
+    <s n="77">Slika.</s>
+    <s n="78">Polinomno (46): svaka točka = „može otpustiti nekoliko uzastopnih odostraga”, DP u $O(\cdot^3)$.</s>
+</slajdovi>
+
+<h2>DP <span class="bodovi">71 bodova</span></h2>
+<slajdovi from="79" to="80" vrsta="koraci" naslov="dp[i][j]">
+    <s n="79">$dp[i][j]$ = gledali do putnika $i$ (odostraga), $i$ otpušten na točki $j$.</s>
+    <s n="80">$dp[i][\text{free}]$ = $i$ dovezen. Prijelazi: $dp[i][j]=dp[i+1][j]+\text{cost}(i,j)$ ako $j$ već „postoji”; $dp[i][j]=\min_\star dp[i+1][\star]+\text{cost}(i,j)$ ako $j$ počinje između $i$ i $i+1$; $dp[i][\text{free}]=\min_\star dp[i+1][\star]+\text{dovoz}$.</s>
+</slajdovi>
+
+<h2>Ubrzanje <span class="bodovi">100 bodova</span></h2>
+<slajdovi from="81" to="101" vrsta="koraci" naslov="Tablica, pravci, CHT">
+    <s n="81">Pogledaj tablicu putnik × točka.</s>
+    <s n="82">Formule.</s>
+    <s n="83">Red 9: min.</s>
+    <s n="84">Red 8.</s>
+    <s n="85">Formule.</s>
+    <s n="86">Točka 4 počinje između 6 i 7: prije toga $\infty$.</s>
+    <s n="87">Min.</s>
+    <s n="88">Formule.</s>
+    <s n="89">Cijena „5 na 4”.</s>
+    <s n="90">Cijena „4 na 4”.</s>
+    <s n="91">Neovisno o drugim stupcima.</s>
+    <s n="92">$\text{cost}(i,j)=W\lfloor S_j/T\rfloor+C_i$: dio ovisan o točki, dio o putniku.</s>
+    <s n="93">$C$-dio: zamisli da su $C_i+\dots+C_M$ unaprijed dodani (ne utječu na min).</s>
+    <s n="94">Točka ulazi; njezin trošak raste linearno s brojem otpuštenih.</s>
+    <s n="95">Više ulazaka.</s>
+    <s n="96">Puno pravaca!</s>
+    <s n="97">Treba minimum.</s>
+    <s n="98">Convex Hull Trick.</s>
+    <s n="99">Opća tehnika, mnoge varijante.</s>
+    <s n="100">Nepotreban pravac: za $a_1\gt a_2\gt a_3$: $(a_2-a_1)(b_3-b_2)\ge(b_2-b_1)(a_3-a_2)$.</s>
+    <s n="101">Overflow: usporedba razlomaka rekurzivno; <code>double</code> (rizik); <code>__int128</code>.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Jednodimenzionalna verzija.</b> Umjesto $dp[i][j]$ dovoljno je $dp[i]$ po prefiksu putnika (sortiranih po $D$): blok $[l+1,i]$ otpušten na točki koja „počinje” točno na $i$ (najmanji $q$ među njima). $dp[i]=P_C[i]+Wqi+\min_l(dp[l]-P_C[l]-Wl\,q)$. Pravci se dodaju s nagibom $-Wl$ padajuće, upit u $q$ proizvoljan → binarna pretraga na donjoj ovojnici. To je ista slika kao na slajdovima, samo transponirana.</p>
+</div>
+
+<slajdovi from="102" to="102" naslov="Statistika">
+    <s n="102">Bodovi: 0, 16, 71, 100.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Točka (i cilj) otpušta sufiks putnika s $D\lt S\bmod T$; cijena $W\lfloor S/T\rfloor+C_j$.</li>
+        <li>DP po putnicima s blokovima → CHT, $O((N+M)\log)$, 128-bitne usporedbe.</li>
+    </ul>
+</div>

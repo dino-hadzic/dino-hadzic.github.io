@@ -1,0 +1,171 @@
+@@ meta
+naslov = Lampe
+engleski = Lamps
+oznake = tri intervalne operacije (OFF, ON, TOGGLE), normalizacija: sve OFF/ON prije svih TOGGLE, OFF/ON intervali disjunktni i nesusjedni, niz oznaka {0,1,?} po lampi, cijena = broj blokova 0/1 + broj početaka blokova 1 u XOR-u s ciljem, DP s 3 stanja po poziciji, O(N), donja ograda brojanjem „granica 01/10”
+autor_analize = Hosaka
+
+@@ zadatak
+<h1>Lampe</h1>
+<p><i>Lamps</i> — JOI Spring Camp 2019, dan 3.</p>
+<p>$N$ lampi, stanja $A$ (početno) i $B$ (ciljno) kao binarni nizovi. Operacija: odaberi interval $[p,q]$ i sve u njemu <b>ugasi</b>, <b>upali</b> ili <b>preklopi</b>. Najmanji broj operacija iz $A$ u $B$.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N\le10^6$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $N\le18$.</li>
+    <li>(41) $N\le2000$.</li>
+    <li>(4) $A$ sve nule.</li>
+    <li>(49) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>8
+11011100
+01101001</pre></div>
+    <div><h4>Izlaz</h4><pre>4</pre></div>
+</div>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>13
+1010010010100
+0000111001011</pre></div>
+    <div><h4>Izlaz</h4><pre>3</pre></div>
+</div>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>18
+001100010010000110
+110110001000100101</pre></div>
+    <div><h4>Izlaz</h4><pre>5</pre></div>
+</div>
+
+@@ rjesenje
+<h2>Samo TOGGLE ($A=0$) <span class="bodovi">4</span></h2>
+<p>Odgovor = broj blokova jedinica u $B$. Donja ograda: svaka operacija stvara najviše 2 nove „granice” (mjesta $01$/$10$, s nulama izvan niza), a $k$ blokova zahtijeva $2k$ granica.</p>
+
+<h2>Normalizacija optimalnog rješenja <span class="bodovi">100</span></h2>
+<p>Postoji optimalno rješenje u kojem:</p>
+<ol>
+    <li><b>sve OFF/ON operacije dolaze prije svih TOGGLE</b> (OFF/ON brišu informaciju, TOGGLE je čuva — zamjena redoslijeda: OFF unutar prethodno preklopljenog dijela ⇒ zamijeni s ON prije preklopa; inače skrati TOGGLE i zamijeni ili izbaci);</li>
+    <li>OFF/ON intervali su međusobno disjunktni (preklop je besmislen — skrati ranije);</li>
+    <li>OFF/ON intervali nisu susjedni (susjedni OFF+ON zamijeni s OFF cijelog + TOGGLE dijela).</li>
+</ol>
+<p>Zato je stanje nakon OFF/ON faze opisano nizom $S\in\{0,1,?\}^N$: „postavljeno na 0”, „na 1”, „nepromijenjeno ($=A_i$)”. Cijena:</p>
+<ul>
+    <li>OFF/ON: broj maksimalnih blokova znakova $0$ odnosno $1$ (blok = jedna operacija);</li>
+    <li>TOGGLE: za $C_i=S_i$ (ili $A_i$ ako $?$) i $D=C\oplus B$: broj blokova jedinica u $D$, tj. broj $i$ s $D_i=1$, $D_{i-1}=0$.</li>
+</ul>
+<h3>DP u $O(N)$</h3>
+<p>$dp[i][s]$, $s\in\{0,1,?\}$ = min cijena za prefiks duljine $i$ s $S_i=s$. Prijelaz $(i-1,s')\to(i,s)$: $+1$ ako $s\ne?$ i $s\ne s'$ (novi blok); $+1$ ako $D_i=1$ i $D_{i-1}=0$ ($D$ izračunat iz $s,s'$ i $A,B$). $3\times3$ prijelaza po poziciji, $O(N)$ vremena i $O(1)$ memorije. Odgovor $\min_s dp[N][s]$.</p>
+<p class="trener-umetak">Slajdovi prvo daju DP s duljinom trenutnog alternirajućeg bloka $0101\ldots$ (cijena $\lceil(k+1)/2\rceil$, $O(N^2)$), pa ga svode na paritet ($5N$ stanja), pa primjećuju da alternacije uopće nisu potrebne (svojstva 2–3) — što daje gornji DP s 3 stanja. Dopuštanje susjednih blokova $0|1$ u DP-u ne šteti: DP im naplati 2, koliko i formula, pa optimalno rješenje ostaje isto (provjereno iscrpnom BFS pretragom za $N\le9$).</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Redoslijed operacija</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Može li se OFF/ON uvijek pomaknuti ispred TOGGLE-a? Što se događa s intervalom TOGGLE-a?</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Odvoji faze</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Nakon OFF/ON faze svaka lampa je 0, 1 ili „ista kao u $A$”. Cijena OFF/ON = broj blokova; cijena TOGGLE = broj blokova jedinica u XOR-u s $B$.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>DP s lokalnim stanjem</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Obje cijene ovise samo o susjednim parovima ⇒ stanje = zadnji znak.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zaboraviti da „?” nema cijenu, ali utječe na XOR preko $A_i$.</li>
+        <li>$D_{0}=0$ (granica ispred prve lampe) — inače se prvi blok jedinica ne naplati.</li>
+        <li>$N=10^6$: čitaj nizove brzo; DP u tri varijable.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="6" naslov="Zadatak i podzadatak 1">
+    <s n="1">Naslov; Hosaka.</s>
+    <s n="2">Tri operacije nad intervalom: OFF, ON, TOGGLE; min broj iz $A$ u $B$. Podzadaci.</s>
+    <s n="3">Primjer 1.</s>
+    <s n="4">TOGGLE, ON, TOGGLE, OFF — 4 operacije.</s>
+    <s n="5">Naivno: BFS po $2^N$ stanja, $O(N^2)$ prijelaza: $O(2^NN^2)$.</s>
+    <s n="6">Bitovne operacije za intervale: <code>&amp; ~m</code>, <code>| m</code>, <code>^ m</code> s $m=(1\ll q)-(1\ll p)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">4 boda</span></h2>
+<slajdovi from="7" to="8" vrsta="koraci" naslov="Samo TOGGLE">
+    <s n="7">$A=0$: broj blokova jedinica operacija dovoljno (ON ili TOGGLE po bloku). Manje ne može?</s>
+    <s n="8">Donja ograda: „01”/„10” granice — jedna operacija stvara ≤2; $k$ blokova traži $2k$ granica ⇒ $\ge k$ operacija.</s>
+</slajdovi>
+
+<h2>Promatranja</h2>
+<slajdovi from="9" to="17" vrsta="koraci" naslov="Primjeri i različiti optimalni redoslijedi">
+    <s n="9">Prema punom rješenju: primjeri.</s>
+    <s n="10">Primjer 2.</s>
+    <s n="11">OFF, ON, TOGGLE — lako.</s>
+    <s n="12">Primjer 3.</s>
+    <s n="13">OFF, ON, ON, TOGGLE, TOGGLE — teže. Odvojiti pripremu (OFF/ON) od TOGGLE-a?</s>
+    <s n="14">Primjer 1 ponovno: TOGGLE, ON, TOGGLE, OFF…</s>
+    <s n="15">…ili OFF, TOGGLE, TOGGLE, OFF…</s>
+    <s n="16">…ili OFF, TOGGLE, ON, TOGGLE…</s>
+    <s n="17">…ili OFF, ON, TOGGLE, TOGGLE.</s>
+</slajdovi>
+
+<slajdovi from="18" to="22" vrsta="koraci" naslov="OFF/ON prije TOGGLE">
+    <s n="18">Postoji optimum s svim OFF/ON prije svih TOGGLE. Intuicija: OFF/ON brišu informaciju, TOGGLE čuva.</s>
+    <s n="19">Dokaz: pomicanje OFF/ON ispred bez promjene rezultata i broja.</s>
+    <s n="20">OFF unutar preklopljenog dijela: umjesto toga prije napravi ON (i obrnuto).</s>
+    <s n="21">Inače: skrati TOGGLE interval i zamijeni redoslijed.</s>
+    <s n="22">Ili TOGGLE potpuno nestane.</s>
+</slajdovi>
+
+<slajdovi from="23" to="29" vrsta="koraci" naslov="Plan: niz 0/1/? i dvije cijene">
+    <s n="23">Plan: (1) odluči za svaku lampu „OFF”, „ON” ili „netaknuta”; (2) min OFF/ON za to; (3) min TOGGLE od tamo do cilja.</s>
+    <s n="24">(isto)</s>
+    <s n="25">Broj OFF/ON za niz poput <code>?0111001111?0011…</code>?</s>
+    <s n="26">Razdvoji po „?”, sažmi blokove: 0→1, 01→2, 010→2, 0101→3, 01010→3, 010101→4.</s>
+    <s n="27">Alternacija duljine $k$: $\lceil(k+1)/2\rceil$ (OFF cijelog, pa $\lfloor k/2\rfloor$ ON); donja ograda brojanjem „susjedi različiti” mjesta ($k+1$ mjesta, ≤2 po operaciji).</s>
+    <s n="28">(plan)</s>
+    <s n="29">TOGGLE broj: XOR trenutnog i cilja, pa kao podzadatak 3.</s>
+</slajdovi>
+
+<h2>DP <span class="bodovi">100</span></h2>
+<slajdovi from="30" to="35" vrsta="koraci" naslov="Od O(N²) do O(N)">
+    <s n="30">(plan)</s>
+    <s n="31">Sve nizove ($3^N$) ne možemo; obje cijene računaju se jednim prolazom slijeva ⇒ DP.</s>
+    <s n="32">Stanje: pozicija, zadnji znak (0/1/?), duljina trenutne alternacije; prijelaz: sljedeći znak.</s>
+    <s n="33">OFF/ON zbroji kad se alternacija zatvori; TOGGLE kad XOR prijeđe 0→1. $O(N^2)$: podzadatak 2.</s>
+    <s n="34">Efikasnije: dodaj 1 kad duljina postane 1 ili 2, 4, 6, …</s>
+    <s n="35">Stanje: pozicija, zadnji znak, je li alternacija 0101… ili 1010…: $\approx5N$ stanja, $O(N)$: 100.</s>
+</slajdovi>
+
+<slajdovi from="36" to="39" vrsta="koraci" naslov="Još jače ograničenje">
+    <s n="36">Zapravo: postoji optimum gdje OFF/ON intervali ne preklapaju i nisu susjedni.</s>
+    <s n="37">Preklapanje je besmisleno — skrati.</s>
+    <s n="38">Susjedni OFF+ON → OFF cijelog + TOGGLE dijela.</s>
+    <s n="39">Dovoljni su nizovi gdje 0 i 1 nisu susjedni: $\approx3N$ stanja.</s>
+</slajdovi>
+
+<slajdovi from="40" to="41" naslov="Statistika">
+    <s n="40">Raspodjela: 100 / 51 / 47 / 10 / 6 / 4 / 0.</s>
+    <s n="41">(isto)</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>OFF/ON prije TOGGLE; OFF/ON kao disjunktni nesusjedni blokovi.</li>
+        <li>Cijena = broj blokova 0/1 + broj blokova jedinica u XOR-u s $B$; DP s 3 stanja, $O(N)$.</li>
+    </ul>
+</div>

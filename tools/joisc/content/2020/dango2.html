@@ -1,0 +1,126 @@
+@@ meta
+naslov = Legendarni majstor danga
+engleski = Legendary Dango Maker
+oznake = output-only, maksimalni nezavisni skup, simulirano kaljenje, heuristike
+tip = Output-only zadatak
+autor_analize = JOI tutori
+
+@@ zadatak
+<h1>Legendarni majstor danga</h1>
+<p><i>Legendary Dango Maker</i> — JOI Spring Camp 2020, dan 4. <b>Output-only zadatak</b>: šest ulaznih datoteka, predaješ izlaze.</p>
+<p>Dango (rižine kuglice) leže u mreži $R \times C$; svaka je ružičasta (<code>P</code>), bijela (<code>W</code>) ili zelena (<code>G</code>). Biraš tri uzastopne kuglice u smjeru okomito, vodoravno ili dijagonalno (oba nagiba) i nabadaš ih na štapić <b>redom od kraja do kraja</b> (kuglica ne može biti na više štapića). Štapić je <b>lijep</b> ako su boje redom ružičasta–bijela–zelena ili zelena–bijela–ružičasta (dakle bijela u sredini, krajevi različiti). Napravi što više lijepih štapića.</p>
+<h3>Ulaz</h3>
+<pre>R C
+D_1
+⋮
+D_R</pre>
+<h3>Izlaz</h3>
+<p>$R$ redaka: u retku $i$ znak <code>|</code> označava da je ta ćelija <b>sredina</b> okomitog štapića, <code>-</code> vodoravnog, <code>\</code> dijagonalnog (gore-lijevo → dolje-desno), <code>/</code> dijagonalnog (gore-desno → dolje-lijevo); inače izvorna boja.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$3 \le R, C \le 500$.</li>
+</ul>
+<h3>Bodovanje</h3>
+<p>Za svaki testni slučaj zadani su pragovi $X < Y < Z$ i bodovi $S$. Uz $N$ napravljenih štapića: $0$ ako $N < X$; linearno do $S/2$ na $[X, Y)$; linearno od $S/2$ do $S$ na $[Y, Z)$; $S$ za $N \ge Z$. Neispravan izlaz (sukob, kriva boja, format) daje $0$.</p>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>3 4
+PWGP
+WGPW
+GWPG</pre></div>
+    <div><h4>Izlaz 1</h4><pre>P-GP
+WGP|
+G-PG</pre></div>
+    <div><h4>Ulaz 2</h4><pre>3 4
+PWWP
+WWWW
+PGGP</pre></div>
+    <div><h4>Izlaz 2</h4><pre>PWWP
+W\/W
+PGGP</pre></div>
+</div>
+<p>U primjeru 1 nastaju tri lijepa štapića; <code>W G P</code> u tom redoslijedu nije lijep.</p>
+
+@@ rjesenje
+<h2>Model: maksimalni nezavisni skup</h2>
+<p>Svaki <b>mogući lijepi štapić</b> (bijela ćelija u sredini, dva različita ne-bijela kraja u jednom od 4 smjera) je vrh grafa; dva vrha su susjedna ako dijele ćeliju. Tražimo <b>maksimalni nezavisni skup</b> — NP-težak općenito, ali graf je rijedak (svaki štapić pokriva 3 ćelije, svaka ćelija je u najviše 4 štapića kao sredina i u najviše 8 kao kraj), pa heuristike i egzaktni rješavači rade jako dobro.</p>
+
+<h2>Praktični pristupi</h2>
+<ol>
+    <li><b>Redukcije s ruba.</b> Vrh stupnja $\le 1$ uvijek uzmi (u nezavisnom skupu maksimalne veličine uvijek postoji optimalno rješenje s njim); vrh stupnja 2 čije su dva susjeda… (sažimanje „folding”); vrh dominiran susjedom nikad ne treba. Time se rubovi mreže gotovo u potpunosti odrede.</li>
+    <li><b>Simulirano kaljenje.</b> Stanje = skup međusobno kompatibilnih štapića. Potezi: dodaj slučajni štapić (uklanjajući one koji se s njim sukobljavaju) ili ukloni jedan. Cilj = broj štapića; prihvaćaj pogoršanja s vjerojatnošću $e^{-\Delta/T}$ uz padajuću temperaturu. Ključ je brz popis štapića po ćeliji i inkrementalno ažuriranje.</li>
+    <li><b>Cjelobrojno programiranje.</b> Varijable $x_s \in \{0,1\}$ po štapiću, ograničenja $\sum_{s \ni \text{ćelija}} x_s \le 1$, maksimiziraj $\sum x_s$. Gurobi/CPLEX daju optimum za sve slučajeve; GLPK je bitno sporiji.</li>
+    <li><b>Branch-and-reduce za vertex cover</b> (Akiba–Iwata): otvorena implementacija daje optimum u pet od šest slučajeva.</li>
+</ol>
+<p class="trener-napomena">Pohlepni redoslijed (npr. prvo štapići koji „smetaju” najmanje drugima, pa lokalno poboljšavanje zamjenom 1→2) već ulazi u zonu bodova; kaljenje s dovoljno iteracija dolazi do $Z$.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Prepoznaj strukturu</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Nabroji sve moguće štapiće (koliko ih ima najviše?). Kada se dva sukobljavaju? Koji je to klasični problem?</p>
+                <p class="pitanje">Najviše $4 \cdot RC$ štapića; sukob = zajednička ćelija; maksimalni nezavisni skup.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Prvo sigurni potezi</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ako se štapić ne sukobljava ni s jednim drugim — uzmi ga. Ako se sukobljava samo s jednim — također ga smiješ uzeti (zamjenski argument). Koliko time reduciraš problem?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Lokalno pretraživanje</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Napiši kaljenje: potez „ubaci štapić i izbaci sukobljene”. Kako brzo naći sukobljene (popis po ćeliji)? Kako birati temperaturu (počni tako da ~30 % pogoršanja prolazi)?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Provjeri izlaz</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Napiši checker koji čita ulaz i izlaz, provjerava da su sredine bijele, krajevi različitih boja i da se štapići ne preklapaju. Output-only zadatak bez checkera je kockanje.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Označiti kraj štapića umjesto sredine, ili kriv znak za dijagonalu (<code>\</code> ide gore-lijevo → dolje-desno).</li>
+        <li>Štapić <code>W G P</code> ili <code>P P W</code> nije lijep — sredina mora biti bijela, krajevi različiti.</li>
+        <li>Prepisati boju ćelije koja nije sredina (izlaz mora ponoviti izvornu boju).</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="3" naslov="Sažetak i popis pristupa">
+    <s n="1">Naslovni slajd: <i>LGM — Legendary danGo Maker</i>.</s>
+    <s n="2"><b>Sažetak.</b> Napravi što više štapića danga; smjerovi: 8 (4 linije, oba redoslijeda nabadanja).</s>
+    <s n="3">„Prave” analize nema — pregled pristupa: simulirano kaljenje; maksimalni nezavisni skup; IP rješavač (Gurobi); Akiba–Iwata, <i>Branch-and-reduce exponential/FPT algorithms in practice: a case study of vertex cover</i>.</s>
+</slajdovi>
+<slajdovi from="4" to="7" vrsta="koraci" naslov="Pristupi">
+    <s n="4"><b>Kaljenje.</b> Potezi: dodaj štapić / ukloni štapić. Potrudi se oko brzine.</s>
+    <s n="5"><b>Skidanje s ruba.</b> Štapići kao vrhovi → maksimalni nezavisni skup. S rubova se puno toga ukloni: stupanj $\le 1$ uvijek uzmi; „2 × stupanj 2” sažmi; neke vrhove sigurno ne koristi.</s>
+    <s n="6"><b>IP rješavač.</b> Formulacija: bool varijabla po štapiću; $x_i + x_j \le 1$ za sukobe. Rješavača je mnogo (GLPK besplatan; CPLEX i Gurobi plaćeni, studentima besplatni). Gurobi: optimum u svim slučajevima!</s>
+    <s n="7"><b>Akiba–Iwata.</b> Rad rješava vertex cover (= maksimalni nezavisni skup); implementacija na <a href="https://github.com/wata-orz/vertex_cover" target="_blank" rel="noopener">GitHubu</a>. Optimum za sve slučajeve osim 05.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto „stupanj $\le 1$ uvijek uzmi”.</b> Neka štapić $s$ ima najviše jednog konkurenta $t$. Iz bilo kojeg optimalnog rješenja koje ne sadrži $s$: ako sadrži $t$, zamijeni $t$ sa $s$ (isti broj, ostaje nezavisno jer $s$ nema drugih susjeda); ako ne sadrži ni $t$, dodaj $s$ — kontradikcija s optimalnošću. Pravilo se primjenjuje iterativno jer se stupnjevi smanjuju nakon svakog odabira.</p>
+    <p><b>Kaljenje u praksi</b> za $500\times500$: predračunaj sve štapiće i za svaku ćeliju popis štapića koji je sadrže. Potez: izaberi slučajan štapić $s$ koji nije u rješenju; njegovi sukobi su štapići u rješenju koji sadrže neku od 3 ćelije (najviše 3, jer je u rješenju svaka ćelija u najviše jednom štapiću). $\Delta = 1 - (\text{broj sukoba})$. Prihvati po Metropolisu. Nekoliko desetaka milijuna poteza po slučaju daje rezultate blizu optimuma.</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Štapići = vrhovi, sukobi = bridovi; maksimalni nezavisni skup na rijetkom grafu.</li>
+        <li>Sigurne redukcije s ruba + simulirano kaljenje daju pune bodove; IP rješavač ili branch-and-reduce daju dokazani optimum.</li>
+        <li>Uvijek napiši vlastiti checker izlaza.</li>
+    </ul>
+</div>

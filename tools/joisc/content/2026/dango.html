@@ -1,0 +1,197 @@
+@@ meta
+naslov = Legendarni gurman za dango
+engleski = Legendary Dango Eater
+oznake = slatko=+1/ljuto=−1 s RLE blokovima, greedy simulacija (rem=max(0,rem+a); ans+=rem/K; rem%=K), reset-pozicije = prvi negativni blok x s (s_{x−1}−s_{i−1}) mod K ≤ A_x, cikličke intervale po s mod K rješava set/lower_bound ili dualno segmentno stablo, doubling po resetima, ostatak = ⌊(s_R−s_{i−1})/K⌋, O((N+Q) log N)
+autor_analize = Mitsubachi (蜂矢倫久)
+
+@@ zadatak
+<h1>Legendarni gurman za dango</h1>
+<p><i>Legendary Dango Eater</i> — JOI 2025/2026 Final Stage (Spring Camp 2026), dan 1.</p>
+<p>Ražnjić s $s_N=A_1+\dots+A_N$ kuglica: blok $i$ ima $A_i$ kuglica, <b>slatkih</b> za neparni $i$, <b>ljutih</b> za parni. Plan $j$: Bitaro jede kuglice blokova $L_j..R_j$, odozgo prema dolje, u zalogajima od proizvoljnog pozitivnog broja uzastopnih kuglica. Zalogaj ga <b>veseli</b> ako je (broj slatkih) − (broj ljutih) $\ge K$. Za svaki plan: najveći mogući broj veselih zalogaja.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N,Q\le5\cdot10^5$, $K\le10^{14}$, $A_i\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $Q\le10$.</li>
+    <li>(5) $K\le2$.</li>
+    <li>(18) $K\le10$.</li>
+    <li>(27) $\sum A_i\le5\cdot10^5$.</li>
+    <li>(17) $N,Q\le2\cdot10^5$.</li>
+    <li>(27) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5 2 1
+2 1 2 4 3
+1 5
+2 4</pre></div>
+    <div><h4>Izlaz</h4><pre>7
+2</pre></div>
+</div>
+<p>Niz je $++-++----+++$; s $K=1$ svaka slatka kuglica je zaseban veseli zalogaj: 7 u cijelom nizu, 2 u blokovima $2..4$ ($-++----$).</p>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5 2 3
+2 1 2 4 3
+1 5
+2 4</pre></div>
+    <div><h4>Izlaz</h4><pre>2
+0</pre></div>
+</div>
+<p>$K=3$: zalogaji $[1,5]$ (4 slatke, 1 ljuta ⇒ veseo), $[6]$, $[7,9]$, $[10,12]$ (veseo).</p>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>9 4 50
+24 26 89 45 84 72 15 31 66
+1 9
+2 8
+4 6
+5 6</pre></div>
+    <div><h4>Izlaz</h4><pre>3
+2
+1
+1</pre></div>
+</div>
+
+@@ rjesenje
+<h2>Greedy na jednom planu <span class="bodovi">6</span></h2>
+<p>Slatko $=+1$, ljuto $=-1$; zalogaj veseli ako mu je zbroj $\ge K$. Greedy: nosi tekući zbroj <code>rem</code> od zadnjeg reza; <b>reži čim rem dosegne $K$</b> (veseli zalogaj) i <b>reži čim rem padne na $\le0$</b> (bezvrijedan prefiks — baci ga). Po blokovima: <code>rem = max(0, rem + a); ans += rem / K; rem %= K</code> (za ljuti blok $a=-A_i$). $O(N)$ po planu.</p>
+<p class="trener-umetak"><b>Zašto je greedy točan:</b> zamjena — prvi veseli zalogaj optimalnog rješenja završava na ili nakon prvog mjesta gdje zbroj od početka dosegne $K$; skratimo ga na to mjesto, ostatak samo dobiva. Prefiks sa zbrojem $\le0$ ispred veselog zalogaja možemo odvojiti u zaseban (neveseli) zalogaj, čime se zbroj ostatka ne smanjuje.</p>
+
+<h2>Reset-pozicije i doubling <span class="bodovi">100</span></h2>
+<p>Stanje greedyja između blokova je samo <code>rem</code>; <b>reset</b> je trenutak kad rem padne na 0 zbog ljutog bloka. Neka je $s_i$ alternirajuća prefiksna suma ($A_1-A_2+A_3-\dots$). Krenemo li od slatkog bloka $i$ (rem $=0$), rem prije bloka $x$ jednak je $(s_{x-1}-s_{i-1})\bmod K$ sve dok nema reseta (slatki blokovi rade mod $K$, ljuti oduzimaju ostajući $>0$). <b>Reset</b> nastupa na prvom ljutom bloku $x\gt i$ s
+\[(s_{x-1}-s_{i-1})\bmod K\;\le\;A_x .\]
+Do tog trenutka zbroj blokova $i..x-1$ iznosi $K\cdot(\text{broj veselih})+\text{rem}$, pa je <b>broj veselih zalogaja na $[i,x-1]$ točno $\lfloor(s_{x-1}-s_{i-1})/K\rfloor$</b>, a novi start je slatki blok $x+1$.</p>
+<p>Definiraj $\mathrm{nxt}[i]=x+1$, $\mathrm{cnt}[i]=\lfloor(s_{x-1}-s_{i-1})/K\rfloor$ (ako reseta nema, $\mathrm{nxt}=\infty$). Upit $[L,R]$: kreni od $i=L$ (ili $L+1$ ako je $L$ ljut), skoči binarnim dizanjem dok $\mathrm{nxt}\le R+1$, pa dodaj ostatak $\lfloor(s_R-s_{i-1})/K\rfloor$ (na $[i,R]$ nema reseta, pa formula vrijedi). $O(\log N)$ po upitu.</p>
+
+<h2>Kako naći reset za svaki $i$ u $O(N\log N)$</h2>
+<p>Uvjet za $x$: $s_{i-1}\bmod K\in[s_{x-1}-A_x,\;s_{x-1}]\pmod K$ — <b>ciklički interval</b> duljine $A_x+1$ (sve ako $A_x\ge K-1$). Prolazi $x$ rastuće; u <code>std::set</code> drži otvorene $i$ (slatke, još bez reseta) po ključu $s_{i-1}\bmod K$. Za ljuti $x$ ponavljaj <code>lower_bound</code> u (najviše dva) intervala i skidaj pogođene $i$ dodijelivši im reset $x$. Svaki $i$ ispada jednom: $O(N\log N)$. Alternativa: obrađuj $x$ padajuće i radi <i>range-chmin</i> nad komprimiranim vrijednostima $s\bmod K$ — dualno segmentno stablo (raspon-ažuriranje, točkasti upit), bolja konstanta od lijenog.</p>
+<p class="trener-umetak"><b>Zašto ne raditi po kuglicama (podzadatak 4):</b> s $S=\sum A_i\le5\cdot10^5$ raspakiraj niz u $\pm1$; reset/veselje = prvi trenutak kad prefiks izađe iz $[1,K-1]$ — binarno traženje po segmentnom stablu min/max, pa doubling; $O((S+Q)\log S)$. Blokovska verzija zamjenjuje „izlazak iz $[1,K-1]$” uvjetom s mod $K$ jer slatki blok može više puta preći $K$ odjednom.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Greedy za jedan plan</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Reži pri $\ge K$ i pri $\le0$. Napiši to po blokovima s <code>/K</code> i <code>%K</code>.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Što je stanje?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Samo rem. Kad je rem $=0$ sve se resetira — od tog bloka odgovor ne ovisi o prošlosti. Doubling po resetima.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Prvi reset od $i$</summary>
+        <div class="spoiler-sadrzaj">
+            <p>rem prije $x$ je $(s_{x-1}-s_{i-1})\bmod K$. Za fiksni $x$ to je ciklički interval ključa $s_{i-1}\bmod K$ — set + lower_bound.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Odgovor ostatka $\lfloor(s_R-s_{i-1})/K\rfloor$ vrijedi <b>samo</b> ako na $[i,R]$ nema reseta — zato skačeš dok $\mathrm{nxt}\le R+1$, a „bez reseta” mora biti $\infty$, ne $N+1$.</li>
+        <li>Plan koji počinje ljutim blokom: kreni od $L+1$.</li>
+        <li>$K\le10^{14}$, $s$ do $5\cdot10^{14}$: 64-bitni; ciklički interval kad $A_x\ge K-1$ pokriva sve.</li>
+        <li>Podzadaci 5 vs 6 razlikuju se $\approx2.5\times$ — dodatni log ili $\sqrt{}$ ne prolazi.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak">
+    <s n="1">Naslov; Mitsubachi.</s>
+    <s n="2">Korak 0: sažetak.</s>
+    <s n="3">RLE niz slatko/ljuto; podijeli interval na dijelove; maksimiziraj broj dijelova sa (slatkih − ljutih) $\ge K$; $Q$ upita.</s>
+    <s n="4">Ograničenja.</s>
+    <s n="5">Tablica podzadataka.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">6 bodova</span></h2>
+<slajdovi from="6" to="12" vrsta="koraci" naslov="Greedy simulacija">
+    <s n="6">$Q\le10$.</s>
+    <s n="7">Slatko $+1$, ljuto $-1$; uvjet je zbroj; u implementaciji negiraj $A_2,A_4,\dots$.</s>
+    <s n="8">Optimalno rezanje: reži kad zbroj dosegne $K$; reži i kad padne na 0. Po kuglici $O(NA)$ — presporo.</s>
+    <s n="9">Cijeli RLE blok obradi odjednom.</s>
+    <s n="10"><code>rem=max(0,rem+a); ans+=rem/K; rem%=K</code>.</s>
+    <s n="11">$O(N)$ po upitu, $O(NQ)$.</s>
+    <s n="12">Posljedica: $A_1,A_3,\dots$ smiju se zamijeniti ostatkom mod $K$ (kvocijent u prefiksne sume); slično $A_2,A_4,\dots\le K$.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">5 bodova</span></h2>
+<slajdovi from="13" to="16" vrsta="koraci" naslov="K ≤ 2">
+    <s n="13">$K\le2$.</s>
+    <s n="14">$K=1$: broj slatkih — prefiksne sume.</s>
+    <s n="15">$K=2$: prije ljutog bloka rem je 0 ili 1, pa nakon njega uvijek 0.</s>
+    <s n="16">Ne prelazi se preko ljutih: zbroj $\lfloor a/2\rfloor$ po slatkim blokovima; prefiksne sume, $O(N+Q)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">18 bodova</span></h2>
+<slajdovi from="17" to="21" vrsta="koraci" naslov="Kompozicija funkcija na K stanja">
+    <s n="17">$K\le10$.</s>
+    <s n="18">Početni ans $=x$ samo dodaje $x$ — bitan je samo rem.</s>
+    <s n="19">Za interval i svaki početni rem $\in\{0..K-1\}$ izračunaj (ans, rem) na kraju: stane u segmentno stablo, spajanje $O(K)$.</s>
+    <s n="20">$O((N+Q\log N)K)$; ista ideja kao Uiro, podzadatak 5.</s>
+    <s n="21">Slajd za odmor (dango u SAD-u).</s>
+</slajdovi>
+
+<h2>Podzadatak 4 <span class="bodovi">27 bodova</span></h2>
+<slajdovi from="22" to="30" vrsta="koraci" naslov="Raspakiraj i doubling">
+    <s n="22">$\sum A\le5\cdot10^5$.</s>
+    <s n="23">Raspakiraj RLE: primjer 1 → $+1,+1,-1,+1,+1,-1,-1,-1,-1,+1,+1,+1$; $S=\sum A$.</s>
+    <s n="24">Ponovno: bitan samo rem.</s>
+    <s n="25">Ako znamo gdje rem prvi put postane 0 (mjesto reza), pitanje je koliko rezova od $l$ do $r$.</s>
+    <s n="26">To je doubling!</s>
+    <s n="27">Prvi rem $=0$: prvo mjesto gdje prefiks izađe iz $[1,K-1]$ — binarno traženje po segmentnom stablu min/max, $O(S\log S)$.</s>
+    <s n="28">Primjer 2, $K=3$: $+1,+1,-1,+1,+1\mid-1\mid-1\mid-1\mid-1\mid+1,+1,+1$ ⇒ 2. Segmente koji počinju s $-1$ preskoči.</s>
+    <s n="29">Doubling: $O((S+Q)\log S)$.</s>
+    <s n="30">Bonus: s $A_i\le K$ (podzadatak 1) dobiješ $O((NK+Q)\log(NK))$ — prolazi 2, možda 3 (memorija).</s>
+</slajdovi>
+
+<h2>Podzadatak 6 <span class="bodovi">44 boda</span></h2>
+<slajdovi from="31" to="36" vrsta="koraci" naslov="Doubling po blokovima">
+    <s n="31">Bez ograničenja.</s>
+    <s n="32">5 i 6 razlikuju se $\approx2.5\times$: loša konstanta ili dodatni log/√ ⇒ samo do 5. Odsad $A_2,A_4$ ne negiramo.</s>
+    <s n="33">Od $A_i$: dodaj, mod $K$, oduzmi $A_{i+1}$, … do prvog $\le0$ (pozicija pos). Broj veselih na $[A_i,A_{pos})$ = zbroj$/K$ — greedy.</s>
+    <s n="34">Primjer 2: od $A_1$: $+2\to+1\to+3$ (mod 3 → 0) $\to-4$: na $[A_1,A_3]$ zbroj$/K=1$; dalje nezavisno od $A_5$.</s>
+    <s n="35">Tražimo prvo mjesto $\le0$; teškoća je mod $K$. Uvjet: najmanji $j$ s $(A_i-A_{i+1}+\dots+A_{j-1})\bmod K\le A_j$.</s>
+    <s n="36">Naivno $O(N^2)$; $O(NK)$ moguće (2, 3). Brži način slijedi.</s>
+</slajdovi>
+
+<slajdovi from="37" to="43" vrsta="koraci" naslov="Preoblikovanje: set ili dualno segmentno stablo">
+    <s n="37">S alternirajućim prefiksima $s$: $(s_{j-1}-s_{i-1})\bmod K\le A_j$.</s>
+    <s n="38">Obradi $i$ padajuće: ograničenje $x$ kaže „za $i$ s $s_{i-1}\bmod K$ u ovom intervalu, $j\le x$” — kompresija ⇒ raspon-ažuriranje/točkasti upit.</s>
+    <s n="39">Dva pristupa: set ili struktura.</s>
+    <s n="40">Set: drži $(i,s_i)$ bez određenog $j$; dodavaj ograničenja $x=1,2,\dots$; pogođene $i$ nađi <code>lower_bound</code>-om i izbaci. $O(N\log N)$.</s>
+    <s n="41">Struktura: lijeno segmentno stablo $O(N\log N)$; ali može jednostavnije s boljom konstantom…</s>
+    <s n="42">…dualno segmentno stablo!</s>
+    <s n="43">Dualno = zamijenjene uloge: raspon-ažuriranje i točkasti upit (članak tatyam).</s>
+</slajdovi>
+
+<slajdovi from="44" to="49" naslov="Primjer dualnog stabla i konačna složenost">
+    <s n="44">$N=K=8$, prazno stablo.</s>
+    <s n="45">Ograničenje „mod $K$ u $[2,5)$ zapinje na 7”: kao rasponski upit na $[2,5)$.</s>
+    <s n="46">„$[3,7)$ zapinje na 6”.</s>
+    <s n="47">Upit za vrijednost 4: kao točkasto ažuriranje — pročitaj put do korijena.</s>
+    <s n="48">$O(\log K)$ po operaciji; kompresija na $N$ ⇒ $O(\log N)$; ukupno $O(N\log N)$.</s>
+    <s n="49">Jedan korak unaprijed u $O(N\log N)$ (sqrt-dekompozicija možda samo do 5); doubling ⇒ $O((N+Q)\log N)$.</s>
+</slajdovi>
+
+<slajdovi from="50" to="52" naslov="Raspodjela bodova">
+    <s n="50">Korak 7.</s>
+    <s n="51">Ideal: nema razlike za selekciju.</s>
+    <s n="52">Stvarnost: 4× 100, 2× 56, 2× 38, 7× 29, 1× 27, 14 ispod 11.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Greedy reže na $\ge K$ i $\le0$; stanje je samo rem; reset (rem $=0$) čini početke nezavisnima.</li>
+        <li>Prvi reset od $i$ preko cikličkog intervala $s\bmod K$ (set/dualno stablo); doubling; ostatak $\lfloor\Delta s/K\rfloor$.</li>
+    </ul>
+</div>

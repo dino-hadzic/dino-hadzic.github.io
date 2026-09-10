@@ -1,0 +1,159 @@
+@@ meta
+naslov = Plan izgradnje cesta
+engleski = Road Construction
+oznake = geometrija, Manhattan udaljenost, segmentno stablo, perzistentne strukture, prioritetni red, binarno pretraživanje
+autor_analize = Kinoshita Yasunori
+
+@@ zadatak
+<h1>Plan izgradnje cesta</h1>
+<p><i>Road Construction</i> — JOI Spring Camp 2021, dan 2.</p>
+<p>$N$ gradova u ravnini, grad $i$ na $(X_i, Y_i)$, sve točke različite. Cesta između gradova $i$ i $j$ košta $|X_i - X_j| + |Y_i - Y_j|$. Među svih $N(N-1)/2$ parova ispiši cijene $K$ najjeftinijih cesta, od najjeftinije.</p>
+<h3>Ulaz</h3>
+<pre>N K
+X_1 Y_1
+...
+X_N Y_N</pre>
+<h3>Izlaz</h3>
+<p>$K$ redaka: cijena $k$-te najjeftinije ceste.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$2 \le N \le 250\,000$, $1 \le K \le \min(250\,000,\ N(N-1)/2)$.</li>
+    <li>$|X_i|, |Y_i| \le 10^9$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(5) $N \le 1000$.</li>
+    <li>(6) $Y_i = 0$.</li>
+    <li>(7) $K = 1$.</li>
+    <li>(20) $K \le 10$.</li>
+    <li>(27) $N \le 100\,000$.</li>
+    <li>(35) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5 4
+1 -1
+2 0
+-1 0
+0 2
+0 -2</pre></div>
+    <div><h4>Izlaz</h4><pre>2
+2
+3
+3</pre></div>
+</div>
+<p>Svih 10 cijena: $2, 2, 3, 3, 3, 3, 4, 4, 4, 4$.</p>
+
+@@ rjesenje
+<h2>Uklanjanje apsolutnih vrijednosti</h2>
+<p>Sortiraj gradove po $X$; za $i < j$ vrijedi $X_i \le X_j$, pa:</p>
+<ul>
+    <li>ako $Y_i \le Y_j$: cijena $= (X_j + Y_j) - (X_i + Y_i)$;</li>
+    <li>ako $Y_i > Y_j$: cijena $= (X_j - Y_j) - (X_i - Y_i)$.</li>
+</ul>
+<p>Za fiksni $j$ najjeftiniji partner $i < j$ je $\min$ od $-(X_i + Y_i)$ nad $Y_i \le Y_j$ (plus $X_j + Y_j$), odnosno $\min$ od $-(X_i - Y_i)$ nad $Y_i > Y_j$. Čitajući gradove po $X$ i držeći dva min-segmentna stabla indeksirana komprimiranim $Y$, to je $K = 1$ u $O(N\log N)$.</p>
+
+<h2>Enumeracija po redu (kao u podzadatku 2)</h2>
+<p>U 1D ($Y = 0$): za svaki $j$ kandidat je $(j-1, j)$; kad izvadimo $(i, j)$ iz prioritetnog reda, ubacimo $(i-1, j)$. Svaki par se pojavi točno jednom, red ima $O(N)$ elemenata, $K$ vađenja — $O((N+K)\log N)$. Opći slučaj radi isto, ali za „sljedećeg partnera od $j$” treba <b>2. najjeftiniji, 3. najjeftiniji…</b> u istoj klasi (gornja/donja).</p>
+
+<h2>Puno rješenje: perzistentno segmentno stablo</h2>
+<p>Verzija stabla nakon umetanja gradova $1..j-1$ je „pogled” grada $j$. Da bismo dobili sljedećeg partnera za $j$, u <b>njegovoj</b> verziji postavimo trenutnog partnera $i$ na $+\infty$ (stvarajući novu verziju samo za $j$) i ponovno upitamo minimum na rasponu. Perzistentno stablo: ažuriranje ne prepisuje čvorove nego stvara $O(\log N)$ novih duž puta do korijena; stari korijen i dalje vidi staro stanje. Svaki $j$ drži po jedan korijen za svaku od dviju klasa i ta se dva korijena mijenjaju neovisno o ostalim gradovima.</p>
+<p>Algoritam: za $j = 2..N$ i obje klase ubaci $(\text{cijena}, j, \text{klasa})$ najjeftinijeg partnera u prioritetni red; $K$ puta izvadi minimum, ispiši, u verziji $(j, \text{klasa})$ ugasi partnera i ubaci sljedećeg (ako postoji). $O((N + K)\log N)$ vremena, $O((N + K)\log N)$ čvorova (oko $2\cdot(N+K)\cdot 20 \approx 2\cdot10^7$ — pazi na memoriju: čuvaj samo min i indekse djece).</p>
+
+<h2>Alternativa: binarno pretraživanje po cijeni</h2>
+<p>Rotacija $X' = X + Y$, $Y' = X - Y$ pretvara Manhattan u Čebiševljevu udaljenost $\max(|X'_i - X'_j|, |Y'_i - Y'_j|)$, a „cijena $\le d$” u kvadrat. Broj parova s cijenom $\le d$: sortiraj po $X'$, dva pokazivača po $X'$ i segmentno stablo / Fenwick po komprimiranom $Y'$: $O(N\log N)$ po $d$. Binarno traži najmanje $D$ s barem $K$ parova ($O(\log A)$ koraka), zatim isto s <code>std::set</code> nabroji sve parove cijene $\le D-1$ (ima ih $< K$) i dopuni s $D$. $O(N\log N\log A + K\log K)$ — 27 bodova, uz brzu implementaciju i 100.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Za $K = 1$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kako se riješiti apsolutnih vrijednosti u $|X_i - X_j| + |Y_i - Y_j|$? Sortiraj po jednoj koordinati i podijeli po drugoj na dva slučaja; svaki postaje $f(j) - g(i)$ — zbroj neovisnih doprinosa.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Od $K = 1$ do $K$ najmanjih</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Prisjeti se 1D verzije: prioritetni red kandidata, po jedan „sljedeći” za svaki $j$. Što ti treba da bi za grad $j$ pronašao 2. najbolji partner u klasi, pa 3., … ?</p>
+                <p class="pitanje">Minimum na rasponu u <i>stanju stabla iz trenutka $j$</i>, s mogućnošću brisanja — perzistentnost.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Ako perzistentno stablo ne želiš</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Binarno traži $D$ = $K$-ta cijena brojanjem parova u rotiranim koordinatama, pa nabroji parove $\le D - 1$. Pazi: parova cijene točno $D$ može biti puno — njih ne nabrajaš, samo ispisuješ $D$ potreban broj puta.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Par s $Y_i = Y_j$ upada u obje klase → dupla cijena. Koristi $Y_i \le Y_j$ i $Y_i > Y_j$ (strogo), s komprimiranim $Y$.</li>
+        <li>Cijene do $4\cdot10^9$ — 64-bitni tipovi.</li>
+        <li>Perzistentno stablo: nova verzija po svakom vađenju iz reda; ne mijenjaj zajedničke čvorove.</li>
+        <li>Nabrajanje parova $\le D$ umjesto $\le D-1$ može eksplodirati (mnogo parova iste cijene).</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="2" naslov="Zadatak">
+    <s n="1">Naslovni slajd: <i>Road Construction</i>; analiza: Kinoshita Yasunori.</s>
+    <s n="2"><b>Sažetak.</b> $N$ gradova s koordinatama; cesta $i$–$j$ košta $|X_i - X_j| + |Y_i - Y_j|$. Od $N(N-1)/2$ parova ispiši $K$ najjeftinijih cijena. $N, K \le 250\,000$.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–3 <span class="bodovi">18 bodova</span></h2>
+<slajdovi from="3" to="8" vrsta="koraci" naslov="Grubo, 1D i K = 1">
+    <s n="3"><b>Podzadatak 1</b> ($N \le 1000$): izračunaj sve parove i sortiraj, $\Theta(N^2\log N)$. 5 bodova.</s>
+    <s n="4"><b>Podzadatak 2</b> ($Y_i = 0$): sve točke na brojevnom pravcu, cijena $|X_i - X_j|$. Sortiraj po $X$. Najjeftiniji par je neki susjedni $(i-1, i)$; nakon što ga izvadimo, zamijenimo ga s $(i-2, i)$ i ponovno uzmemo minimum.</s>
+    <s n="5">Prioritetni red (<code>std::priority_queue</code>) daje $O(N + K\log N)$. 6 bodova.</s>
+    <s n="6"><b>Podzadatak 3</b> ($K = 1$): sortiraj po $X$, pa $X_i \le X_j$ za $i < j$. Ako $Y_i \le Y_j$: cijena $= X_j - X_i + Y_j - Y_i = (-X_i - Y_i) + (X_j + Y_j)$. Ako $Y_i \ge Y_j$: cijena $= (-X_i + Y_i) + (X_j - Y_j)$. Apsolutne vrijednosti nestaju, članovi se razdvajaju po $i$ i $j$.</s>
+    <s n="7">Za svaki $j$ nađi najjeftinijeg partnera $i < j$: čitaj po $X$, drži segmentna stabla indeksirana s $Y$ za minimume $-X_i - Y_i$ i $-X_i + Y_i$; upitaj minimum na $Y_i \le Y_j$ i dodaj $X_j + Y_j$ (analogno za $Y_i \ge Y_j$).</s>
+    <s n="8">Koordinate su velike — komprimiraj $Y$. $\Theta(N\log N)$, 7 bodova.</s>
+</slajdovi>
+
+<h2>Podzadatak 4: $K \le 10$ <span class="bodovi">20 bodova</span></h2>
+<slajdovi from="9" to="10" vrsta="koraci" naslov="Ukloni najjeftiniji par">
+    <s n="9">$K = 2$: nađi najjeftiniji par $(a, b)$ algoritmom podzadatka 3. Parove podijeli na one koji sadrže $a$ ili $b$ (samo $2N - 3$ — nabroji ih) i one koji ne sadrže ni jedan (ponovi podzadatak 3 na gradovima bez $a, b$). Drugi najjeftiniji par je u prvoj skupini ili je najjeftiniji u drugoj.</s>
+    <s n="10">Za $K \le 10$ ponovi $K$ puta: nađi najjeftiniji par $(a,b)$, nabroji sve parove koji ga dodiruju, ukloni $a, b$. Na kraju od nabrojanih ispiši $K$ najjeftinijih. $\Theta(KN\log N)$, 20 bodova.</s>
+</slajdovi>
+
+<h2>Podzadatak 5: $N \le 10^5$ <span class="bodovi">27 bodova</span></h2>
+<slajdovi from="11" to="15" vrsta="koraci" naslov="Binarno pretraživanje po cijeni">
+    <s n="11">Ako znamo prebrojati parove s cijenom $\le d$, binarnim pretraživanjem nađemo $K$-tu najjeftiniju cijenu $D$. Nabrojimo parove cijene $\le D - 1$ i dopunimo s $D$ potreban broj puta. Treba: za grad $i$ prebrojati/nabrojati gradove s cijenom $\le d$.</s>
+    <s n="12">Slika: područje „cijena do $i$ je $\le d$” je romb (kvadrat zarotiran za 45°) oko grada $i$.</s>
+    <s n="13">Rotacija za 45°: $X' = X + Y$, $Y' = X - Y$; cijena postaje $\max(|X'_i - X'_j|, |Y'_i - Y'_j|)$, a romb postaje kvadrat poravnat s osima.</s>
+    <s n="14">Sortiraj po $X'$; za svaki $j$ broji $i < j$ s $X'_j - d \le X'_i$ i $Y'_j - d \le Y'_i \le Y'_j + d$. Dva pokazivača po $X'$ + segmentno stablo po $Y'$ (broj točaka u rasponu): $\Theta(N\log N)$ po $d$.</s>
+    <s n="15">Sa <code>std::set</code> umjesto stabla možeš i nabrojati sve parove cijene $\le d$. Ukupno $\Theta(N\log N\log A + K\log K)$: 27 bodova, a s brzom implementacijom i 100.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">35 bodova</span></h2>
+<slajdovi from="16" to="21" vrsta="koraci" naslov="Perzistentno segmentno stablo">
+    <s n="16">Nadogradi podzadatak 3: čitaj po $X$, u segmentnim stablima po $Y$ drži minimume $-X_i - Y_i$ i $-X_i + Y_i$; za $j$ upitaj minimum na $Y_i \le Y_j$ i dodaj $X_j + Y_j$ (analogno druga klasa).</s>
+    <s n="17">Ako minimum zamijenimo s $+\infty$ i upitamo ponovno, dobijemo 2. najjeftinijeg partnera (u istoj klasi). Kao u podzadatku 2: izvadi najjeftiniji par $(i, j)$, zamijeni ga s $(i', j)$ — 2. najjeftinijim za isti $j$ — i ponovi $K$ puta. Za to moramo naknadno pristupati stanju stabla „u trenutku $j$” — i u njemu raditi ažuriranja na $+\infty$. Strukture koje pamte prošla stanja zovemo <b>perzistentnima</b>.</s>
+    <s n="18">Segmentno stablo predstavimo čvorovima koji pokazuju na lijevo i desno dijete (npr. niz čvorova, djeca kao indeksi). Slika: min-segmentno stablo.</s>
+    <s n="19">Ažuriranje pozicije s 5 na 2: obično stablo jednostavno prepiše nekoliko čvorova (sivo na slici).</s>
+    <s n="20">Perzistentno stablo ne prepisuje — stvara nove čvorove duž puta. Skup čvorova dostupan iz starog korijena i skup dostupan iz novog svaki je za sebe obično segmentno stablo.</s>
+    <s n="21">Jedno ažuriranje: $\Theta(\log N)$ novih čvorova. Ukupno $\Theta((N + K)\log N)$. 35 bodova.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto perzistentnost, a ne obično stablo?</b> Partner grada $j$ smije biti samo $i < j$ — dakle stanje stabla nakon umetanja prvih $j-1$ gradova. Kad bismo koristili jedno zajedničko stablo na kraju, upit za $j$ bi vidio i gradove desno od njega (tamo bi formula bez apsolutnih vrijednosti bila pogrešna). Zato svaki $j$ dobiva svoj korijen; gašenje partnera na $+\infty$ u toj verziji ne smije utjecati na verzije ostalih gradova.</p>
+</div>
+
+<slajdovi from="22" to="22" naslov="Raspodjela bodova">
+    <s n="22">Raspodjela bodova natjecatelja: 0, 1, 2, 3, 4, 5, 6, 7, 11, 18, 32, 65, 100.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Sortiraj po $X$, podijeli po $Y$: Manhattan cijena postaje $f(j) - g(i)$; $K = 1$ uz min-segmentno stablo.</li>
+        <li>„Sljedeći partner za $j$” = min nakon gašenja prethodnog u <i>verziji</i> stabla iz trenutka $j$ → perzistentno stablo, $O((N+K)\log N)$.</li>
+        <li>Alternativa: rotacija za 45° + binarno pretraživanje po cijeni + nabrajanje parova $\le D-1$.</li>
+    </ul>
+</div>

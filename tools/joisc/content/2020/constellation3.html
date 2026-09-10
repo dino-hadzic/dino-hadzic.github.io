@@ -1,0 +1,174 @@
+@@ meta
+naslov = Zviježđe 3
+engleski = Constellation 3
+oznake = kartezijevo stablo, dinamičko programiranje na stablu, Fenwickovo stablo, binarno podizanje
+autor_analize = Takaya
+
+@@ zadatak
+<h1>Zviježđe 3</h1>
+<p><i>Constellation 3</i> — JOI Spring Camp 2020, dan 3.</p>
+<p>JOI je snimio noćni pejzaž: slika ima $N \times N$ piksela; piksel u $x$-tom stupcu slijeva i $y$-tom retku odozdo je $(x, y)$. U $i$-tom stupcu pikseli od dna do $A_i$-tog retka su <b>bijeli</b> (zgrade). $M$ piksela je <b>žuto</b> (zvijezde): $j$-ta je $(X_j, Y_j)$, pri čemu je $A_{X_j} < Y_j$. Ostali su crni (nebo).</p>
+<p>Pravokutno područje <b>prikazuje zviježđe</b> ako ne sadrži bijeli piksel i sadrži bar dvije zvijezde. JOI želi prebojati neke zvijezde u crno tako da nijedno pravokutno područje ne prikazuje zviježđe. Prebojavanje $j$-te zvijezde povećava „neprirodnost” za $C_j$. Odredi najmanju moguću ukupnu neprirodnost.</p>
+<h3>Ulaz</h3>
+<pre>N
+A_1 … A_N
+M
+X_1 Y_1 C_1
+⋮
+X_M Y_M C_M</pre>
+<h3>Izlaz</h3>
+<p>Najmanja ukupna neprirodnost.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N, M \le 200\,000$, $1 \le A_i \le N$, $1 \le C_j \le 10^9$.</li>
+    <li>$A_{X_j} < Y_j$; zvijezde su na različitim pikselima.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(14 bodova) $N, M \le 300$.</li>
+    <li>(21 bod) $N, M \le 2000$.</li>
+    <li>(65 bodova) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>5
+1 3 4 2 3
+3
+1 5 3
+4 3 2
+2 4 2</pre></div>
+    <div><h4>Izlaz 1</h4><pre>2</pre></div>
+    <div><h4>Ulaz 2</h4><pre>7
+5 6 2 3 6 7 6
+5
+7 7 5
+3 3 7
+3 7 10
+1 7 6
+4 7 8</pre></div>
+    <div><h4>Izlaz 2</h4><pre>16</pre></div>
+</div>
+<p>Primjer 1: pravokutnik s gornjim lijevim $(1,5)$ i donjim desnim $(2,4)$ sadrži dvije zvijezde i nema bijelih piksela. Prebojamo treću zvijezdu ($C = 2$). Primjer 2: optimalno je prebojati treću i četvrtu.</p>
+
+@@ rjesenje
+<h2>Preokret: biramo zvijezde koje ostaju</h2>
+<p>Umjesto minimizirati uklonjeno, <b>maksimiziraj zbroj $C$ zadržanih</b> zvijezda uz uvjet: nijedan crni pravokutnik ne sadrži dvije zadržane. Dvije zvijezde $(x_1,y_1)$, $(x_2,y_2)$ su u sukobu $\iff \max_{x_1 \le i \le x_2} A_i < \min(y_1, y_2)$.</p>
+
+<h2>Kartezijevo stablo po visinama zgrada</h2>
+<p>Izgradi Kartezijevo stablo niza $A$ (korijen = indeks maksimuma, rekurzivno lijevo i desno). Čvor $v$ odgovara stupcu $v$ i intervalu $[l_v, r_v]$ na kojem je $A_v$ maksimum. Zvijezdi $(x, y)$ pridruži <b>put</b> od čvora $x$ prema gore do najvišeg pretka $t$ s $A_t < y$ (visine duž puta prema korijenu rastu). Čvor $t$ je upravo maksimalni crni interval koji sadrži zvijezdu na visini $y$.</p>
+<p><b>Sukob $\iff$ putovi se sijeku.</b> Ako imaju zajednički čvor $u$, tada $u$ sadrži oba stupca i $A_u < y_1, y_2$, pa je $\max A$ na $[x_1, x_2] \le A_u < \min(y_1,y_2)$. Obratno, ako je $\max A$ na $[x_1,x_2] < \min(y_1, y_2)$, taj maksimum je čvor $\mathrm{LCA}(x_1, x_2)$ i on je na oba puta. Zadatak: <b>odaberi vrhovno-disjunktne vertikalne putove maksimalnog ukupnog težinskog zbroja</b>.</p>
+
+<h2>DP na stablu s Fenwickovim stablom</h2>
+<p>$\mathrm{dp}[v]$ = najbolji rezultat unutar podstabla $v$. Neka je $\mathrm{djeca}[v] = \sum_{c \in \text{djeca}(v)} \mathrm{dp}[c]$. Ako nijedan odabrani put ne sadrži $v$: $\mathrm{dp}[v] \ge \mathrm{djeca}[v]$. Inače biramo zvijezdu $s$ čiji put završava u $v$ (od čvora $x_s$ do $v$); rezultat je
+\[ C_s + \sum_{u \in \text{put}} \mathrm{djeca}[u] - \sum_{u \in \text{put},\, u \ne v} \mathrm{dp}[u], \]
+jer za svaki čvor $u$ puta uzimamo sva njegova djeca osim onoga koje je također na putu (a njegov je doprinos $\mathrm{dp}$ već uključen u $\mathrm{djeca}$ roditelja — stoga ga oduzmemo).</p>
+<p>Zbroj po putu računamo <b>Fenwickovim stablom nad stupcima</b> (raspon-dodaj, točka-upit): kad izračunamo $\mathrm{dp}[u]$, dodaj $\mathrm{djeca}[u] - \mathrm{dp}[u]$ na cijeli interval $[l_u, r_u]$. Kad obrađujemo $v$ (djeca gotova), za zvijezdu $s$ s vrhom puta $v$ upit u točki $x_s$ daje točno $\sum_{u \text{ strogo ispod } v \text{ na putu}}(\mathrm{djeca}[u] - \mathrm{dp}[u])$, jer su svi dosad dodani čvorovi koji sadrže $x_s$ upravo potomci $v$ na putu. Dakle $\mathrm{dp}[v] = \max\bigl(\mathrm{djeca}[v],\ \max_s C_s + \mathrm{djeca}[v] + \mathrm{upit}(x_s)\bigr)$.</p>
+<p>Vrh puta zvijezde nađemo binarnim podizanjem (najviši predak s $A < y$). Ukupno $O((N + M)\log N)$. Odgovor $= \sum C_j - \mathrm{dp}[\text{korijen}]$.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Okreni cilj</summary>
+            <div class="spoiler-sadrzaj">
+                <p>„Minimalno ukloniti” je isto što i „maksimalno zadržati”. Kad su dvije zvijezde u sukobu? Zapiši uvjet preko $\max A$ između njihovih stupaca.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 1: DP po pravokutnicima</summary>
+            <div class="spoiler-sadrzaj">
+                <p>$\mathrm{dp}[l][r][h]$ = najbolje u $[l,r]\times[0,h]$: ili uzmi zvijezdu na visini $h$ ili spusti $h$. Koliko različitih $(l, r)$ se stvarno pojavljuje? Zašto samo $N$?</p>
+                <p class="pitanje">Intervali koji se pojavljuju su čvorovi Kartezijevog stabla.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zvijezda kao put u stablu</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kojem čvoru „pripada” zvijezda $(x, y)$? Poveži čvor $x$ i taj čvor putom. Dokaži: sukob $\iff$ putovi se sijeku (u oba smjera; koristi LCA).</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Disjunktni putovi prema korijenu</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Klasični DP na stablu: čvor bez odabranog puta = zbroj djece; čvor s putom = težina + „ostatak šume”. Kako zbroj po putu dobiti brzo? Razmisli o dodavanju na interval stupaca kad čvor završiš.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zbrojevi prelaze $2^{31}$: $M \cdot C \le 2\cdot 10^{14}$ — 64 bita.</li>
+        <li>Kartezijevo stablo s jednakim visinama: bilo koji maksimum je u redu, ali budi dosljedan (uvjet je strogo $A < y$).</li>
+        <li>Rekurzivni DFS na stablu dubine do $2\cdot 10^5$ može preliti stog — koristi iterativni poredak (npr. čvorove sortirane po $A$ rastuće, jer su djeca uvijek niža).</li>
+        <li>Upit Fenwicka nakon što je $\mathrm{dp}[v]$ dodan na interval — dodaj tek nakon izračuna $\mathrm{dp}[v]$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Uvod">
+    <s n="1">Naslovni slajd: <i>Constellation 3</i>, analiza: Takaya Yuta.</s>
+    <s n="2"><b>Sažetak.</b> Zadane visine zgrada $A_1..A_N$, zvijezde $(X_j, Y_j)$ s cijenama uklanjanja $C_j$. Ukloni zvijezde uz minimalnu cijenu tako da svaki crni pravokutnik sadrži najviše jednu zvijezdu.</s>
+    <s n="3">Primjer: slika s tri zvijezde; dvije od njih dijele crni pravokutnik.</s>
+    <s n="4"><b>Za početak:</b> uklanjanje je nezgodno — okrenimo u <b>odabir</b> zvijezda: iz svakog crnog pravokutnika smije se odabrati najviše jedna.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">14 bodova</span></h2>
+<slajdovi from="5" to="9" vrsta="koraci" naslov="DP po intervalima i Kartezijevo stablo">
+    <s n="5">DP: $\mathrm{dp}[l][r][h]$ = najveći zbroj iz $[l, r] \times [0, h]$. Ili odaberi zvijezdu na visini $h$, ili se spusti na $h-1$. Naivno: kubično stanje, mnoštvo prijelaza — 0 bodova.</s>
+    <s n="6">Ali stanja je zapravo malo: parova $(l, r)$ koji se pojavljuju u prijelazima ima samo $N$.</s>
+    <s n="7">To su točno intervali čvorova <b>Kartezijevog stabla</b>.</s>
+    <s n="8"><b>Kartezijevo stablo:</b> indeks maksimuma je korijen; niz se dijeli na lijevi i desni dio; rekurzivno izgradimo stabla i njihove korijene spojimo na korijen.</s>
+    <s n="9">Kartezijevo stablo primjera.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">21 bod</span></h2>
+<slajdovi from="10" to="12" vrsta="koraci" naslov="Jedna visina po čvoru">
+    <s n="10">Potrebnih $[l, r]$ je $N$; sad je i kandidat za $h$ jednoznačan za svaki $[l,r]$.</s>
+    <s n="11">To je visina koja odgovara čvoru Kartezijevog stabla za $[l, r]$.</s>
+    <s n="12">Time pada jedan red veličine. Zvijezde obrađujemo samo u čvoru koji ih sadrži. $O(NM)$ ili slično za $N, M \le 2000$.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">65 bodova</span></h2>
+<slajdovi from="13" to="18" vrsta="koraci" naslov="Zvijezde kao putovi">
+    <s n="13">Treba precizno preformulirati uvjet „najviše jedna po crnom pravokutniku” jezikom Kartezijevog stabla.</s>
+    <s n="14">Svakoj zvijezdi pridružimo čvor koji je sadrži (maksimalni crni interval na njenoj visini). Taj čvor je predak čvora njezine $x$-koordinate.</s>
+    <s n="15">Promotrimo <b>put</b> od čvora zvijezde do čvora njezine $x$-koordinate.</s>
+    <s n="16">„Najviše jedna po pravokutniku” $\iff$ „nijedna dva odabrana puta se ne sijeku”.</s>
+    <s n="17">Dakle: zadani su putovi koji idu samo prema korijenu, svaki s težinom; odaberi međusobno disjunktne putove najvećeg ukupnog zbroja.</s>
+    <s n="18">To se rješava DP-om na stablu.</s>
+</slajdovi>
+<slajdovi from="19" to="23" vrsta="koraci" naslov="DP na stablu i zbrojevi po putu">
+    <s n="19">Za svaki čvor riješimo isti problem za putove unutar njegova podstabla; računamo odozdo prema gore. Znamo odgovore za potomke, želimo odgovor u korijenu podstabla.</s>
+    <s n="20">Ako ne biramo put koji sadrži korijen: zbroj odgovora izravne djece. Problem je slučaj kad biramo put kroz korijen.</s>
+    <s n="21">Fiksiraj odabrani put: rezultat je težina puta + zbroj odgovora korijena šume koja nastane uklanjanjem puta. To želimo računati strukturom podataka.</s>
+    <s n="22">U svakom čvoru unaprijed izračunaj zbroj odgovora izravne djece. Zbroj tih vrijednosti duž puta minus zbroj odgovora čvorova puta bez korijena = tražena vrijednost.</s>
+    <s n="23">Ostaje: zbroj vrijednosti zapisanih na čvorovima puta. To znamo.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kako „to znamo”.</b> Put je uvijek od čvora $x$ prema gore, a čvor $u$ pripada putu $\iff x \in [l_u, r_u]$ i $u$ je potomak vrha puta. Zato je „zbroj po putu ispod $v$” = zbroj vrijednosti svih <i>već obrađenih</i> čvorova čiji interval sadrži $x$: Fenwick nad stupcima s operacijama <em>dodaj na interval</em> / <em>upit u točki</em>. Redoslijed obrade: po rastućem $A$ (djeca su strogo niža ili jednaka — kod jednakih visina koristi eksplicitni poredak stabla).</p>
+<pre><code>for v in čvorovi_odozdo:
+  dj = Σ dp[c] za djecu c
+  best = dj
+  for s in zvijezde_s_vrhom[v]:
+    best = max(best, C[s] + dj + fenwick.upit(x[s]))
+  dp[v] = best
+  fenwick.dodaj(l[v], r[v], dj - dp[v])
+odgovor = Σ C - dp[korijen]</code></pre>
+    <p>Vrh puta zvijezde $(x, y)$: binarnim podizanjem od čvora $x$ skoči na najvišeg pretka s $A < y$ ($O(\log N)$ po zvijezdi). Alternativa bez podizanja: obradi zvijezde sortirane po $y$ uz union-find koji spaja stupce s $A < y$ — predstavnik komponente je vrh.</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Minimizacija uklanjanja → maksimizacija zadržanog uz „najviše jedna po crnom pravokutniku”.</li>
+        <li>Kartezijevo stablo visina; zvijezda = vertikalni put; sukob $\iff$ putovi se sijeku.</li>
+        <li>DP na stablu; zbrojeve po putu daje Fenwick (dodaj na interval stupaca, upit u točki); $O((N+M)\log N)$.</li>
+    </ul>
+</div>

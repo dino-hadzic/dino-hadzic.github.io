@@ -1,0 +1,206 @@
+@@ meta
+naslov = Dva prijevoza
+engleski = Two Transportations
+oznake = komunikacijski (Azer.cpp, Baijan.cpp), distribuirana Dijkstra: svaka strana šalje min kandidatsku udaljenost među svojim bridovima iz obrađenih vrhova, manja strana šalje indeks vrha, slanje razlike prema zadnjoj obrađenoj udaljenosti (≤500 → 9 bita), 9+9+11 = 29 bita po vrhu, 1999·29 = 57 971 ≤ 58 000, automat stanja u callbackovima
+autor_analize = Sakabe Keiya
+
+@@ zadatak
+<h1>Dva prijevoza</h1>
+<p><i>Two Transportations</i> — JOI Spring Camp 2019, dan 2. <b>Komunikacijski.</b></p>
+<p>$N\le2000$ gradova; $A\le5\cdot10^5$ željezničkih linija (zna ih Azer) i $B\le5\cdot10^5$ autobusnih (zna ih Baijan), sve cijene u $[1,500]$, graf povezan. Programi komuniciraju bitovima (<code>SendA</code>/<code>SendB</code>, primaju kroz <code>ReceiveA</code>/<code>ReceiveB</code>); ukupno <b>$\le58\,000$ bitova</b>. Azer na kraju (<code>Answer()</code>) mora vratiti najkraće udaljenosti od grada 0 do svih.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $A=0$.</li>
+    <li>(8) $B\le1000$.</li>
+    <li>(8) $A+B=N-1$ (stablo).</li>
+    <li>(38) $N\le900$.</li>
+    <li>(14) $N\le1100$.</li>
+    <li>(10) $N\le1400$.</li>
+    <li>(16) Bez dodatnih ograničenja.</li>
+</ol>
+
+@@ rjesenje
+<h2>Proračun bitova</h2>
+<p>Vrh: 11 bita ($N\le2000\lt2^{11}$). Udaljenost $\lt2000\cdot500=10^6\lt2^{20}$: 20 bita. Slanje svih udaljenosti (podzadatak 1): $1999\cdot20=39\,980$. Slanje svih Baijanovih bridova ($B\le1000$): $1000\cdot31=31\,000$. Stablo: Baijanov skup bridova je šuma; svakom bridu pridruži jedan vrh (dijete), pa u $k$-tom koraku pošalji (drugi kraj, težina) brida vrha $k$: $1999\cdot20$ bita.</p>
+
+<h2>Distribuirana Dijkstra <span class="bodovi">100</span></h2>
+<p>Obje strane simuliraju istu Dijkstru nad <b>unijom</b> grafova, ali svaka relaksira samo svoje bridove. Invarijanta: obje znaju skup obrađenih vrhova i njihove udaljenosti. Korak:</p>
+<ol>
+    <li>Svaka strana izračuna svoj kandidat: najmanja privremena udaljenost među <i>svojim</i> bridovima iz obrađenih u neobrađene vrhove. Prava sljedeća udaljenost je minimum ta dva kandidata.</li>
+    <li>Obje pošalju kandidat; strana s manjim (kod izjednačenja fiksno Azer) zatim pošalje 11-bitni indeks vrha. Obje dodaju taj vrh s tom udaljenosti.</li>
+</ol>
+<p><b>Kompresija:</b> ako je zadnja obrađena udaljenost $z$, sljedeća je u $[z,z+500]$ (prethodnik na najkraćem putu je već obrađen, težina $\le500$). Šalji <b>razliku</b> $\in[0,500]$ u 9 bita (npr. 511 = „nemam kandidata”). Po vrhu: $9+9+11=29$ bita; $1999\cdot29=57\,971\le58\,000$. ✓</p>
+<p>Varijante: puna udaljenost + vrh s obje strane (62 bita) prolazi $N\le935$; udaljenost s obje + vrh s jedne (51) do $N\le1137$; razlike bez štednje vrha (40) do $N\le1450$.</p>
+<p class="trener-umetak"><b>Implementacija.</b> Komunikacija je asinkrona po callbackovima: drži brojač primljenih bitova i akumulator; kad se skupi 9 (ili 11) bita, obradi i pošalji sljedeće. Redoslijed: Azer u <code>InitA</code> odmah šalje svoj prvi kandidat; Baijan u <code>InitB</code> isto. Kad strana primi tuđi kandidat: usporedi; pobjednik šalje vrh, gubitnik čeka 11 bita. Nakon dodavanja vrha obje ponovno pošalju kandidat. Kandidat računaj u $O(N)$ po koraku iz polja privremenih udaljenosti (relaksiraj susjede dodanog vrha) — ukupno $O(N^2+A+B)$.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Što svatko može sam?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Dijkstra po koracima: sljedeći vrh je globalni minimum privremenih udaljenosti — svaka strana zna minimum svog dijela.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Prebroji bitove po vrhu</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Budžet $58000/1999\approx29$ bita. Vrh treba 11; ostaje 18 za dvije udaljenosti → 9 svaka. Što je ograničeno s $2^9$?</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Razlike</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Udaljenosti se obrađuju rastuće i skok je $\le\max$ težine $=500$.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Izjednačeni kandidati: dogovor tko šalje vrh mora biti isti na obje strane.</li>
+        <li>Strana bez kandidata mora poslati poseban kod (npr. 511), a ne 0.</li>
+        <li>Razlika može biti točno 500 → treba 9 bita, ne 8.</li>
+        <li>Ne šalji ništa nakon $N-1$ koraka; broji korake da se ne pređe limit.</li>
+        <li>Zaključavanje stanja: obje strane moraju simetrično prijeći u „čekam vrh” ili „šaljem vrh”.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="14" naslov="Uvod i zadatak">
+    <s n="1">Naslov (Sakabe Keiya).</s>
+    <s n="2">Naslov.</s>
+    <s n="3">„Dva prijevoza”.</s>
+    <s n="4">Naslov.</s>
+    <s n="5">IOI 2019…</s>
+    <s n="6">…</s>
+    <s n="7">…</s>
+    <s n="8">…</s>
+    <s n="9">…</s>
+    <s n="10">…</s>
+    <s n="11">…Azerbajdžan.</s>
+    <s n="12">Azerbaijan.</s>
+    <s n="13">Azer + Baijan.</s>
+    <s n="14">Povezan težinski graf; dio bridova zna Azer, ostatak Baijan; Azer želi udaljenosti od 0; $\le58\,000$ bita dvosmjerno.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–3 <span class="bodovi">22 boda</span></h2>
+<slajdovi from="15" to="43" vrsta="koraci" naslov="Slanje udaljenosti, bridova, stabla">
+    <s n="15">$A=0$.</s>
+    <s n="16">Azer nema bridova.</s>
+    <s n="17">Sve je kod Baijana.</s>
+    <s n="18">Baijan zna odgovor.</s>
+    <s n="19">Baijan računa i šalje udaljenosti.</s>
+    <s n="20">Dijkstra $O((N+B)\log B)$.</s>
+    <s n="21">$N\lt2^{11}$.</s>
+    <s n="22">Težina $\lt2^9$.</s>
+    <s n="23">Udaljenost $\lt2^{20}$; (vrh, udaljenost) = $1999\cdot31=61\,969$ — previše.</s>
+    <s n="24">Samo udaljenosti redom: $1999\cdot20=39\,980$.</s>
+    <s n="25">Implementacija: Baijan šalje u <code>InitB</code>; Azer broji bitove i svakih 20 pretvara u broj.</s>
+    <s n="26">$B\le1000$.</s>
+    <s n="27">Malo Baijanovih bridova.</s>
+    <s n="28">Pošalji sve bridove?</s>
+    <s n="29">$(S,T,D)$ = $1000\cdot31=31\,000$ bita.</s>
+    <s n="30">$A+B=N-1$.</s>
+    <s n="31">Stablo.</s>
+    <s n="32">$B\le N-1$: pošalji sve Baijanove bridove?</s>
+    <s n="33">Naivno $61\,969$ — previše.</s>
+    <s n="34">Svojstva stabla…</s>
+    <s n="35">(slika)</s>
+    <s n="36">(slika)</s>
+    <s n="37">(slika)</s>
+    <s n="38">Baijanovi bridovi čine…</s>
+    <s n="39">…šumu. Još svojstava.</s>
+    <s n="40">(slika)</s>
+    <s n="41">(slika)</s>
+    <s n="42">Osim jednog vrha po komponenti, vrhovi i bridovi se podudaraju (DFS).</s>
+    <s n="43">Pridruži bridove vrhovima; u $k$-tom koraku pošalji (drugi kraj, težina) brida vrha $k$: $1999\cdot20$ bita.</s>
+</slajdovi>
+
+<h2>Podzadatak 4 <span class="bodovi">38 bodova</span></h2>
+<slajdovi from="44" to="60" vrsta="koraci" naslov="Dijkstra s dva tipa bridova">
+    <s n="44">Bez posebnih svojstava.</s>
+    <s n="45">„Udaljenosti iz jednog vrha” — Dijkstra?</s>
+    <s n="46">Dijkstra na primjeru.</s>
+    <s n="47">Početak: 0, ostalo ?.</s>
+    <s n="48">Relaksacija iz 0.</s>
+    <s n="49">Obradi najmanji.</s>
+    <s n="50">Poboljšanje 10→9.</s>
+    <s n="51">…</s>
+    <s n="52">Gotovo.</s>
+    <s n="53">Dva tipa bridova.</s>
+    <s n="54">Početak.</s>
+    <s n="55">Drži dvije privremene vrijednosti po tipu.</s>
+    <s n="56">…</s>
+    <s n="57">…</s>
+    <s n="58">…</s>
+    <s n="59">…</s>
+    <s n="60">Može li to dvoje ljudi?</s>
+</slajdovi>
+
+<slajdovi from="61" to="75" vrsta="koraci" naslov="Naivna dvostrana simulacija">
+    <s n="61">Azer i Baijan, svaki sa svojim bridovima.</s>
+    <s n="62">Svaki relaksira svoje.</s>
+    <s n="63">Razmjena svih privremenih vrijednosti.</s>
+    <s n="64">Spajanje.</s>
+    <s n="65">…</s>
+    <s n="66">Obrada.</s>
+    <s n="67">Razmjena.</s>
+    <s n="68">…</s>
+    <s n="69">…</s>
+    <s n="70">…</s>
+    <s n="71">…</s>
+    <s n="72">…</s>
+    <s n="73">Gotovo.</s>
+    <s n="74">$O(N)$ komunikacije po koraku → $O(N^2)$: ne.</s>
+    <s n="75">Samo promjene → najgore $O(A+B)$: ne.</s>
+</slajdovi>
+
+<slajdovi from="76" to="83" vrsta="koraci" naslov="Šalji samo minimum">
+    <s n="76">Osvrt.</s>
+    <s n="77">Većina poslanih vrijednosti se ne koristi.</s>
+    <s n="78">Šalji samo najmanju udaljenost i njen vrh: $O(1)$ po koraku.</s>
+    <s n="79">Primjer: (6,1) i (7,3).</s>
+    <s n="80">6 &lt; 7.</s>
+    <s n="81">Vrh 1 obrađen s 6.</s>
+    <s n="82">Po vrhu (20+11)·2 = 62 bita.</s>
+    <s n="83">$58000/62\approx935$: podzadatak 4.</s>
+</slajdovi>
+
+<h2>Podzadaci 5–7 <span class="bodovi">40 bodova</span></h2>
+<slajdovi from="84" to="100" vrsta="koraci" naslov="Dva poboljšanja">
+    <s n="84">Osvrt.</s>
+    <s n="85">Vrh gubitnika se ne koristi.</s>
+    <s n="86">Poboljšanje 1: vrh šalje samo strana s manjom udaljenosti.</s>
+    <s n="87">Prvo samo udaljenosti.</s>
+    <s n="88">6 &lt; 7.</s>
+    <s n="89">Vrh se šalje naknadno.</s>
+    <s n="90">Obrada.</s>
+    <s n="91">Po vrhu 20·2+11 = 51 bit.</s>
+    <s n="92">$\approx1137$: podzadatak 5.</s>
+    <s n="93">Dijkstra obrađuje rastuće.</s>
+    <s n="94">Nakon udaljenosti $z$ sljedeća je u $[z,z+\max w]$.</s>
+    <s n="95">Poboljšanje 2: šalji razliku prema prošloj — $\le500$, 9 bita.</s>
+    <s n="96">Primjer: 4 (=10−6) i 1 (=7−6).</s>
+    <s n="97">1 &lt; 4.</s>
+    <s n="98">Šalje vrh 3.</s>
+    <s n="99">Obrada.</s>
+    <s n="100">Po vrhu 9·2+11 = 29 bita; $\approx2000$: 100. (Samo poboljšanje 2: 40 bita → podzadatak 6.)</s>
+</slajdovi>
+
+<slajdovi from="101" to="101" naslov="Statistika">
+    <s n="101">Raspodjela: 0 / 6 / 8 / 14 / 22 / 44 / 52 / 68 / 100.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Dijkstra korak po korak; svaka strana zna min svojih kandidata.</li>
+        <li>Razlike ≤ 500 (9 bita) × 2 + vrh (11) samo od pobjednika = 29 bita po vrhu.</li>
+    </ul>
+</div>

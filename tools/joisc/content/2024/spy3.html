@@ -1,0 +1,151 @@
+@@ meta
+naslov = Špijun 3
+engleski = Spy 3
+oznake = komunikacijski zadatak, stablo najkraćih puteva, kompresija informacije, laminarna familija, pomoćno (virtualno) stablo, prebrojavanje binarnih stabala, mješovita baza
+tip = Komunikacijski zadatak (Aoi.cpp + Bitaro.cpp)
+autor_analize = Hoshii Tomohito
+
+@@ zadatak
+<h1>Špijun 3</h1>
+<p><i>Spy 3</i> — JOI Spring Camp 2024, dan 1.</p>
+<p>Povezan graf: $N$ gradova ($0..N-1$), $M$ cesta, cesta $i$ spaja $A_i$ i $B_i$ duljine $C_i$. $Q$ planova: za grad $T_j$ treba <b>najkraći put</b> od grada 0. Bitaro (u gradu 0) izgubio je duljine $K$ cesta $X_0..X_{K-1}$; Aoi ih zna. Aoi šalje niz znakova <code>0</code>/<code>1</code>; Bitaro mora za svaki $T_j$ pozvati <code>answer(e)</code> s nizom indeksa cesta koje čine najkraći put $0\to T_j$.</p>
+<ul>
+    <li><code>std::string aoi(N, M, Q, K, A, B, C, T, X)</code> — vraća niz duljine $\le 12\,000$.</li>
+    <li><code>void bitaro(N, M, Q, K, A, B, C, T, X, s)</code> — u <code>C</code> su izgubljene duljine $-1$; poziva <code>answer</code> točno $Q$ puta, redom po planovima.</li>
+</ul>
+<h3>Ograničenja</h3>
+<ul>
+    <li>$2 \le N \le 10\,000$; $1 \le M \le 20\,000$; $1 \le Q \le 16$; $1 \le K \le 300$; $1 \le C_i \le 10^{12}$; $T_j$ različiti i $\ne 0$.</li>
+</ul>
+<h3>Bodovanje</h3>
+<p>$L$ = najveća duljina poslanog niza po svim testovima. Za $L \le 1560$: 100 bodova; za $1561 \le L \le 12\,000$: $\lfloor 100\,000/(L-560) \rfloor$ bodova.</p>
+<h3>Primjer</h3>
+<p><code>aoi(3, 3, 2, 2, [1,0,0], [2,2,1], [1,2,3], [2,1], [0,1])</code> vrati npr. <code>"101001"</code>; <code>bitaro(..., [-1,-1,3], [2,1], [0,1], "101001")</code> pozove <code>answer([1])</code> i <code>answer([1,0])</code> (ili <code>answer([2])</code>, jer su oba puta do grada 1 duljine 3).</p>
+
+@@ rjesenje
+<h2>Što Bitaro može sam</h2>
+<p>Ako Bitaro za upit $j$ zna <b>skup $U_j$ izgubljenih cesta na (nekom) najkraćem putu</b> do $T_j$, put rekonstruira sam: cestama iz $U_j$ dodijeli duljinu 0, ostalim izgubljenim $\infty$, i pusti Dijkstru. Dobiveni put $P'$ ima poznati dio $\le$ poznatom dijelu pravog puta $P$, a nepoznate ceste su mu podskup $U_j$; zato je $\mathrm{len}(P') \le \mathrm{known}(P) + \sum_{U_j} C = \mathrm{len}(P)$, dakle $P'$ je najkraći. Dakle treba prenijeti samo skupove $U_j$.</p>
+<ul>
+    <li>Poslati sve duljine: $K\cdot 40 = 12\,000$ bitova → 8 bodova. Poslati za svaki upit i cestu bit „koristi se”: $QK = 4\,800$ → 23 boda.</li>
+</ul>
+
+<h2>Stablo najkraćih puteva i intervali <span class="bodovi">53 boda</span></h2>
+<p>Aoi fiksira stablo najkraćih puteva $T$. Cesta $e\in T$ koristi se točno za upite u podstablu ispod $e$. Numeriraj upite po DFS (post-)redoslijedu u $T$: skup upita svake ceste postaje <b>interval</b>. Aoi šalje: redoslijed upita ($\lceil\log_2 Q!\rceil = 45$ bitova) i za svaku izgubljenu cestu interval ($2\log_2 Q = 8$ bitova, ili $\lceil\log_2 137\rceil$ ako se kodira kao veliki broj): $L \approx 300\cdot 8 + 45 = 2\,445$.</p>
+
+<h2>Samo $2Q$ intervala <span class="bodovi">90 bodova</span></h2>
+<p>Od 137 mogućih intervala pojavljuje se najviše $2Q = 32$: skupovi „upiti u podstablu” čine <b>laminarnu familiju</b> — $Q$ jednočlanih, najviše $Q-1$ spojenih (kao $Q-1$ mečeva turnira s $Q$ igrača) i prazan. Jednočlani i prazan uvijek su „dopušteni”; za ostalih $Q(Q-1)/2 = 120$ intervala pošalji bit pojavljuje li se. Zatim po cesti $\log_2 32 = 5$ bitova: $L = 120 + 1500 + 45 = 1\,665$.</p>
+
+<h2>Pomoćno stablo <span class="bodovi">100 bodova</span></h2>
+<p>Familija intervala potpuno je opisana <b>kompresiranim (virtualnim) stablom</b> $T$ nad upitnim vrhovima; dodaj bridove da postane <b>binarno</b>. Binarnih stabala s $Q$ označenih listova ima $(2Q-3)!! = 1\cdot3\cdots29 \approx 6.19\cdot10^{15}$ (53 bita) — to ujedno kodira i redoslijed upita. Po cesti pošalji čvor stabla čije podstablo je njezin skup ($2Q-1$ čvorova + „ništa”: 5 bitova). $L = 300\cdot5 + 53 = 1\,553 \le 1560$. Bitaro: $U_j$ = ceste dodijeljene precima lista $j$; rekonstrukcija kao gore.</p>
+<p><b>Dokaz $(2Q-3)!!$:</b> dodavaj listove redom; s $k$ listova stablo ima $2k-1$ „mjesta” (svaki od $2k-2$ bridova ili iznad korijena) gdje novi list može ući; $\prod_{k=1}^{Q-1}(2k-1)$.</p>
+
+<h2>Bolje: 1350 (rješenje tutora)</h2>
+<p>Za svaku izgubljenu cestu pošalji <b>najmanji indeks upita</b> čiji je put koristi (ili „nitko”): $K\log_2(Q+1) \approx 1\,226$ bitova. Za upit $j\ge1$ pošalji gdje se njegov put odvaja od unije puteva $0..j-1$: zadnju izgubljenu cestu $e$ na zajedničkom dijelu (ili „nema”): $(Q-1)\log_2(K+1)\approx 124$ bitova. Ukupno $\approx 1\,350$ (kodiranje u mješovitoj bazi velikim brojem). Kako Bitaro dekodira — vidi trenerski umetak u analizi.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što Bitaro nužno mora dobiti?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Duljine mu ne trebaju. Dokaži: ako zna koje izgubljene ceste su na najkraćem putu, Dijkstra s tim cestama duljine 0 (ostale izgubljene $\infty$) daje pravi najkraći put.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Kako sažeti $Q$ skupova po cesti?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Na stablu najkraćih puteva skup upita ispod ceste je podstablo → interval u DFS-redoslijedu. Koliko se različitih intervala zapravo pojavljuje ako su skupovi laminarni?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zadnjih 100 bitova</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Umjesto redoslijeda + bitova intervala pošalji cijelu strukturu: binarno stablo s označenim listovima. Prebroj ih.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zaokruživanje po komponenti (8 bitova po cesti umjesto $\log_2 137$) ruši 100; pakiraj u jedan veliki broj u mješovitoj bazi (ručna aritmetika s velikim brojevima nad nizom bitova).</li>
+        <li>Bitaro mora vratiti put kao <b>indekse cesta</b> redom od 0 do $T_j$; pazi na $C=-1$ za izgubljene.</li>
+        <li>Dva procesa: nikakvo dijeljenje stanja između <code>aoi</code> i <code>bitaro</code>; sve što Bitaro zna mora doći iz ulaza ili niza $s$.</li>
+        <li>Duljine do $10^{12}\cdot 10^4$: 64-bitni tipovi; $\infty$ dovoljno veliko, bez prekoračenja.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Zadatak">
+    <s n="1">Naslov; analiza: Hoshii Tomohito.</s>
+    <s n="2">Graf s $N$ vrhova i $M$ bridova; izgubljene duljine nekih bridova; nizom 0/1 prenijeti najkraće puteve do $Q$ vrhova.</s>
+    <s n="3">Ograničenja: $N\le10^4$, $M\le2\cdot10^4$, $C_i\le10^{12}$, $Q\le16$, $K\le300$.</s>
+    <s n="4">Bodovanje $\lfloor 100\,000/(L-560)\rfloor$.</s>
+</slajdovi>
+
+<h2>Polazne ideje</h2>
+<slajdovi from="5" to="8" vrsta="koraci" naslov="Od 12 000 do 4 800">
+    <s n="5">$L=12\,000$ (8): pošalji sve izgubljene duljine ($K\log\max C$); Bitaro pusti Dijkstru.</s>
+    <s n="6">$L\approx 2\,240\,000$ (0): Aoi pošalje cijele puteve ($NQ\log N$).</s>
+    <s n="7">$L=4\,800$ (23): za svaki upit i svaku izgubljenu cestu bit „koristi se”; Bitaro korištenima da duljinu 1, ostalima MAX, pa Dijkstra rekonstruira put. $L=QK$.</s>
+    <s n="8">$L=20\,000$ (0): za svaki od $M$ bridova je li u stablu najkraćih puteva.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto rekonstrukcija radi.</b> Neka je $U$ skup izgubljenih cesta na pravom najkraćem putu $P$. Bitaro traži put s najmanjim zbrojem poznatih duljina koji od izgubljenih smije koristiti samo $U$ (duljina 0). Nađeni $P'$ ima $\mathrm{known}(P')\le\mathrm{known}(P)$, a prave duljine njegovih izgubljenih cesta zbrajaju najviše $\sum_{e\in U}C_e$; zato $\mathrm{len}(P')\le\mathrm{len}(P)$, tj. $P'$ je najkraći. S duljinom 1 umjesto 0 (slajd 7) argument treba malo doraditi; 0 je najčišće jer su prave duljine $\ge1$.</p>
+</div>
+
+<h2>Intervali na stablu <span class="bodovi">53 boda</span></h2>
+<slajdovi from="9" to="12" vrsta="koraci" naslov="DFS-redoslijed">
+    <s n="9">Za svaku cestu želimo znati koji je upiti koriste. Stablo najkraćih puteva; vrhove numeriraj DFS post-redoslijedom.</s>
+    <s n="10">Podstablo ispod svake ceste postaje interval brojeva! Gledaj samo $Q$ upitnih vrhova.</s>
+    <s n="11">Pošalji redoslijed posjeta upitnih vrhova: $Q!$ permutacija → $\log Q!$ bitova (izravno $Q\log Q$).</s>
+    <s n="12">Za svaku od $K$ cesta interval (par krajeva: $2\log Q = 8$ bitova; intervala je $Q(Q+1)/2+1 = 137$, pa velikim brojem oko 7.1 bita). $L = K\cdot2\log Q + \log Q! = 2\,445$.</s>
+</slajdovi>
+
+<h2>Laminarnost <span class="bodovi">90 bodova</span></h2>
+<slajdovi from="13" to="15" vrsta="koraci" naslov="Samo 32 intervala">
+    <s n="13">Od 137 intervala pojavljuje ih se najviše $2Q=32$!</s>
+    <s n="14">Raspored: „ne koristi se” 1, ostalo $2Q-1$: $Q$ jednočlanih $[i,i]$, a spajanjem susjednih nastaje još najviše $Q-1$ — kao turnir: $N$ igrača, $N-1$ mečeva.</s>
+    <s n="15">$Q+1$ uvijek dopušteno; za ostalih $Q(Q-1)/2$ pošalji bit pojavljuje li se. $L = Q(Q-1)/2 + K\log 2Q + \log Q! = 1\,665$.</s>
+</slajdovi>
+
+<h2>Pomoćno stablo <span class="bodovi">100 bodova</span></h2>
+<slajdovi from="16" to="20" vrsta="koraci" naslov="Binarno stablo s označenim listovima">
+    <s n="16">„Koji intervali postoje” može se sažeti: kompresiraj stablo na upitne vrhove (pomoćno / virtualno stablo).</s>
+    <s n="17">Dodaj bridove da postane binarno; iz binarnog stabla čitaju se svi intervali.</s>
+    <s n="18">Binarnih stabala s $Q$ označenih listova ima $(2Q-3)!! = 1\cdot3\cdots(2Q-3) = 6\,190\,283\,353\,629\,375$. Bijekcija s cijelim brojem: $L = K\log 2Q + \log(2Q-3)!! = 1\,553$.</s>
+    <s n="19">Dokaz: dodavaj listove; s $k$ listova novi list ide na jedan od $2k-1$ bridova (uključivo „iznad korijena”).</s>
+    <s n="20">Primjer $3\to4$ lista: dodavanje u korijen ili na brid.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kodiranje u mješovitoj bazi.</b> Sve komponente (indeks stabla u $[0,(2Q-3)!!)$, po cesti broj u $[0,2Q)$) spoji u jedan broj $x = a_0 + b_0(a_1 + b_1(a_2+\dots))$ i ispiši binarno; ukupno $\lceil\log_2\prod b_i\rceil$ bitova. Implementacija: niz bitova kao veliki broj, množenje malim brojem i zbrajanje u $O(L)$, ukupno $O(KL)$ — trivijalno. Dekodiranje: dijeljenje s ostatkom istim redom. Bijekcija stablo ↔ broj: kodiraj konstrukciju „list $k$ ulazi na mjesto $m_k\in[0,2k-3]$” (za $k=2..Q$) kao znamenke u bazama $1,3,5,\dots$; Bitaro iz istog niza rekonstruira stablo istim postupkom.</p>
+</div>
+
+<slajdovi from="21" to="22" naslov="Statistika">
+    <s n="21">Raspodjela: 0: 14; 8: 9; 23: 2; 38: 1; 48: 1.</s>
+    <s n="22">(prazno)</s>
+</slajdovi>
+
+<h2>Bonus: 1350 bitova</h2>
+<slajdovi from="23" to="26" vrsta="koraci" naslov="Rješenje tutora">
+    <s n="23">Tutori su našli bolje rješenje: $L=1\,350$.</s>
+    <s n="24">Podsjetnik na $L=4800$: žuti vrh je 0, numerirani su upitni, crvene ceste izgubljene, debele u stablu najkraćih puteva; uz svaki brid piše koji ga upiti koriste.</s>
+    <s n="25">Ta je informacija redundantna; dovoljno je: za upit zapisati cestu na kojoj se odvaja od puteva upita s manjim indeksom.</s>
+    <s n="26">Za svaku izgubljenu cestu zapiši indeks upita ($K\log(Q+1)$), za svaki upit brid odvajanja ($(Q-1)\log(K+1)$); velikim brojem ukupno 1350.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Kako to dekodirati (slajdovi ne kažu).</b> Aoi fiksira stablo $T$; svakoj izgubljenoj cesti u $T$ pridruži <i>najmanji</i> indeks upita čiji je put koristi. Za upit $j$ put u $T$ dijeli s unijom puteva $0..j-1$ neki prefiks; Aoi pošalje zadnju izgubljenu cestu $e_j$ na tom prefiksu (ili „nema”). Tada je $U_j$ = ceste s oznakom $j$ $\cup$ izgubljene ceste na putu korijen→$e_j$ u $T$. Bitaro treba znati koje su izgubljene ceste <i>iznad</i> $e_j$: neka je $i$ oznaka od $e_j$; sve izgubljene ceste na putu do $T_i$ čine $U_i$, a poredak duž puta određen je pravim udaljenostima. Bitaro ga dobije ovako: nakon Dijkstre s $U_i$ na 0 ne uzme bilo koji najkraći put nego onaj (u DAG-u najkraćih puteva) koji sadrži <b>najviše</b> cesta iz $U_i$ — pravi put sadrži sve, pa i Bitarov sadrži sve, i to u istom poretku (svaki najkraći put prolazi vrhove po rastućoj pravoj udaljenosti). Iznad $e_j$ su ceste iz $U_i$ koje mu prethode. Tako rekonstrukcija ide redom $j=0,1,\dots$</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Bitaru trebaju samo skupovi izgubljenih cesta na putevima; ostalo rekonstruira Dijkstrom s 0/$\infty$.</li>
+        <li>Skupovi su podstabla stabla najkraćih puteva → laminarni → binarno stablo s $Q$ označenih listova ($(2Q-3)!!$) + 5 bitova po cesti: 1553.</li>
+        <li>Još bolje (1350): po cesti najmanji upit koji je koristi, po upitu mjesto odvajanja.</li>
+    </ul>
+</div>

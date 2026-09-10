@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JOISC 2017 — Međugradski autobus</title>
+    <script src="../../../assets/js/asset-errors.js"></script>
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../assets/css/pozadina.css">
+    <link rel="stylesheet" href="../../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../../assets/css/joisc.css">
+    <script src="../../../assets/js/coach-mode.js"></script>
+    <script src="../../../assets/js/joisc.js"></script>
+</head>
+
+<body>
+<div class="joisc-stranica">
+    <p class="navigacija"><a href="index.html">← Natrag na JOISC 2017</a> · <a href="../index.html">JOISC</a> · <a href="../../../index.html">Početna</a></p>
+    <div class="sadrzaj">
+    <header class="joisc-zaglavlje">
+        <p class="podnaslov">JOI Spring Camp 2017 · Dan 3 · zadatak 1</p>
+        <h1>Međugradski autobus</h1>
+        <p class="podnaslov"><i>Long Distance Coach</i></p>
+        <ul class="joisc-oznake">
+            <li class="tezina" style="--tezina: 0.647" title="Prosječan rezultat natjecatelja na kampu: 28.2/100">Težina: teži · prosjek 28.2/100</li>
+            <li>Vrijeme: 2 s</li>
+            <li>Memorija: 256 MB</li>
+            <li>periodično piće</li>
+            <li>točka punjenja (i cilj) = „pravo otpustiti” sufiks putnika s D &lt; S mod T</li>
+            <li>cijena W·⌊S/T⌋ + C_j</li>
+            <li>DP po putnicima sortiranim po D</li>
+            <li>blokovi</li>
+            <li>Convex Hull Trick</li>
+            <li>overflow (__int128)</li>
+        </ul>
+    </header>
+    <nav class="tabovi" role="tablist" aria-label="Dijelovi zadatka">
+        <a href="#zadatak" role="tab" class="tab-zadatak" aria-selected="true" aria-controls="zadatak" id="tab-zadatak">Zadatak</a>
+        <a href="#rjesenje" role="tab" class="tab-rjesenje" aria-selected="false" aria-controls="rjesenje" id="tab-rjesenje">Rješenje</a>
+        <a href="#trener" role="tab" class="tab-trener" aria-selected="false" aria-controls="trener" id="tab-trener">Trenerski mod</a>
+    </nav>
+    <section id="zadatak" class="tab-panel" role="tabpanel" aria-labelledby="tab-zadatak">
+        <h2 class="naslov-sekcije">Zadatak</h2>
+        <div class="zadatak">
+<h1>Međugradski autobus</h1>
+<p><i>Long Distance Coach</i> — JOI Spring Camp 2017, dan 3.</p>
+<p>Autobus kreće u $t=0$, stiže u $t=X$. Na putu $N$ točaka punjenja u vremenima $S_i$; voda košta $W$ po litri (može se puniti i prije polaska; spremnik je na početku prazan). Vozač pije u $0,T,2T,\dots$; putnik $j$ pije u $D_j+kT$ ($1\le D_j\lt T$, $D_j$ različiti). Ako nema vode kad putnik želi piti, izlazi i vraćamo mu $C_j$. Vozaču nikad ne smije nedostajati voda. Nitko ne pije točno u trenutku punjenja ili dolaska. Minimalni ukupni trošak.</p>
+<h3>Ograničenja</h3>
+<ul><li>$X\le10^{12}$; $N,M\le200\,000$; $W\le10^6$; $C_j\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(16) $N,M\le8$.</li>
+    <li>(30) $N,M\le100$.</li>
+    <li>(25) $N,M\le2000$.</li>
+    <li>(29) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>19 1 4 8 7
+10
+1 20
+2 10
+4 5
+6 5</pre></div>
+    <div><h4>Izlaz</h4><pre>103</pre></div>
+</div>
+<p>7 litara na početku, 4 na punjenju: putnik 2 izlazi u $t=9$, putnik 3 u $t=18$; $11\cdot8+10+5=103$.</p>
+        </div>
+    </section>
+    <section id="rjesenje" class="tab-panel" role="tabpanel" aria-labelledby="tab-rjesenje">
+        <h2 class="naslov-sekcije">Rješenje</h2>
+        <div class="rjesenje">
+            <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake u trenerskom modu.</p>
+<h2>Tko može biti otpušten gdje</h2>
+<p>Sortiraj putnike po $D$. Za točku punjenja $S$ (uključi i <b>cilj $X$</b> kao točku!) neka je $q=\lfloor S/T\rfloor$, $r=S\bmod T$. U ciklusu $q$ prvo pije vozač (u $qT$, mora dobiti vodu), zatim putnici s $D\lt r$ redom; voda može „ponestati” nakon nekog od njih, pa točka $S$ može otpustiti točno jedan <i>sufiks</i> $[l,p]$ putnika s $D\lt r$ ($p$ = zadnji takav). Otpušteni putnik popio je $q$ litara: ukupna cijena $Wq+C_j$; dovezeni popije $f_j=\lfloor (X-D_j)/T\rfloor+1$ litara. Sve što nije otpuštanje je fiksno (vozač pije $\lfloor X/T\rfloor+1$).</p>
+<p>Ako više točaka ima $r$ u istoj „rupi” između $D_p$ i $D_{p+1}$, korisna je samo ona s najmanjim $q$ (jeftinija). Otpušteni blokovi različitih točaka su disjunktni i uzastopni u poretku po $D$; završavaju točno na svom $p$.</p>
+
+<h2>DP i CHT</h2>
+<p>$dp[i]$ = min trošak za putnike $1..i$ (odlučeno). $dp[i]=dp[i-1]+Wf_i$ (dovezi), ili ako postoji točka s $p=i$ i najmanjim $q$: $dp[i]=\min_{l\lt i}\big(dp[l]+\sum_{k=l+1}^{i}C_k+Wq(i-l)\big)$. Uz prefiks $P_C$: $dp[i]=P_C[i]+Wqi+\min_l\big(dp[l]-P_C[l]-Wl\cdot q\big)$ — minimum linearnih funkcija u $q$ s nagibima $-Wl$ (monotono padaju kako $l$ raste). Convex Hull Trick: dodavanje u sortiranom poretku nagiba, upiti binarnom pretragom (ili Li Chao). $O((N+M)\log)$.</p>
+<p>Odgovor: $W(\lfloor X/T\rfloor+1)+dp[M]$. Vrijednosti do $\sim10^{12}\cdot10^6\cdot\ldots$ — usporedbe presjeka u CHT-u prelaze 64 bita: <code>__int128</code>, razlomačka usporedba ili pažljivi <code>long double</code>.</p>
+            <a class="kartica-analize" href="coach-editorial.html">
+                <span class="ikona" aria-hidden="true">📖</span>
+                <span>Cijela analiza rješenja (editorial)<small>Prevedena i proširena službena prezentacija (102 slajdova) s interaktivnim prikazom koraka.</small></span>
+            </a>
+        </div>
+    </section>
+    <section id="trener" class="tab-panel" role="tabpanel" aria-labelledby="tab-trener">
+        <h2 class="naslov-sekcije">Trenerski mod</h2>
+        <div class="trener-panel">
+            <h2>TRENERSKI MOD: korak po korak</h2>
+            <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Nacrtaj vrijeme modulo $T$</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Vozač u 0, putnici na $D_j$, točke punjenja na $S\bmod T$ u ciklusu $\lfloor S/T\rfloor$. Tko može ostati bez vode neposredno prije $S$? Sufiks onih s $D\lt r$ — a vozač nikad.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Cijena je aditivna</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Otpuštanje $j$ u točki s $q$: $Wq+C_j$; dovoz: $Wf_j$. Ne zaboravi cilj $X$ kao točku (primjer 1 to koristi).</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Od $O(M^2)$ do CHT</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Prijelaz „blok $[l+1,i]$ u točki $q$” razdvoji na dio ovisan o $l$ i o $q$: $dp[l]-P_C[l]-Wl\cdot q$ je pravac u $q$. Nagibi dolaze sortirano.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zaboraviti cilj $X$ kao točku otpuštanja.</li>
+        <li>Više točaka u istoj rupi: uzeti prvu po vremenu (najmanji $q$), ne bilo koju.</li>
+        <li>Overflow u CHT-u pri usporedbi presjeka.</li>
+    </ul>
+</div>
+        </div>
+    </section>
+    <section class="izvor">
+        <h3>Izvor</h3>
+        <ul>
+            <li><a href="https://www.ioi-jp.org/camp/2017/2017-sp-tasks/2017-sp-d3-en.pdf">Službeni tekst zadatka (engleski, PDF)</a></li>
+            <li><a href="https://www.ioi-jp.org/camp/2017/2017-sp-tasks/2017-sp-d3-coach-review.pdf">Službena prezentacija rješenja (japanski, PDF)</a></li>
+            <li><a href="https://www.ioi-jp.org/camp/2017/2017-sp-tasks/index.html">Stranica kampa JOI 2016/2017 Spring Camp</a></li>
+        </ul>
+    </section>
+    </div>
+</div>
+</body>
+</html>

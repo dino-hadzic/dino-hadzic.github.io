@@ -1,0 +1,170 @@
+@@ meta
+naslov = Projekt obnove
+engleski = Reconstruction Project
+oznake = minimalno razapinjuće stablo, Kruskal, offline, sweep, po dijelovima linearna funkcija, minimax put, održavanje MST
+autor_analize = Matsuo Rintarō (QCFium)
+
+@@ zadatak
+<h1>Projekt obnove</h1>
+<p><i>Reconstruction Project</i> — JOI Spring Camp 2022, dan 4.</p>
+<p>Povezan graf s $N$ stanica i $M$ pruga; pruga $i$ spaja $A_i$–$B_i$ i ima širinu $W_i$. Za tvrtku $j$ sa širinom $X_j$ treba, mijenjajući širine pruga (cijena 1 po jedinici), postići da se svim stanicama može putovati samo prugama širine točno $X_j$. Za svaki $j$ ispiši najmanji trošak. (Tvrtke su neovisne.)</p>
+<p>Ekvivalentno: pruga s $W_i$ košta $|W_i - X_j|$; traži se MST za svaki $X_j$.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$2 \le N \le 500$, $N-1 \le M \le 100\,000$, $Q \le 1\,000\,000$.</li>
+    <li>$1 \le W_i, X_j \le 10^9$; $X_j$ strogo rastu.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(3) $M \le 16$, $Q \le 10$.</li>
+    <li>(4) $Q \le 10$.</li>
+    <li>(7) $B_i = A_i + 1$.</li>
+    <li>(28) $M \le 1000$.</li>
+    <li>(35) $Q \le 20\,000$.</li>
+    <li>(23) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<p>$N = 5$, pruge: (1,2,8), (1,3,13), (1,4,5), (1,5,11), (1,5,3), (2,3,7), (2,4,15), (3,4,6), (3,5,6), (4,5,2). Za $X = 3$: smanji 6. prugu za 4, 9. za 3, povećaj 10. za 1 — uz (1,5,3) dobivamo razapinjuće stablo, trošak <b>8</b>. Za $X = 6$ trošak je 2, za $X = 20$ trošak 33.</p>
+
+@@ rjesenje
+<h2>Kad se brid koristi?</h2>
+<p>Sortiraj bridove po $W$. Kruskal za cijenu $|W - x|$ uzima brid $e = (a,b,w)$ ako $a$ i $b$ nisu spojeni jeftinijim bridovima, tj. bridovima s $W' \in (x - |w-x|,\ x + |w-x|)$ — <b>simetričnim intervalom oko $x$ s krajem u $w$</b>. Za $x \ge w$ to su bridovi težine u $(w, 2x-w)$.</p>
+<p>Definiraj $w_R(e)$: dodaji bridove desno od $e$ (rastuće težine) dok se $a,b$ ne spoje; težina spajajućeg brida je $w_R$ ($+\infty$ ako se ne spoje). Tada se $e$ koristi za $x \ge w$ točno kad $2x - w \le w_R$, tj. $x \le (w + w_R)/2$. Simetrično lijevo s $w_L$. Dakle svaki brid koristi se za $x$ u <b>jednom intervalu</b> $\bigl[(w+w_L)/2,\ (w+w_R)/2\bigr]$ (izjednačenja ne mijenjaju ukupni trošak, pa granice smijemo tretirati proizvoljno).</p>
+
+<h2>Odgovaranje na upite</h2>
+<p>Trošak za $x$ je $\sum_{e \text{ korišten}} |w_e - x|$ — po dijelovima linearna funkcija od $x$. Događaji: početak i kraj intervala svakog brida te $x = w_e$ (promjena predznaka). Sortiraj $O(M)$ događaja, prolazi kroz rastuće $X_j$ održavajući (broj, zbroj težina) korištenih bridova s $w \le x$ i s $w > x$: trošak $= (\mathrm{cnt}_{\le}\, x - \mathrm{sum}_{\le}) + (\mathrm{sum}_{>} - \mathrm{cnt}_{>}\, x)$. $O(M\log M + Q)$. (Podzadatak 3 — put — svaki se brid uvijek koristi; ista funkcija.)</p>
+
+<h2>Računanje $w_R$ i $w_L$</h2>
+<p>Naivno za svaki brid Kruskal udesno: $O(M^2\alpha)$ — podzadatak 4. Bolje: <b>dodavaj bridove zdesna ulijevo</b> (padajuće $W$) i održavaj <b>MST</b> dodanih bridova. Kad dolazi $e=(a,b,w)$: $w_R(e)$ = najmanja moguća najveća težina na putu $a \to b$ među bridovima težine $> w$ = najveća težina na putu $a$–$b$ u trenutnom MST (minimax put je upravo put u MST). Zatim ubaci $e$: ako $a,b$ nisu spojeni — spoji; inače $e$ je lakši od svih prisutnih, pa dodaj $e$ i izbaci najteži brid na ciklusu (put $a$–$b$ u stablu). Stablo ima $\le N-1$ bridova, sve operacije $O(N)$ → $O(MN)$; s link-cut stablom $O(M\log N)$. Simetrično slijeva za $w_L$. Ukupno $O(MN + M\log M + Q)$.</p>
+<p><b>Zašto samo $O(MN)$ uz naivniji pogled (slajd 39):</b> udesno od $e$ relevantni su samo bridovi MST-a bridova desno od $e$ — najviše $N-1$ — a te MST-ove dobivamo inkrementalno kako gore.</p>
+
+<h2>Podzadatak 5 – kandidati po upitu</h2>
+<p>Za fiksni $x$, od $x$ prema desno Kruskal (bez lijevih bridova) uzima $\le N-1$ bridova; isto ulijevo. Bridovi korišteni za $x$ su među tih $2(N-1)$ kandidata → Kruskal nad njima $O(N\log N)$ po upitu: $O(QN\log N)$, uz $O(MN\alpha)$ predobrade (upiti između dva susjedna brida imaju iste kandidate).</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Prevedi zadatak</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Cijena brida $|W - x|$ i traži se MST. Koji bridovi su jeftiniji od brida težine $w$ za dani $x$? Nacrtaj ih na brojevnom pravcu.</p>
+                <p class="pitanje">Simetrični interval oko $x$ s krajem u $w$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Za koje $x$ se brid koristi?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kako $x$ raste od $w$, interval jeftinijih raste udesno. Kad prvi put spoji $a$ i $b$? Pokaži da je skup dobrih $x$ interval s polovištima kao granicama.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zbroji</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Trošak je zbroj $|w_e - x|$ po aktivnim bridovima. Koje događaje trebaš u sweepu po $x$ i koje agregate održavaš?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Ubrzaj predobradu</summary>
+            <div class="spoiler-sadrzaj">
+                <p>„Koliko daleko udesno dok se $a,b$ ne spoje” = minimax put. Gdje se minimax put nalazi i kako održavati tu strukturu kad bridove dodaješ od najtežeg prema najlakšem?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zbrojevi do $5\cdot 10^{11}$ — 64 bita; polovišta $(w+w_R)/2$ mogu biti necjelobrojna — uspoređuj $2x$ s $w + w_R$.</li>
+        <li>Za bridove koji nikad ne spoje $a,b$ udesno ($w_R = \infty$) interval je neomeđen.</li>
+        <li>Pri održavanju MST-a izbacivati najteži brid na ciklusu, a ne bilo koji; kod dodavanja zdesna novi je brid uvijek najlakši.</li>
+        <li>Ne zaboraviti događaj $x = w_e$ (promjena predznaka) uz početke/krajeve intervala.</li>
+        <li>$Q$ do $10^6$ — brz ispis.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Zadatak i gruba sila">
+    <s n="1">Naslovni slajd: <i>Reconstruction Project</i>; analiza: Matsuo Rintarō / QCFium.</s>
+    <s n="2"><b>Sažetak.</b> Graf s cijelim brojevima na bridovima; upit $x$: cijenom 1 po jedinici učini da samo bridovi s $x$ povezuju sve.</s>
+    <s n="3">Preformulacija: cijena brida $|c - x|$, traži se MST. $N \le 500$, $M \le 10^5$, $Q \le 10^6$.</s>
+    <s n="4">Podzadatak 1: svi podskupovi bridova, $O(Q\,2^M M)$.</s>
+</slajdovi>
+
+<h2>Kruskal <span class="bodovi">podzadatak 2</span></h2>
+<slajdovi from="5" to="15" vrsta="koraci" naslov="Kruskalov algoritam i dokaz">
+    <s n="5">Kruskal: bridove po rastućoj cijeni; dodaj ako krajevi nisu spojeni (union-find).</s>
+    <s n="6">Primjer: bridovi 3, 6, 5, 8, 4.</s>
+    <s n="7">Uzmi 3.</s>
+    <s n="8">Uzmi 4.</s>
+    <s n="9">5 spaja već spojene — preskoči.</s>
+    <s n="10">Uzmi 6.</s>
+    <s n="11">8 — preskoči.</s>
+    <s n="12">Rezultat: MST.</s>
+    <s n="13">Dokaz: najjeftiniji brid uvijek smije biti u MST-u (zamjena ne šteti).</s>
+    <s n="14">Sažmi ga i ponovi — to je upravo Kruskal.</s>
+    <s n="15">Podzadatak 2: za svaki upit izračunaj cijene i Kruskal: $O(QM\log M)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">7 bodova</span></h2>
+<slajdovi from="16" to="25" vrsta="koraci" naslov="Put: po dijelovima linearna funkcija">
+    <s n="16">Graf je put; primjer s težinama 3, 20, 10.</s>
+    <s n="17">Svaki se brid mora koristiti; trošak brida je $|x - 3|$.</s>
+    <s n="18">$x < 3$: $3 - x$; $x \ge 3$: $x - 3$.</s>
+    <s n="19">Paralelni bridovi 10 i 20: najbolji je $10-x$, $x-10$, $20-x$, $x-20$ po odsječcima. Trošak je po odsječcima linearan.</s>
+    <s n="20">Prijelaz preko točke mijenja linearnu funkciju za $+(2x-6)$ i sl.</s>
+    <s n="21">Popis promjena: $x=3$: $+(2x-6)$; $x=10$: $+(2x-20)$; $x=15$: $-(2x-30)$; $x=20$: $+(2x-40)$; početno $13-2x$.</s>
+    <s n="22">$x=1$: $11$.</s>
+    <s n="23">$x=5$: primijeni prvu promjenu.</s>
+    <s n="24">$x=18$: primijeni tri promjene.</s>
+    <s n="25">Sortiraj promjene i obradi upite rastuće: $O(M\log M + Q)$.</s>
+</slajdovi>
+
+<h2>Podzadaci 4–5 <span class="bodovi">63 boda</span></h2>
+<slajdovi from="26" to="38" vrsta="koraci" naslov="Kad se brid može koristiti">
+    <s n="26">Ne možemo računati sve cijene po upitu; promijeni pogled.</s>
+    <s n="27">Za koje $x$ Kruskal <i>može</i> uzeti dani brid?</s>
+    <s n="28">Crveno = bridovi jeftiniji od promatranog (simetrično oko upita). Ako crveni spajaju $a,b$, brid se ne koristi.</s>
+    <s n="29">Dodaji bridove desno od promatranog dok se $a,b$ ne spoje: za upite desnije od te granice brid se ne koristi.</s>
+    <s n="30">Isto na lijevu stranu.</s>
+    <s n="31">Naivno po bridu: $O(M^2\alpha)$; po upitu $2(N-1)$ kandidata i Kruskal $O(N\log N)$ — premalo za oba podzadatka odjednom.</s>
+    <s n="32">Podzadatak 5: gledaj iz upita — koliko bridova može biti kandidat?</s>
+    <s n="33">Ako u narančastom rasponu $a,b$ nisu spojeni, Kruskal u tom smjeru uzima brid → po upitu najviše $N-1$ sa svake strane.</s>
+    <s n="34">Upiti između istih susjednih bridova imaju iste kandidate → parova (brid, upitni odsječak) je $O(MN)$; rješenje prolazi: $O(MN\alpha + QN\log N)$.</s>
+    <s n="35">Podzadatak 4: Kruskal po upitu presporo — odredi točno koji se bridovi koriste.</s>
+    <s n="36">Jeftiniji bridovi od promatranog su točno oni na crvenoj liniji, pa: brid se koristi ⇔ crveni ne spajaju $a,b$.</s>
+    <s n="37">Produlji crveno do granice spajanja; polovište je granica korištenja.</s>
+    <s n="38">Predobrada $O(M^2\alpha)$; upiti $O(QN)$ ili $O(M + Q\log N)$.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">23 boda</span></h2>
+<slajdovi from="39" to="49" vrsta="koraci" naslov="Predobrada u O(MN)">
+    <s n="39">Predobrada se može u $O(MN\alpha)$.</s>
+    <s n="40">Alternativa: za brid $(a,b)$ — koliko daleko udesno dok se $a,b$ ne spoje?</s>
+    <s n="41">Primjer s bridovima numeriranim 0–10.</s>
+    <s n="42">Dodaji bridove zdesna (težina = redni broj).</s>
+    <s n="43">Granica = koliko najvećih bridova smijemo ukloniti da $a,b$ ostanu spojeni = najmanja moguća najveća težina na putu $a$–$b$.</s>
+    <s n="44">Minimax put je put u MST-u grafa → dovoljno je održavati MST pri dodavanju bridova.</s>
+    <s n="45">Dodavanje brida: ako krajevi nisu spojeni — samo spoji.</s>
+    <s n="46">Ako su spojeni: novi je brid najlakši, pa ukloni najteži brid na ciklusu.</s>
+    <s n="47">Rezultat nakon zamjene.</s>
+    <s n="48">Trebamo: najteži brid na putu, dodavanje, brisanje — sve $O(N)$: ukupno $O(MN + Q)$.</s>
+    <s n="49">Link-cut stablo daje $O(\log N)$ po operaciji: $O(N + M\log N + Q)$.</s>
+</slajdovi>
+<slajdovi from="50" to="50" naslov="Bodovi">
+    <s n="50">Raspodjela bodova.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Brid $e$ koristi se za $x \in [(w+w_L)/2, (w+w_R)/2]$, gdje $w_R$/$w_L$ označuju gdje se $a,b$ spoje bridovima desno/lijevo od $e$.</li>
+        <li>$w_R$ = najteži brid na putu $a$–$b$ u MST-u bridova težih od $w$; održavaj MST dodajući zdesna ($O(N)$ po bridu).</li>
+        <li>Trošak je po dijelovima linearan; sweep događaja daje $O(M\log M + Q)$.</li>
+    </ul>
+</div>

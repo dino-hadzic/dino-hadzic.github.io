@@ -1,0 +1,146 @@
+@@ meta
+naslov = Bomboni
+engleski = Candies
+oznake = maksimalna težina neovisnog skupa veličine K na putu, za sve K, konkavnost, greedy s „požaljenjem” (regret greedy), uzmi najveći, spoji susjede u A+C−B, povezana lista + prioritetni red, rubovi −∞, O(N log N), alternativa: Aliens/lambda trik ili divide&conquer
+autor_analize = Sakabe
+
+@@ zadatak
+<h1>Bomboni</h1>
+<p><i>Candies</i> — JOI Spring Camp 2018, dan 4.</p>
+<p>$N$ bombona u redu, $i$-ti ima slasnost $A_i$. Ne smiju se uzeti dva susjedna. Za svaki $j=1..\lceil N/2\rceil$ ispiši maksimalan zbroj slasnosti pri uzimanju točno $j$ bombona.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N\le2\cdot10^5$, $A_i\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(8) $N\le2000$.</li>
+    <li>(92) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5
+3
+5
+1
+7
+6</pre></div>
+    <div><h4>Izlaz</h4><pre>7
+12
+10</pre></div>
+</div>
+<p>$j=1$: 7; $j=2$: 5+7; $j=3$: 3+1+6.</p>
+
+@@ rjesenje
+<h2>Struktura optimuma: od $K$ do $K+1$</h2>
+<p>Usporedimo optimalan izbor za $K$ i za $K+1$ bombona. Tvrdnja (dokaz zamjenom): optimum za $K+1$ dobiva se iz optimuma za $K$ ili (1) dodavanjem bombona čija oba susjeda nisu odabrana, ili (2) zamjenom uzorka $\times\circ\times\circ\cdots\circ\times$ u $\circ\times\circ\cdots\times\circ$ (odabrani u nekom lancu pomaknu se za jedno mjesto i ukupno ih je jedan više). Oba slučaja opisuje isti mehanizam:</p>
+<p class="formula">uzmi trenutno najveći dostupni element $B$; njegove susjede $A$ i $C$ zajedno s njim zamijeni <b>jednim</b> elementom vrijednosti $A+C-B$.</p>
+<p>Odabir novog elementa $A+C-B$ kasnije znači „poništi $B$, uzmi $A$ i $C$” — neto dobitak upravo $A+C-B$. Nakon svakog koraka odgovor za $K+1$ = odgovor za $K$ + odabrana vrijednost. Ovaj greedy je ispravan jer je niz optimuma <b>konkavan</b> u $K$ i zamjena/proširenje su jedine operacije koje trebaju (dokaz: u slučaju kad bi optimum za $K+1$ mijenjao više položaja, kontradikcija s optimalnošću za $K$).</p>
+
+<h2>Rubovi</h2>
+<p>Ako je odabran rubni bombon, njegov jedini susjed ne može više nikad biti odabran — oboje nestaju bez zamjene. Jednostavno: dodaj $A_0=A_{N+1}=-\infty$ (npr. $-10^{18}$); tada $A+C-B$ postaje $-\infty$ i taj element nikad ne bude odabran. Rješenje $O(N^2)$ izravno (8), a s prioritetnim redom i dvostruko povezanom listom $O(N\log N)$.</p>
+
+<h2>Implementacija <span class="bodovi">100</span></h2>
+<pre><code>L[i], R[i] — susjedi u listi; val[i]; alive[i]
+pq: (val[i], i) max-heap
+for K in 1..ceil(N/2):
+    izvadi (v,i) dok alive[i] i v==val[i]
+    ans += v; ispiši ans
+    a=L[i], c=R[i]
+    val[i] = val[a] + val[c] - val[i]   // -inf-safe
+    alive[a]=alive[c]=false; ukloni a,c iz liste (i ostaje)
+    pq.push((val[i], i))</code></pre>
+<p>Svaki korak uklanja dva čvora iz liste, pa je ukupno $O(N\log N)$. Ako je $val[i]=-\infty$, može se preskočiti guranje u red.</p>
+
+<h2>Alternativa: Aliens trik</h2>
+<p>Konkavnost dopušta i „lambda” tehniku: za kaznu $\lambda$ po odabranom, DP $O(N)$ daje optimalan broj; binarno pretraži $\lambda$ za svako $K$ ($O(N\log N\log A)$ za jedan $K$ — ali za sve $K$ treba divide&conquer po $\lambda$ ili gornja metoda). Greedy s požaljenjem je jednostavniji.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Mali $N$</summary>
+        <div class="spoiler-sadrzaj">
+            <p>$dp[i][j]$ = najbolje iz prvih $i$ s $j$ odabranih: $\max(dp[i-1][j],\ dp[i-2][j-1]+A_i)$. $O(N^2)$.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Pogledaj kako se optimum mijenja</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Primjer: $K=1$: {7}; $K=2$: {5,7}; $K=3$: {3,1,6}. Odabrani se ili dodaju ili „pomaknu” u lancu.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Zamjena tri elementa jednim</summary>
+        <div class="spoiler-sadrzaj">
+            <p>$A,B,C\to A+C-B$ predstavlja mogućnost „odustani od $B$, uzmi $A$ i $C$”. Ne treba pamtiti što je bilo — i novi element ima susjede i može se opet spojiti.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Rubovi: bez $-\infty$ stražara spajanje na rubu je pogrešno.</li>
+        <li>Zastarjeli unosi u prioritetnom redu — provjeri <code>alive</code> i jednakost vrijednosti.</li>
+        <li>Preljev: $-\infty$ mora biti npr. $-10^{18}$ (ne $-10^{9}$), a aritmetika u 64 bita; zbroj odgovora do $2\cdot10^{14}$.</li>
+        <li>Zaustavi se točno nakon $\lceil N/2\rceil$ koraka.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="5" naslov="Zadatak i primjer">
+    <s n="1">Naslov; Sakabe.</s>
+    <s n="2">Za svaki $K\le\lceil N/2\rceil$ maksimiziraj zbroj $K$ nesusjednih.</s>
+    <s n="3">Primjer 3 5 1 7 6.</s>
+    <s n="4">$K=1$: 7; $K=2$: 12; $K=3$: 10.</s>
+    <s n="5">Ispis.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">8 bodova</span></h2>
+<slajdovi from="6" to="10" vrsta="koraci" naslov="DP $O(N^2)$">
+    <s n="6">$N\le2000$: $O(N^2)$.</s>
+    <s n="7">$dp[i][j]$ = maksimum iz $A_0..A_{i-1}$ s $j$ odabranih.</s>
+    <s n="8">Iz okvira odaberi 3.</s>
+    <s n="9">Ili 2 iz užeg okvira + desni rub, ili 3 iz užeg okvira (desni rub neodabran).</s>
+    <s n="10">$O(N^2)$.</s>
+</slajdovi>
+
+<h2>Rješenje 2: greedy s požaljenjem</h2>
+<slajdovi from="11" to="18" vrsta="koraci" naslov="Od $K$ do $K+1$">
+    <s n="11">Usporedi optimume za $K=1,2,3$.</s>
+    <s n="12">Optimum za $K+1$ iz optimuma za $K$: ① dodaj bombon s neodabranim susjedima, ili ② pomak lanca $\times\circ\times\cdots\circ\times\to\circ\times\circ\cdots\times\circ$. (Inače kontradikcija s optimalnošću za $K$.)</s>
+    <s n="13">Oblik $A\ B\ C$ s odabranim $B$.</s>
+    <s n="14">Dalje su moguća samo dva uzorka.</s>
+    <s n="15">Ekvivalentno jednom elementu $A+C-B$ (razlika je točno $B$ koji je već uračunat).</s>
+    <s n="16">Rubni odabrani bombon: taj dio se više ne mijenja — izbaci ga.</s>
+    <s n="17">Drugi primjer, niz 3 5 1 6 7: $K=1$ uzmi rubnih 7 → izbaci 7 i 6, ostaje 3 5 1 (odg. 7); $K=2$ uzmi 5 → $3+1-5=-1$ (odg. 12); $K=3$ uzmi $-1$ (odg. 11).</s>
+    <s n="18">Naivna implementacija $O(N^2)$.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Provjera na primjeru sa stražarima.</b> Niz $[-\infty,3,5,1,7,6,-\infty]$. Uzmi 7 (odg. 7): susjedi 1 i 6 → $1+6-7=0$; niz $[-\infty,3,5,0,-\infty]$. Uzmi 5 (odg. 12): $3+0-5=-2$; niz $[-\infty,-2,-\infty]$. Uzmi $-2$ (odg. 10): $-\infty$. Točno: 7, 12, 10. Bez stražara na desnom rubu bi se 6 pogrešno spojilo.</p>
+</div>
+
+<h2>Podzadatak 2 <span class="bodovi">92 boda</span></h2>
+<slajdovi from="19" to="24" vrsta="koraci" naslov="Prioritetni red i lista">
+    <s n="19">$N\le2\cdot10^5$: $O(N^2)$ je TLE.</s>
+    <s n="20">Prethodna metoda uspoređuje nepromijenjene vrijednosti iznova — rasipno.</s>
+    <s n="21">Prioritetni red; podaci u redu mogu biti zastarjeli — treba upravljanje intervalima/listom.</s>
+    <s n="22">Primjer strukture: polje s intervalima; nakon spajanja $i,i+1,i+2$ u jedan, susjedi postaju $-\infty$ ili se preskaču.</s>
+    <s n="23">$O(N\log N)$.</s>
+    <s n="24">Postoje i druga rješenja (podijeli pa vladaj).</s>
+</slajdovi>
+
+<slajdovi from="25" to="25" naslov="Statistika">
+    <s n="25">Raspodjela.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Odgovori su konkavni u $K$; prijelaz $K\to K+1$ je „dodaj” ili „pomakni lanac”.</li>
+        <li>Greedy: najveći element $B$, spoji s susjedima u $A+C-B$; stražari $-\infty$; heap + povezana lista, $O(N\log N)$.</li>
+    </ul>
+</div>

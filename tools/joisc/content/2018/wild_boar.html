@@ -1,0 +1,190 @@
+@@ meta
+naslov = Divlja svinja
+engleski = Wild Boar
+oznake = najkraći putevi bez okretanja (stanje = usmjereni brid), Dijkstra po bridovima s trikom „prvi dolazak relaksira sve osim obrata, drugi dolazak relaksira samo obrat” O(M log M), za svaki par (s,t) samo 5 kandidatskih puteva (po prvom/zadnjem bridu), DP po segmentima plana, segmentno stablo s 5×5 matricama za promjene, O(M² log M + (L+T) log L)
+autor_analize = joisino
+
+@@ zadatak
+<h1>Divlja svinja</h1>
+<p><i>Wild Boar</i> — JOI Spring Camp 2018, dan 4.</p>
+<p>Povezan težinski graf: $N$ hranilišta, $M$ cesta ($A_i,B_i,C_i$). Divlja svinja <b>ne može se okrenuti</b>: nakon dolaska cestom ne smije se odmah vratiti istom cestom. Plan je niz $X_1,\dots,X_L$ ($X_j\ne X_{j+1}$): posjetiti redom, slobodno prolazeći kroz druga hranilišta. Kroz $T$ dana, $k$-tog jutra $X_{P_k}\leftarrow Q_k$; nakon svake promjene ispiši minimalno vrijeme izvršenja plana ili $-1$ ako je neizvediv.</p>
+<h3>Ograničenja</h3>
+<ul><li>$N,M\le2000$, $T,L\le10^5$, $C_i\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(12) $N,M,L\le10$, $T=1$, $C_i\le10$.</li>
+    <li>(35) $N,M\le500$, $T=1$.</li>
+    <li>(15) $T=1$.</li>
+    <li>(38) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>3 3 1 3
+1 2 1
+2 3 1
+1 3 1
+1
+2
+3
+3 1</pre></div>
+    <div><h4>Izlaz</h4><pre>3</pre></div>
+</div>
+<p>Plan postaje $1,2,1$; $1\to2\to1$ je zabranjeno (okret), pa $1\to2\to3\to1$ = 3.</p>
+
+@@ rjesenje
+<h2>1. Najkraći putevi bez okretanja</h2>
+<p>Stanje je <b>usmjereni brid</b> (kojom cestom i u kojem smjeru smo upravo došli): $2M$ stanja. Iz $(u\to v)$ prelazi se u svaki $(v\to w)$ osim $(v\to u)$. Naivna Dijkstra ima $O(NM)$ prijelaza; trik za $O(M\log M)$ po izvoru:</p>
+<ul>
+    <li>Kad vrh $v$ prvi put bude dosegnut (bridom $e_1$ u $v$), relaksiraj <i>sve</i> izlazne bridove osim $\mathrm{rev}(e_1)$.</li>
+    <li>Kad $v$ bude dosegnut drugi put drugim bridom $e_2$, relaksiraj samo $\mathrm{rev}(e_1)$ (jedini još nerelaksiran). Daljnji dolasci ne rade ništa.</li>
+</ul>
+<p>Ukupno $O(M)$ relaksacija po pokretanju. Pokreni Dijkstru iz svakog usmjerenog brida kao početnog ($2M$ puta): $O(M^2\log M)$ — za $M=2000$ oko $2\cdot10^8$, u granici od 10 s. Rezultat: za svaki par (prvi brid $a$ iz $s$, zadnji brid $b$ u $t$) cijena najkraćeg $s\to t$ puta bez okretanja koji počinje $a$ i završava $b$.</p>
+
+<h2>2. Samo 5 kandidata po paru $(s,t)$</h2>
+<p>Segment $X_i\to X_{i+1}$ mora poštovati dva ograničenja izvana: prvi brid $a\ne\alpha$ ($\alpha$ = obrat zadnjeg brida prethodnog segmenta) i zadnji brid $b\ne\beta$ ($\beta$ = obrat prvog brida sljedećeg). Za svaki $(s,t)$ izračunaj:</p>
+<ol>
+    <li>$P_1=(a_1,b_1)$: globalno najkraći;</li>
+    <li>$P_2$: najkraći s $a\ne a_1$; neka je $(a_2,b_2)$;</li>
+    <li>$P_3$: najkraći s $a\ne a_1$, $b\ne b_2$;</li>
+    <li>$P_4$: najkraći s $b\ne b_1$; neka je $(a_4,b_4)$;</li>
+    <li>$P_5$: najkraći s $a\ne a_4$, $b\ne b_1$.</li>
+</ol>
+<p><b>Tvrdnja.</b> Za svaka $(\alpha,\beta)$ jedan od $P_1..P_5$ je optimalan među putevima s $a\ne\alpha,b\ne\beta$. Dokaz po slučajevima: $\alpha\ne a_1,\beta\ne b_1$ → $P_1$. $\alpha=a_1$: ako $b_2\ne\beta$ → $P_2$, inače ($\beta=b_2$) → $P_3$. $\alpha\ne a_1,\beta=b_1$: ako $a_4\ne\alpha$ → $P_4$, inače → $P_5$. Slajdovi napominju da se pažljivijom analizom može svesti na 4 kandidata.</p>
+<p class="trener-umetak"><b>Zašto je dovoljno ograničiti se na kandidate</b> (praznina u slajdovima). Uzmi optimalno rješenje $R_1,\dots,R_{L-1}$ i prolazi slijeva: $R_i$ je dopustiv uz ograničenja $(\alpha,\beta)$ zadana <i>trenutnim</i> susjedima; neki kandidat $C_i$ je optimalan uz ta ograničenja, pa $\mathrm{cost}(C_i)\le\mathrm{cost}(R_i)$, a zamjena čuva dopustivost prema oba susjeda (jer $C_i$ zadovoljava $a\ne\alpha,b\ne\beta$). Nastavi s $R_{i+1}$ uz novi $\alpha$. Na kraju je sve kandidatsko, bez porasta cijene.</p>
+<p>Kandidate za sve parove dobiješ prolaskom po rezultatima Dijkstre: za par $(s,t)$ ima $\deg s\cdot\deg t$ kombinacija $(a,b)$, ukupno $(2M)^2$.</p>
+
+<h2>3. DP po planu ($T=1$) <span class="bodovi">62</span></h2>
+<p>$dp[i][k]$ = minimalna cijena do $X_{i+1}$ ako je za segment $i$ korišten kandidat $k$. Prijelaz $k\to k'$ dopušten iff $a(P^{(i+1)}_{k'})\ne\mathrm{rev}(b(P^{(i)}_k))$. $O(25L)$.</p>
+
+<h2>4. Promjene: segmentno stablo <span class="bodovi">100</span></h2>
+<p>Svaki čvor stabla za segmente $[l,r)$ čuva $5\times5$ matricu $M[k][k']$ = najmanja cijena od $X_l$ do $X_r$ ako prvi segment koristi kandidat $k$, a zadnji kandidat $k'$. Spajanje dvaju čvorova: $5^4$ kombinacija uz provjeru kompatibilnosti na spoju (min-plus produkt uz masku). Promjena $X_P$ mijenja dva lista ($P-1$ i $P$) → $O(\log L)$ spajanja. Odgovor = min po matrici korijena ($\infty\to-1$). Ukupno $O(M^2\log M+(L+T)\log L\cdot5^4)$.</p>
+<p class="trener-umetak">Ako je $5^4\log L$ prespor, u čvoru možeš čuvati samo 5 „reprezentativnih” puteva (isti argument kao za kandidate između dvaju hranilišta) ili odmah koristiti 4 kandidata.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Kako zapamtiti „ne smiješ se okrenuti”?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Stanje = usmjereni brid; Dijkstra po bridovima. Kako izbjeći $O(\deg)$ relaksacija pri svakom dolasku u vrh?</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>$L$ je velik — ne smijemo raditi Dijkstru po segmentu</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Predračunaj $s\to t$ za sve parove, ali s informacijom o prvom i zadnjem bridu (ograničenja sa susjednim segmentima). Koliko puteva po paru je stvarno potrebno?</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Točkaste promjene u nizu + „spojiv” DP</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Segmentno stablo s malim matricama: stanje segmenta = koji kandidat na početku i na kraju.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Preljev: $10^5$ segmenata × $2000\cdot10^9$ → koristi 64-bit i $\infty\approx4\cdot10^{18}$ s oprezom pri zbrajanju (provjeri prije zbroja).</li>
+        <li>Zaboravljeni slučaj $P_3$/$P_5$: sami $P_1,P_2,P_4$ ne pokrivaju $(\alpha,\beta)=(a_1,b_2)$.</li>
+        <li>Kandidati moraju biti međusobno različiti po $(a,b)$; ako ih je manje od 5 (mali stupanj), popuni $\infty$.</li>
+        <li>Dijkstra: relaksirati obrat pri drugom dolasku, ne pri svakom.</li>
+        <li>Promjena $X_P$ ažurira <i>oba</i> susjedna segmenta.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="9" naslov="Zadatak i primjer">
+    <s n="1">Naslov; joisino.</s>
+    <s n="2">Težinski graf + niz vrhova; minimalna cijena obilaska redom; zabranjen neposredan povratak istim bridom; promjene niza po jednom elementu.</s>
+    <s n="3">Primjer 1, plan $1,2,1$: vrijeme 0.</s>
+    <s n="4">Kreće iz 1.</s>
+    <s n="5">Dolazak u 2, vrijeme 1.</s>
+    <s n="6">Ne može natrag u 1 istom cestom.</s>
+    <s n="7">Ide $2\to3\to1$, ukupno 3.</s>
+    <s n="8">Rezultat 3.</s>
+    <s n="9">Može i obilazak „u krivom smjeru” s početnim gubitkom.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">12 bodova</span></h2>
+<slajdovi from="10" to="11" vrsta="koraci" naslov="Mala stanja">
+    <s n="10">Sve malo.</s>
+    <s n="11">Dijkstra po stanjima (koliko hranilišta posjećeno, trenutni vrh, prethodni vrh): $O(LN^2)$ stanja, $O(LNM)$ bridova.</s>
+</slajdovi>
+
+<h2>Podzadatak 2 <span class="bodovi">35 bodova</span></h2>
+<slajdovi from="12" to="19" vrsta="koraci" naslov="Predračun po parovima i previše prijelaza">
+    <s n="12">$N,M\le500$, jedan upit.</s>
+    <s n="13">$L$ je velik: računaj puteve između hranilišta unaprijed.</s>
+    <s n="14">Za sve $(s,t)$ i bridove $(s\to u)$, $(v\to t)$: najkraći put koji počinje bridom $s\to u$ i završava $v\to t$.</s>
+    <s n="15">Dijkstra sa stanjem (vrh, prethodni): $O(N^2)$ stanja, $O(NM)$ bridova; puta $2M$ izvora: $O(NM^2\log N)$.</s>
+    <s n="16">DP sa stanjem (indeks u planu, prethodni vrh).</s>
+    <s n="17">$O(NL)$ stanja ali $O(NM^2L)$ prijelaza — previše.</s>
+    <s n="18">Obično bismo koristili najkraći $s\to t$; ne uvijek (okret ili blokiranje daljnjeg puta). Treba li stvarno sve $(u,v)$?</s>
+    <s n="19">Za odgovor $x_1\to\dots\to p\to x_i\to\dots\to x_{i+1}\to q\to\dots$ želimo malen skup puteva $x_i\to x_{i+1}$ dobar za svaki $p,q$.</s>
+</slajdovi>
+
+<slajdovi from="20" to="33" vrsta="koraci" naslov="Pet kandidata">
+    <s n="20">Samo najkraći $s\to a_1\to\dots\to b_1\to t$.</s>
+    <s n="21">Ako $p=a_1$ — propast. Treba i najkraći s $a\ne a_1$.</s>
+    <s n="22">Dodan $s\to a_2\to\dots\to b_2\to t$ ($a_2\ne a_1$).</s>
+    <s n="23">$p=a_1,q=b_2$ — propast. Treba $a\ne a_1,b\ne b_2$.</s>
+    <s n="24">Dodan $(a_3,b_3)$: $p=a_1$ sad je pokriven. Treba još $b\ne b_1$.</s>
+    <s n="25">Ponovno samo $P_1$…</s>
+    <s n="26">$q=b_1$ — propast; treba $b\ne b_1$.</s>
+    <s n="27">Dodan $(a_4,b_4)$ s $b_4\ne b_1$.</s>
+    <s n="28">$p=a_4,q=b_1$ — propast; treba $a\ne a_4,b\ne b_1$.</s>
+    <s n="29">Dodan $(a_5,b_5)$. Sad je sve pokriveno: 5 puteva.</s>
+    <s n="30">U svakom rješenju za $x_i\to x_{i+1}$ dolazi u obzir jedan od 5.</s>
+    <s n="31">Pažljivije: dovoljna su 4 ($(a_1,b_1)$; $a_2\ne a_1,b_2\ne b_1$; $a_3\ne a_1,b_3\ne b_2$; $a_4\ne a_2,b_4\ne b_1$). Dalje pretpostavljamo 5.</s>
+    <s n="32">DP (indeks, kandidat): $O(NL)$… zapravo $O(25L)$ prijelaza — prolazi.</s>
+    <s n="33">Napomena: testovi navodno nemaju slučajeve gdje pada „Dijkstra po segmentu” — ali to nije zamišljeno rješenje.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">15 bodova</span></h2>
+<slajdovi from="34" to="42" vrsta="koraci" naslov="Brža Dijkstra po bridovima">
+    <s n="34">$T=1$, $N,M\le2000$.</s>
+    <s n="35">DP je $O(NL)$ — OK; predračun $O(NM^2\log N)$ treba ubrzati.</s>
+    <s n="36">Želimo „najkraće vrijeme da se prođe ovaj brid u ovom smjeru”.</s>
+    <s n="37">Prvi dolazak u vrh: relaksiraj sve izlazne osim obrata dolaznog.</s>
+    <s n="38">(animacija)</s>
+    <s n="39">(animacija)</s>
+    <s n="40">Sljedeći dolazak iz drugog smjera: relaksiraj samo obrat prvog dolaznog.</s>
+    <s n="41">(animacija)</s>
+    <s n="42">Dijkstra po bridovima; vrh pamti „neposjećen” ili „kojim bridom prvi put”; $O(M\log M)$ po izvoru, $2M$ izvora: $O(M^2\log M)$.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto je drugi dolazak dovoljan.</b> Pri prvom dolasku (udaljenost $d_1$) svi izlazni bridovi osim obrata dobiju $d_1+c$ — bolje od bilo čega kasnije ($d_2\ge d_1$). Jedini koji je ostao bez ponude je obrat prvog dolaznog brida; drugi dolazak (drugim bridom) ga smije koristiti. Treći dolazak ne može ništa poboljšati.</p>
+</div>
+
+<h2>Podzadatak 4 <span class="bodovi">38 bodova</span></h2>
+<slajdovi from="43" to="51" vrsta="koraci" naslov="Segmentno stablo s 5×5 matricama">
+    <s n="43">$T\le10^5$ promjena.</s>
+    <s n="44">DP $O(NL)$ po upitu → $O(TNL)$, previše.</s>
+    <s n="45">Mijenja se jedno mjesto dnevno; ponovno računamo skoro isto — iskoristi nepromijenjene dijelove.</s>
+    <s n="46">Točkaste promjene + upit nad cijelim nizom…</s>
+    <s n="47">Segmentno stablo.</s>
+    <s n="48">Čvor $[l,r)$: matrica $5\times5$, $node[i][j]$ = min cijena od $X_l$ do $X_{r-1}$ uz $i$-ti kandidat na prvom i $j$-ti na zadnjem segmentu; unutrašnjost ne utječe van.</s>
+    <s n="49">Spajanje $[l,r)$ i $[r,s)$: $5^4$ kombinacija.</s>
+    <s n="50">Dijkstra $O(M^2\log M)$, inicijalizacija $O(L)$, upiti $O(T\log L)$.</s>
+    <s n="51">Konstanta $5^4$ je osjetna; može se čuvati samo 5 puteva po čvoru istim argumentom; ili odmah 4 kandidata.</s>
+</slajdovi>
+
+<slajdovi from="52" to="53" naslov="Statistika">
+    <s n="52">Raspodjela: 100 / 62 / 47 / 12 / 0.</s>
+    <s n="53">Hvala.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Bez okretanja ⇒ stanje je usmjereni brid; Dijkstra s trikom „prvi/drugi dolazak” u $O(M\log M)$ po izvoru.</li>
+        <li>Po paru hranilišta dovoljno 5 kandidatskih puteva (prema prvom/zadnjem bridu).</li>
+        <li>Segmentno stablo s $5\times5$ min-plus matricama za promjene plana.</li>
+    </ul>
+</div>

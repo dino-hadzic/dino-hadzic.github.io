@@ -1,0 +1,184 @@
+@@ meta
+naslov = Čišćenje
+engleski = Sweeping
+oznake = strukture podataka, segmentno stablo, union-find, podijeli pa vladaj po upitima
+autor_analize = JOI tutori
+
+@@ zadatak
+<h1>Čišćenje</h1>
+<p><i>Sweeping</i> — JOI Spring Camp 2020, dan 1.</p>
+<p>Bitarova soba je jednakokračni pravokutni trokut s katetama duljine $N$: točke $(x, y)$ s $0 \le x, y$ i $x + y \le N$; pravi kut je u ishodištu, katete leže na osima. U sobi je na početku $M$ čestica prašine; $i$-ta je u točki $(X_i, Y_i)$ (više čestica može biti u istoj točki).</p>
+<p>Bitaro čisti metlom koju gledamo kao dužinu; duljinu dužine zovemo <b>širina</b>. Metlu koristi na dva načina:</p>
+<ul>
+    <li><b>Postupak H.</b> Metlu širine $l$ postavi uz $y$-os s jednim krajem u ishodištu i gura je udesno (paralelno s $y$-osi, kraj klizi po $x$-osi) što dalje može. Svaka čestica u $(x, y)$ s $x < N - l$ i $y \le l$ pomiče se u $(N - l, y)$.</li>
+    <li><b>Postupak V.</b> Metlu širine $l$ postavi uz $x$-os s krajem u ishodištu i gura je prema gore što dalje može. Svaka čestica u $(x, y)$ s $x \le l$ i $y < N - l$ pomiče se u $(x, N - l)$.</li>
+</ul>
+<p>Slijedi $Q$ događaja; događaj $j$ je jedan od:</p>
+<ul>
+    <li><code>1 P</code> — ispiši trenutne koordinate čestice $P$;</li>
+    <li><code>2 L</code> — postupak H metlom širine $L$;</li>
+    <li><code>3 L</code> — postupak V metlom širine $L$;</li>
+    <li><code>4 A B</code> — dodaj novu česticu u $(A, B)$; ako je dotad bilo $c$ čestica, nova je $(c+1)$-va.</li>
+</ul>
+<h3>Ulaz</h3>
+<pre>N M Q
+X_1 Y_1
+⋮
+X_M Y_M
+(događaj 1)
+⋮
+(događaj Q)</pre>
+<h3>Izlaz</h3>
+<p>Za svaki događaj tipa 1 jedan redak s $x$ i $y$ koordinatom tražene čestice.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N \le 10^9$, $1 \le M \le 500\,000$, $1 \le Q \le 1\,000\,000$.</li>
+    <li>$0 \le X_i, Y_i$, $X_i + Y_i \le N$; isto za $(A_j, B_j)$.</li>
+    <li>$0 \le L_j \le N - 1$; $P_j$ je indeks postojeće čestice.</li>
+    <li>Postoji bar jedan događaj tipa 1.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(1 bod) $M \le 2000$, $Q \le 5000$.</li>
+    <li>(10 bodova) Samo događaji tipa $1, 2, 4$.</li>
+    <li>(11 bodova) Samo tipovi $1, 2, 3$; $X_j \le X_{j+1}$ i $Y_j \ge Y_{j+1}$ za početne čestice.</li>
+    <li>(53 boda) Samo tipovi $1, 2, 3$.</li>
+    <li>(25 bodova) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>6 2 10
+1 1
+4 0
+4 2 3
+3 3
+1 1
+4 1 2
+2 3
+2 0
+1 4
+3 2
+1 3
+1 2</pre></div>
+    <div><h4>Izlaz 1</h4><pre>1 3
+3 2
+3 3
+6 0</pre></div>
+</div>
+<p>Nakon dodavanja 3. čestice u $(2,3)$, postupak V širine $3$ pomiče 1. česticu u $(1,3)$. Nakon dodavanja 4. čestice u $(1,2)$, postupak H širine $3$ pomiče 1. i 3. česticu u $(3,3)$, a 4. u $(3,2)$; postupak H širine $0$ pomiče 2. česticu u $(6,0)$. Postupak V širine $2$ ne pomiče ništa.</p>
+
+@@ rjesenje
+<h2>Prevođenje u intervale</h2>
+<p>Čestici $(x, y)$ pridruži interval $[a, b] = [y, N - x]$ (valjan jer $x + y \le N$). Tada:</p>
+<ul>
+    <li>postupak H širine $L$: čestice s $y \le L < N - x$, tj. intervali s $a \le L < b$, prelaze u $(N-L, y)$, tj. interval postaje $[a, L]$;</li>
+    <li>postupak V širine $L$: čestice s $x \le L$, $y < N - L$, tj. $a < N - L \le b$, prelaze u $(x, N - L)$, tj. interval postaje $[N - L, b]$.</li>
+</ul>
+<p>Dakle svaka metla „reže” sve intervale koji <b>sadrže točku $p$</b> ($p = L$ ili $p = N - L$) i zadržava lijevi (H) odnosno desni (V) dio. Intervali se nikad ne produljuju.</p>
+
+<h2>Interval-stablo (segmentno stablo nad intervalima) + union-find</h2>
+<p>Komprimiraj koordinate svih krajeva i rezova ($O(M + Q)$ vrijednosti). Izgradi segmentno stablo nad njima; interval $[a, b]$ smjesti u <b>najmanji čvor koji ga cijeli sadrži</b> (najniži čvor u kojem $a$ i $b$ padaju u različitu djecu, ili list). Ključno: rez u točki $p$ pogađa samo intervale koji sadrže $p$, a to su intervali smješteni u čvorove na putu od korijena do lista $p$. Nakon reza $[a,b] \to [a,p]$ interval ostaje u istom čvoru ili <b>silazi u lijevo dijete</b> (i dalje niže) — nikad se ne penje.</p>
+<p>U čvoru $v$ sa sredinom $m_v$ svi spremljeni intervali sadrže $m_v$ i $m_v+1$. Čestice s <i>istim</i> intervalom držimo kao jednu <b>skupinu</b> (skup union-finda čiji predstavnik nosi $[a, b]$), a skupine čvora u <code>map</code>-u po desnom kraju (za H) i po lijevom kraju (za V). Rez H u točki $p$ na čvoru $v$: sve skupine s desnim krajem $\ge p$ skini s vrha mape i spoji u jednu s desnim krajem $p$; ako je $p \le m_v$, spojena skupina više ne sadrži $m_v+1$ pa je spusti u lijevo dijete (i dalje rekurzivno do pravog čvora). Analogno V.</p>
+
+<p><b>Složenost.</b> Svaki skup pri spajanju nestaje (amortizirano $O((M+Q)\log)$ spajanja), a svaki spust ide barem jednu razinu niže: dubina je $O(\log(M+Q))$. Ukupno $O((M + Q)\log^2(M+Q))$ ili $O((M+Q)\log(M+Q)\,\alpha)$ ovisno o strukturi, dovoljno uz $6$ s. Upit tipa 1: nađi predstavnika čestice (union-find), pročitaj $[a, b]$ i vrati $(N - b, a)$. Dodavanje: ubaci novi interval u odgovarajući čvor.</p>
+<p class="trener-napomena">Alternativa iz analize: podijeli pa vladaj po vremenu (upitima) nad rješenjem bez dodavanja (podzadatak 4), također $O((M+Q)\log^2)$. Trokutasti pogled iz podzadatka 4 (svaka metla dijeli trokutasto područje na dva) je geometrijska verzija iste stvari.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što metla zapravo radi s česticom?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Postupak H pomiče sve čestice u pojasu $y \le L$ na pravac $x = N - L$ (hipotenuzu). Nakon toga $x + y = N - L + y$... Pokušaj pronaći veličinu koja se pri H mijenja na „lijep” način. Isprobaj par $(y, N - x)$.</p>
+                <p class="pitanje">Odgovor: čestica je interval $[y, N-x]$; H skraćuje desni kraj na $L$ za intervale koji sadrže $L$, V podiže lijevi kraj na $N-L$ za intervale koji sadrže $N-L$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 2 kao zagrijavanje</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Samo H: $y$ se ne mijenja, a $x$ čestice određuje <i>najmanji</i> $L \ge y$ među metlama nakon njezina nastanka. Riješi offline: sortiraj po $y$ i drži minimum po vremenu u segmentnom stablu.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Intervali koji sadrže točku</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Rez pogađa točno intervale koji sadrže $p$. Koja struktura brzo daje „sve intervale koji sadrže $p$” i ujedno dopušta da se oni <i>grupno</i> skrate? Razmisli o segmentnom stablu u kojem interval živi u najmanjem čvoru koji ga sadrži.</p>
+                <p class="pitanje">Svi intervali koji sadrže $p$ su u čvorovima na putu korijen → list $p$; to je $O(\log)$ čvorova.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Grupiranje umjesto pojedinačnog ažuriranja</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Nakon reza mnoge čestice dijele isti kraj. Kako izbjeći da ih obrađuješ jednu po jednu pri svakom sljedećem rezu? Union-find: skup čestica s istim intervalom ima jednog predstavnika. Pokaži da svaki skup može biti spojen ili spušten samo $O(\log)$ puta.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Stroge/nestroge nejednakosti: H pomiče čestice s $x < N-L$ (ne $\le$) i $y \le L$; u jeziku intervala $a \le L < b$.</li>
+        <li>Zaboraviti da se čestice mogu dodavati u čvor koji već ima skupove — nova čestica je samostalan skup dok je rez ne spoji.</li>
+        <li>Koordinate do $10^9$: komprimiraj sve krajeve i sve točke rezova prije gradnje stabla.</li>
+        <li>Brzi ulaz/izlaz: $Q$ do $10^6$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="2" naslov="Uvod">
+    <s n="1">Naslovni slajd: <i>Čišćenje (Sweeping)</i>.</s>
+    <s n="2">Sažetak — četiri vrste upita (početne čestice gledamo kao dodane upitom): ispiši koordinate $i$-te čestice; čestice s $x < N-L$, $y \le L$ pomakni u $(N-L, y)$; čestice s $x \le L$, $y < N-L$ pomakni u $(x, N-L)$; dodaj česticu u $(x, y)$.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–3 <span class="bodovi">22 boda</span></h2>
+<slajdovi from="3" to="8" naslov="Simulacija, samo H, sortirane čestice">
+    <s n="3"><b>Podzadatak 1.</b> $M \le 2000$, $Q \le 5000$: izravna simulacija, $O((M+Q)Q)$. 1 bod.</s>
+    <s n="4"><b>Podzadatak 2.</b> Samo tipovi $1, 2, 4$: $y$-koordinata se ne mijenja. $x$-koordinatu čestice određuje <b>najmanji</b> $L$ među H-upitima nakon njezina nastanka koji zadovoljavaju $y \le L$.</s>
+    <s n="5">Sortiraj upite po $y$ i obrađuj od najmanjeg $y$; upiti pomicanja postaju RMQ (minimum na vremenskom intervalu) u segmentnom stablu. $O(M + Q\log Q)$, 10 bodova.</s>
+    <s n="6"><b>Podzadatak 3.</b> Tipovi $1,2,3$, čestice sortirane ($X_j \le X_{j+1}$, $Y_j \ge Y_{j+1}$). Promatranjem upita vidi se da susjedne čestice nikad ne „zamijene” poredak po $x$ ni po $y$ (mogu se izjednačiti).</s>
+    <s n="7">Zato čestice držimo u fiksnom poretku; svaki upit pomicanja djeluje na <b>uzastopni raspon</b> tog poretka. Granice raspona nađemo binarnim pretraživanjem, ažuriranje je lijeno segmentno stablo (postavi $x$ ili $y$ na konstantu na rasponu).</s>
+    <s n="8">Svaki upit u $O(\log^2 M)$, ukupno $O(Q \log^2 M)$. 11 bodova.</s>
+</slajdovi>
+
+<h2>Podzadatak 4: bez dodavanja <span class="bodovi">53 boda</span></h2>
+<slajdovi from="9" to="13" vrsta="koraci" naslov="Trokutasta područja i dijeljenje">
+    <s n="9">Bez dodavanja, skup mogućih položaja čestica je unija <b>disjunktnih jednakokračnih pravokutnih trokuta</b> čije hipotenuze leže na kosom zidu sobe.</s>
+    <s n="10">Slika: nakon nekoliko čišćenja soba je podijeljena u manje trokute uz hipotenuzu; sve čestice su na njihovim katetama ili unutar njih.</s>
+    <s n="11">Svaki upit čišćenja dijeli točno jedno trokutasto područje na dva (metla „reže” trokut koji sadrži točku reza).</s>
+    <s n="12">Ukupno nastaje $O(Q)$ trokuta. Podjelu trokuta s $X$ i $Y$ čestica možemo izvesti u $O(\min(X,Y)\log(X+Y))$ — „obrnuti merge-trik” (uvijek premještamo manji dio) — ukupno $O(Q + M\log M\log Q)$.</s>
+    <s n="13">Uz pametnije upravljanje česticama (povezana lista) ukupno $O(Q + M\log Q)$; ta je verzija potrebna za podzadatak 5 (varijanta ①). Bilo koja verzija daje 64 boda.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p>Zašto trokuti? Nakon reza H širine $L$ sve čestice s $y \le L$ i $x < N - L$ skupljaju se na pravac $x = N - L$; područje $\{x < N-L, y \le L\}$ postaje prazno, a čestice ostaju u trokutu $\{x \ge N-L, y \le L\}$ (kateta na $x = N-L$, hipotenuza na zidu) ili u gornjem trokutu $\{y > L\}$. Rez uvijek prolazi točno kroz jedan trokut i dijeli ga na dva manja s istim oblikom. U svakom trokutu čestice su „efektivno” opisane samo s jednim slobodnim parametrom po katetama, pa se podjela svodi na particioniranje liste po jednoj koordinati — otud merge-trik unatrag.</p>
+</div>
+
+<h2>Podzadatak 5 <span class="bodovi">25 bodova</span></h2>
+<slajd n="14"><b>Varijanta ①: podijeli pa vladaj po upitima</b> nad rješenjem podzadatka 4. Svaki upit pomicanja izvodi se $O(\log Q)$ puta (u svakom čvoru rekurzije koji ga sadrži); ukupno $O((M+Q)\log(M+Q)\log Q)$. 100 bodova!</slajd>
+<div class="trener-umetak">
+    <p>Podjela po vremenu: <code>solve(l, r, čestice)</code> obrađuje upite $[l, r]$ za čestice nastale prije $l$; podijeli na $[l, m]$ i $[m+1, r]$ — čestice dodane u $[l, m]$ obrađuju se rekurzivno samo u desnoj polovici, a čestice iz ulaza u lijevoj polovici prenose se preko cijelog $[l, m]$ „skupno” (kao u podzadatku 4). Zahtijeva da se stanje čestice može sažeti na kraju bloka, što trokutna struktura omogućuje.</p>
+</div>
+<slajdovi from="15" to="19" vrsta="koraci" naslov="Varijanta ②: intervali i interval-stablo">
+    <s n="15">Pretvori 2D koordinate u <b>interval na brojevnom pravcu</b>: $(x, y) \Rightarrow [y, N - x]$. Pomicanje čestica s $x < N-L$, $y \le L$ u $(N-L, y)$ $\Rightarrow$ intervali $[a,b]$ s $a \le L \le b$ postaju $[a, L]$. Pomicanje čestica s $x \le L$, $y < N-L$ u $(x, N-L)$ $\Rightarrow$ intervali s $a \le N-L \le b$ postaju $[N-L, b]$. To stavljamo na 1D <b>interval-stablo</b>.</s>
+    <s n="16">Interval-stablo je segmentno stablo koje čuva intervale: čvorovi $[0,7]$, $[0,3]$, $[4,7]$, $[0,1]$, $[2,3]$, … , listovi $[i, i]$.</s>
+    <s n="17">Svaki interval sprema se u <b>najmanji čvor koji ga cijeli sadrži</b>: na slici $[3,4]$ ide u korijen $[0,7]$, $[1,3]$ u $[0,3]$, $[4,5]$ u $[4,5]$.</s>
+    <s n="18">Pri svakom upitu pomicanja svaki interval ili ostaje u svom čvoru ili <b>silazi u dijete</b>. Dovoljno je dakle da rad po čvoru bude ukupno $O(M+Q)$ po razini — što se postiže union-findom (ili sličnim) za skupine čestica unutar čvora.</s>
+    <s n="19">Dubina stabla je $O(\log(M+Q))$ (uz kompresiju koordinata; bez nje $O(\log N)$). Po razini ukupno $O((M+Q)\log(M+Q))$, ukupno $O((M+Q)\log^2(M+Q))$. 100 bodova!</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Detalji koje slajd 18 preskače.</b> U čvoru $v = [l_v, r_v]$ sa sredinom $m_v$ svi spremljeni intervali sadrže i $m_v$ i $m_v + 1$ (inače bi bili u djetetu). Rez H u točki $p$ (skrati desne krajeve na $p$) dira samo čvorove na putu do lista $p$; u čvoru $v$ s $p \ge m_v + 1$ pogađa <i>sve</i> skupine čiji je desni kraj $\ge p$ — te skupine spajamo u jednu s desnim krajem $p$ (drži skupine u <code>map</code>-u po desnom kraju i skidaj s vrha). Ako je $p \le m_v$, sve skupine čvora dobivaju desni kraj $p$, spajaju se u jednu i cijela se spušta u lijevo dijete (i dalje rekurzivno dok ne nađe svoj čvor). Simetrično za V. Svaka skupina je u svakom trenutku jedan skup union-finda; upit tipa 1 nađe predstavnika čestice i pročita $[a, b]$ pa vrati $(N-b, a)$. Analiza složenosti: broj spajanja je najviše broj ikad stvorenih skupina ($M + Q$), a broj spuštanja jedne skupine najviše dubina. Uz <code>map</code> je to $O((M+Q)\log^2)$, što u $6$ s prolazi.</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Čestica $(x, y) \leftrightarrow$ interval $[y, N-x]$; metla reže sve intervale koji sadrže točku i zadržava jednu stranu.</li>
+        <li>Interval-stablo: intervali koji sadrže $p$ su na putu korijen–list; rez ih skupno skrati i spusti niže.</li>
+        <li>Union-find po čvorovima daje ukupno $O((M+Q)\log^2(M+Q))$; alternativa je podjela po upitima nad trokutnom dekompozicijom.</li>
+    </ul>
+</div>

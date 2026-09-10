@@ -1,0 +1,164 @@
+@@ meta
+naslov = Napon 2
+engleski = Voltage 2
+oznake = interaktivni, usporedba dviju postavki napona = usporedba broja bridova visoko→nisko, graf s ciklusom je neodrediv (obrni ciklus: u svakoj postavci isti broj bridova ↑ i ↓), DAG se odredi topološkim redom: listovi (ulazni stupanj 0) testom „svi visoko vs. v nisko”, potvrđene vrhove drži nisko (brid iz niskog nikad ne vodi struju), izlazni bridovi iz v: usporedi v visoko vs. v nisko uz skup S nisko ⇒ „postoji brid v→S?” ⇒ binarno pretraživanje po najmanjem indeksu, N + (N+M) log N + M ≈ 15 000 ≤ 30 000
+autor_analize = Ota Katsuki (shiomusubi496)
+
+@@ zadatak
+<h1>Napon 2</h1>
+<p><i>Voltage 2</i> — JOI 2025/2026 Final Stage, dan 4. Interaktivni zadatak (<code>voltage.h</code>).</p>
+<p>Skriveni usmjereni graf s $N$ čvorova i $M$ otpornika (bez petlji; između dva čvora najviše jedan otpornik neovisno o smjeru). Svaki čvor postavljaš na visoki (1) ili niski (0) napon; struja teče kroz otpornik $a\to b$ točno kad je $a$ visoko i $b$ nisko. Funkcija <code>query(x, y)</code> vraća $-1/0/1$ prema tome u kojoj od dviju postavki teče struja kroz <b>više</b> otpornika. Uz najviše <b>30 000</b> upita odredi sve otpornike (<code>answer(a,b)</code>) i vrati <code>true</code>, ili vrati <code>false</code> ako se graf ni s koliko god upita ne može jednoznačno odrediti. Sudac nije adaptivan.</p>
+<h3>Ograničenja</h3>
+<p>$2\le N\le500$, $1\le M\le1000$.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(10) Graf je usmjereni put, $N\le100$.</li>
+    <li>(12) Graf je usmjereni put.</li>
+    <li>(27) Izlazni stupanj svakog čvora $\le1$, $N\le100$.</li>
+    <li>(18) Izlazni stupanj $\le1$.</li>
+    <li>(17) $N\le100$.</li>
+    <li>(16) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<p>$N=5$, $M=6$, otpornici $0\to2,\ 2\to1,\ 0\to3,\ 3\to2,\ 3\to4,\ 4\to1$. <code>query([0,0,1,1,1],[1,1,1,0,0])</code> vraća $-1$: u prvoj postavci vode $2\to1$ i $4\to1$ (dva), u drugoj samo $0\to3$.</p>
+
+@@ rjesenje
+<h2>Osnovni trik: promijeni jedan čvor</h2>
+<p>Usporedba dviju postavki koje se razlikuju <b>samo u čvoru $v$</b> mjeri: (broj bridova $v\to$ nisko) $-$ (broj bridova visoko $\to v$), tj. $v$ visoko daje struju kroz izlazne bridove prema niskim čvorovima, $v$ nisko kroz ulazne bridove iz visokih. Dvije posljedice:</p>
+<ul>
+    <li><b>Čvor na niskom naponu nema izlazne struje</b> — fiksiraš li ga nisko, njegove izlazne bridove „ignoriraš”.</li>
+    <li><b>Test lista:</b> svi visoko (struja 0) vs. samo $v$ nisko: struja = ulazni stupanj $v$; nula ⇔ $v$ nema ulaznih bridova.</li>
+</ul>
+
+<h2>Put <span class="bodovi">22</span></h2>
+<p>Nađi početak puta testom lista ($N-1$ upita). Zatim početak drži nisko: ostatak je put s $N-1$ čvorom, opet nađi početak; ukupno $O(N^2)$ upita — podzadatak 1. Za $N=500$: za poznati početak $p$ i skup kandidata $S$: postavi $S$ nisko, ostale (nepotvrđene) visoko i usporedi „$p$ visoko” vs. „$p$ nisko” — razlika je 1 ⇔ sljedbenik $p$ je u $S$. <b>Binarno pretraživanje</b>: $\lceil\log_2N\rceil$ upita po čvoru, $\approx N\log N\approx4500$.</p>
+
+<h2>Kada je graf neodrediv?</h2>
+<p>Ako graf sadrži <b>ciklus</b>, u svakoj postavci ciklus ima jednako bridova visoko$\to$nisko i nisko$\to$visoko (obilazak se vraća na isti napon). Graf s obrnutim ciklusom daje istu struju u svakoj postavci, a valjan je (nema duplih bridova jer je između dva čvora najviše jedan otpornik; ciklusi imaju $\ge3$ čvora). Dakle <b>ciklus ⇒ <code>false</code></b>. Obrat pokazuje algoritam ispod: svaki DAG se odredi.</p>
+
+<h2>Izlazni stupanj ≤ 1 <span class="bodovi">67</span></h2>
+<p>Komponente su ili usmjerena stabla prema ponoru ili funkcionalni grafovi s ciklusom. <b>Topološki obilazak:</b></p>
+<ol>
+    <li>Red $Q$ = svi listovi (ulazni stupanj 0), $N$ testova lista.</li>
+    <li>Vadi $v$ iz $Q$. Potvrđeni (već izvađeni) čvorovi uvijek nisko. Nađi sljedbenika $v$: test „$v$ visoko vs. nisko uz $S$ nisko” daje postoji li brid $v\to S$; binarno pretraživanje po nepotvrđenim čvorovima (ili linearno za $N\le100$). Brid $v\to u$ prema potvrđenom $u$ ne postoji (vidi 3).</li>
+    <li>Nakon što nađeš $v\to u$: je li u $u$ pronađen svaki ulazni brid? Uz potvrđene nisko i nepotvrđene visoko usporedi „$u$ visoko” vs. „$u$ nisko”: razlika = broj <em>nepotvrđenih</em> ulaznih susjeda $u$. Ako je 0, stavi $u$ u $Q$.</li>
+    <li>Na kraju: ako nisu potvrđeni svi čvorovi, ostali čine ciklus(e) ⇒ <code>false</code>; inače su svi bridovi nađeni ⇒ <code>true</code>.</li>
+</ol>
+<p>Upita: $N+N\log N+N\approx6000$.</p>
+
+<h2>Općenito <span class="bodovi">100</span></h2>
+<p>Isti algoritam — to je <b>topološko sortiranje</b>, konzistentno s time da su upravo grafovi s ciklusom neodredivi. Razlika: iz $v$ izlazi više bridova. Test „$v$ visoko vs. nisko uz $S$ nisko” odgovara „postoji li brid iz $v$ u $S$?” (razlika = broj takvih bridova, dovoljno je $\gt0$). Binarnim pretraživanjem po <b>prefiksima</b> sortiranog popisa kandidata nađi najmanji indeks $u$ s $v\to u$, izbaci $u$ iz kandidata i ponavljaj dok test na cijelom popisu ne kaže „nema”. Svaki pronađeni brid košta $\approx\log_2N\le9$ upita, svaki čvor još jedan „nema više” upit, svaki brid jedan test „svi ulazni nađeni”: $N+(N+M)\log N+M\approx500+1500\cdot9+1000\approx15\,000\le30\,000$. Za $N\le100$ (podzadatak 5) dovoljno je linearno: $N^2+N+M\approx11\,000$.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Što mjeri usporedba koja se razlikuje u jednom čvoru?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Izlazne bridove prema niskim minus ulazne od visokih; uz „svi visoko” to je ulazni stupanj ⇒ listovi.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Što se ne može odrediti?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Obrnut ciklus daje istu struju uvijek. Provjeri: topološki obilazak ne potvrdi sve čvorove ⇔ ciklus.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Broj upita</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Test „postoji brid $v\to S$?” + binarno pretraživanje najmanjeg indeksa; $(N+M)\log N$ dominira.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Vratiti <code>true</code> kad je red ispražnjen a nisu svi čvorovi potvrđeni (ciklus).</li>
+        <li>Ne držati potvrđene čvorove nisko — njihovi izlazni bridovi kvare razliku.</li>
+        <li>Prijaviti isti brid dvaput ili više od $M$ puta — zapamti nađene bridove.</li>
+        <li>Linearno pretraživanje za $N=500$: $N^2\gt30\,000$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="9" naslov="Zadatak, ograničenja, N=2">
+    <s n="1">Naslov; shiomusubi496.</s>
+    <s n="2">Pregled zadatka.</s>
+    <s n="3">Postavi napone; brid visoko→nisko vodi struju.</s>
+    <s n="4">Upit uspoređuje broj vodećih bridova dviju postavki.</s>
+    <s n="5">Bez petlji i bez dvostrukih bridova (neovisno o smjeru).</s>
+    <s n="6">Tablica podzadataka (JOI i JOIG bodovanje).</s>
+    <s n="7">„Struja” = broj vodećih bridova; numeracija dalje po JOIG (JOI: oduzmi 1).</s>
+    <s n="8">Podzadatak $N=2$.</s>
+    <s n="9">$N=2$: dva moguća odgovora; <code>query([1,1],[1,0])</code> razlikuje ih (svi visoko ⇒ struja 0).</s>
+</slajdovi>
+
+<h2>Put <span class="bodovi">22</span></h2>
+<slajdovi from="10" to="21" vrsta="koraci" naslov="Početak i sljedbenik">
+    <s n="10">Podzadaci put.</s>
+    <s n="11">Želimo odrediti čvorove redom od početka; prvo nađi početak.</s>
+    <s n="12">Svi visoko ⇒ struja 0; što ako jedan čvor spustimo?</s>
+    <s n="13">Struja je 0 ako je taj čvor početak, inače 1 ⇒ test početka.</s>
+    <s n="14">Redom po čvorovima: početak u $N-1$ upita; zatim sljedeći čvorovi.</s>
+    <s n="15">Početak fiksiran nisko može se ignorirati — iz niskog čvora struja ne teče.</s>
+    <s n="16">Rekurzivno manji put; $O(N^2)$ upita dovoljno za $N\le100$.</s>
+    <s n="17">Za $N=500$ treba binarno pretraživanje (tipično u komunikacijskim zadacima).</s>
+    <s n="18">Za skup $S$ treba znati sadrži li sljedbenika; umjesto mijenjanja $S$, mijenjaj početak čiji položaj znamo.</s>
+    <s n="19">Sljedbenik nisko: početak visoko daje 1 struju više.</s>
+    <s n="20">Sljedbenik visoko: promjena početka ne mijenja struju.</s>
+    <s n="21">Dakle $S$ nisko, ostalo visoko, usporedi početak visoko/nisko ⇒ binarno pretraživanje; zatim početak drži nisko i nastavi.</s>
+</slajdovi>
+
+<h2>Izlazni stupanj ≤ 1 <span class="bodovi">67</span></h2>
+<slajdovi from="22" to="39" vrsta="koraci" naslov="Ciklusi i topološki obilazak">
+    <s n="22">Podzadaci s izlaznim stupnjem $\le1$.</s>
+    <s n="23">Oblik grafa: komponente su usmjerena stabla ili funkcionalni grafovi.</s>
+    <s n="24">Stablo je proširenje puta; problem je funkcionalni graf. Kada je graf neodrediv?</s>
+    <s n="25">Primjer: trokut $0\to1\to2\to0$.</s>
+    <s n="26">Može li se razlikovati od obrnutog trokuta?</s>
+    <s n="27">Ne: u svakoj postavci obje verzije imaju istu struju.</s>
+    <s n="28">Četverokut s repom.</s>
+    <s n="29">Ne: ciklus u svakoj postavci ima jednako bridova ↑ i ↓; graf s ciklusom je neodrediv (obrni ciklus); ciklusi imaju $\ge3$ čvora; sample 3 ⇒ <code>false</code>.</s>
+    <s n="30">Funkcionalni graf sadrži ciklus ⇒ za odredivost sve komponente moraju biti stabla; prvo riješi taj slučaj.</s>
+    <s n="31">Listovi (ulazni stupanj 0) u $N$ upita kao kod puta; zatim iz svakog lista nađi sljedbenika.</s>
+    <s n="32">Primjer: list $5$; fiksiraj ga nisko za ignoriranje.</s>
+    <s n="33">Sljedbenik postoji i nisko ⇒ $v$ visoko daje više struje.</s>
+    <s n="34">Sljedbenik ne postoji ili je visoko ⇒ nema razlike.</s>
+    <s n="35">Test „sljedbenik u $S$?”; linearno $N$ ili binarno $\log N$ upita.</s>
+    <s n="36">Algoritam: red $Q$ = listovi; vadi $v$, nađi $v\to u$; ako su svi bridovi u $u$ nađeni, dodaj $u$ u $Q$.</s>
+    <s n="37">Provjera „svi ulazni nađeni”: potvrđene nisko, kao test lista, 1 upit.</s>
+    <s n="38">Ako na kraju nisu svi čvorovi potvrđeni ⇒ ciklus ⇒ <code>false</code>; inače graf određen.</s>
+    <s n="39">Broj upita: linearno za $N\le100$, binarno za $N=500$; $+M$ za provjere.</s>
+</slajdovi>
+
+<h2>Općenito <span class="bodovi">100</span></h2>
+<slajdovi from="40" to="53" vrsta="koraci" naslov="Više izlaznih bridova">
+    <s n="40">Podzadaci bez ograničenja.</s>
+    <s n="41">Algoritam je topološko sortiranje — konzistentno s neodredivošću ciklusa; treba naći sve izlazne bridove iz $v$.</s>
+    <s n="42">$N\le100$: provjeri svaki $u$ pojedinačno ($N$ upita po čvoru), za svaki nađeni brid provjera cilja.</s>
+    <s n="43">Radi li binarno pretraživanje kad ima više izlaznih bridova?</s>
+    <s n="44">Svi sljedbenici nisko ⇒ $v$ visoko daje više.</s>
+    <s n="45">Miješano ⇒ $v$ visoko i dalje daje više.</s>
+    <s n="46">Svi visoko ⇒ nema razlike.</s>
+    <s n="47">Test odgovara „postoji li brid iz $v$ u nisku skupinu $S$”; binarno po prefiksima ⇒ najmanji $u$ s $v\to u$; zatim ga izbaci iz $S$.</s>
+    <s n="48">Algoritam: red listova; vadi $v$; ponavljaj: nađi najmanji $u$ s $v\to u$, inače break; ako su svi ulazni u $u$ nađeni, dodaj u $Q$.</s>
+    <s n="49">Analiza: binarnih pretraživanja po čvoru (izlazni stupanj $+1$), zbroj $M+N$ ⇒ $(N+M)\log N$ + provjere; ispod 30 000.</s>
+    <s n="50">Puni bodovi.</s>
+    <s n="51">Raspodjela bodova.</s>
+    <s n="52">JOI: 100: 3; 54: 2; 49: 3; 37: 1; 22: 5; 10: 11; 0: 5.</s>
+    <s n="53">JOIG: 20: 10; 4: 4; 0: 1.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Usporedba postavki različitih u jednom čvoru mjeri njegove bridove prema niskim/od visokih čvorova.</li>
+        <li>Ciklus ⇒ neodredivo; DAG ⇒ topološki obilazak s binarnim pretraživanjem izlaznih bridova, $(N+M)\log N$ upita.</li>
+    </ul>
+</div>

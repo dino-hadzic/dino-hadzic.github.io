@@ -1,0 +1,315 @@
+@@ meta
+naslov = Letovi
+engleski = Flights
+oznake = komunikacija, kodiranje, stabla, dekompozicija stabla, prebrojavanje stabala, kompresija informacije
+tip = Komunikacijski zadatak (Ali.cpp, Benjamin.cpp)
+autor_analize = E869120 (Yoneda Masataka)
+
+@@ zadatak
+<h1>Letovi</h1>
+<p><i>Flights</i> — JOI Spring Camp 2022, dan 2.</p>
+<p>Stablo s $N$ zračnih luka ($N \le 10\,000$), svaki vrh stupnja $\le 3$. Zabavni park je u luci $x$, toplice u $y$. Ali zna stablo, Benjamin ne.</p>
+<ol>
+    <li>Ali svakoj luci dodijeli <b>ID</b> — cijeli broj u $[0, 2N+19]$ (različiti).</li>
+    <li>Benjamin dobiva ID-ove $X$ i $Y$ (ne indekse $x, y$).</li>
+    <li>Benjamin šalje Aliju <b>točno 20 bitova</b>.</li>
+    <li>Ali odgovara nizom od $1$ do $300\,000$ bitova.</li>
+    <li>Benjamin mora reći udaljenost $x$–$y$ (broj letova).</li>
+</ol>
+<h3>Sučelje</h3>
+<p><code>Init(N, U, V)</code> zove <code>SetID(p, value)</code> za sve luke; <code>SendB(N, X, Y)</code> vraća 20-znakovni niz; <code>SendA(S)</code> vraća pismo; <code>Answer(T)</code> vraća udaljenost. $Q \le 50$ scenarija po testu.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(15) $Q = 1$. Bodovi po $L_1$ = najdulje pismo: $\le 300\,000$: 7; $\le 150\,000$: 11; $\le 20\,000$: 15.</li>
+    <li>(85) $Q \ge 2$. $L_2 \ge 1401$: 0; $71..1400$: $\lfloor 52 - 35\log_{10} L_2\rfloor$; $45..70$: $\lfloor 87 - 0.5 L_2\rfloor$; $25..44$: $109 - L_2$; $L_2 \le 24$: 85.</li>
+</ol>
+<h3>Primjer</h3>
+<p>Put $0-1-2-3$, $x = 0$, $y = 2$. Ali postavi ID-ove 12, 21, 25, 27; Benjamin dobije $(12, 25)$ i mora odgovoriti 2.</p>
+
+@@ rjesenje
+<h2>Ideja u jednoj rečenici</h2>
+<p>Ali <b>razbije stablo na male povezane grupe</b> od 7–13 vrhova i kodira ID = $14\cdot(\text{grupa}) + (\text{indeks u grupi})$; Benjamin s 20 bitova pošalje <b>par grupa</b>; Ali zna da put između dviju grupa prolazi kroz fiksne izlazne vrhove $u$ i $v$ pa pošalje samo <b>oblik dviju malih grupa</b>, položaj $u, v$ i udaljenost $d(u,v)$ — sve stisnuto u 24 bita.</p>
+
+<h2>Dekompozicija u grupe</h2>
+<p>Ukorijeni stablo; svaki vrh ima $\le 2$ djece. Odozdo prema gore skupljaj podstabla; kad veličina trenutne grupe dosegne $B = 7$, <b>odreži brid prema roditelju</b>. Grupa je najveća kad dva djeteta imaju po $B - 1 = 6$ nerazrezanih vrhova: $2B - 1 = 13$. Svaka grupa osim korijenske ima $7..13$ vrhova → najviše $\lfloor 10000/7\rfloor = 1429$ grupa, pa ID $\le 14\cdot 1429 + 13 = 20\,019 = 2N + 19$ — točno granica iz zadatka.</p>
+<p><b>Benjamin:</b> iz $X, Y$ čita brojeve grupa $G_X, G_Y$; jer su $x, y$ simetrični, šalje par $\{G_X \le G_Y\}$: $1429^2/2 < 2^{20}$ ✓.</p>
+
+<h2>Što Ali mora poslati</h2>
+<p>Grupe su povezani dijelovi stabla, pa svaki put iz grupe $G_X$ u $G_Y$ napušta prvu kroz isti vrh $u$ i ulazi u drugu kroz isti vrh $v$: $d(x, y) = d(x, u) + d(u, v) + d(v, y)$. Ali zna $u, v$ (ne zna $x, y$!), pa šalje: oblik stabla grupe $G_X$ i $G_Y$, položaj $u$ i $v$ unutar grupa, $d(u, v)$ (14 b.). Benjamin iz oblika i indeksa (indeksi u grupi = DFS redoslijed) računa $d(x,u)$ i $d(v,y)$ sam.</p>
+<p>Napredovanje po bitovima (vidi analizu): udaljenosti od $u$ i $v$ do svih 13 vrhova 118 b. → stablo kao zagradni niz $2\cdot 24 + 14 + 8 = 70$ b. → zagradni nizovi ($\approx 2.9\cdot10^5$, 19 b.) 60 b. → stabla s izlaznim stupnjem $\le 2$ i podstablima $\le 6$ (325 do izomorfizma, 9 b.) 44 b. → barem jedan od $u, v$ je <b>korijen svoje grupe</b> (ne šalji njegov indeks) 36 b. → dopuni sve grupe do točno 13 vrhova lažnim listovima (66 oblika, 7 b.) 32 b. → <b>jedan zajednički broj</b> $66\cdot66\cdot14\cdot10000 < 2^{30}$ i korištenje svih duljina $1..29$ ($\sum 2^i = 2^{30} - 2$) → 29 b. (95 bodova).</p>
+
+<h2>Do 24 bita</h2>
+<ul>
+    <li><b>Raspodjela udaljenosti umjesto oblika:</b> Benjaminu treba samo $d(\cdot, u)$ po BFS-indeksima, ne cijelo stablo; različita stabla dijele istu raspodjelu: 66 → 38 kad je krajnja točka korijen, $858 \to 676 \to 553$ inače (vrh stupnja 3 ne može biti $u$ jer mu jedan brid ide u drugu grupu). 27 b.</li>
+    <li><b>Korijen cijelog stabla blizu centra</b> (stupnja $\ge 2$): kad jedan kraj nije korijen grupe, $d(u,v) \le 5000$: $38\cdot38\cdot10^4 + 38\cdot515\cdot5000 < 2^{27}$ → 26 b.</li>
+    <li><b>14 vrhova po grupi:</b> jedan dodatni lažni vrh spaja klase od 11 binarnih stabala veličine 6 u 5, stabla 66 → 28; s pametnim numeriranjem raspodjela 21 (korijen) / 290 (sve): $21\cdot(290 + 21)\cdot 5000 \approx 3.27\cdot10^7 < 2^{25} - 2$ → sve duljine $1..24$ → <b>24 bita</b>.</li>
+</ul>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što Benjamin može reći s 20 bitova?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ne oba ID-a (28 b.). Ali može par od ~1400 „grupa”, ako je $\{G_X, G_Y\}$ neuređen. Kako Ali treba dodijeliti ID-ove da grupa bude čitljiva iz ID-a?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zašto grupe moraju biti povezane</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Ako Ali zna grupe, a ne vrhove — što o putu $x \to y$ zna sigurno? Kroz koje vrhove prolazi bez obzira na $x, y$?</p>
+                <p class="pitanje">Izlaz $u$ iz $G_X$ i ulaz $v$ u $G_Y$; ostatak Benjamin računa iz oblika grupe.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Kako dobiti male grupe</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Greedy odozdo s pragom $B$. Zašto je maksimum $2B-1$? Koliko grupa najviše? Uklopi se u $2N+19$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Stiskanje bitova</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Nemoj slati polja neovisno — pomnoži brojeve mogućnosti i kodiraj jedan broj. Iskoristi i duljinu poruke (sve duljine $1..L$ daju $2^{L+1}-2$ poruka). Što od informacija Benjaminu uopće <i>ne</i> treba (izomorfna stabla, oblik nasuprot raspodjeli udaljenosti)?</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Slučaj $G_X = G_Y$: Ali mora poslati oblik jedne grupe i oba indeksa — pokrij ga posebnom granom.</li>
+        <li>Benjamin mora znati koji od $u, v$ je korijen grupe — npr. grupa bliža korijenu cijelog stabla dobiva manji broj.</li>
+        <li>Tablice stabala (66 / 38 / 553 …) generiraj programom identično na obje strane (isti kôd u <code>Ali.cpp</code> i <code>Benjamin.cpp</code>).</li>
+        <li>Lažni vrhovi ne smiju promijeniti udaljenosti stvarnih vrhova — dodaj ih kao listove.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="10" naslov="Uvod, zadatak i bodovanje">
+    <s n="1">Naslovni slajd: <i>Flights</i>; analiza: E869120 (Yoneda Masataka).</s>
+    <s n="2">Prije zadatka: natjecanja obično imaju batch zadatke, ali na olimpijadama se pojavljuju i komunikacijski.</s>
+    <s n="3">Što je komunikacijski zadatak?</s>
+    <s n="4">Pišeš dva programa koji komuniciraju u zadanom formatu i zajedno daju odgovor.</s>
+    <s n="5"><b>Sažetak.</b> Stablo s $N$ vrhova (zna ga samo Ali).</s>
+    <s n="6">① Ali dodijeli ID-ove vrhovima.</s>
+    <s n="7">② Benjamin dobije ID-ove $u, v$.</s>
+    <s n="8">③ Komunikacija; Benjamin odgovara udaljenost.</s>
+    <s n="9">Za puni broj bodova: Benjamin → Ali 20 bitova, Ali → Benjamin $\le 24$ bita.</s>
+    <s n="10">Krivulja bodova prema najduljem pismu (log skala): 300 000 bitova daje pozitivne bodove, 24 bita — sve.</s>
+</slajdovi>
+
+<h2>1. faza: do 20 000 bitova <span class="bodovi">15 bodova</span></h2>
+<slajdovi from="11" to="26" vrsta="koraci" naslov="Naivne strategije">
+    <s n="11">Faza 1: rješenja do 20 000 bitova.</s>
+    <s n="12"><b>7 bodova:</b> Ali pošalje cijelo stablo.</s>
+    <s n="13">$\approx 10\,000$ bridova × 2 krajnje točke = 20 000 brojeva…</s>
+    <s n="14">…po 14 bitova ($2^{14} - 1 = 16383 \ge 10000$)…</s>
+    <s n="15">…= 280 000 bitova.</s>
+    <s n="16">7 bodova.</s>
+    <s n="17"><b>11 bodova:</b> može li Benjamin poslati oba ID-a?</s>
+    <s n="18">Svaki treba 14 bitova…</s>
+    <s n="19">…zajedno 28 > 20. Ne.</s>
+    <s n="20">Ali jedan može.</s>
+    <s n="21">Benjamin šalje $X$; Ali šalje udaljenosti od $X$ do svih vrhova.</s>
+    <s n="22">10 000 brojeva…</s>
+    <s n="23">…po 14 bitova…</s>
+    <s n="24">…140 000 bitova.</s>
+    <s n="25">11 bodova.</s>
+    <s n="26"><b>15 bodova:</b> stablo se može poslati u 20 000 bitova.</s>
+</slajdovi>
+<slajdovi from="27" to="58" vrsta="koraci" naslov="Stablo kao zagradni niz">
+    DFS iz korijena: pri silasku dodaj 0, pri povratku 1; Benjamin čita znak po znak — 0 dodaje novi vrh (dijete trenutnog), 1 vraća korak natrag.
+    <s n="27">Ali: DFS iz proizvoljnog korijena; „0” kad ide dolje, „1” kad se vraća.</s>
+    <s n="40">Dobiveni niz <code>0011001011</code>. Kako Benjamin obnovi stablo?</s>
+    <s n="41">Čitaj niz: 0 = dodaj vrh, 1 = vrati se korak.</s>
+    <s n="54">Stablo je točno obnovljeno.</s>
+    <s n="55"><b>Problem:</b> Benjamin ne zna koji je vrh park, a koji toplice!</s>
+    <s n="56">Postavi ID-ove u <b>DFS redoslijedu</b> — vrhovi se pri obnovi dodaju upravo tim redom.</s>
+    <s n="57">$10\,000$ vrhova × 2 bita = 20 000 bitova. Malo je tko ovo koristio, ali kasnije će biti ključno.</s>
+    <s n="58">15 bodova.</s>
+</slajdovi>
+
+<h2>2. faza: do 672 bita <span class="bodovi">32 boda</span></h2>
+<slajdovi from="59" to="75" vrsta="koraci" naslov="Iskoristi Benjaminovih 20 bitova">
+    <s n="59">Faza 2.</s>
+    <s n="60"><b>Razmatranje 1.</b> Može li se Benjaminovih 20 bitova bolje iskoristiti?</s>
+    <s n="61">Npr. donjih 10 bitova od $X$ i donjih 10 od $Y$.</s>
+    <s n="62">Svaki sužava kandidate na $\approx 10000/2^{10} \approx 10$.</s>
+    <s n="63">Ali zna $(X, Y)$ do na 100 mogućnosti.</s>
+    <s n="64">Ali pošalje svih 100 udaljenosti redom.</s>
+    <s n="65">$100 \times 14 = 1400$ bitova.</s>
+    <s n="66">21 bod.</s>
+    <s n="67"><b>Malo poboljšanje:</b> pošalji $X$ i $Y$ zajedno.</s>
+    <s n="68">Paru $(X, Y)$ pridruži broj $u = X\cdot N + Y$ (do $10^8$).</s>
+    <s n="69">Pošalji $\lfloor u / 96\rfloor$ — 96 jer $10^8/96$ jedva ulazi u $2^{20}$.</s>
+    <s n="70">Ali šalje 96 udaljenosti: 1344 bita.</s>
+    <s n="71">22 boda.</s>
+    <s n="72"><b>Razmatranje 2.</b> Poredak parka i toplica nije bitan.</s>
+    <s n="73">Pretpostavi $X < Y$: maksimalni broj pada s $10^8$ na $5\cdot10^7$.</s>
+    <s n="74">Ali šalje 48 udaljenosti: 672 bita.</s>
+    <s n="75">32 boda. (Kombinacija s Eulerovom turom vodi do 50-ak bodova, ali nije na putu do punih.)</s>
+</slajdovi>
+
+<h2>3. faza: do 118 bitova <span class="bodovi">59 bodova</span></h2>
+<slajdovi from="76" to="102" vrsta="koraci" naslov="Dekompozicija u grupe">
+    Greedy odozdo prema gore s pragom $B = 4$: broj na vrhu je veličina trenutne grupe; kad dosegne $B$, brid prema roditelju se reže.
+    <s n="76">Faza 3.</s>
+    <s n="77"><b>Razmatranje 3 (ključno).</b> Stablo se može razbiti na povezane grupe čije se veličine razlikuju najviše 2 puta (osim jedne grupe).</s>
+    <s n="78">Postupak: odozdo; kad grupa premaši konstantu $B$, odreži brid.</s>
+    <s n="79">Primjer s $B = 4$.</s>
+    <s n="91">Veličina dosegla 4 — reži gornji (crveni) brid.</s>
+    <s n="95">Oba brida odrezana → veličina 1.</s>
+    <s n="99">Dobivene 4 grupe s najviše 5 vrhova.</s>
+    <s n="100">Kolika je najveća grupa?</s>
+    <s n="101">Izlazni stupanj $\le 2$; najgore: dva djeteta s $B-1$ vrhova koja se nisu odrezala → $2B - 1$.</s>
+    <s n="102">Najviše $N/B$ grupa veličine $\le 2B - 1$; sve osim korijenske imaju $\ge B$ vrhova.</s>
+</slajdovi>
+<slajdovi from="103" to="132" vrsta="koraci" naslov="Protokol s grupama (59 bodova)">
+    <s n="103">Uzmi $B = 7$. Kako komunicirati?</s>
+    <s n="104">Korak 1: ID-ovi.</s>
+    <s n="105">ID $= 14\cdot(\text{grupa}) + (\text{indeks u grupi})$; grupa ima $\le 13$ vrhova.</s>
+    <s n="106">…</s>
+    <s n="107">Grupa 0: ID-ovi 0–13.</s>
+    <s n="108">Grupa 1: 14–27.</s>
+    <s n="109">Grupa 2: 28–41.</s>
+    <s n="110">Korak 2: Benjamin → Ali.</s>
+    <s n="111">Šalje brojeve grupa $G_X$, $G_Y$.</s>
+    <s n="112">Grupa je do $10000/7 = 1429$; $1429^2 > 2^{20}$ — ne ulazi!</s>
+    <s n="113">Ali $1429^2 / 2 < 2^{20}$: pretpostavi $G_X \le G_Y$ (kao u 32-bodovnom rješenju).</s>
+    <s n="114">Korak 3: Ali → Benjamin.</s>
+    <s n="115"><b>Važno svojstvo:</b> između dviju grupa postoji put kojim se <i>mora</i> proći.</s>
+    <s n="116">Krajnja točka $u$ na strani parka (plavo), $v$ na strani toplica (crveno).</s>
+    <s n="117">…</s>
+    <s n="118">…</s>
+    <s n="119">Što Ali šalje?</s>
+    <s n="120">① udaljenosti od $u$ do svih vrhova njegove grupe…</s>
+    <s n="121">② udaljenosti od $v$ do vrhova njegove grupe…</s>
+    <s n="122">③ $d(u, v)$ (ovdje 4).</s>
+    <s n="123">Je li to dovoljno?</s>
+    <s n="124">Da — samo zbroji.</s>
+    <s n="125">Primjer: $4 + 0 + 0 = 4$.</s>
+    <s n="126">$4 + 1 + 2 = 7$.</s>
+    <s n="127">$4 + 2 + 0 = 6$.</s>
+    <s n="128">Koliko bitova?</s>
+    <s n="129">Od $u$: 13 vrhova × 4 bita = 52 (udaljenosti $\le 13 < 16$).</s>
+    <s n="130">Od $v$: 52.</s>
+    <s n="131">$d(u,v)$: 14. Ukupno 118.</s>
+    <s n="132">59 bodova.</s>
+</slajdovi>
+
+<h2>4. faza: do 40 bitova <span class="bodovi">84 boda</span></h2>
+<slajdovi from="133" to="159" vrsta="koraci" naslov="Oblik grupe umjesto udaljenosti">
+    <s n="133">Faza 4.</s>
+    <s n="134"><b>Razmatranje 4.</b> Može li se informacija o grupi slati učinkovitije?</s>
+    <s n="135">Usporedba: 11-bodovno rješenje šalje udaljenosti…</s>
+    <s n="136">…15-bodovno šalje stablo u $2(N-1)$ bita.</s>
+    <s n="137">Za grupu je jeftinije poslati stablo nego udaljenosti — provjerimo.</s>
+    <s n="138"><b>67 bodova:</b> Ali šalje ① stablo grupe $X$, ② stablo grupe $Y$, ③ $d(u,v)$, ④ indekse $u, v$ u grupama.</s>
+    <s n="139">Samo stablo nije dovoljno — trebaju i položaji $u, v$.</s>
+    <s n="140">Koliko bitova?</s>
+    <s n="141">$2\cdot 12 + 2\cdot 12 + 14 + 2\cdot 4 = 70$.</s>
+    <s n="142">67 bodova.</s>
+    <s n="143"><b>Razmatranje 5.</b> Ne predstavlja svaki 0/1 niz duljine $2(N-1)$ stablo.</s>
+    <s n="144">Nizovi koji predstavljaju stablo su točno <b>zagradni nizovi</b>: broj nula $\ge$ broj jedinica u svakom prefiksu, jednaki na kraju.</s>
+    <s n="145">Nizovi duljine 24: $2^{24}$.</s>
+    <s n="146">Zagradni nizovi duljine $\le 24$: oko 290 000 → 19 bitova (Catalanovi brojevi).</s>
+    <s n="147">72 boda.</s>
+    <s n="148"><b>Razmatranje 6.</b> Broj oblika može se još smanjiti.</s>
+    <s n="149">Točka 1: izlazni stupanj $\le 2$.</s>
+    <s n="150">Stupanj 4 i korijen stupnja 3 nisu mogući.</s>
+    <s n="151">Točka 2: podstabla (osim korijena) imaju $\le 6$ vrhova — veličina 7 bila bi odrezana!</s>
+    <s n="152">Primjer nemogućeg stabla s podstablom veličine 7.</s>
+    <s n="153">Zagradnih nizova $\le 24$: 290 000 (19 b.).</s>
+    <s n="154">Stabala koja zadovoljavaju uvjete: <b>325</b> (9 b.); bez identificiranja izomorfnih 1483 (11 b., 80 bodova).</s>
+    <s n="155">84 boda.</s>
+    <s n="156">Dodatak: za 84 boda izomorfna stabla moraju se smatrati jednakima.</s>
+    <s n="157">Kanonski oblik: djecu poredaj po leksikografskom poretku nizova njihovih podstabala.</s>
+    <s n="158">Podstabla „0101” i „0011”…</s>
+    <s n="159">…nakon preslagivanja isti zapis.</s>
+</slajdovi>
+
+<h2>5. faza: do 29 bitova <span class="bodovi">95 bodova</span></h2>
+<slajdovi from="160" to="179" vrsta="koraci" naslov="Korijen grupe, 13 vrhova, jedan broj">
+    <s n="160">Faza 5.</s>
+    <s n="161">Trenutno: stablo $X$ 9 b., stablo $Y$ 9 b., $d(u,v)$ 14 b., indeksi 8 b.</s>
+    <s n="162">Može li manje?</s>
+    <s n="163"><b>Razmatranje 7.</b> Od $u, v$ onaj dalji od korijena cijelog stabla…</s>
+    <s n="164">…je <b>korijen svoje grupe</b>.</s>
+    <s n="165">…</s>
+    <s n="166">(Ako nijedna grupa nije predak druge, oba su korijeni grupa.)</s>
+    <s n="167"><b>88 bodova:</b> indeks korijena grupe ne treba slati.</s>
+    <s n="168">4 bita manje. Da Benjamin zna koji je korijen: grupi bližoj korijenu daj manji broj.</s>
+    <s n="169">88 bodova.</s>
+    <s n="170"><b>Razmatranje 8.</b> Ne trebaju sva stabla s 1–13 vrhova.</s>
+    <s n="171">Dodavanjem lažnih vrhova svaka grupa postaje stablo s točno 13 vrhova uz stupanj $\le 3$ i podstabla $\le 6$.</s>
+    <s n="172">Stabala s $\le 13$ vrhova: 325 (9 b.).</s>
+    <s n="173">Stabala s točno 13: <b>66</b> (7 b.).</s>
+    <s n="174">92 boda.</s>
+    <s n="175"><b>Razmatranje 9.</b> Dosad 4 neovisna polja: 66, 66, 14, 10000 mogućnosti (7+7+4+14 bita).</s>
+    <s n="176">Zajedno: $66\cdot66\cdot14\cdot10000 = 609\,840\,000 < 2^{30}$ → 30 bitova.</s>
+    <s n="177">94 boda.</s>
+    <s n="178"><b>Razmatranje 10.</b> Ali koristi i duljinu poruke: sve duljine 1–29 daju $2^{30} - 2$ poruka.</s>
+    <s n="179">95 bodova.</s>
+</slajdovi>
+
+<h2>Dodatna faza: 24 bita <span class="bodovi">100 bodova</span></h2>
+<slajdovi from="180" to="195" vrsta="koraci" naslov="Raspodjela udaljenosti i korijen u centru">
+    <s n="180">Prema punim bodovima.</s>
+    <s n="181"><b>Razmatranje 11.</b> Umjesto stabla pošalji <b>raspodjelu udaljenosti</b>: različita stabla s istim udaljenostima od krajnje točke su „ista”.</s>
+    <s n="182">Kako?</s>
+    <s n="183">Korak 1: indeksi u grupi u BFS redoslijedu od korijena grupe.</s>
+    <s n="184">Korak 2: pošalji indeks krajnje točke i udaljenosti od nje do vrhova 0, 1, 2, … (ovdje $(0,1,1,2,2)$).</s>
+    <s n="185">Različita stabla šalju istu informaciju — ušteda.</s>
+    <s n="186">Krajnja točka korijen: 66 → <b>38</b> raspodjela.</s>
+    <s n="187">Općenito: $858 = 66\cdot13$ → 676.</s>
+    <s n="188">27 bitova, 97 bodova.</s>
+    <s n="189"><b>Razmatranje 12.</b> Vrh stupnja 3 unutar grupe ne može biti krajnja točka (jedan brid mu ide u drugu grupu).</s>
+    <s n="190">676 → <b>553</b>.</s>
+    <s n="191"><b>Razmatranje 13.</b> Za korijen cijelog stabla uzmi vrh stupnja $\ge 2$ što bliže centru.</s>
+    <s n="192">Centar je vrh 1, ali ima stupanj 3 — uzmi susjedni.</s>
+    <s n="193"><b>98 bodova:</b> kad jedan od $u, v$ nije korijen grupe, $d(u,v) \le 5000$.</s>
+    <s n="194">$38\cdot38\cdot10000 + 38\cdot515\cdot5000 = 112\,290\,000$ (515 = 553 − 38).</s>
+    <s n="195">26 bitova, 98 bodova.</s>
+</slajdovi>
+<slajdovi from="196" to="216" vrsta="koraci" naslov="Grupe od 14 vrhova">
+    <s n="196"><b>Razmatranje 14.</b> I s 14 vrhova po grupi ID ostaje $\le 2N+19$. Može li dodatni vrh smanjiti broj oblika?</s>
+    <s n="197">Stablo s 13 vrhova = lijevo podstablo 6 + centar + desno podstablo 6.</s>
+    <s n="198">Ukorijenjenih binarnih stabala sa 6 vrhova ima 11 (odatle $12\cdot11/2 = 66$).</s>
+    <s n="199">Dodavanjem jednog vrha dva se stabla mogu „spojiti”: stablo veličine 7 sadrži oba.</s>
+    <s n="200">Kako spajati da klasa bude što manje?</s>
+    <s n="201">Primjer spajanja…</s>
+    <s n="207">11 oblika → 5!</s>
+    <s n="208"><b>99 bodova:</b> dodaj vrh lijevom podstablu: $5\cdot11 = 55$ umjesto 66…</s>
+    <s n="209">…zapravo manje: numeriraj bijela stabla 0–10 i dodaj vrh onom s većim brojem → <b>28</b> oblika.</s>
+    <s n="210">S raspodjelama: 22 (korijen) / 304 (sve): $22\cdot(304+22)\cdot5000 \approx 3.59\cdot10^7 > 2^{25}$ — za dlaku 25 bitova.</s>
+    <s n="211">99 bodova.</s>
+    <s n="212"><b>Razmatranje 15.</b> Promijeni numeriranje!</s>
+    <s n="213">Prije: 22 / 304 → $3.59\cdot10^7$.</s>
+    <s n="214">Bolje: 22 / 296 → $3.50\cdot10^7$, još 25 bitova.</s>
+    <s n="215">Još bolje: <b>21 / 290</b> → $3.27\cdot10^7 < 2^{25}$ → sve duljine 1–24 → <b>24 bita</b>.</s>
+    <s n="216">Puni bodovi!</s>
+</slajdovi>
+<slajdovi from="217" to="222" naslov="Sažetak i raspodjela bodova">
+    <s n="217">Sažetak rješenja.</s>
+    <s n="218">Razbij stablo u grupe greedyjem odozdo (7–13 vrhova); $\le 1429$ grupa pa Benjamin šalje neuređen par u 20 bitova → osnovnih 59 bodova.</s>
+    <s n="219">Poboljšanja 1–7: stablo u $2N$ bitova (70 b., 67), Catalan (60 b., 72), stupanj/podstabla (44 b., 80), izomorfizam (40 b., 84), jedan indeks (36 b., 88), sve grupe 13 (32 b., 92), jedan broj (30 b., 94).</s>
+    <s n="220">Poboljšanja 8–11: sve duljine (29 b., 95), raspodjela udaljenosti (27 b., 97), korijen u centru (26 b., 98), 14 vrhova (24 b., 100).</s>
+    <s n="221">Autorov komentar: zadatak je teži od svih dotadašnjih JOI zadataka; strategija — skupljaj parcijalne bodove.</s>
+    <s n="222">Raspodjela bodova: najbolji 73, 70, 67; mnogo rezultata 15 i 21.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Grupe od 7–13 vrhova greedyjem odozdo; ID kodira grupu i indeks; Benjamin šalje neuređen par grupa.</li>
+        <li>Put među grupama prolazi fiksnim vrhovima $u, v$ — Ali šalje oblik/raspodjelu udaljenosti dviju grupa, položaj i $d(u,v)$.</li>
+        <li>Stiskanje: kanonska stabla, jedan zajednički broj, sve duljine poruke, raspodjele udaljenosti, korijen u centru, 14 vrhova → 24 bita.</li>
+    </ul>
+</div>

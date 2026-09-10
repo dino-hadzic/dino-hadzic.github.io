@@ -1,0 +1,209 @@
+@@ meta
+naslov = Putovnica
+engleski = Passport
+oznake = najkraći put, BFS, 0-1 BFS, Dijkstra, graf nad segmentnim stablom, intervali, više izvora
+autor_analize = Yoneda Hirotaka (square1001)
+
+@@ zadatak
+<h1>Putovnica</h1>
+<p><i>Passport</i> — JOI Spring Camp 2023, dan 1.</p>
+<p>$N$ zemalja u nizu. Putovnica zemlje $i$ dopušta ulazak u zemlje $L_i, \dots, R_i$, pri čemu $L_i \le i \le R_i$. Prijatelj kreće iz zemlje $X$ bez putovnice i ponavlja: <i>uzmi putovnicu zemlje u kojoj si</i>, ili <i>prijeđi u zemlju u koju te pušta neka putovnica koju imaš</i>. Želi posjetiti svih $N$ zemalja. Za svaki od $Q$ mogućih početaka $X_1 < \dots < X_Q$ ispiši najmanji broj putovnica koje mora uzeti, ili $-1$ ako je nemoguće.</p>
+<h3>Ograničenja</h3>
+<ul>
+    <li>$2 \le N \le 200\,000$, $1 \le Q \le N$.</li>
+    <li>$1 \le L_i \le i \le R_i \le N$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(6) $Q = 1$, $X_1 = 1$.</li>
+    <li>(16) $N \le 300$, $Q = 1$.</li>
+    <li>(24) $N \le 2\,500$, $Q = 1$.</li>
+    <li>(8) $N \le 2\,500$.</li>
+    <li>(46) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>4
+1 3
+2 4
+2 3
+3 4
+1
+1</pre></div>
+    <div><h4>Izlaz</h4><pre>2</pre></div>
+</div>
+<p>Iz zemlje 1: putovnica 1 (ulaz u 1–3), prijeđi u 2, putovnica 2 (ulaz u 2–4), zatim posjeti 3 i 4.</p>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5
+1 5
+2 4
+2 3
+3 5
+1 5
+1
+3</pre></div>
+    <div><h4>Izlaz</h4><pre>4</pre></div>
+</div>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5
+1 1
+2 3
+1 5
+3 4
+5 5
+5
+1 2 3 4 5</pre></div>
+    <div><h4>Izlaz</h4><pre>-1
+2
+1
+2
+-1</pre></div>
+</div>
+
+@@ rjesenje
+<h2>Preformulacija</h2>
+<p>Skup zemalja u koje možemo ući s trenutnim putovnicama uvijek je <b>interval</b> $[l, r]$ (svaka putovnica pokriva interval koji sadrži vlastitu zemlju, a nove uzimamo samo unutar dosega). Cilj je stanje $[1, N]$. Uzimanje putovnice $k \in [l, r]$ vodi u $[\min(l, L_k), \max(r, R_k)]$; prelasci unutar intervala su besplatni. Traži se najmanji broj koraka od $[X, X]$ do $[1, N]$ — <b>najkraći put</b>.</p>
+
+<h2>Podzadatak 1 ($X = 1$)</h2>
+<p>Interval se širi samo udesno pa je pohlepno optimalno: uvijek uzmi putovnicu s najvećim $R_k$ u dosegu. Prefiksni maksimumi $R$ daju $O(N)$. Pohlepa <b>ne vrijedi općenito</b> (protuprimjer sa $N=7$, $X=5$ u analizi).</p>
+
+<h2>Podzadaci 2–4: graf stanja $(l, r)$</h2>
+<p>$O(N^2)$ stanja i $O(N^3)$ bridova — BFS za $N \le 300$. Za $N \le 2\,500$ smanjimo bridove: stanje $(l,r)$ neka znači „možemo ući <i>barem</i> u $[l,r]$”, uz besplatne bridove $(l,r)\to(l+1,r)$ i $(l,r)\to(l,r-1)$. Tada su dovoljni bridovi cijene 1: $(l,r) \to (\min_{k\in[l,r]} L_k,\ r)$, $(l,r) \to (l,\ \max_{k\in[l,r]} R_k)$ i $(k,k) \to (L_k, R_k)$ — proširenje na obje strane putovnicom $k$ dobijemo tako da se prvo besplatno skupimo na $(k,k)$. 0-1 BFS u $O(N^2)$. Za sve početke (podzadatak 4) obrni bridove i kreni iz $(1,N)$.</p>
+
+<h2>Puni bodovi: Y-oblik i graf nad segmentnim stablom</h2>
+<p>Da je cilj samo „ući u zemlju 1”, dovoljan je graf s $N$ vrhova i bridovima $i \to j$ za $j \in [L_i, R_i]$ (brid = uzmi putovnicu $i$, prijeđi u $j$) — pamtiti treba samo zadnju putovnicu. Cilj $[1,N]$ znači „držati putovnicu koja pokriva 1 <b>i</b> putovnicu koja pokriva $N$”. Optimalno rješenje je zato <b>Y-oblika</b>: deblo $X \to \dots \to m$, pa dvije grane $m \to \dots \to 1$ i $m \to \dots \to N$; zajednički dio se plaća jednom.</p>
+<p>Definiraj $a_i$ = najmanji broj putovnica da iz $i$ <i>držimo putovnicu koja pokriva 1</i> ($a_1 = 1$, jer i u zemlji 1 treba putovnica koja je pokriva; općenito $a_i \ge 1$), analogno $b_i$ za $N$, te $c_m$ = najmanji broj putovnica (bridova) na putu $X \to m$. Tada</p>
+<p class="formula">$\text{odgovor}(X) = \min_m\bigl(c_m + a_m + b_m\bigr) - 1,$</p>
+<p>jer putovnicu $m$ obje grane broje. <b>Svi početci odjednom:</b> u obrnutom grafu (brid $j \to i$ za $j\in[L_i,R_i]$) $c_m$ je udaljenost $m \to X$, pa pokrenemo jedan Dijkstra/BFS iz svih vrhova s početnim udaljenostima $a_m + b_m$ (ekvivalentno: super-izvor $N+1$ s bridovima cijene $a_m+b_m$); odgovor za $X$ je $d_X - 1$, a $-1$ ako je nedostižno. $a$ i $b$ su obični BFS-ovi iz 1 i $N$ u obrnutom grafu (uz $a_1 = b_N = 1$).</p>
+<p>Obrnuti graf ima $O(N^2)$ bridova, ali su svi oblika „interval $\to$ vrh”. <b>Trik segmentnog stabla:</b> nad $1..N$ sagradi stablo s $2N$ vrhova, list $\to$ roditelj cijene 0; interval $[L_i,R_i]$ rastavi na $\le 2\log N$ čvorova i iz svakog povuci brid cijene 1 u $i$. Graf ima $O(N\log N)$ bridova; 0-1 BFS (odnosno Dijkstra s više izvora, jer početne udaljenosti nisu jednake) radi u $O(N\log N)$.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Što je stanje?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Dokaži da je skup dosežnih zemalja uvijek interval. Zašto ne moraš pamtiti koje točno putovnice imaš?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Zašto pohlepa pada</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Konstruiraj primjer gdje putovnica s najvećim dosegom nije dobar izbor. Zaključak: to je najkraći put, ne pohlepa.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Pojednostavi cilj</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kad bi cilj bio samo „uđi u 1”, koji graf s $N$ vrhova rješava zadatak? Kako iz toga složiti cilj „1 i $N$”?</p>
+                <p class="pitanje">Y-oblik: deblo do relejne točke, dvije grane; relejnu putovnicu broji jednom.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Svi početci u jednom prolazu</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Izraz $\min_m c_m + w_m$ s težinama vrhova $w_m$ — kako ga izračunati za sve $X$ istodobno?</p>
+                <p class="pitanje">Obrni bridove, Dijkstra iz svih $m$ s početnim $w_m$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Bridovi na interval</summary>
+            <div class="spoiler-sadrzaj">
+                <p>$\sum (R_i - L_i + 1)$ bridova je previše. Standardni trik za „interval $\to$ vrh” ili „vrh $\to$ interval”?</p>
+                <p class="pitanje">Segmentno stablo kao graf, $O(N\log N)$ bridova.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Dvostruko brojanje relejne putovnice — uzmi $a_1 = b_N = 1$ i oduzmi 1 (ili pazi na slučajeve $m = 1$, $m = N$ posebno).</li>
+        <li>Smjer bridova u segmentnom stablu: za „interval → vrh” listovi idu prema korijenu; za „vrh → interval” obrnuto.</li>
+        <li>Različite početne udaljenosti: obični BFS po slojevima nije dovoljan — 0-1 BFS uz sortiranje po početnoj vrijednosti ili Dijkstra.</li>
+        <li>Nedostižnost: ako neki od $a_m, b_m$ ne postoji, vrh $m$ nije izvor.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="6" naslov="Uvod">
+    <s n="1">Naslov; analiza: Yoneda Hirotaka (square1001).</s>
+    <s n="2">Jeste li bili u inozemstvu?</s>
+    <s n="3">Za to treba putovnica.</s>
+    <s n="4">Putovnice ne otvaraju sve granice (slika iz članka o „najmoćnijim putovnicama”).</s>
+    <s n="5">Zadatak: $N$ zemalja; putovnica zemlje $i$ vodi u $L_i..R_i$; za početke $X_1..X_Q$ najmanji broj putovnica da se obiđu sve zemlje ($-1$ ako nemoguće; početno bez putovnice).</s>
+    <s n="6">Podzadaci: $X=1$; $N\le300, Q=1$; $N\le2000, Q=1$; $N\le2000$; bez ograničenja.</s>
+</slajdovi>
+
+<h2>Podzadatak 1 <span class="bodovi">6 bodova</span></h2>
+<slajdovi from="7" to="15" vrsta="koraci" naslov="Preformulacija i pohlepa">
+    <s n="7">Poglavlje I.</s>
+    <s n="8"><b>Preformulacija:</b> minimizirati broj putovnica = što prije doći u stanje „putovnicama možemo ući u 1, 2, …, N” (korak = uzmi putovnicu, prijeđi).</s>
+    <s n="9">Primjer 1: početno dosežna samo zemlja 1. Crveno+crno = doseg svake putovnice.</s>
+    <s n="10">S putovnicom 1: dosežne 1, 2, 3.</s>
+    <s n="11">S putovnicom 2: sve (2 koraka).</s>
+    <s n="12">Cilj postignut.</s>
+    <s n="13">$X=1$: u svakom koraku optimalno uzeti (u dosegu) putovnicu s najvećim $R_i$ — putovnica 3 proširuje više od 2, sigurno ne šteti.</s>
+    <s n="14">Simulacija do „sve dosežno”: najviše $N$ koraka, $O(N^2)$; pazi na nemoguće. S prefiksnim maksimumom $R$: $O(N)$.</s>
+    <s n="15"><b>Oprez:</b> pohlepa ne vrijedi općenito. Protuprimjer $N=7$, $X_1=5$: optimalno je redom 5, 6, 7, dok „uvijek najveći doseg” griješi.</s>
+</slajdovi>
+
+<h2>Podzadaci 2–4 <span class="bodovi">48 bodova</span></h2>
+<slajdovi from="16" to="25" vrsta="koraci" naslov="Najkraći put nad intervalima">
+    <s n="16">Poglavlje II.</s>
+    <s n="17">„Najmanje poteza do ciljnog stanja” = najkraći put (kao slagalica).</s>
+    <s n="18">Stanje $(l,r)$ = možemo ući u $l..r$. Putovnica $k\in[l,r]$: $(l,r)\to(\min(l,L_k), \max(r,R_k))$. Traži se udaljenost $(X,X)\to(1,N)$.</s>
+    <s n="19">$O(N^2)$ vrhova, $O(N^3)$ bridova — BFS, $O(N^3)$. 22 boda.</s>
+    <s n="20">Smanjimo bridove. Tri slučaja: širi se samo lijevo; samo desno; obje strane (postaje $[L_k,R_k]$).</s>
+    <s n="21">Slučaj 1: optimalna je putovnica s minimalnim $L_k$; slučaj 2: s maksimalnim $R_k$. Slučaj 3: ne znamo koju!</s>
+    <s n="22"><b>Ideja:</b> $(l,r)$ = „možemo ući <i>barem</i> u $l..r$”; dodaj bridove $(l,r)\to(l+1,r)$, $(l,r)\to(l,r-1)$. Uz $(k,k)\to(L_k,R_k)$ slučaj 3 postaje $(l,r)\to(k,k)\to(L_k,R_k)$ — skupljanje na $(k,k)$ nizom bridova smanjivanja.</s>
+    <s n="23">Sažetak grafa: za $l \lt r$ bridovi cijene 1 u $(\min L, r)$ i $(l, \max R)$, cijene 0 u $(l+1,r)$, $(l,r-1)$; za $l=r=k$ brid u $(L_k,R_k)$.</s>
+    <s n="24">$O(N^2)$ vrhova i bridova: 01-BFS u $O(N^2)$. 46 bodova.</s>
+    <s n="25">Podzadatak 4: obrni sve bridove i računaj udaljenosti od $(1,N)$ do svih $(X,X)$ — $O(N^2)$ za sve upite. 54 boda.</s>
+</slajdovi>
+
+<h2>Puni bodovi <span class="bodovi">46 bodova</span></h2>
+<slajdovi from="26" to="35" vrsta="koraci" naslov="Y-oblik">
+    <s n="26">Poglavlje III.</s>
+    <s n="27">Kad bi cilj bio „ući u zemlju 1”: graf s $N$ vrhova, $i \to L_i..R_i$, najkraći put — smijemo zaboraviti sve osim zadnje putovnice. Pravi cilj je teži.</s>
+    <s n="28">Primjer grafa i najkraćeg puta.</s>
+    <s n="29"><b>Preformulacija:</b> „sve zemlje” $\iff$ „možemo ući u 1 <i>i</i> u $N$” — doseg je interval zbog $L_i\le i\le R_i$.</s>
+    <s n="30">Odvojeno gledaj put do 1 i put do $N$…</s>
+    <s n="31">…paralelni dio pokriva jedna putovnica, pa se koraci štede.</s>
+    <s n="32">Općenito je optimum <b>Y-oblika</b>: deblo $X\to$ relej, grana do 1, grana do $N$; minimiziramo ukupan broj bridova (= putovnica).</s>
+    <s n="33">Metoda 1: $a_i$ = udaljenost od 1 obrnutim bridovima, $b_i$ od $N$, $c_i$ od $X$; odgovor $\min(a_i+b_i+c_i)$. (Za $Q=1$.)</s>
+    <s n="34">Metoda 2: obrni bridove; dodaj vrh $N+1$ s bridovima cijene $a_i+b_i$ u $i$; udaljenosti $d_i$ od $N+1$ su odgovori za sve početke.</s>
+    <s n="35">$O(N^2)$ — može li bolje?</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Off-by-one u formuli.</b> Ako $a_i, b_i$ računaš kao obične BFS-udaljenosti ($a_1 = 0$), izraz $\min(a_i+b_i+c_i)$ broji relejnu putovnicu dvaput. Protuprimjer: $N=3$, $L=(1,1,2)$, $R=(2,3,3)$, $X=2$: putovnica 2 pokriva sve, odgovor je 1, formula daje 2. Ispravno: neka $a_i$ znači „najmanje putovnica da <i>držim</i> putovnicu koja pokriva 1” ($a_1 = 1$, $a_i\ge1$), isto $b_i$; tada je odgovor $\min_m(a_m+b_m+c_m) - 1$. Ekvivalentno, s $a_1 = 0$: $c_m + a_m + b_m - [a_m>0 \wedge b_m>0]$. Oboje provjereno protiv grube sile nad stanjima $(l,r)$.</p>
+    <p><b>Zašto Y-oblik pokriva sve.</b> Zadnja putovnica koja je proširila doseg do 1 i zadnja koja ga je proširila do $N$ dostižu se lancima putovnica; oba lanca počinju u $X$ i nakon što se razdvoje više se ne spajaju (spajanje bi značilo da je jedna putovnica dovoljna za nastavak). Zajednički prefiks je deblo.</p>
+</div>
+<slajdovi from="36" to="40" vrsta="koraci" naslov="Trik: bridovi na interval preko segmentnog stabla">
+    <s n="36">Primjer s 16 vrhova.</s>
+    <s n="37">Dodaj vrhove i usmjerene bridove u obliku segmentnog stabla.</s>
+    <s n="38">Želimo bridove iz $X$ u $3..13$: povuci bridove u crvene čvorove.</s>
+    <s n="39">„Brid na interval” ostvaren s $\le 2\log N$ bridova.</s>
+    <s n="40">Graf rješenja ima $2N$ vrhova i $O(N\log N)$ bridova; prilagođeni BFS u $O(N\log N)$. 100 bodova.</s>
+</slajdovi>
+<slajdovi from="41" to="42" naslov="Bodovi">
+    <s n="41">Poglavlje IV.</s>
+    <s n="42">Raspodjela bodova: 100 (1), 54 (7), 46 (3), 40 (1), 22 (8), 16 (1), 6 (5), 0 (2).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Doseg je interval; cilj je držati putovnice koje pokrivaju 1 i $N$.</li>
+        <li>Optimum je Y-oblika: $\min_m (a_m + b_m + c_m) - 1$ uz $a_1 = b_N = 1$.</li>
+        <li>Obrnuti graf + super-izvor s težinama $a_m+b_m$ daje sve početke jednim prolazom; segmentno stablo kao graf → $O(N\log N)$.</li>
+    </ul>
+</div>

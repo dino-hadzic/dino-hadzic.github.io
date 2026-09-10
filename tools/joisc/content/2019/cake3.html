@@ -1,0 +1,194 @@
+@@ meta
+naslov = Torta 3
+engleski = Cake 3
+oznake = kružni poredak M komada: min zbroj |ΔC| = 2(max C − min C), sortiraj po C, interval [l,r] duljine ≥ M: zbroj M najvećih V − (C_r − C_l), optimalni desni kraj f(l) neopadajući, divide & conquer / monotone minima, pomični interval (Mo-stil) sa dvije BIT/segmentna stabla nad rangovima V, O(N log² N)
+autor_analize = Shimizu Ikumi
+
+@@ zadatak
+<h1>Torta 3</h1>
+<p><i>Cake 3</i> — JOI Spring Camp 2019, dan 4.</p>
+<p>$N$ komada torte, komad $i$ ima vrijednost $V_i$ i boju $C_i$. Odaberi $M$ različitih komada i poredaj ih u krug; ljepota $=\sum V_{k_j}-\sum|C_{k_j}-C_{k_{j+1}}|$ (ciklički). Maksimiziraj.</p>
+<h3>Ograničenja</h3>
+<ul><li>$3\le M\le N\le2\cdot10^5$; $V_i,C_i\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(5) $N\le100$.</li>
+    <li>(19) $N\le2000$.</li>
+    <li>(76) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>5 3
+2 1
+4 2
+6 4
+8 8
+10 16</pre></div>
+    <div><h4>Izlaz</h4><pre>6</pre></div>
+</div>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>8 4
+112103441 501365808
+659752417 137957977
+86280801 257419447
+902409188 565237611
+965602301 689654312
+104535476 646977261
+945132881 114821749
+198700181 915994879</pre></div>
+    <div><h4>Izlaz</h4><pre>2323231661</pre></div>
+</div>
+
+@@ rjesenje
+<h2>Krug po boji</h2>
+<p>Za fiksiran skup komada, poredak po $C$ (uzlazno pa natrag) daje zbroj razlika $2(\max C-\min C)$, i to je minimum (svaka „visina” između min i max mora biti prijeđena barem dvaput). Udvostruči $C$ unaprijed. Novi zadatak: <b>odaberi $M$ komada; maksimiziraj $\sum V-(\max C-\min C)$</b>.</p>
+
+<h2>Intervali u sortiranom poretku <span class="bodovi">24</span></h2>
+<p>Sortiraj po $C$. Za interval $[l,r]$ (duljine $\ge M$) vrijednost je $g(l,r)=\text{(zbroj }M\text{ najvećih }V\text{ u }[l,r])-(C_r-C_l)$. Fiksiraj $l$, pomiči $r$ udesno s prioritetnim redom koji drži $M$ najvećih: $O(N^2\log N)$.</p>
+
+<h2>Monotonost i podijeli pa vladaj <span class="bodovi">100</span></h2>
+<p>Neka je $f(l)$ optimalan desni kraj za lijevi kraj $l$ (najmanji ako više). <b>Tvrdnja:</b> $f$ je neopadajuća. Skica: ako bi $f(l+1)\lt f(l)$, promatraj koliko dodavanje komada iz $(f(l+1),f(l)]$ podiže zbroj $M$ najvećih: za interval $[l,f(l+1)]$ podiže ga barem koliko za $[l+1,f(l+1)]$ (manji skup ⇒ dodatak vrijedi više ili jednako), a trošak $C$ je isti; pa je $[l+1,f(l)]$ barem toliko dobar za $l+1$ — kontradikcija (uz pravilo izbora).</p>
+<p>Zato <b>podijeli pa vladaj</b> (monotone minima): za srednji $l=m$ ispitaj sve dopuštene $r\in[lo,hi]$, nađi $f(m)$; lijeva polovica $l\lt m$ ima $r\le f(m)$, desna $r\ge f(m)$. Ukupna površina pretraženog prostora $O(N\log N)$ parova $(l,r)$.</p>
+<h3>Kako brzo računati $g(l,r)$ za mnoge parove?</h3>
+<p>Ne online: pomični interval. U jednoj razini rekurzije parovi koje treba izračunati imaju <b>oba kraja neopadajuća</b> (kad idemo po $m$ slijeva, $r$ raste unutar $[lo,hi]$ blokova koji su i sami monotoni). Zato jedan pokazivač $[L,R]$ koji samo <b>pomiče desni kraj udesno i lijevi kraj udesno</b> obiđe cijelu razinu u $O(N)$ pomaka. Struktura: dva segmentna stabla (ili BIT) nad rangovima $V$: broj živih i zbroj $V$; „zbroj $M$ najvećih” = spusti se s desna dok ne skupiš $M$ (binarno pretraživanje na stablu), $O(\log N)$ po upitu. $\log N$ razina × $O(N\log N)$ = $O(N\log^2N)$.</p>
+<p class="trener-umetak"><b>Implementacija razine.</b> BFS-stil: lista trojki (lijevi interval $[a,b]$, dopušteni $r\in[lo,hi]$); obradi ih redom (rastući $a$), za svaku uzmi $m=\lfloor(a+b)/2\rfloor$ i prođi $r$ od $\max(lo,m+M-1)$ do $hi$; sljedeća razina dobiva $([a,m-1],[lo,f(m)])$ i $([m+1,b],[f(m),hi])$. Redoslijed obrade unutar razine daje monotone krajeve — pomični interval ne mora se vraćati ulijevo. Rekurzivna verzija također radi, ali pomični interval tada može „skakati”, što je ipak amortizirano OK jer se svaki par posjećuje jednom (autor bira BFS zbog jasne monotonosti).</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Ubij krug</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Sortiraj skup po boji: zbroj razlika $=2(\max-\min)$. Dokaži da manje ne može.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Intervali</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Nakon sortiranja, skup je „unutar intervala $[l,r]$” i uzimaš $M$ najvećih $V$; cijena ovisi samo o krajevima.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Monotonost optimuma</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Dokaži $f(l)\le f(l+1)$ zamjenom argumenta; onda monotone minima s pomičnim intervalom (kao IOI 2014 Holiday).</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zaboraviti uvjet $r-l+1\ge M$ pri traženju $f(m)$.</li>
+        <li>Izjednačeni $C$: sortiraj stabilno po $(C,V)$; formula i dalje vrijedi.</li>
+        <li>Pomični interval: brojanje pomaka po razini mora biti $O(N)$ — ne vraćaj se; ili prihvati amortizaciju.</li>
+        <li>Zbroj do $2\cdot10^{14}$ ⇒ 64-bit; početna vrijednost $-\infty$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Naslov i zadatak">
+    <s n="1">(naslovna)</s>
+    <s n="2">(naslovna)</s>
+    <s n="3">Autor: Shimizu Ikumi; dan 4.</s>
+    <s n="4">$N,M$; $(V_i,C_i)$; odaberi $M$, kružno; max $\sum V-\sum|\Delta C|$.</s>
+</slajdovi>
+
+<slajdovi from="5" to="12" vrsta="koraci" naslov="Krug ⇒ 2(max − min)">
+    <s n="5">Za odabranih $M$: kako ih poredati?</s>
+    <s n="6">Točke na osi $C$.</s>
+    <s n="7">Krug preko njih.</s>
+    <s n="8">Proizvoljan poredak: neki segmenti prelaze se 4, 6 puta…</s>
+    <s n="9">Sortirani poredak: svaki segment točno 2 puta.</s>
+    <s n="10">Optimum $=2(\max-\min)$.</s>
+    <s n="11">Udvostruči $C$ da nestane faktor 2.</s>
+    <s n="12">Novi zadatak: max $\sum V-(\max C-\min C)$ po $M$-podskupovima.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–2 <span class="bodovi">24 boda</span></h2>
+<slajdovi from="13" to="17" vrsta="koraci" naslov="O(N³), O(N² log N)">
+    <s n="13">$N\le100$: fiksiraj min i max $C$, uzmi $M$ najvećih $V$ između: $O(N^3)$ ili $O(N^3\log N)$.</s>
+    <s n="14">Sortiraj po $(C,V)$; za svaki interval duljine $\ge M$: zbroj $M$ najvećih minus $C_r-C_l$.</s>
+    <s n="15">Fiksiraj $l$, pomiči $r$; prioritetni red za $M$ najvećih: $O(N^2\log N)$.</s>
+    <s n="16">Ovo bi svi trebali riješiti.</s>
+    <s n="17">Usput: DP u $O(N^2)$ postoji, ali ubrzanja DP-a nisu obećavajuća.</s>
+</slajdovi>
+
+<h2>Puno rješenje <span class="bodovi">76 bodova</span></h2>
+<slajdovi from="18" to="27" vrsta="koraci" naslov="Monotonost optimalnog desnog kraja">
+    <s n="18">$O(N^2)$ intervala je previše: želimo $O(N)$.</s>
+    <s n="19">Za svaki lijevi kraj gledati samo optimalni desni.</s>
+    <s n="20">Primjer 1: matrica (l, r) vrijednosti.</s>
+    <s n="21">Primjer 2.</s>
+    <s n="22">Vlastiti primjer — optimumi se pomiču udesno.</s>
+    <s n="23">Pretpostavi $f(l+1)\lt f(l)$…</s>
+    <s n="24">Označi dodatne elemente $x$.</s>
+    <s n="25">Dodavanje njih u $[l,f(l+1)]$ diže zbroj $M$ najvećih za $\ge x$…</s>
+    <s n="26">…pa i dodavanje u podskup $[l+1,f(l+1)]$ diže za $\ge x$ (podskup ⇒ veći dobitak).</s>
+    <s n="27">Zaključak: $f$ se može uzeti neopadajućom.</s>
+</slajdovi>
+
+<slajdovi from="28" to="43" vrsta="koraci" naslov="Podijeli pa vladaj (monotone minima)">
+    <s n="28">…?</s>
+    <s n="29">Podijeli pa vladaj.</s>
+    <s n="30">Prostor (l, r).</s>
+    <s n="31">Gornji trokut dopušten.</s>
+    <s n="32">Uzmi srednji $l=m$.</s>
+    <s n="33">Ispitaj sve $r$ u retku $m$.</s>
+    <s n="34">Nađi $f(m)$.</s>
+    <s n="35">Lijevo gore: $r\le f(m)$.</s>
+    <s n="36">Desno dolje: $r\ge f(m)$.</s>
+    <s n="37">Rekurzija.</s>
+    <s n="38">…</s>
+    <s n="39">…</s>
+    <s n="40">Fiksiraj $m$, probaj sve $r$; rekurzivno na lijevo i desno područje.</s>
+    <s n="41">Površina se polovi; ako je $g(l,r)$ u $O(X)$, ukupno $O(NX\log N)$.</s>
+    <s n="42">Zove se „monotone minima”.</s>
+    <s n="43">Srodno: IOI 2014 Holiday.</s>
+</slajdovi>
+
+<slajdovi from="44" to="56" vrsta="koraci" naslov="Zbroj M najvećih u [l, r]: pomični interval">
+    <s n="44">Kako izračunati zbroj $M$ najvećih u $[l,r]$?</s>
+    <s n="45">Potpuno online teško.</s>
+    <s n="46">Wavelet matrix? segmentno stablo vektora? binarno pretraživanje?</s>
+    <s n="47">Treba $\approx O(\log N)$ po upitu — izgleda nemoguće.</s>
+    <s n="48">Iskoristi redoslijed upita iz podjele.</s>
+    <s n="49">Alat: pristup iz podzadatka 2.</s>
+    <s n="50">Od $[i,i]$ produljivati desni kraj: $O(\log N)$ po koraku.</s>
+    <s n="51">Skraćivati lijevi kraj?</s>
+    <s n="52">Zapravo može (kasnije).</s>
+    <s n="53">Ne smije se plaćati duljina intervala po upitu.</s>
+    <s n="54">Produljuj desni, skraćuj lijevi — ukupni pomaci $O(N)$ po razini.</s>
+    <s n="55">Od $[0,0]$ pomiči krajeve, održavaj zbroj $M$ najvećih, računaj potrebne vrijednosti; zatim podijeli područja i ponovi.</s>
+    <s n="56">$\log N$ iteracija; u iteraciji lijevi i desni krajevi upita monotoni (nalik parallel binary search, BFS); rekurzivno također ide.</s>
+</slajdovi>
+
+<slajdovi from="57" to="64" vrsta="koraci" naslov="Struktura podataka">
+    <s n="57">Implementacija.</s>
+    <s n="58">Treba: dodaj vrijednost, ukloni vrijednost, zbroj $M$ najvećih živih.</s>
+    <s n="59">Balansirano stablo s $k$-tim elementom (pb_ds tree) ili vlastito.</s>
+    <s n="60">pb_ds zahtijeva puno „čarolija” — bez interneta na JOI-u teško.</s>
+    <s n="61">I konstanta je sumnjiva; ne preporučuje se.</s>
+    <s n="62">Dva segmentna stabla nad poretkom po $V$: broj živih i zbroj $V$; binarno pretraživanje s desna do $M$ komada, pa zbroj sufiksa. $O(\log N)$.</s>
+    <s n="63">$\log N$ iteracija, u svakoj inicijaliziraj i pomiči; svaka pozicija dodana/uklonjena jednom po iteraciji: $O(N\log^2N)$.</s>
+    <s n="64">„Implementacija: napiše se kod.”</s>
+</slajdovi>
+
+<slajdovi from="65" to="68" naslov="Statistika">
+    <s n="65">Raspodjela bodova (slikovito: kolačići).</s>
+    <s n="66">1 prazna košarica (0).</s>
+    <s n="67">19 malih (podzadaci 1–2).</s>
+    <s n="68">1 velika (100).</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Krug ⇒ $2(\max C-\min C)$; sortiraj; intervali s $M$ najvećih $V$.</li>
+        <li>Optimalni $r$ monoton u $l$ ⇒ monotone minima; pomični interval + segmentna stabla nad rangovima $V$: $O(N\log^2N)$.</li>
+    </ul>
+</div>

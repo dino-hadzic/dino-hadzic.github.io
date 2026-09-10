@@ -1,0 +1,164 @@
+@@ meta
+naslov = Plan liječenja
+engleski = Treatment Project
+oznake = najkraći put, Dijkstra, segmentno stablo, geometrija intervala
+autor_analize = nxteru
+
+@@ zadatak
+<h1>Plan liječenja</h1>
+<p><i>Treatment Project</i> — JOI Spring Camp 2020, dan 4.</p>
+<p>U nizu je $N$ kuća, u svakoj jedan građanin; svi su zaraženi. Predloženo je $M$ planova liječenja: plan $i$ košta $C_i$ i <b>večer</b> $T_i$-tog dana liječi sve zaražene građane $x$ s $L_i \le x \le R_i$. Virus se širi: ako je građanin $x$ zaražen <b>ujutro</b>, u <b>podne</b> istog dana zaraženi su i $x-1$ i $x+1$ (ako postoje). Izliječeni se može ponovno zaraziti.</p>
+<p>Odaberi podskup planova tako da nakon svih izvedenih planova nitko nije zaražen (više planova može biti istog dana). Ispiši najmanji ukupni trošak ili $-1$ ako je nemoguće.</p>
+<h3>Ulaz</h3>
+<pre>N M
+T_1 L_1 R_1 C_1
+⋮
+T_M L_M R_M C_M</pre>
+<h3>Izlaz</h3>
+<p>Najmanji trošak ili $-1$.</p>
+<h3>Ograničenja</h3>
+<ul class="ogranicenja">
+    <li>$1 \le N \le 10^9$, $1 \le M \le 100\,000$, $1 \le T_i, C_i \le 10^9$, $1 \le L_i \le R_i \le N$.</li>
+</ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(4 boda) $T_i = 1$ za sve $i$.</li>
+    <li>(5 bodova) $M \le 16$.</li>
+    <li>(30 bodova) $M \le 5000$.</li>
+    <li>(61 bod) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjeri</h3>
+<div class="primjeri">
+    <div><h4>Ulaz 1</h4><pre>10 5
+2 5 10 3
+1 1 6 5
+5 2 8 3
+7 6 10 4
+4 1 3 1</pre></div>
+    <div><h4>Izlaz 1</h4><pre>7</pre></div>
+    <div><h4>Ulaz 2</h4><pre>10 5
+2 6 10 3
+1 1 5 5
+5 2 7 3
+8 6 10 4
+4 1 3 1</pre></div>
+    <div><h4>Izlaz 2</h4><pre>-1</pre></div>
+    <div><h4>Ulaz 3</h4><pre>10 5
+1 5 10 4
+1 1 6 5
+1 4 8 3
+1 6 10 3
+1 1 3 1</pre></div>
+    <div><h4>Izlaz 3</h4><pre>7</pre></div>
+</div>
+<p>Primjer 1: planovi 1 (dan 2, $[5,10]$), 5 (dan 4, $[1,3]$) i 3 (dan 5, $[2,8]$). Nakon plana 1 zaraženi su $1..4$; do dana 4 zaraza se širi na $5, 6$; plan 5 liječi $1..3$; dan 5 širi na $3, 7$; plan 3 liječi $3..7$ — nitko nije zaražen. Trošak $7$.</p>
+
+@@ rjesenje
+<h2>Geometrija: izliječeno područje se skuplja 1 po danu s obje strane</h2>
+<p>Plan $a$ izliječi $[L_a, R_a]$ večer dana $T_a$; nakon $d$ dana zdrav ostaje samo $[L_a + d, R_a - d]$ (osim ako je rub kod kuće $1$ ili $N$ — tamo nema odakle doći). Odabrani planovi zadovoljavaju uvjet <b>točno kad</b> postoji lanac planova $a_1, a_2, \ldots, a_k$ s $L_{a_1} = 1$, $R_{a_k} = N$ i „susjedni se planovi <b>dodiruju</b>”: zdravo područje plana $a$ u trenutku $T_b$ mora sezati do $L_b - 1$:
+\[ L_b \le R_a - |T_b - T_a| + 1. \]
+Tada zdravi dijelovi tvore neprekinutu granicu od kuće $1$ do kuće $N$ koja odvaja „zaraženo” od „izliječeno”; lanac se može čitati u bilo kojem smjeru vremena, zato apsolutna vrijednost. (Skica dokaza: promatraj najlijeviju kuću koja je na kraju zdrava zbog nekog plana, pa induktivno slijedi kako se zdravost „prenosi” desno.)</p>
+<p><b>Najkraći put:</b> vrhovi = planovi, brid $a \to b$ cijene $C_b$ ako se dodiruju; izvor = svi planovi s $L = 1$ (udaljenost $C_a$); odgovor = $\min$ udaljenosti planova s $R = N$. Za $M \le 5000$ svi bridovi + Dijkstra: $O(M^2)$.</p>
+
+<h2>Puni bodovi: Dijkstra bez eksplicitnih bridova</h2>
+<p>Dva svojstva: (1) svi bridovi u $b$ imaju istu cijenu $C_b$, pa u Dijkstri <b>prvo</b> ažuriranje udaljenosti vrha $b$ je već konačno — svaki vrh treba naći i „ubaciti” samo jednom, nakon čega ga <b>brišemo</b> iz strukture; (2) uvjet dodira razdvoji po znaku $T_b - T_a$:</p>
+<ul>
+    <li>$T_b \ge T_a$: $L_b + T_b \le R_a + T_a + 1$;</li>
+    <li>$T_b \le T_a$: $L_b - T_b \le R_a - T_a + 1$.</li>
+</ul>
+<p>Sortiraj planove po $T$. Drži dva segmentna stabla nad tim poretkom: jedno s ključem $L + T$, drugo s $L - T$ (minimum na intervalu, s „brisanjem” = postavi na $\infty$ u oba). Kad Dijkstra izvadi plan $a$: u prvom stablu na sufiksu $T \ge T_a$ vadi minimum dok je $\le R_a + T_a + 1$ — svaki izvađeni $b$ dobiva $\mathrm{dist}[b] = \mathrm{dist}[a] + C_b$, ide u red i briše se; u drugom stablu na prefiksu $T \le T_a$ isto s pragom $R_a - T_a + 1$. Svaki plan je izvađen najviše jednom → $O(M\log M)$.</p>
+<p class="trener-napomena">Službena analiza koristi rotaciju za $45^\circ$ ($X = L - T$, $Y = L + T$): skup ažurabilnih planova je „donji-lijevi kvadrant” $X \le R_a - T_a + 1$, $Y \le R_a + T_a + 1$, koji se enumerira i briše u merge-sort stablu. Razdvajanje po znaku $T_b - T_a$ daje istu složenost uz jednostavnija stabla.</p>
+
+@@ trener
+<ol class="koraci">
+    <li>
+        <details class="spoiler korak">
+            <summary>Podzadatak 1: sve istog dana</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Kad je $T_i = 1$, tražimo pokrivanje $[1, N]$ intervalima uz najmanju cijenu. Sortiraj po $R$, $\mathrm{dp}[i] = C_i + \min\{\mathrm{dp}[j] : R_j \ge L_i - 1\}$ — minimum na intervalu (segmentno stablo).</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Što znači „nitko nije zaražen” za skup planova?</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Nacrtaj dijagram (kuća, dan). Svaki plan je vodoravni segment; zdravo područje ispod njega je trokut koji se sužava za 1 dnevno. Kako moraju biti povezani segmenti da bi granica išla od kuće 1 do kuće $N$?</p>
+                <p class="pitanje">Trokuti susjednih planova se moraju dodirivati ili preklapati: $L_b \le R_a - |T_b - T_a| + 1$.</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Najkraći put</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Vrh = plan, brid $a \to b$ cijene $C_b$. Zašto je rješenje najkraći put od $\{L = 1\}$ do $\{R = N\}$ i zašto ne treba brinuti o „suvišnim” planovima u lancu?</p>
+            </div>
+        </details>
+    </li>
+    <li>
+        <details class="spoiler korak">
+            <summary>Dijkstra s $M^2$ bridova → $M\log M$</summary>
+            <div class="spoiler-sadrzaj">
+                <p>Uoči da svi bridovi u $b$ koštaju isto. Što to znači za Dijkstru? Kako pronaći sve još neposjećene $b$ koji zadovoljavaju uvjet dodira brzo? Podijeli uvjet po znaku $T_b - T_a$.</p>
+            </div>
+        </details>
+    </li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zaborav „$+1$” u uvjetu dodira (intervali $[1,3]$ i $[4,6]$ istog dana se dodiruju).</li>
+        <li>Rubovi kod kuća $1$ i $N$: plan s $L = 1$ ostaje zdrav slijeva zauvijek — zato su to izvori/ponori, ne treba poseban tretman.</li>
+        <li>Brisanje samo iz jednog od dva segmentna stabla → plan se obradi dvaput (i dalje točno, ali kvadratno u lošem slučaju).</li>
+        <li>Prelijevanje: udaljenosti do $10^{14}$; koristi 64 bita; $-1$ ako nijedan plan s $R = N$ nije dosegnut.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="2" naslov="Sažetak">
+    <s n="1">Naslovni slajd: <i>Treatment Project</i>, analiza: nxteru.</s>
+    <s n="2"><b>Sažetak.</b> Zadani su planovi koji uz trošak određenog dana liječe interval; izliječeni se interval s vremenom skuplja. Najmanji trošak da svi budu izliječeni.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–2 <span class="bodovi">9 bodova</span></h2>
+<slajdovi from="3" to="5" vrsta="koraci" naslov="Pokrivanje intervalima i iscrpno">
+    <s n="3"><b>Podzadatak 1.</b> $T_i = 1$: intervali s cijenama — pokrij sve uz minimalan trošak.</s>
+    <s n="4">Sortiraj po $R$; $\mathrm{dp}[i]$ = min trošak da s planovima do $i$ pokrijemo do $R_i$: $\mathrm{dp}[i] = \min\{\mathrm{dp}[j] : j < i,\ L_i - 1 \le R_j\} + C_i$. Skup $j$ je interval → segmentno stablo za minimum, $O(M\log M)$.</s>
+    <s n="5"><b>Podzadatak 2.</b> $M \le 16$: svih $2^M$ podskupova; provjera uvjeta je pomalo mučna, ali $M$ je mali — autorova implementacija $O(2^M M^2)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 3 <span class="bodovi">30 bodova</span></h2>
+<slajdovi from="6" to="9" vrsta="koraci" naslov="Uvjet kao graf">
+    <s n="6">Od sada treba pravo razmišljanje: kakav skup planova zadovoljava uvjet iz podzadatka 2?</s>
+    <s n="7">Primjer skupa planova koji zadovoljava uvjet (dijagram kuća × dana).</s>
+    <s n="8"><b>Opažanje.</b> Izliječeni intervali, dok se sužavaju, spajaju se međusobno i tvore granicu između zaraženog i izliječenog područja. Dovoljno je od plana koji sadrži građanina $1$ preći po povezanim planovima do plana koji sadrži građanina $N$ → <b>najkraći put</b>.</s>
+    <s n="9">Iz plana $a$ u plan $b$ brid cijene $C_b$ ako $L_b \le R_a - |T_b - T_a| + 1$. Provjeri sve parove, Dijkstra: $O(M^2)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 4 <span class="bodovi">61 bod</span></h2>
+<slajdovi from="10" to="13" vrsta="koraci" naslov="Dvije dobre osobine">
+    <s n="10">$M \le 10^5$: ne možemo ni nabrojati bridove. Treba iskoristiti posebnosti problema.</s>
+    <s n="11"><b>Osobina 1.</b> Rotacijom za $45^\circ$: $X_i = L_i - T_i$, $Y_i = L_i + T_i$. Iz $a$ se ide u $b$ ako $X_b \le R_a - T_a + 1$ i $Y_b \le R_a + T_a + 1$ — planovi čiji lijevi kraj leži u pravokutnom (kvadrantnom) području.</s>
+    <s n="12"><b>Osobina 2.</b> Svi bridovi koji ulaze u $a$ imaju istu cijenu $C_a$. U Dijkstri je zato prvo ažuriranje udaljenosti plana $a$ već konačno → nakon jednog ažuriranja plan više ne gledamo!</s>
+    <s n="13">Dijkstra s prioritetnim redom: pri ažuriranju enumeriraj točke pravokutnog područja i ukloni ih. Potrebna je struktura za <b>enumeraciju i brisanje točaka u pravokutniku</b>.</s>
+</slajdovi>
+<slajdovi from="14" to="17" vrsta="koraci" naslov="Merge-sort stablo s brisanjem">
+    <s n="14">Sortiraj planove po $X$; nad tim poretkom segmentno stablo u kojem svaki čvor drži planove svog $X$-raspona <b>sortirane po $Y$</b> (spajanje djece kao u merge sortu). Izgradnja $O(M\log M)$.</s>
+    <s n="15">Kad Dijkstra izvadi plan $a$: pristupi čvorovima koji pokrivaju $X \le R_a - T_a + 1$; u svakom čvoru uzimaj planove po rastućem $Y$ dok je $Y \le R_a + T_a + 1$ i briši ih iz stabla (pomakni pokazivač).</s>
+    <s n="16">Plan ulazi u red samo jednom → red $O(M\log M)$; pristupa čvorovima $O(M\log M)$; iako stablo drži $O(M\log M)$ kopija, svaka se kopija „vidi” najviše jednom → ukupno $O(M\log M)$. Puni bodovi!</s>
+    <s n="17">Raspodjela bodova na kampu: 0, 4, 9, 35, 39, 100.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Brisanje kopija u merge-sort stablu.</b> Isti plan se nalazi u $O(\log M)$ čvorova; „obrisan” u jednom čvoru, u drugima je i dalje u nizu. Zato pri prolasku čvora preskoči planove koji su već označeni kao posjećeni (<code>while ptr &lt; size && (visited[v[ptr]] || Y[v[ptr]] &lt;= bound) ptr++</code>, ubacujući one koji nisu posjećeni). Svaki pomak pokazivača je ili konačno brisanje kopije ili prvi posjet — amortizirano $O(M\log M)$.</p>
+    <p><b>Jednostavnija inačica</b> iz <i>Rješenja</i>: dva segmentna stabla za minimum nad planovima sortiranim po $T$ (ključevi $L+T$ i $L-T$); „izvadi sve s ključem $\le$ prag na intervalu” = spuštaj se do lista s minimumom dok je minimum $\le$ prag, postavi ga na $\infty$ u oba stabla. Ista složenost, manje koda.</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Izliječeni interval se skuplja za 1 dnevno; skup planova valja $\iff$ postoji lanac dodirujućih planova od kuće 1 do kuće $N$: $L_b \le R_a - |T_b - T_a| + 1$.</li>
+        <li>Najkraći put s cijenom brida $C_b$; sve ulazne cijene u vrh su jednake → svaki vrh se ažurira jednom.</li>
+        <li>Enumeracija i brisanje kandidata segmentnim stablom (po znaku $T_b - T_a$, ili rotacijom $45^\circ$ + merge-sort stablo): $O(M\log M)$.</li>
+    </ul>
+</div>

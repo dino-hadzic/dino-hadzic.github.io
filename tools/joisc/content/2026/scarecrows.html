@@ -1,0 +1,155 @@
+@@ meta
+naslov = Strašila 2
+engleski = Scarecrows 2
+oznake = osi x i y neovisne, na jednoj osi k-struka zaštita ⇔ k „istočnih” (x≥X, otvorena zagrada) i k „zapadnih” (x≤X, zatvorena) čine ispravan zagradni niz po X, f(k) = min trošak k parova = min-cost flow s k jedinica po lančanom grafu, SSP: svaka augmentacija doda „()” bilo gdje ili „)(” unutar bloka gdje prefiksna suma ne pada na minimum, segmentno stablo s min prefiksa i najboljim parovima O(log N), f konveksna ⇒ spoji dvije osi uzimanjem K najmanjih prirasta, O((N+K) log N)
+autor_analize = iro_
+
+@@ zadatak
+<h1>Strašila 2</h1>
+<p><i>Scarecrows 2</i> — JOI 2025/2026 Final Stage, dan 3.</p>
+<p>$N$ planova; plan $i$ (trošak $C_i$) postavlja strašilo u $(X_i,Y_i)$ okrenuto: $T_i=1$ zapad — štiti $x\le X_i$; $T_i=2$ istok — štiti $x\ge X_i$; $T_i=3$ jug — štiti $y\le Y_i$; $T_i=4$ sjever — štiti $y\ge Y_i$. Odaberi planove tako da je svaka točka ravnine zaštićena barem $K$ strašila, uz najmanji ukupni trošak; ispiši $-1$ ako je nemoguće. Sve su točke $(X_i,Y_i)$ različite.</p>
+<h3>Ograničenja</h3>
+<p>$1\le K\le N\le2\cdot10^5$, $0\le X_i,Y_i,C_i\le10^9$.</p>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(4) $K=1$.</li>
+    <li>(6) $K\le2$.</li>
+    <li>(11) $N\le500$, $K\le300$.</li>
+    <li>(27) $N\le6000$.</li>
+    <li>(19) $N\le75\,000$.</li>
+    <li>(33) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<pre>7 1
+2 45 21 96
+1 5 85 70
+1 36 73 78
+1 28 12 80
+2 15 49 21
+1 45 11 96
+2 63 26 19</pre>
+<p>Izlaz <code>99</code>: plan 3 (zapad u $x=36$) i plan 5 (istok u $x=15$) pokrivaju cijelu ravninu. S $K=3$ isti ulaz daje $-1$.</p>
+
+@@ rjesenje
+<h2>Razdvajanje osi i zagradni niz</h2>
+<p>Zaštita strašila tipa 1/2 ovisi samo o $x$, tipa 3/4 samo o $y$ — osi su <b>neovisne</b>: ako $x$-strašila štite svaku točku $\ge k$ puta, $y$-strašila moraju $\ge K-k$. Odgovor $=\min_k f_x(k)+f_y(K-k)$.</p>
+<p>Na osi $x$ za $k$-struku zaštitu optimalno je uzeti <b>točno $k$</b> tipa 1 i $k$ tipa 2 (manje od $k$ tipa 1 ostavlja $x\to-\infty$ nezaštićenim; više od $k$ — zadrži $k$ najvećih $X$, uvjet se ne mijenja). Točka $x$ je zaštićena $\#\{T{=}1:X\ge x\}+\#\{T{=}2:X\le x\}=k-\#\{T{=}1:X\lt x\}+\#\{T{=}2:X\le x\}$ puta, pa je uvjet: <b>u svakom prefiksu po $X$ broj dvojki $\ge$ broj jedinica</b>. To je točno ispravan zagradni niz: $2=$ „(”, $1=$ „)”; npr. redoslijed tipova 2121 $\to$ „()()”, 2211 $\to$ „(())”, a 1212 nije ispravan. Dakle $f(k)$ = najmanji trošak izbora $k$ otvorenih i $k$ zatvorenih koje po $X$ čine ispravan niz.</p>
+
+<h2>Mali $K$ i DP <span class="bodovi">48</span></h2>
+<ul>
+    <li><b>$K=1$:</b> jedan istok lijevo od jednog zapada ($X_2\lt X_1$): sortiraj po $X$, prefiksni min troška dvojki; isto za $y$; uzmi manje.</li>
+    <li><b>$K=2$:</b> ili po jedan par na svakoj osi, ili dva para na istoj: uzorci 2211, 2121 po $X$ — nabroji najjeftinije.</li>
+    <li><b>DP</b> po sortiranim $X$: $dp[t][s]$ = min trošak s $t$ jedinica i $s$ dvojki dosad ($t\le s$); $O(NK^2)$ — podzadatak 3.</li>
+    <li><b>Greedy po parovima</b> ($O(NK)$): $f(k)$ iz $f(k-1)$ dodavanjem najjeftinijeg para: bilo koji „()” ($p\lt q$), ili „)(” ($q\lt p$) ako prefiksna suma ($(=+1$, $)=-1$) nije $0$ nigdje na $[q,p)$. Traženje u $O(N)$ prefiksnim minimumima po blokovima.</li>
+</ul>
+
+<h2>Zašto greedy radi: min-cost flow <span class="bodovi">100</span></h2>
+<p>Ispravan zagradni niz ⇔ postoji potpuno sparivanje otvorenih s kasnijim zatvorenim. Modeliraj: lanac vrhova $1..N$ po $X$, bridovi $i\to i+1$ kapaciteta $\infty$ cijene 0; $S\to p$ (cijena $C_p$) za svaku dvojku, $q\to T$ (cijena $C_q$) za jedinicu. Tok od $k$ jedinica = $k$ parova; <b>min-cost flow je konveksan u količini toka</b> i rješiv <em>uzastopnim najkraćim putovima</em> (SSP): $k$-ta augmentacija ide $S\to p\to\dots\to q\to T$; hod nadesno je uvijek moguć, hod nalijevo (obrnuti brid) samo gdje već teče tok, tj. gdje je prefiksna suma $\gt0$. To su točno parovi „()” i „)(” iz greedyja, a SSP jamči optimalnost i da su prirasti $f(k)-f(k-1)$ <b>neopadajući</b>.</p>
+<p><b>Ubrzanje:</b> segmentno stablo nad pozicijama; čvor pamti zbroj i minimum prefiksne sume, najjeftiniju slobodnu „(” i „)”, najjeftiniju „)” iza posljednjeg mjesta gdje se postiže minimum i „(” ispred prvog takvog mjesta, te najbolje parove „()” i „)(” (potonji bez prelaska preko mjesta minimuma). Pri spajanju usporedi minimume djece (desnom dodaj zbroj lijevog): dijete čiji minimum nije globalni „nema” zabranjenih mjesta. Slide 40: pamti se „$\gt\min$”, ne „$\ge1$”, jer u podstablu ne znamo apsolutnu razinu. Augmentacija: pročitaj korijen, označi dvije pozicije zauzetima (ažuriraj $\pm1$), $O(\log N)$. Ukupno $O((N+K)\log N)$; $-1$ ako nema $K$ parova.</p>
+<p><b>Spajanje osi:</b> $f_x,f_y$ konveksne s $f(0)=0$ ⇒ min-plus konvolucija = uzmi $K$ najmanjih prirasta iz dviju sortiranih lista (spajanje kao u merge sortu).</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Razdvoji osi</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Strašila 1/2 ne znaju za $y$. Za svaku os izračunaj $f(k)$ za sve $k$, pa kombiniraj.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Koliko kojih?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Točno $k$ zapadnih i $k$ istočnih; uvjet po prefiksima = zagradni niz ((=istok).</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Kako od $k-1$ do $k$?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Dodaj najjeftiniji dopušteni par — to je SSP na lančanom min-cost flowu, pa je ispravno i konveksno.</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Zamjena smjerova: istok ($x\ge X$) mora biti <b>lijevo</b> od zapada ($x\le X$) da par pokrije sve.</li>
+        <li>Dodavanje para „)(” preko mjesta gdje je prefiksna suma 0 — niz više nije ispravan.</li>
+        <li>Odgovor do $2\cdot10^5\cdot10^9$ — 64 bita; $-1$ samo ako je ukupan broj mogućih parova na obje osi $\lt K$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="4" naslov="Zadatak i bodovanje">
+    <s n="1">Naslov; iro_.</s>
+    <s n="2">$N$ strašila s troškovima; tipovi 1–4 štite poluravnine; min trošak da su sve točke zaštićene $\ge K$ puta.</s>
+    <s n="3">Bodovanje JOI: $K=1$; $K\le2$; $N\le300$ $O(NK^2)$; $N\le6000$ $O(NK)$; $N\le75\,000$; $N\le2\cdot10^5$ $O((N+K)\log N)$.</s>
+    <s n="4">Bodovanje JOIG (druga raspodjela istih podzadataka).</s>
+</slajdovi>
+
+<h2>$K\le2$ <span class="bodovi">10</span></h2>
+<slajdovi from="5" to="18" vrsta="koraci" naslov="Jedan i dva para">
+    <s n="5">Podzadatak 1.</s>
+    <s n="6">Tipovi 1 i 2 štite po $x$; $y$ nebitno.</s>
+    <s n="7">Točka $x$ zaštićena ako postoji tip 1 s $X\ge x$ ili tip 2 s $X\le x$.</s>
+    <s n="8">Točke $\pm\infty$ traže barem po jedno strašilo svakog tipa.</s>
+    <s n="9">Dominacija: dva istog tipa nisu potrebna (jedno štiti nadskup).</s>
+    <s n="10">Dakle par tip 2 s $X_2\le X_1$; minimum troška.</s>
+    <s n="11">Podzadatak 2.</s>
+    <s n="12">Isto za tipove 3 i 4 po $y$.</s>
+    <s n="13">Točke daleko u četiri smjera i koji ih tipovi štite.</s>
+    <s n="14">Za $K=1$ općenito: par (1,2) ili par (3,4).</s>
+    <s n="15">Odgovor: minimum po dvjema osima.</s>
+    <s n="16">Podzadatak 3: $K\le2$.</s>
+    <s n="17">Četiri plana: dva para; na istoj osi treba $X_{2}\le X_{1}$ za oba sparena ili ugniježđeno.</s>
+    <s n="18">Implementacija: skeniraj i nađi nekoliko najjeftinijih parova po osi bez dupliranja; kombiniraj.</s>
+</slajdovi>
+
+<h2>Struktura rješenja <span class="bodovi">48</span></h2>
+<slajdovi from="19" to="26" vrsta="koraci" naslov="k+k strašila i zagrade">
+    <s n="19">Podzadatak 4 ($N\le15$).</s>
+    <s n="20">Tipovi 1,2 i 3,4 su neovisni.</s>
+    <s n="21">Za $k$-struku zaštitu po $x$ optimalno točno $k$ tipa 1 i $k$ tipa 2 (manje: $(-\infty,y)$ nepokriveno; više: zadrži $k$ najvećih $X$).</s>
+    <s n="22">Redoslijed je bitan: 111…222… ne štiti sredinu; u svakom prefiksu #2 $\ge$ #1.</s>
+    <s n="23">Iscrpno po podskupovima, provjera $O(N)$: $O(2^N N)$.</s>
+    <s n="24">Sažetak uvjeta.</s>
+    <s n="25">Podzadatak 5 ($N\le300$).</s>
+    <s n="26">$dp[t][s]$ po sortiranom $X$: $O(NK^2)$.</s>
+</slajdovi>
+
+<slajdovi from="27" to="34" vrsta="koraci" naslov="Greedy po parovima">
+    <s n="27">Podzadatak 6 ($N\le6000$).</s>
+    <s n="28">Uvjeti ponovo.</s>
+    <s n="29">$t$ jedinica i $s$ dvojki: po koordinati uvijek $t\le s$, na kraju $t=s$.</s>
+    <s n="30">Poznat uvjet.</s>
+    <s n="31">Ispravan zagradni niz: $1=$ „)”, $2=$ „(”; povećati $k$ za 1 = dodati „(” i „)” u niz; primjeri „()()” i „(())”.</s>
+    <s n="32">Prefiksne sume: dodavanje „()” bez uvjeta; „)(” ako ne prelazi mjesto s prefiksnom sumom 0; $O(NK)$.</s>
+    <s n="33">Podzadatak 7.</s>
+    <s n="34">$O(NK)$ s dobrom konstantom.</s>
+</slajdovi>
+
+<h2>Puno rješenje <span class="bodovi">100</span></h2>
+<slajdovi from="35" to="43" vrsta="koraci" naslov="Min-cost flow i segmentno stablo">
+    <s n="35">Podzadatak 8.</s>
+    <s n="36">Ubrzaj lijenim segmentnim stablom; zagradni niz ⇔ potpuno sparivanje; greedy odgovara greedyju min-cost flowa.</s>
+    <s n="37">Graf: $S,1..2N,T$; $i\to i+1$ kapacitet $\infty$; obrnuti bridovi; „(→)” bez uvjeta, „)→(” samo gdje obrnuti brid ima pozitivan tok.</s>
+    <s n="38">Nakon augmentacije: „()” povećava obrnute kapacitete za 1, „)(” smanjuje; rješava se uzastopnim najkraćim putovima.</s>
+    <s n="39">Primjer 1 kao graf: $S\to$ istočna, zapadna $\to T$.</s>
+    <s n="40">Implementacija: pri spajanju prefiksnih suma pamti „$C_i\gt\min C$”, ne „$C_i\ge1$”.</s>
+    <s n="41">Bonus: rješenje po $k$ je konveksno u jednoj dimenziji ⇒ min-plus konvolucija — uvijek uzmi najmanji par.</s>
+    <s n="42">Raspodjela JOI: 100: 1, 48: 5, 21: 14, 15: 1, 11: 2, 10: 2, 4: 3, 0: 2.</s>
+    <s n="43">Raspodjela JOIG.</s>
+</slajdovi>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Po osi: $k$ istočnih + $k$ zapadnih = ispravan zagradni niz po $X$.</li>
+        <li>$f(k)$ greedyjem po najjeftinijem paru (= SSP min-cost flow, konveksno), segmentno stablo za $O(\log N)$ po koraku; osi spoji uzimanjem $K$ najmanjih prirasta.</li>
+    </ul>
+</div>

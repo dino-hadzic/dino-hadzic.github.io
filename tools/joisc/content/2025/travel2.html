@@ -1,0 +1,141 @@
+@@ meta
+naslov = Bitarovo putovanje 2
+engleski = Bitaro's Travel 2
+oznake = pragovna povezanost, greedy „najviši dostižni vrh”, offline Union-Find po rastućem T, binarno dizanje, Kruskalovo stablo rekonstrukcije + LCA, binarna pretraga
+autor_analize = Kaneshita Kosuke (potato167)
+
+@@ zadatak
+<h1>Bitarovo putovanje 2</h1>
+<p><i>Bitaro's Travel 2</i> — JOI Spring Camp 2025, dan 1.</p>
+<p>Mreža $H\times W$ planina visina $T_{i,j}$. <b>Visoki skok</b> s vrha visine $x$: Bitaro se digne na $x+L+0.5$, zatim se kreće po susjednim (4 smjera) poljima čije su planine niže od te visine i spusti se na vrh polja na kojem stane. Za $Q$ putovanja $(A_k,B_k)\to(C_k,D_k)$ ispiši najmanji broj skokova ili $-1$.</p>
+<h3>Ograničenja</h3>
+<ul><li>$2\le HW\le300\,000$; $Q\le300\,000$; $L,T\le10^9$.</li></ul>
+<h3>Podzadaci</h3>
+<ol class="podzadaci">
+    <li>(10) $HW\le300$, $Q\le150\,000$.</li>
+    <li>(20) $HW\le3\,000$, $Q\le150\,000$.</li>
+    <li>(20) $HW,Q\le150\,000$, sva putovanja kreću iz $(1,1)$.</li>
+    <li>(30) $HW,Q\le150\,000$.</li>
+    <li>(20) Bez dodatnih ograničenja.</li>
+</ol>
+<h3>Primjer</h3>
+<div class="primjeri">
+    <div><h4>Ulaz</h4><pre>2 4 5
+1 3 22 1
+8 13 6 16
+2
+1 1 2 2
+1 1 1 3</pre></div>
+    <div><h4>Izlaz</h4><pre>3
+-1</pre></div>
+</div>
+<p>$(1,1)\to(1,2)$ (visina $6.5\gt3$), $(1,2)\to(2,1)$ preko $(1,1)$ ($8.5\gt8$), $(2,1)\to(2,2)$ ($13.5\gt13$). Do $22$ treba vrh visine $\ge17$ — ne postoji.</p>
+
+@@ rjesenje
+<h2>Preformulacija i greedy</h2>
+<p>Jednim skokom iz $(a,b)$ stižeš na sva polja povezana s $(a,b)$ putem polja s $T\le T_{a,b}+L$ (komponenta u <b>pragovnom grafu</b>). Ako je $u$ dostižan iz $v$ i $T_u\ge T_v$, onda je dostižni skup od $u$ nadskup dostižnog skupa od $v$. Zato je optimalno: svi skokovi osim zadnjeg idu na <b>najviši dostižni vrh</b> („najbolje odredište” $\mathrm{best}(v)$); $x$ skokova dovoljno iff cilj je u jednom skoku iz $\mathrm{best}^{x-1}(s)$. Odgovor binarnom pretragom po $x$ (monotono).</p>
+<p>Mali slučajevi: BFS iz svakog polja + Floyd–Warshall ($O((HW)^3)$); ili predračunaj dostižne skupove i $\mathrm{best}^x$ za sve $x$ ($O((HW)^2)$) pa binarna pretraga. Fiksni start: „Dijkstra” s <code>priority_queue</code> po $T$: skupu dostižnom u $k$ skokova dodaj sve susjede s $T\le(\max T\text{ u skupu})+L$, pa povećaj $k$: $O(HW\log HW)$.</p>
+
+<h2>Predračun $\mathrm{best}$ Union-Findom <span class="bodovi">podzadatak 4</span></h2>
+<p>Obradi polja po rastućem $T$: spoji polje sa susjedima čiji je $T$ manji ili jednak; komponenta pamti polje s najvećim $T$. Za $(a,b)$: čim su obrađena sva polja s $T\le T_{a,b}+L$, $\mathrm{best}(a,b)$ = maksimum njegove komponente (offline događaji po pragu). Upit: $\mathrm{best}^{x-1}(s)$ binarnim dizanjem ($O(\log)$), a „je li $t$ u komponenti od $(a,b)$ pri pragu $T_{a,b}+L$” opet Union-Findom offline + paralelna binarna pretraga: $O((Q+HW\log HW)\log HW)$.</p>
+
+<h2>Kruskalovo stablo <span class="bodovi">podzadatak 5</span></h2>
+<p>Neka je $X(s,t)$ vrijednost $T$ polja koje se obrađivalo kad su se $s$ i $t$ prvi put našle u istoj komponenti — najmanji prag pri kojem su povezani. To je težina LCA u <b>stablu spajanja</b> (Kruskal reconstruction tree): svaki union stvara novi čvor s težinom trenutnog $T$. Uz LCA u $O(1)$ (Eulerova tura + RMQ) provjera „$t$ dostižno iz $(a,b)$ jednim skokom” je $X((a,b),t)\le T_{a,b}+L$ u $O(1)$. Upit: binarno dizanje po $x$ s tom provjerom → $O(\log HW)$ po upitu; $-1$ ako ni iz fiksne točke $\mathrm{best}^\infty(s)$ (vrh svoje komponente) nije dostižno.</p>
+
+@@ trener
+<ol class="koraci">
+<li>
+    <details class="spoiler korak">
+        <summary>Što je jedan skok?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Opiši skup polja dostižnih jednim skokom kao komponentu u grafu s pragom. Kako se taj skup mijenja s visinom polazišta?</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Kamo skakati?</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Dokaži zamjenom: ako plan skoči na $u$, a $u'$ dostižan s $T_{u'}\ge T_u$, plan preko $u'$ nije gori. Zaključi greedy do predzadnjeg skoka.</p>
+        </div>
+    </details>
+</li>
+<li>
+    <details class="spoiler korak">
+        <summary>Brza provjera povezanosti pri pragu</summary>
+        <div class="spoiler-sadrzaj">
+            <p>Pitanje „jesu li $u$ i $t$ povezani preko polja $\le P$” za mnogo parova: offline Union-Find ili stablo spajanja s LCA. Koja verzija daje $O(1)$ po provjeri?</p>
+        </div>
+    </details>
+</li>
+</ol>
+<div class="greske">
+    <h3>Tipične greške</h3>
+    <ul>
+        <li>Prag je $T\le T_{a,b}+L$ (strogo manje od $x+L+0.5$), ne $\lt T_{a,b}+L$.</li>
+        <li>$T_{a,b}+L$ do $2\cdot10^9$ — 64-bitni tipovi.</li>
+        <li>Zadnji skok ne mora ići na najviši vrh; provjeravaj cilj iz $\mathrm{best}^{x-1}$, ne iz $\mathrm{best}^x$.</li>
+        <li>Zaboraviti $-1$: fiksna točka greedyja ne doseže $t$.</li>
+    </ul>
+</div>
+
+@@ analiza
+<slajdovi from="1" to="2" naslov="Zadatak">
+    <s n="1">Naslov; analiza: potato167.</s>
+    <s n="2">Jedan skok iz $(a,b)$ u $(c,d)$ iff postoji put po susjednim poljima s vrijednostima $\le L+T_{a,b}$; $Q$ upita: broj skokova.</s>
+</slajdovi>
+
+<h2>Podzadaci 1–3 <span class="bodovi">50 bodova</span></h2>
+<slajdovi from="3" to="8" vrsta="koraci" naslov="Grubo, greedy, fiksni start">
+    <s n="3">$HW\le300$: za svaki start BFS daje dostižne u 1 skoku u $O(HW)$; Floyd–Warshall $O((HW)^3)$; upit $O(1)$.</s>
+    <s n="4">$HW\le3000$: svaki skok osim zadnjeg ide na dostižno polje s najvećim $T$ — „najbolje odredište”.</s>
+    <s n="5">Predračun za sva polja: dostižni skup, najbolje odredište, $\mathrm{best}^x$ za $1\le x\le HW$: $O((HW)^2)$.</s>
+    <s n="6">Upit: „stiže li se u $x$ skokova” u $O(1)$ iz predračuna; binarna pretraga po $x$: $O(\log HW)$.</s>
+    <s n="7">Fiksni start: umjesto BFS-a <code>priority_queue</code>: sve odgovore u $O(HW\log HW)$.</s>
+    <s n="8">Primjer: drži polja dostižna u $k$ skokova i njihove susjede u redu s prioritetom; sljedeći krug uzima susjede s $T\le57+L$.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Zašto greedy radi.</b> Neka je $R(v)$ skup dostižan iz $v$ jednim skokom (komponenta od $v$ pri pragu $T_v+L$). Ako je $u\in R(v)$ i $T_u\ge T_v$, onda je $R(v)\subseteq R(u)$: cijela komponenta od $v$ pri pragu $T_v+L$ sadrži $u$, a pri većem pragu $T_u+L$ ostaje povezana. Pa ako optimalni put skače $v\to u_1\to\dots$, zamjena $u_1$ najvišim $u_1^*\in R(v)$ ne smanjuje ništa dostižno; indukcijom sve osim zadnjeg skoka ide na $\mathrm{best}$.</p>
+</div>
+
+<h2>Podzadatak 4 <span class="bodovi">30 bodova</span></h2>
+<slajdovi from="9" to="25" vrsta="koraci" naslov="Union-Find i dizanje">
+    <s n="9">Dvije zadaće: predračun $\mathrm{best}(a,b)$ za sve $(a,b)$; upiti binarnom pretragom po broju skokova.</s>
+    <s n="10">Sve $\mathrm{best}$ istodobno Union-Findom.</s>
+    <s n="11">Dostižni u 1 skoku iz $(a,b)$ = povezani s $(a,b)$ bridovima među susjedima s vrijednostima $\le T_{a,b}+L$.</s>
+    <s n="12">Primjer mreže, $L=3$.</s>
+    <s n="13">Obradi $(3,3)$: bez promjene.</s>
+    <s n="14">Obradi $(3,4)$: spaja se s $(3,3)$.</s>
+    <s n="15">Obradi $(1,1)$: bez promjene.</s>
+    <s n="16">Obradi $(2,4)$: spaja se s $(3,4)$; budući da je $T_{3,3}+L=4$ dosegnut, $\mathrm{best}(3,3)=(2,4)$.</s>
+    <s n="17">Obradi $(2,2),(1,4)$: $(1,4)$ se spaja s $(2,4)$; $\mathrm{best}(3,4)=(1,4)$.</s>
+    <s n="18">Obradi $(1,2)$: spaja $(1,1),(2,2)$; $\mathrm{best}(1,1)=(1,2)$.</s>
+    <s n="19">Razna spajanja; $\mathrm{best}(2,4)$ može biti $(2,1)$ ili neko drugo s istim $T$.</s>
+    <s n="20">Po rastućem $T$: spoji sa susjedima $\le$ sebi; kad su obrađena sva polja $\le T_{a,b}+L$, pročitaj max komponente od $(a,b)$. $O(HW\log HW)$ ili $O(HW\,\alpha)$.</s>
+    <s n="21">Upit „$x$ skokova od $s$ do $t$”: neka je $(a,b)=\mathrm{best}^{x-1}(s)$; pitanje je stiže li se iz $(a,b)$ do $t$ u jednom skoku.</s>
+    <s n="22">Isto.</s>
+    <s n="23">$\mathrm{best}^{x-1}(s)$ binarnim dizanjem: tablice za $x=1,2,4,\dots$: $O(\log HW)$.</s>
+    <s n="24">Ponovno: jedan skok = povezanost pri pragu $T_{a,b}+L$.</s>
+    <s n="25">Union-Find offline za sve provjere: $O(HW\,\alpha)$; s paralelnom binarnom pretragom ukupno $O((Q+HW\log HW)\log HW)$; pažljivije $O((Q+HW\log HW)\alpha)$.</s>
+</slajdovi>
+
+<h2>Podzadatak 5 <span class="bodovi">20 bodova</span></h2>
+<slajdovi from="26" to="30" vrsta="koraci" naslov="Stablo spajanja i LCA">
+    <s n="26">Podzadatak 4 s dobrom konstantom prolazi; evo bržeg upita.</s>
+    <s n="27">Ponavljamo Union-Find spajanja $O(\log)$ puta — rasipno. Pogledaj stablo procesa spajanja.</s>
+    <s n="28">$X$ = vrijednost polja koje se obrađivalo kad su $s$ i $t$ spojeni; to je LCA u stablu spajanja, $O(\log HW)$ (ili $O(1)$) po paru.</s>
+    <s n="29">Provjera: iz $(a,b)=\mathrm{best}^{x-1}(s)$ stiže se do $t$ iff $X((a,b),t)\le T_{a,b}+L$; $O(1)$ provjera, binarna pretraga → $O(\log HW)$ po upitu.</s>
+    <s n="30">Statistika: 100 — 13; 80 — 3; 50 — 1; 30 — 1; 10 — 5; 0 — 3.</s>
+</slajdovi>
+<div class="trener-umetak">
+    <p><b>Stablo spajanja u praksi.</b> Sortiraj polja po $T$; za polje $p$ za svakog susjeda $q$ s $T_q\le T_p$ (već obrađen) ako su u različitim komponentama, stvori novi čvor težine $T_p$ s djecom = korijeni obje komponente. Nastaje šuma s $\le 2HW-1$ čvorova; $X(u,v)$ = težina LCA (ili $\infty$ ako su u različitim stablima). Eulerova tura + sparse table daje LCA u $O(1)$; upit tada radi binarno dizanje po $x$ izravno: idi od najvećeg bita, skoči ako iz $\mathrm{best}^{2^i}$ cilj još <i>nije</i> dostižan jednim skokom, na kraju $x$ = (broj skokova) $+1$.</p>
+</div>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Skok = komponenta u pragovnom grafu; greedy na najviši dostižni vrh do predzadnjeg skoka.</li>
+        <li>$\mathrm{best}$ za sve offline Union-Findom; $\mathrm{best}^{x}$ binarnim dizanjem.</li>
+        <li>Povezanost pri pragu = LCA u Kruskalovu stablu; $O(\log HW)$ po upitu.</li>
+    </ul>
+</div>
