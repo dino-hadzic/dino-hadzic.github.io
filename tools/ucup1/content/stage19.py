@@ -92,7 +92,74 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>$n = 4$, bridovi $1\text{-}2, 1\text{-}3, 1\text{-}4, 2\text{-}3, 2\text{-}4$: upiti $(1,2), (1,3), (1,4), (2,3), (2,4), (3,4)$ daju $3, 3, 3, 3, 3, 4$. $n = 6$, bridovi $1\text{-}2, 1\text{-}3, 1\text{-}6, 2\text{-}3, 3\text{-}4, 3\text{-}5, 4\text{-}5$: upiti $(1,2), (1,3), (1,4), (1,6)$ daju $2, 2, 4, 1$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Izaberi razapinjuće stablo $T$; ostaju dva „dodatna” brida. Koliko puta jednostavan put može proći dodatnim bridom, i kako izgleda dio puta između dva prolaska dodatnim bridovima?</p>
+''',
+        r'''
+<p>Između prolazaka dodatnim bridovima put koristi samo bridove stabla, dakle jedinstveni put u $T$. Kandidata je najviše $1 + 4 + 8 = 13$; kandidat je valjan točno kad su njegovi segmenti u stablu u parovima vršno disjunktni.</p>
+''',
+        r'''
+<p>Dva puta u stablu se sijeku točno kad dublji od njihova dva LCA-a leži na drugom putu – jedan LCA i par provjera „je li predak” Eulerovim vremenima.</p>
+''',
+    ],
+    'coach': [
+        ('Kako iskoristiti to da graf ima samo dva brida više od stabla?',
+         r'''
+<p>Fiksirajmo razapinjuće stablo $T$ (npr. unijom-pronađi pri čitanju bridova); bridovi $e_1, e_2$ koji zatvaraju ciklus su „dodatni”. Jednostavan put ne ponavlja vrhove, pa svaki dodatni brid prolazi najviše jednom. Dio puta između dva uzastopna prolaska dodatnim bridovima (i prije prvog / poslije zadnjeg) koristi samo bridove stabla i ne ponavlja vrhove – a u stablu je takav put jedinstven. Dakle je put potpuno određen nizom dodatnih bridova koje koristi, s redoslijedom i smjerom.</p>
+'''),
+        ('Koliko kandidata ima i kako se razlikuju?',
+         r'''
+<p>Bez dodatnih bridova: $1$ (put u stablu). S jednim: $2$ brida $\times$ $2$ smjera $= 4$. S oba: $2$ redoslijeda $\times$ $2 \times 2$ smjera $= 8$. Ukupno najviše $13$. Različiti kandidati daju različite putove (put jednoznačno određuje koje dodatne bridove koristi, kojim redom i u kojem smjeru), pa nema dvostrukog brojanja. Kandidat $u \to p \xrightarrow{e} r \to v$ je jednostavan put točno kad su putovi u stablu $u\text{-}p$ i $r\text{-}v$ vršno disjunktni; za dva brida tri segmenta moraju biti disjunktni u parovima.</p>
+'''),
+        ('Kako u $O(\log n)$ provjeriti sijeku li se dva puta u stablu?',
+         r'''
+<p>Neka su $\ell_1 = \mathrm{lca}(x_1, y_1)$ i $\ell_2 = \mathrm{lca}(x_2, y_2)$, i neka je $\ell_1$ dublji (ili jednako dubok). Tvrdnja: putovi se sijeku točno kad $\ell_1$ leži na putu $x_2\text{-}y_2$. Ako je $w$ zajednički vrh, i $\ell_1$ i $\ell_2$ su preci od $w$, dakle usporedivi, pa je $\ell_1$ potomak od $\ell_2$; $w$ je na jednoj od dviju uzlaznih grana puta 2, recimo između $x_2$ i $\ell_2$, a $\ell_1$ je predak od $w$ i potomak od $\ell_2$, dakle na istoj grani. Obrat je trivijalan. Provjera „je li $a$ predak od $b$” je $O(1)$ preko Eulerovih vremena $tin/tout$, pa cijela provjera košta dva LCA-a.</p>
+'''),
+        ('Zašto je ukupna složenost u redu i na što paziti?',
+         r'''
+<p>Po upitu najviše $4 + 8 \cdot 3 = 28$ provjera presjeka, svaka s dva LCA-a binarnim podizanjem ($O(\log n)$): ukupno $O((n + q)\log n)$. Segment može biti jedan vrh ($u = p$) – formula radi i tada. Stablo gradimo iterativnim DFS-om (lanac od $5 \cdot 10^4$ vrhova može srušiti rekurziju), a dodatne bridove ne stavljamo u stablo.</p>
+'''),
+    ],
+    'tips': [
+        r'''„Stablo plus $c$ bridova” s malim $c$: fiksiraj stablo, nabroji podskupove/redoslijede dodatnih bridova ($O(c! \, 2^c)$ kandidata) i svaki provjeri pomoću upita nad stablom.''',
+        r'''Presjek dvaju putova u stablu: dublji LCA mora ležati na drugom putu – standardna lema koju vrijedi zapamtiti; „$w$ na putu $x\text{-}y$” $\iff$ $\mathrm{lca}(x,y)$ predak od $w$ i $w$ predak od $x$ ili $y$.''',
+        r'''Iterativni DFS ili eksplicitni stog za $n \ge 10^5$ (ovdje $5\cdot 10^4$ lanac) – rekurzija dubine $n$ nije sigurna u svakom okruženju.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Fiksiramo razapinjuće stablo $T$; dva dodatna brida $e_1, e_2$. Svaki jednostavan put koristi svaki dodatni brid najviše jednom, a između njih ide jedinstvenim putem u $T$, pa je kandidata najviše $13$: $1$ (put u stablu) $+ 4$ (jedan brid, dva smjera) $+ 8$ (oba brida, dva redoslijeda, smjerovi). Kandidat je jednostavan put točno kad su njegovi segmenti u stablu u parovima vršno disjunktni. Dva puta $x_1\text{-}y_1$, $x_2\text{-}y_2$ se sijeku točno kad dublji od $\mathrm{lca}(x_1,y_1)$, $\mathrm{lca}(x_2,y_2)$ leži na drugom putu, što provjeravamo Eulerovim vremenima. LCA binarnim podizanjem; $O((n+q)\log n)$.</p>
+''',
+    'detailed': r'''
+<h3>1. Struktura jednostavnih putova</h3>
+<p>Neka je $T$ bilo koje razapinjuće stablo grafa (gradimo ga unijom-pronađi pri čitanju: brid koji spaja već povezane vrhove je dodatni). Dodatni bridovi su $e_1 = (a_1, b_1)$ i $e_2 = (a_2, b_2)$. Promotrimo jednostavan put $P$ od $u$ do $v$. Kako ne ponavlja vrhove, ne ponavlja ni bridove, pa svaki dodatni brid koristi najviše jednom. Izbacimo li iz $P$ dodatne bridove, ostaju najviše tri komada; svaki komad je šetnja u stablu $T$ bez ponavljanja vrhova, dakle <em>jedinstveni</em> put u $T$ između svojih krajeva. Zato je $P$ potpuno određen nizom dodatnih bridova koje koristi, njihovim redoslijedom i smjerom prolaska.</p>
+<p>Kandidati:</p>
+<ul>
+<li>bez dodatnih bridova: put $u\text{-}v$ u $T$ (uvijek valjan) – $1$;</li>
+<li>jedan brid $(p, r)$ (dva brida, dva smjera): $u \leadsto p \to r \leadsto v$ – $4$;</li>
+<li>oba brida: $u \leadsto p \to r \leadsto s \to t \leadsto v$, gdje je $(p,r)$ jedan brid u nekom smjeru, a $(s,t)$ drugi (dva redoslijeda, $2\times 2$ smjera) – $8$.</li>
+</ul>
+<p>Kandidat je jednostavan put točno kad su njegovi segmenti u stablu ($\leadsto$) u parovima vršno disjunktni: ako jesu, nijedan se vrh ne ponavlja (krajevi dodatnih bridova pripadaju segmentima); ako nisu, neki se vrh ponavlja. Različiti kandidati daju različite putove, pa je odgovor $1 +$ broj valjanih kandidata, najviše $13$.</p>
+<h3>2. Presjek dvaju putova u stablu</h3>
+<p><strong>Lema.</strong> Neka su $\ell_1 = \mathrm{lca}(x_1,y_1)$, $\ell_2 = \mathrm{lca}(x_2,y_2)$ i $\mathrm{dub}(\ell_1) \ge \mathrm{dub}(\ell_2)$. Putovi $x_1\text{-}y_1$ i $x_2\text{-}y_2$ imaju zajednički vrh točno kad $\ell_1$ leži na putu $x_2\text{-}y_2$.</p>
+<p><em>Dokaz.</em> ($\Leftarrow$) $\ell_1$ je na oba puta. ($\Rightarrow$) Neka je $w$ zajednički vrh. Svaki vrh puta $x_1\text{-}y_1$ je potomak od $\ell_1$, pa je $\ell_1$ predak od $w$; isto je $\ell_2$ predak od $w$. Dva pretka istog vrha su usporediva, a $\ell_1$ je dublji, pa je $\ell_1$ potomak od $\ell_2$. Put $x_2\text{-}y_2$ sastoji se od grana $x_2 \nearrow \ell_2$ i $y_2 \nearrow \ell_2$; $w$ je na jednoj od njih, recimo $w$ je predak od $x_2$ i potomak od $\ell_2$. Tada je i $\ell_1$ (predak od $w$, potomak od $\ell_2$) na toj grani. $\square$</p>
+<p>Implementacija: „$a$ je predak od $b$” $\iff$ $tin[a] \le tin[b]$ i $tout[b] \le tout[a]$ (Eulerova vremena). Provjera „$\ell_1$ na putu $x_2\text{-}y_2$” je: $\ell_2$ predak od $\ell_1$ i ($\ell_1$ predak od $x_2$ ili od $y_2$). Ukupno dva LCA-a i $O(1)$ dodatnih provjera.</p>
+<h3>3. Algoritam</h3>
+<ol>
+<li>Pročitaj $n+1$ bridova; unijom-pronađi odvoji $n-1$ bridova stabla i $2$ dodatna.</li>
+<li>Iterativni DFS iz vrha $1$: dubine, roditelji, $tin/tout$; tablica binarnog podizanja ($\lceil \log_2 n \rceil = 16$ razina).</li>
+<li>Za svaki upit $(u,v)$: odgovor $= 1$; za svaki od $4$ kandidata s jednim bridom dodaj $1$ ako se $u\text{-}p$ i $r\text{-}v$ ne sijeku; za svaki od $8$ kandidata s oba brida dodaj $1$ ako se tri segmenta $u\text{-}p$, $r\text{-}s$, $t\text{-}v$ u parovima ne sijeku.</li>
+</ol>
+<h3>4. Primjer</h3>
+<p>Prvi uzorak: stablo $1\text{-}2, 1\text{-}3, 1\text{-}4$, dodatni $2\text{-}3$ i $2\text{-}4$. Upit $(3,4)$: put u stablu $3\text{-}1\text{-}4$. Brid $2\text{-}3$ u smjeru $3 \to 2$: segmenti $\{3\}$ i $2\text{-}1\text{-}4$ su disjunktni – valjan; u smjeru $2 \to 3$: segmenti $3\text{-}1\text{-}2$ i $3\text{-}1\text{-}4$ dijele vrhove $3$ i $1$ – nije. Brid $2\text{-}4$ u smjeru $2 \to 4$: segmenti $3\text{-}1\text{-}2$ i $\{4\}$ – valjan; u smjeru $4 \to 2$: $3\text{-}1\text{-}4$ i $2\text{-}1\text{-}4$ dijele $1$ i $4$ – nije. Oba brida: jedino $3 \to 2 \to 4$ (segmenti $\{3\}, \{2\}, \{4\}$) je valjan. Ukupno $1 + 1 + 1 + 1 = 4$.</p>
+<h3>5. Složenost i zamke</h3>
+<ul>
+<li>Po upitu najviše $4 + 8\cdot 3 = 28$ provjera presjeka po dva LCA-a: $O(q \log n)$, uz $O(n \log n)$ pripreme; na najvećim testovima oko $0.1$ s.</li>
+<li>Segment duljine $0$ ($u = p$) je jedan vrh; lema i formula rade bez posebnog slučaja.</li>
+<li>Bridovi su zadani kao $a \lt b$, ali dodatne bridove treba probati u <em>oba</em> smjera.</li>
+<li>Rekurzivni DFS na lancu od $5\cdot10^4$ vrhova može prekoračiti stog – koristi iterativni DFS ili BFS.</li>
+</ul>
+''',
+    'verified': r'''uzorci 2/2; 300 slučajnih malih testova ($n \le 9$, stabla oblika lanac/zvijezda/duboko/slučajno plus 2 slučajna dodatna brida) protiv brute forcea koji DFS-om nabraja sve jednostavne putove; 3 velika testa s $n = q = 5\cdot10^4$ uključujući lanac (najviše $0.10$ s).''',
 },
 # ---------------------------------------------------------------- C
 {
@@ -139,7 +206,71 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p><code>attic</code>, <code>climb</code>, <code>alpha</code>: $2$. Popis od $22$ riječi iz zadatka (<code>agora</code>, <code>alpha</code>, …, <code>cynic</code>): $6$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Od riječi je bitno samo prvo i zadnje slovo: slova su vrhovi (najviše $3$), riječ je usmjereni brid. Igra postaje: igrač u vrhu bira neiskorišten izlazni brid i prelazi u njegov kraj.</p>
+''',
+        r'''
+<p>Dvije petlje na istom vrhu, ili par bridova $u \to v$ i $v \to u$, možemo izbaciti bez promjene ishoda: tko god pobjeđuje bez njih, pobjeđuje i s njima „zrcaljenjem” (na protivnikovu upotrebu odgovori uparenim bridom i vrati isto stanje).</p>
+''',
+        r'''
+<p>Nakon redukcije graf je 3-ciklus s najviše po jednom petljom ili acikličan; iz svakog stanja dostižno je samo $O(n)$ stanja pa memoizirani minimax prolazi.</p>
+''',
+    ],
+    'coach': [
+        ('Što je u riječi zaista bitno za igru?',
+         r'''
+<p>Samo prvo i zadnje slovo: riječ „prenosi” igru s prvog na zadnje slovo, a jedina veza među riječima je uvjet da se slova podudaraju. Zato riječ modeliramo kao usmjereni brid prvo $\to$ zadnje slovo u grafu s najviše $3$ vrha (ograničenje zadatka). Igrač koji je „u vrhu $x$” (prethodna riječ završava na $x$) bira neiskorišten brid iz $x$ i prelazi u njegov kraj; tko nema brida, gubi. Riječi iste klase $(u, v)$ su međusobno zamjenjive, pa je stanje igre: trenutni vrh i $9$ brojeva preostalih bridova.</p>
+'''),
+        ('Zašto je stanje s $9$ brojača prevelik prostor i kako ga smanjiti bez promjene ishoda?',
+         r'''
+<p>Brojači idu do $1000$, pa je stanja potencijalno previše. Tražimo redukcije koje čuvaju ishod. <em>Dvije petlje na istom vrhu $v$</em>: neka igrač $W$ pobjeđuje u igri $P'$ bez tih dviju petlji. U igri $P$ s njima $W$ igra po strategiji za $P'$; ako protivnik ikad iskoristi „višak” petlju (kad u simuliranoj igri $P'$ petlje na $v$ više nema), $W$ odgovori drugom višak-petljom: opet smo u $v$, u istom stanju igre $P'$, protivnik na potezu. Višak se troši samo u paru, pa $W$ pobjeđuje i u $P$. <em>Par $u \to v$, $v \to u$</em>: isto zrcaljenje – na protivnikov $u \to v$ odgovor $v \to u$ vraća igru u $u$ u isto stanje. Redukcije primjenjujemo do kraja: petlje ostaju najviše po jedna, a između svaka dva vrha bridovi idu samo u jednom smjeru.</p>
+'''),
+        ('Kako izgleda reducirani graf i zašto je prostor stanja sada malen?',
+         r'''
+<p>Na $3$ vrha bez dvosmjernih parova bridovi tvore ili 3-ciklus $0 \to 1 \to 2 \to 0$ ili acikličan graf, plus najviše tri petlje. U acikličnom slučaju partija ima najviše $3$ prijelaza i $3$ petlje – stanja je konstantno mnogo. U ciklusu igrači obilaze krug: nakon $t$ prijelaza brojači $(a, b, c)$ umanjeni su za $\lfloor t/3 \rfloor$ ili $\lceil t/3 \rceil$ ovisno o položaju u krugu, dakle potpuno određeni brojem $t$; jedina sloboda su petlje ($2^3$ stanja) i trenutni vrh. Dostižno je $O(3 \cdot 8 \cdot n)$ stanja, pa memoizirani minimax („pobjeđujem ako postoji potez u gubitničko stanje”) radi trenutno.</p>
+'''),
+        ('Kako iz vrijednosti stanja dobiti odgovor za Alice?',
+         r'''
+<p>Alice ne igra „iz vrha” – bira bilo koju riječ $u \to v$. Nakon nje Bob je u vrhu $v$ s tom riječju izbačenom; Alice pobjeđuje točno kad je to stanje gubitničko za igrača na potezu. Riječi iste klase daju isto stanje, pa za svaku klasu $(u,v)$ oduzmemo $1$, reduciramo, pozovemo minimax iz $v$ i, ako je gubitničko, dodamo broj riječi u klasi. Redukcija se primjenjuje <em>nakon</em> uklanjanja Aliceine riječi jer ona mijenja parnost petlje odnosno par $u\!\leftrightarrow\! v$.</p>
+'''),
+    ],
+    'tips': [
+        r'''Igre na grafu s malo vrhova i mnogo paralelnih bridova: traži „zrcalne” redukcije (par poteza koji vraća isto stanje) – one čuvaju ishod i drastično smanjuju stanja.''',
+        r'''Prije procjene složenosti memoizacije pitaj se koja su stanja <em>dostižna</em>, ne koliko ih ima u kartezijevom produktu.''',
+        r'''Brute force za igre: minimax nad bitmaskom preostalih poteza za $n \le 12$ je trivijalan i odlična provjera svake „pametne” redukcije.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Slova su vrhovi (najviše $3$), riječ je brid prvo $\to$ zadnje slovo; igrač u vrhu bira neiskorišten izlazni brid. Dvije petlje na istom vrhu ili par $u\to v$, $v \to u$ smijemo ukloniti bez promjene ishoda (pobjednik reducirane igre zrcali protivnikovu upotrebu viška uparenim bridom). Reducirani graf je 3-ciklus s $\le 1$ petljom po vrhu ili acikličan, pa je iz svakog stanja dostižno $O(n)$ stanja i memoizirani minimax je trenutan. Za svaku klasu riječi $(u,v)$ uklonimo jednu riječ, reduciramo i provjerimo je li stanje u $v$ gubitničko za Boba; zbrajamo veličine takvih klasa. $O(n)$ stanja, praktično $O(n \log n)$ zbog mape.</p>
+''',
+    'detailed': r'''
+<h3>1. Model igre</h3>
+<p>Za riječ su bitni samo prvo i zadnje slovo. Neka su $L$ slova koja se pojavljuju na tim pozicijama, $|L| \le 3$; svaka riječ je usmjereni brid $\text{prvo} \to \text{zadnje}$ (petlja ako su jednaka). Stanje igre je par (trenutni vrh $x$, multiskup preostalih bridova $C$) gdje je $C$ matrica $3\times3$ brojača $c_{uv}$; igrač u $x$ bira $y$ s $c_{xy} \gt 0$, smanjuje $c_{xy}$ i predaje vrh $y$ protivniku; bez poteza gubi. Riječi iste klase $(u,v)$ su ekvivalentne.</p>
+<h3>2. Redukcije koje čuvaju ishod</h3>
+<p><strong>Lema 1.</strong> Ako je $c_{vv} \ge 2$, ishod pozicije $(x, C)$ jednak je ishodu $(x, C')$ gdje $C'$ ima dvije petlje na $v$ manje.</p>
+<p><strong>Lema 2.</strong> Ako je $c_{uv} \ge 1$ i $c_{vu} \ge 1$, $u \ne v$, ishod $(x, C)$ jednak je ishodu $(x, C'')$ gdje su $c_{uv}, c_{vu}$ umanjeni za $1$.</p>
+<p><em>Dokaz (zrcaljenje).</em> Neka igrač $W$ ima pobjedničku strategiju u reduciranoj igri. U punoj igri $W$ vodi „simuliranu” reduciranu partiju: dok protivnik $L$ igra brid koji postoji i u simuliranoj partiji, $W$ ga tamo odigra i odgovori po strategiji (potez je legalan i u punoj igri jer su puni brojači $\ge$ simuliranim). Ako $L$ odigra brid kojeg u simuliranoj partiji više nema, to je nužno jedan od dva „višak” brida (puni brojači su simulirani plus par viška); $W$ odmah odgovori drugim bridom iz para – petljom na $v$ odnosno bridom $v \to u$ – čime se vraća u isti vrh i isto simulirano stanje, a $L$ je opet na potezu, sada bez viška. Kad $L$ u simuliranoj partiji nema poteza, u punoj ima najviše višak-brid, koji $W$ odzrcali, i $L$ je opet bez poteza. Dakle $W$ pobjeđuje i u punoj igri; kako pobjednik postoji točno jedan, ishodi su jednaki. $\square$</p>
+<p>Primjenjujemo leme do kraja: $c_{vv} \leftarrow c_{vv} \bmod 2$ i za $u \lt v$: $m = \min(c_{uv}, c_{vu})$, oba umanjimo za $m$. Potezi u reduciranoj igri ne stvaraju nove parove pa reducirano stanje ostaje reducirano.</p>
+<h3>3. Struktura reduciranog grafa i broj stanja</h3>
+<p>Između svaka dva od tri vrha bridovi idu samo u jednom smjeru: orijentacija parova ili tvori 3-ciklus $0\to1\to2\to0$ ili je aciklična (tranzitivna). Uz to najviše tri petlje.</p>
+<ul>
+<li><em>Aciklično:</em> put kroz vrhove ima najviše $3$ prijelaza, uz najviše $3$ petlje – konstantan broj stanja.</li>
+<li><em>3-ciklus s brojačima $(a, b, c)$:</em> jedini ne-petlja potezi su „idi dalje po krugu”. Nakon $t$ takvih prijelaza od početnog vrha brojači su jednoznačno određeni s $t$ (svaki brid smanji se za $\lfloor t/3 \rfloor$ ili $\lceil t/3 \rceil$ po položaju), jer se krug obilazi redom. Stanje je dakle (vrh, $t$, koje su petlje potrošene): najviše $3 \cdot (n+1) \cdot 8$ stanja.</li>
+</ul>
+<p>Zato je memoizirani minimax $\text{win}(x, C) = \exists y:\ c_{xy} \gt 0 \wedge \neg \text{win}(y, C - e_{xy})$ uz mapu $\langle x, C\rangle \mapsto$ ishod dovoljno brz; na $n = 1000$ posjeti reda tisuću stanja.</p>
+<h3>4. Odgovor za Alice</h3>
+<p>Alice bira riječ $u \to v$; Bob je zatim u $v$ s multiskupom $C - e_{uv}$. Alice tom riječju pobjeđuje točno kad je $\text{win}(v, \mathrm{red}(C - e_{uv}))$ laž. Za svaku od najviše $9$ klasa oduzmemo jedan brid, reduciramo, izračunamo i dodamo $c_{uv}$ ako je stanje gubitničko. Redukcija mora ići <em>nakon</em> oduzimanja Aliceine riječi (mijenja parnost).</p>
+<h3>5. Primjer</h3>
+<p><code>attic</code> $= a\to c$, <code>climb</code> $= c\to b$, <code>alpha</code> $= a \to a$. Alice <code>attic</code>: Bob u $c$ igra <code>climb</code>, Alice u $b$ nema riječi – gubi. <code>climb</code>: Bob u $b$ nema riječi – Alice pobjeđuje. <code>alpha</code>: Bob u $a$ mora <code>attic</code>, Alice <code>climb</code>, Bob u $b$ gubi. Odgovor $2$.</p>
+<h3>6. Zamke</h3>
+<ul>
+<li>Kad je slova manje od $3$, brojači nedostajućih vrhova su nule – kod radi bez posebnog slučaja.</li>
+<li>Petlja se reducira na parnost, ne na nulu: jedna petlja mijenja ishod (npr. <code>alpha</code> gore).</li>
+<li>Ne reducirati početni multiskup prije oduzimanja Aliceine riječi, i ne zaboraviti da u istoj klasi sve riječi daju isti ishod (množimo brojem riječi u klasi).</li>
+<li>Duljina riječi do $15$ – čitanje u dovoljno velik međuspremnik; bitni su samo prvi i zadnji znak.</li>
+</ul>
+''',
+    'verified': r'''uzorci 2/2; 300 slučajnih malih testova ($n \le 12$, $1$–$3$ slova) protiv brute forcea koji radi potpuni minimax nad bitmaskom preostalih riječi bez redukcija; 3 velika testa s $n = 1000$ (3-ciklus s petljama, slučajno, mnogo petlji), najviše $0.00$ s.''',
 },
 # ---------------------------------------------------------------- F
 {
@@ -313,7 +444,86 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>$n = 3$, $k = 2$: $2.109375$, $2.625000$, $1.265625$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Natjecatelj $i$ sigurno pobjeđuje svakoga s brojem $\le i - k$. Tko onda uopće može biti drugoplasiran ako su $M \gt j$ dva najviša preostala natjecatelja?</p>
+''',
+        r'''
+<p>Samo netko iz $(j-k, j]$ ili $M$. Posljedica: svi natjecatelji $\le j - k$ još su uvijek u igri, pa je stanje potpuno opisano s $j$, maskom prisutnosti za $j-k+1, \dots, j-1$ i razmakom $M - j$ (koji možemo „odrezati” na $k$).</p>
+''',
+        r'''
+<p>Za prijelaze treba razdioba drugoplasiranog za skup od najviše $2k$ ljudi: fiksiraj cijeli dio rezultata svakoga (uniformno među $k$ „kanti”); unutar iste kante svi su poredci jednako vjerojatni. Razdioba ovisi samo o relativnom rasporedu pa je računaj lijeno i pamti.</p>
+''',
+    ],
+    'coach': [
+        ('Što se sigurno zna o ishodu usporedbe dvaju natjecatelja koji su daleko po broju?',
+         r'''
+<p>Rezultat natjecatelja $i$ je u $[i, i+k]$, a natjecatelja $i' \le i - k$ u $[i', i'+k] \subseteq (-\infty, i]$. Dakle $i$ pobjeđuje $i'$ s vjerojatnošću $1$ (izjednačenje ima vjerojatnost $0$). Samo parovi na udaljenosti $\lt k$ mogu se „zamijeniti”, što daje nadu da stanje ne treba pamtiti cijeli podskup preostalih, nego samo lokalnu sliku oko vrha.</p>
+'''),
+        ('Tko može biti drugoplasiran i što to govori o strukturi skupa preostalih?',
+         r'''
+<p>Neka su $M \gt j$ dva najviša preostala. Natjecatelj $p \le j - k$ sigurno gubi i od $M$ i od $j$, pa je najbolje treći – nikad ne ispada. Dakle ispada netko iz $(j-k, j] \cup \{M\}$. Kako $j$ (drugi najviši) tijekom igre samo pada, svatko tko je ikad ispao bio je $\gt j' - k \ge j - k$ za tadašnji $j'$. Zaključak: u svakom trenutku su <em>svi</em> natjecatelji $\le j-k$ prisutni, a stanje lanca je trojka $(j, \text{mask}, \text{above})$: maska prisutnosti $k-1$ ljudi $j-k+1..j-1$ i $\text{above} = M - j$.</p>
+'''),
+        ('Zašto se razmak $M - j \ge k$ ne mora pamtiti točno?',
+         r'''
+<p>Ako je $M \ge j + k$, $M$ sigurno pobjeđuje svaki tjedan, nikad ne ispada i na kraju dobiva rang $1$. Tko ispada određuje se isključivo među ostalima (pobjednik među njima), neovisno o točnom $M$. Zato u trenutku kad $\text{above}$ prvi put postane $\ge k$ pripišemo $M$-u rang $1$ s vjerojatnošću tog stanja i dalje pamtimo samo $\text{above} = k$. Broj stanja pada s $O(n^2 2^k)$ na $O(n k 2^{k-1})$, oko $5 \cdot 10^6$ za $n = 1000$, $k = 10$.</p>
+'''),
+        ('Kako za dano stanje izračunati vjerojatnost da je baš osoba $p$ drugoplasirana?',
+         r'''
+<p>Na drugoplasiranog utječu samo ljudi koji nekoga iz $(j-k, j]$ mogu pobijediti, dakle oni $\gt j - 2k$: maska, $j$, $M$ i do $k-1$ sigurno prisutnih ispod maske. Razdioba ovisi samo o njihovom relativnom rasporedu, pa je ključ $(\text{mask}, \text{above}, \text{brojDolje})$ – najviše $k^2 2^{k-1}$ različitih, računamo ih lijeno. Za skup pozicija: cijeli dio rezultata osobe $i$ je uniforman na $\{i, \dots, i+k-1\}$ („kante”), a unutar iste kante rezultati su i.i.d. uniformni, pa su svi poredci jednako vjerojatni. Osoba $p$ je druga točno kad je (a) u najvišoj nepraznoj kanti s još $x \ge 1$ ljudi (vjerojatnost $1/(x+1)$ da je druga) ili (b) točno je jedna osoba iznad njezine kante, a u njezinoj kanti je još $x$ ljudi (vjerojatnost $1/(x+1)$ da je prva u kanti). Za fiksnu kantu $b$ osobe $p$, DP po ostalima sa stanjem (koliko ih je iznad $b$: $0$ ili $1$; koliko ih je točno u $b$) daje obje vjerojatnosti u $O(t^2)$, $t \le 2k$.</p>
+'''),
+        ('Kako iz vjerojatnosti stanja dobiti očekivane rangove?',
+         r'''
+<p>Ako u stanju s $|S|$ preostalih ispada osoba $p$, ona dobiva rang $|S|$ (posljednji koji ostaje ima rang $1$). Zato $E[\text{rang}_p] = \sum_{s} \Pr[s] \cdot \Pr[p \text{ ispada u } s] \cdot |S(s)| + \Pr[p \text{ pobjeđuje}]$. Stanja obrađujemo po padajućem $j$ i padajućoj maski (prijelazi idu samo u takva stanja), propagiramo vjerojatnosti i usput zbrajamo doprinose. Provjera: $\sum_i E[\text{rang}_i] = n(n+1)/2$.</p>
+'''),
+    ],
+    'tips': [
+        r'''Kod slučajnih procesa na „skoro sortiranim” ulazima traži tvrdnju oblika „$i$ sigurno pobjeđuje $i-k$” – ona obično sažima stanje na prozor širine $O(k)$ i bitmasku.''',
+        r'''Za uniformne rezultate na cjelobrojnim intervalima diskretiziraj cijelim dijelom: unutar iste jedinične kante svi su poredci jednako vjerojatni, pa se poredak dobiva kombinatorički, bez integriranja.''',
+        r'''Kad je jedan igrač nepobjediv za sve preostale, njegov identitet više nije bitan – „odreži” parametar stanja na graničnu vrijednost i pripiši mu ishod odmah.''',
+        r'''Za očekivane vrijednosti u Markovljevom lancu propagiraj vjerojatnosti stanja unaprijed i zbrajaj doprinose pri svakom prijelazu; suma očekivanih rangova mora biti $n(n+1)/2$ – jeftina provjera.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Natjecatelj $i$ sigurno pobjeđuje svakoga $\le i-k$, pa ako su $M \gt j$ dva najviša preostala, ispada netko iz $(j-k, j] \cup \{M\}$ i svi $\le j-k$ su uvijek prisutni. Stanje: $(j, \text{mask}, \text{above})$ – maska prisutnosti za $j-k+1..j-1$ i $\text{above} = M-j$, odrezano na $k$ (za $M \ge j+k$ $M$ sigurno pobjeđuje pa mu odmah pripišemo rang $1$). Stanja ($O(nk2^{k-1})$) obrađujemo po padajućem $j$ i maski, propagiramo vjerojatnosti; onaj koji ispada iz stanja s $|S|$ preostalih dobiva rang $|S|$. Razdiobu drugoplasiranog za relativni raspored ljudi iz $(j-2k, j] \cup \{M\}$ računamo lijeno i pamtimo po ključu $(\text{mask}, \text{above}, \text{brojDolje})$: cijeli dio rezultata je uniforman na $k$ kanti, unutar kante su svi poredci jednako vjerojatni; DP po ostalima sa stanjem (broj iznad kante $\in\{0,1\}$, broj u kanti) daje $\Pr[p \text{ drugi}]$ u $O(k \cdot t^2)$, $t \le 2k$. Ukupno oko $1$ s za $n = 1000$, $k = 10$.</p>
+''',
+    'detailed': r'''
+<h3>1. Tko može ispasti</h3>
+<p>Rezultat natjecatelja $i$ je uniforman na $[i, i+k]$. Za $i' \le i - k$ vrijedi $i' + k \le i$, pa $i$ pobjeđuje $i'$ s vjerojatnošću $1$. Neka su $M \gt j$ dva najviša preostala natjecatelja. Svatko $p \le j - k$ gubi i od $j$ i od $M$, dakle nije ni prvi ni drugi. <strong>Ispada uvijek netko iz $(j-k, j] \cup \{M\}$.</strong></p>
+<p><strong>Posljedica.</strong> Drugi najviši preostali $j$ tijekom igre nikad ne raste (ispadanjem $M$ ili $j$ postaje sljedeći niži; ispadanjem nekog iz maske ostaje isti). Ako je natjecatelj $p$ ispao dok je drugi najviši bio $j' \ge j$, onda $p \gt j' - k \ge j - k$. Dakle u svakom trenutku su svi natjecatelji $\le j - k$ prisutni. Skup preostalih je stoga u potpunosti opisan trojkom</p>
+<ul>
+<li>$j$ – drugi najviši preostali,</li>
+<li>$\text{mask}$ – $k-1$ bitova prisutnosti natjecatelja $j-k+1, \dots, j-1$ (pozicije $\le 0$ su uvijek $0$),</li>
+<li>$\text{above} = M - j \ge 1$.</li>
+</ul>
+<p>Broj preostalih je $|S| = \max(0, j-k) + \text{popcount}(\text{mask}) + 2$.</p>
+<h3>2. Rezanje razmaka</h3>
+<p>Ako je $\text{above} \ge k$, $M$ sigurno pobjeđuje svaki tjedan i nikad ne ispada – na kraju dobiva rang $1$. Ostali ispadaju redoslijedom koji ne ovisi o točnoj vrijednosti $M$ (ispada pobjednik među ostalima). Zato: pri prijelazu u stanje s $\text{above}' \ge k$ dodamo $E[\text{rang}_{M}] \mathrel{+}= \Pr$, a stanje spremimo s $\text{above}' = k$ i u njemu $M$-u dajemo vjerojatnost ispadanja $0$. Broj stanja je tada $n \cdot k \cdot 2^{k-1} \le 5.12 \cdot 10^6$.</p>
+<h3>3. Prijelazi</h3>
+<p>Iz stanja $(j, \text{mask}, \text{above})$ s vjerojatnošću $\Pr[s]$ i razdiobom $q_p = \Pr[p \text{ drugi} \mid s]$:</p>
+<ol>
+<li>Ispada $p$ iz maske: $E[\text{rang}_p] \mathrel{+}= \Pr[s]\, q_p\, |S|$; novo stanje $(j, \text{mask} \setminus p, \text{above})$.</li>
+<li>Ispada $j$ ili $M$: rang jednako; ako je $|S| = 2$, preostali dobiva rang $1$ (osim ako je $M$ odrezan – njemu je već pripisan). Inače novi drugi najviši je $j' = $ najviši bit maske ili, ako je maska prazna, $j - k$; $d = j - j'$. Nova maska je stara pomaknuta za $d$ ulijevo, uz $d$ novih donjih bitova postavljenih za pozicije $\ge 1$ (to su ljudi iz sloja $\le j-k$, sigurno prisutni). Novi razmak: $\text{above} + d$ ako je ispao $j$ (tada $M$ ostaje), odnosno $d$ ako je ispao $M$ (novi vrh je $j$). Ako je novi razmak $\ge k$, primijeni rezanje iz odjeljka 2.</li>
+</ol>
+<p>Prijelazi idu u stanja s manjim $j$ ili istim $j$ i manjom maskom, pa je dovoljno obrađivati $j$ od $n-1$ prema $1$, a maske silazno. Početno stanje: $j = n-1$, $\text{above} = 1$, maska = svi postojeći. Ukupno najviše $(k+1)$ prijelaza po stanju, oko $5 \cdot 10^7$.</p>
+<h3>4. Razdioba drugoplasiranog</h3>
+<p>Tko je drugi ovisi o svima koji mogu pobijediti nekoga iz $(j-k, j]$, tj. o ljudima $\gt j - 2k$: maska, $j$, $M$ i do $k-1$ sigurno prisutnih $j-2k+2, \dots, j-k$ (postoje li, ovisi o $j$: $\text{brojDolje} = \min(k-1, \max(0, j-k))$). Razdioba ovisi samo o relativnom rasporedu, pa je pamtimo po ključu $(\text{mask}, \text{above}, \text{brojDolje})$ – najviše $k^2 2^{k-1} = 51\,200$ ključeva, računa se lijeno.</p>
+<p><strong>Kante.</strong> Cijeli dio rezultata osobe na poziciji $i$ je uniforman na $\{i, \dots, i+k-1\}$, svaka kanta s vjerojatnošću $1/k$. Uvjetno na kante, ljudi u različitim kantama poredani su po kanti, a rezultati unutar iste kante su nezavisni i uniformni na istom intervalu, pa su svi poredci unutar kante jednako vjerojatni. Osoba $p$ je drugoplasirana točno u dva slučaja:</p>
+<ul>
+<li>(a) $p$ je u najvišoj nepraznoj kanti zajedno s još $x \ge 1$ ljudi: vjerojatnost da je druga među njima je $1/(x+1)$;</li>
+<li>(b) iznad kante osobe $p$ je točno jedna osoba, a u kanti osobe $p$ je još $x \ge 0$ ljudi: $p$ je druga ako je prva u svojoj kanti, vjerojatnost $1/(x+1)$.</li>
+</ul>
+<p>Za fiksnu kantu $b$ osobe $p$ ($\Pr = 1/k$) radimo DP po ostalim osobama $r$ sa stanjem $(a, x)$: $a \in \{0, 1\}$ broj osoba iznad $b$ (stanje $a = 2$ odbacujemo), $x$ broj osoba točno u $b$. Za osobu $r$ na poziciji $i$: $\Pr[\text{iznad}] = \max(0, \min(k, i+k-1-b))/k$, $\Pr[\text{u } b] = [i \le b \le i+k-1]/k$, $\Pr[\text{ispod}] = \max(0, \min(k, b - i))/k$. Na kraju $\Pr[p \text{ drugi}] = \frac1k \sum_b \left( \sum_{x \ge 1} \frac{dp_0[x]}{x+1} + \sum_{x \ge 0} \frac{dp_1[x]}{x+1} \right)$. Složenost po ključu $O(k \cdot t^2)$ po kandidatu, $t \le 2k$, kandidata najviše $k+1$; sve zajedno ispod $0.5$ s jer je dostižnih ključeva mnogo manje od maksimuma.</p>
+<h3>5. Provjera na primjeru</h3>
+<p>$n = 3$, $k = 2$: rezultati $X_1, X_2, X_3$ uniformni na $[1,3], [2,4], [3,5]$. Početno stanje $(j=2, \text{mask}=\{1\}, \text{above}=1)$, $|S| = 3$. Osoba $3$ je druga točno kad je $X_2 \gt X_3$ (osoba $1$ je nikad ne pobjeđuje jer $X_1 \le 3 \le X_3$): oba rezultata moraju biti u $[3,4]$ i $X_2$ veći, $\Pr = \frac12 \cdot \frac12 \cdot \frac12 = \frac18$. Isto tako osoba $1$ je druga točno kad $X_1 \gt X_2$, $\Pr = \frac18$; osoba $2$ s $\frac34$. Ako ispadne $2$, ostaju $\{1, 3\}$ i $3$ sigurno pobjeđuje; ako ispadne $1$, u $\{2, 3\}$ osoba $3$ ispada (rang $2$) s $\Pr[X_2 \gt X_3] = \frac18$. Dakle $E[\text{rang}_3] = 3 \cdot \frac18 + \frac34 \cdot 1 + \frac18\left(2 \cdot \frac18 + 1 \cdot \frac78\right) = 1.265625$. Provjera: $2.109375 + 2.625 + 1.265625 = 6 = n(n+1)/2$.</p>
+<h3>6. Zamke</h3>
+<ul>
+<li>Bit maske za poziciju $\le 0$ mora biti $0$ (mali $n$ ili $j \lt k$); $\text{brojDolje}$ također ovisi o postojanju ljudi.</li>
+<li>Ne pripisati rang $1$ dvaput: nakon rezanja, u stanju $|S| = 2$ preostali $M$ više ne dobiva ništa.</li>
+<li>U slučaju (a) treba $x \ge 1$ – $p$ sam u najvišoj kanti je pobjednik, ne drugi.</li>
+<li>Memorija: $n k 2^{k-1}$ double-ova $\approx 41$ MB; ispis s barem $7$ decimala.</li>
+</ul>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 7$, $k \le 10$) protiv egzaktnog brute forcea (Markovljev lanac po svim podskupovima; vjerojatnost drugoplasiranog računa neovisno o kantama, integriranjem umnoška po dijelovima linearnih funkcija razdiobe u racionalnoj aritmetici), dodatno ručno $n \le 12$, $k \le 4$; usporedba checkerom s greškom $10^{-6}$; 3 velika testa s $n \approx 1000$, $k = 10$ (najviše $1.3$ s, ograničenje $8$ s).''',
 },
 # ---------------------------------------------------------------- I
 {
