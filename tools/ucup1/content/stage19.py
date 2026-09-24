@@ -6,7 +6,7 @@ STAGE = {
     'no_editorial': True,
     'community': True,
     'source_html': r'''
-<p>Zadaci potječu s natjecanja The 2023 ICPC North America Championship (NAC 2023). Tekst zadatka preveden je prema službenim <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1248&amp;r=0">engleskim tekstovima zadataka</a>. Organizatori nisu objavili službena rješenja. Zadatak je dostupan na <a href="https://contest.ucup.ac/contest/1248">Universal Cup Judging System</a>.</p>
+<p>Zadaci potječu s natjecanja The 2023 ICPC North America Championship (NAC 2023). Tekst zadatka preveden je prema službenim <a href="https://contest.ucup.ac/download.php?type=attachments&amp;id=1248&amp;r=0">engleskim tekstovima zadataka</a>. Organizatori Universal Cupa nisu objavili editorial; rješenja su napisana prema <a href="http://serjudging.vanb.org/wp-content/uploads/nac.pdf">službenim slajdovima sudaca NAC 2023</a> i vlastitim, lokalno testiranim implementacijama. Zadatak je dostupan na <a href="https://contest.ucup.ac/contest/1248">Universal Cup Judging System</a>.</p>
 ''',
 }
 
@@ -154,7 +154,71 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>Četiri stakla $1 \times 1$: $1$. Stakla $3 \times 1, 3 \times 3, 2 \times 2, 3 \times 3$: $0$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Ukupna površina mora biti potpun kvadrat $S^2$ – to odmah određuje stranicu kvadrata. Što još mora vrijediti za pravokutnik u donjem lijevom kutu?</p>
+''',
+        r'''
+<p>Pokušaj nacrtati popločavanje s četiri pravokutnika u kojem nijedan pravac (vodoravan ili okomit) ne prolazi „čisto” kroz cijeli kvadrat, ne presijecajući nijedan pravokutnik. Nećeš uspjeti: takav „vjetrenjača” raspored treba barem pet pravokutnika.</p>
+''',
+        r'''
+<p>Dakle, postoji rez koji dijeli kvadrat na dva pravokutnika, svaki popločan podskupom stakala. Rekurzivno: za svaki podskup (bitmaska) i smjer reza dimenzija dijela slijedi iz njegove površine ($w_1 = P_A / H$ mora biti cijeli broj); jedno staklo odgovara pravokutniku ako se dimenzije poklapaju do rotacije.</p>
+''',
+    ],
+    'coach': [
+        ('Što je najjednostavniji nužni uvjet i koliko nam on sužava prostor?',
+         r'''
+<p>Zbroj površina $P = \sum w_i h_i$ mora biti $S^2$ za cijeli $S$ – inače je odgovor $0$. Ako je kvadrat, stranica $S$ je jedinstveno određena, pa problem postaje: može li se <em>konkretan</em> kvadrat $S \times S$ popločati zadanim staklima. Cjelobrojni korijen računamo bez pogrešaka pomičnog zareza (npr. <code>sqrt</code> pa korekcija za $\pm 1$).</p>
+'''),
+        ('Zašto ne trebamo razmatrati sve moguće položaje stakala u kvadratu?',
+         r'''
+<p>Jer svako popločavanje pravokutnika s najviše četiri pravokutnika ima <em>giljotinski rez</em>: pravac koji siječe cijeli pravokutnik i ne presijeca nijednu pločicu. Dokaz za četiri pločice: ako neka pločica dodiruje i lijevu i desnu stranicu (odnosno gornju i donju), pravac uz njegov rub je rez. Inače su pločice u četiri kuta međusobno različite (pločica u dva susjedna kuta bi premostila stranicu, u dva nasuprotna kuta bila bi cijeli kvadrat), dakle sve četiri pločice su kutne. Neka donji lijevi ima dimenzije $a \times b$, donji desni $(S-a) \times b_2$ (na donjoj stranici se moraju sastati, jer treća pločica na donjoj stranici ne postoji), gornji lijevi $c \times (S-b)$ i gornji desni $(S-c) \times (S-b_2)$. Zbroj površina je $S^2 + (a-c)(b-b_2)$, pa iz $= S^2$ slijedi $a = c$ (okomiti rez na $x = a$) ili $b = b_2$ (vodoravni rez na $y = b$). Kontradikcija s pretpostavkom da reza nema. Za tri ili manje pločica argument je isti: ne mogu sva četiri kuta biti pokrivena različitim pločicama, pa neka premošćuje stranicu.</p>
+'''),
+        ('Kako giljotinski rez pretvoriti u rekurziju i kako znati gdje je rez?',
+         r'''
+<p>Rez dijeli skup stakala na dva neprazna podskupa $A$ i $B$ i pravokutnik $W \times H$ na dva pravokutnika. Ako je rez okomit, lijevi dio ima visinu $H$ i površinu $P_A$, pa mu je širina nužno $w_1 = P_A / H$ – mora biti cijeli broj u $[1, W-1]$; položaj reza nije slobodan parametar. Analogno za vodoravni rez. Zato je funkcija $\text{može}(W, H, \text{maska})$ jednostavna: za jednu pločicu usporedi dimenzije (do rotacije), inače probaj sve podskupove maske i oba smjera reza. Prije toga provjeri $P_{\text{maska}} = W \cdot H$ – to odmah odbacuje većinu grana.</p>
+'''),
+        ('Koliko je to posla i gdje su zamke?',
+         r'''
+<p>Na vrhu ima $7$ podjela skupa od $4$ elementa na dva neprazna podskupa (do zamjene), na sljedećoj razini najviše $3$, i svaki poziv radi $O(1)$: ukupno nekoliko stotina operacija. Zamke: površina do $4 \cdot 10^6$ i umnošci poput $S^2$ stanu u 32 bita, ali korištenje 64-bitnih brojeva ništa ne košta; rotaciju dopuštamo samo pri usporedbi jednog stakla s pravokutnikom; treba paziti da je širina dijela strogo manja od $W$ (obje strane reza neprazne).</p>
+'''),
+    ],
+    'tips': [
+        r'''Kod „može li se složiti” zadataka s vrlo malo dijelova traži strukturni teorem koji ograničava oblik rješenja (ovdje: giljotinsko popločavanje), umjesto slijepog pretraživanja položaja.''',
+        r'''Najmanje ne-giljotinsko popločavanje pravokutnika pravokutnicima je „vjetrenjača” s $5$ pločica; s $\le 4$ dijela uvijek postoji rez. Dokaz preko zbroja površina četiriju kutnih pločica vrijedi zapamtiti.''',
+        r'''U rekurziji nad podskupovima neka dimenzije izvedeš iz površine (jedini stupanj slobode je izbor podskupa i smjera), a provjeru $P_{\text{maska}} = W \cdot H$ stavi na sam početak – to je i ispravnost i rezanje grana.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Ukupna površina mora biti $S^2$; inače $0$. Svako popločavanje pravokutnika s $\le 4$ pravokutnika ima giljotinski rez (pravac koji ne presijeca nijednu pločicu): ako nijedna pločica ne premošćuje kvadrat, sve su četiri pločice kutne, dimenzija $a\times b$, $(S-a)\times b_2$, $c \times (S-b)$, $(S-c)\times(S-b_2)$, a zbroj površina je $S^2 + (a-c)(b-b_2)$, pa je $a = c$ ili $b = b_2$ – rez postoji. Zato rekurzivno: $\text{može}(W,H,\text{maska})$ provjeri $P_{\text{maska}} = WH$, za jedno staklo usporedi dimenzije do rotacije, inače za svaki podskup $A$ maske i oba smjera reza izračuna dimenziju dijela iz površine ($w_1 = P_A/H$ ili $h_1 = P_A/W$, cijeli broj) i rekurzivno provjeri obje strane. Nekoliko stotina operacija.</p>
+''',
+    'detailed': r'''
+<h3>1. Stranica kvadrata</h3>
+<p>Ako stakla tvore kvadrat, njegova je površina zbroj površina $P = \sum_{i=1}^4 w_i h_i \le 4\cdot 10^6$, pa stranica mora biti $S = \sqrt{P}$, cijeli broj. Računamo $S = \lfloor \sqrt{P} \rfloor$ (uz korekciju $\pm 1$ zbog zaokruživanja) i ako je $S^2 \ne P$ odgovor je $0$. Primjer 2: $3 + 9 + 4 + 9 = 25 = 5^2$, dakle sam uvjet površine ne odbacuje ovaj slučaj – trebamo pravu provjeru.</p>
+<h3>2. Teorem o giljotinskom rezu</h3>
+<p><strong>Tvrdnja.</strong> U svakom popločavanju pravokutnika $W \times H$ s najviše četiri pravokutnika postoji pravac paralelan sa stranicom koji dijeli pravokutnik na dva dijela, a ne presijeca unutrašnjost nijedne pločice.</p>
+<p><strong>Dokaz.</strong> Ako neka pločica dodiruje i lijevu i desnu stranicu, pravac duž njegova gornjeg (ili donjeg) ruba je traženi rez, osim ako je pločica cijeli pravokutnik (tada je popločavanje trivijalno). Analogno za pločicu koja dodiruje gornju i donju stranicu. Pretpostavimo da takve pločice nema. Pločica u donjem lijevom kutu tada ne dodiruje ni desnu ni gornju stranicu, pa je različita od pločica u ostalim kutovima; isto vrijedi za svaki kut. Dakle postoje četiri <em>različite</em> kutne pločice – s najviše četiri pločice to su sve. Označimo donji lijevi $T_1$ dimenzija $a \times b$ ($a \lt W$, $b \lt H$). Na donjoj stranici, desno od $T_1$, leži neka pločica; ona dodiruje donju stranicu i ne može biti gornja kutna pločica (tada bi premošćivala visinu), pa je to donji desni $T_2$, širine $W - a$, visine $b_2$. Isto tako $T_1$ i gornji lijevi $T_3$ (širine $c$, visine $H - b$) dijele lijevu stranicu, $T_3$ i gornji desni $T_4$ dijele gornju stranicu ($T_4$ širine $W - c$), a $T_2$ i $T_4$ desnu ($T_4$ visine $H - b_2$). Zbroj površina:</p>
+<p>$$ab + (W-a)b_2 + c(H-b) + (W-c)(H-b_2) = WH + (a - c)(b - b_2).$$</p>
+<p>Budući da pločice točno pokrivaju pravokutnik, zbroj je $WH$, pa je $a = c$ ili $b = b_2$. U prvom slučaju pravac $x = a$ ne presijeca nijednu pločicu ($T_1, T_3$ su lijevo, $T_2, T_4$ desno), u drugom pravac $y = b$. Kontradikcija. $\blacksquare$</p>
+<p>Ovo je ujedno razlog zašto najmanja „vjetrenjača” (središnji kvadratić okružen s četiri pravokutnika) ima pet pločica: peta pločica kvari jednakost površina.</p>
+<h3>3. Rekurzija nad podskupovima</h3>
+<p>Definiramo $\text{može}(W, H, M)$ – može li se pravokutnik $W \times H$ točno popločati staklima iz skupa $M$ (bitmaska od $4$ bita).</p>
+<ol>
+<li>Ako $P_M \ne W \cdot H$, vrati <em>ne</em> (površine se moraju poklapati).</li>
+<li>Ako $|M| = 1$, vrati <em>da</em> točno kad je $(w, h) = (W, H)$ ili $(w, h) = (H, W)$.</li>
+<li>Inače po teoremu postoji rez koji stakla dijeli na neprazne skupove $A$ i $B = M \setminus A$. Za okomiti rez lijevi dio ima visinu $H$ i površinu $P_A$, dakle širinu $w_1 = P_A / H$; ako je $H \mid P_A$ i $1 \le w_1 \le W - 1$, provjeri $\text{može}(w_1, H, A) \wedge \text{može}(W - w_1, H, B)$. Za vodoravni rez analogno s $h_1 = P_A / W$. Isprobaj sve $A$ (svaki par $\{A, B\}$ jednom).</li>
+</ol>
+<p>Ispravnost: ako popločavanje postoji, teorem daje rez, rez određuje $A$ i $B$ te dimenzije dijelova (dimenzija dijela je jednoznačno određena površinom jer je druga dimenzija zajednička), a dijelovi su opet popločavanja s manje pločica – indukcija. Obrnuto, sve što rekurzija prihvati očito se može fizički složiti.</p>
+<h3>4. Provjera na primjeru 2</h3>
+<p>$S = 5$. Stakla $3\times1, 3\times3, 2\times2, 3\times3$. Rez koji odvaja jedno staklo: dio $5 \times h_1$ s $h_1 = P/5$ – nijedna od površina $3, 9, 4$ nije djeljiva s $5$. Rez koji dijeli $2 + 2$ stakla: površine parova su $12, 7, 12, 13, 18, 13$ – nijedna nije djeljiva s $5$. Nijedan rez ne prolazi, odgovor $0$. (Za primjer 1: $S = 2$, rez na dva dijela $1 \times 2$, svaki od dva stakla $1\times1$ – odgovor $1$.)</p>
+<h3>5. Složenost i zamke</h3>
+<ul>
+<li>Vrh rekurzije ima $7$ podjela, svaka daje pozive s $\le 3$ stakla ($3$ podjele) itd.; ukupno ispod tisuću elementarnih operacija.</li>
+<li>Rotacija se dopušta samo pri usporedbi jednog stakla s pravokutnikom; ne treba je „primjenjivati” ranije, jer smjer reza pokriva obje orijentacije.</li>
+<li>Uvjet $1 \le w_1 \le W - 1$ (obje strane neprazne) i provjera djeljivosti prije dijeljenja.</li>
+<li>Cjelobrojni korijen: <code>sqrt</code> u pomičnom zarezu pa korekcija, ili binarno pretraživanje; ne uspoređivati $\sqrt{P}$ s cijelim brojem izravno.</li>
+</ul>
+''',
+    'verified': r'''uzorci 2/2; 300 slučajnih malih testova (dimenzije $\le 6$; oko $60\%$ slučajeva konstruirano kao slučajno giljotinsko popločavanje kvadrata, dio s jednim namjerno „pokvarenim” staklom iste površine, ostatak nasumično) protiv brute forcea koji backtrackingom fizički slaže stakla u mrežu $S \times S$; 3 velika testa s dimenzijama do $1000$ (<0.01 s).''',
 },
 # ---------------------------------------------------------------- G
 {
@@ -169,7 +233,71 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>$m = 3$, $k = 2$, $f = (3, 1, 4, 1, 5, 9, 2, 6)$: $8$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Zapiši uvjet formalno: za svaki prozor $W$ od $m$ uzastopnih mjeseci, broj plaćenih letova u $W$ mora biti barem $\min(k, F_W)$, gdje je $F_W$ broj letova u $W$. Prozori koji vire izvan $[1, n]$ (i na početku i na kraju!) također se broje – provjeri na primjeru da bez prozora nakon $n$-tog mjeseca ne dobiješ $8$.</p>
+''',
+        r'''
+<p>Obrađuj prozore redom po desnom kraju. Kad prozoru nedostaje plaćenih letova, koji neplaćeni let u prozoru je najbolje platiti – najstariji ili najnoviji?</p>
+''',
+        r'''
+<p>Najnoviji: on pripada svim budućim prozorima kojima pripada i bilo koji stariji let iz istog prozora. Neplaćene letove drži na stogu (mjesec, broj) – vrh stoga je uvijek najnoviji neplaćeni mjesec, a ukupno plaćenih letova u prozoru održavaj kliznim prozorom.</p>
+''',
+    ],
+    'coach': [
+        ('Koji su prozori zapravo relevantni i kako glasi uvjet?',
+         r'''
+<p>Za prozor $W = [l, r]$ označimo $F_W$ ukupan broj letova i $P_W$ broj plaćenih letova u njemu; uvjet je $P_W \ge \min(k, F_W)$. Mjeseci izvan $[1, n]$ imaju $0$ letova, ali prozori koji ih sadrže nisu prazni: zadatak izričito kaže da vrijede prozori koji počinju prije prvog leta, a jednako tako i oni koji završavaju nakon $n$-tog mjeseca (u primjeru prozor $[8, 10]$ sadrži samo $6$ letova 8. mjeseca i zahtijeva $2$ plaćena; bez toga bi odgovor bio $6$, a ne $8$). Dovoljno je promatrati prozore s desnim krajem $r = 1, \dots, n + m - 1$, tj. $[\max(1, r-m+1), \min(n, r)]$.</p>
+'''),
+        ('Zašto plaćati tek kad smo prisiljeni, i zašto baš najnoviji let?',
+         r'''
+<p>Plaćeni let je „točka” u vremenu koja pomaže svim prozorima koji je sadrže. Obrađujemo prozore po desnom kraju. Kad prozor $[l, r]$ ima manjak $d = \min(k, F_W) - P_W \gt 0$, moramo dodati $d$ plaćenih letova unutar $[l, r]$. Neplaćeni let u mjesecu $j' \gt j$ (oba u prozoru) pripada svakom <em>budućem</em> prozoru $[l', r']$, $r' \ge r$, kojem pripada let u $j$ (jer $l' \le j \lt j' \le r \le r'$), a prošli prozori su već zadovoljeni. Dakle plaćanje najnovijeg leta nikad nije lošije – to je klasična zamjena kod pokrivanja intervala točkama.</p>
+'''),
+        ('Kako argument zamjene pretvoriti u dokaz optimalnosti?',
+         r'''
+<p>Invarijanta: postoji optimalno rješenje $O$ koje sadrži sve letove koje je pohlepni algoritam do sada platio. Kad pohlepni na prozoru $W$ plati skup $A$ od $d$ najnovijih dostupnih letova, $O$ (koje je dopustivo i sadrži prethodne pohlepne odluke) ima u $W$ barem $d$ „svojih” dodatnih letova $B$. Svaki let iz $B \setminus A$ nije među $d$ najnovijih dostupnih, pa je stariji ili jednak svakom letu iz $A \setminus B$. Zamijenimo ih jedan za jedan: prošli prozori ostaju zadovoljeni (sadrže pohlepne letove), budući prozori koji sadrže stariji let sadrže i noviji, trošak je isti. Novo $O$ sadrži $A$, invarijanta vrijedi, a na kraju $|O| \ge |G|$. Pohlepni nikad ne zapne jer je $\min(k, F_W) \le F_W$.</p>
+'''),
+        ('Koja struktura podataka daje „najnoviji neplaćeni let u prozoru” u amortiziranom $O(1)$?',
+         r'''
+<p>Stog parova (mjesec, broj neplaćenih). Mjeseci dolaze rastućim redom, pa je vrh stoga uvijek najnoviji mjesec koji ima neplaćenih letova. Ne treba ni izbacivati mjesece koji su izašli iz prozora: ako je manjak $d \gt 0$, u prozoru postoji neplaćeni let, on je na stogu s mjesecom $\ge l$, a vrh je još noviji – dakle vrh je u prozoru. Svako skidanje s vrha ili isprazni mjesec (najviše $n$ puta ukupno) ili je zadnje u tom prozoru (najviše jedno po prozoru), pa je ukupno $O(n + m)$. Broj plaćenih i ukupnih letova u prozoru održavamo kliznim prozorom (dodaj mjesec $r$, oduzmi mjesec $r - m$).</p>
+'''),
+    ],
+    'tips': [
+        r'''Uvjete oblika „u svakom intervalu barem $c$ odabranih” rješavaj pohlepno po desnom kraju i biraj najdesnije (najkasnije) elemente – to je isti obrazac kao „najmanje točaka koje probijaju sve intervale”.''',
+        r'''Kad zadatak spominje intervale koji „vire” izvan raspona podataka, ručno provjeri na uzorku uključuješ li ih; ovdje bez prozora iza $n$-tog mjeseca odgovor na uzorku ispada $6$ umjesto $8$.''',
+        r'''Stog s parovima (pozicija, količina) je dovoljan umjesto multiseta ili segmentnog stabla kad elementi dolaze sortirano i uvijek uzimaš najnoviji – zastarjele elemente na dnu ne moraš ni čistiti ako dokažeš da ih nikad nećeš dotaknuti.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Za prozor $W$ s $F_W$ letova uvjet je $P_W \ge \min(k, F_W)$ plaćenih; relevantni su prozori $[\max(1, r-m+1), \min(n, r)]$ za $r = 1, \dots, n+m-1$ (uključujući one koji vire izvan $[1, n]$). Prozore obrađujemo po desnom kraju, kliznim prozorom držimo $F_W$ i $P_W$; ako je manjak $d = \min(k, F_W) - P_W \gt 0$, platimo $d$ <em>najnovijih</em> neplaćenih letova u prozoru, uzimajući ih s vrha stoga (mjesec, neplaćeno). Optimalnost slijedi argumentom zamjene: noviji let pripada svim budućim prozorima kojima pripada stariji iz istog prozora. Složenost $O(n + m)$, odgovor u 64-bitnom tipu.</p>
+''',
+    'detailed': r'''
+<h3>1. Formalizacija</h3>
+<p>Neka je $p_j$ broj plaćenih letova u mjesecu $j$, $0 \le p_j \le f_j$, uz $f_j = 0$ za $j \notin [1, n]$. Za prozor $W = [l, l+m-1]$ označimo $F_W = \sum_{j \in W} f_j$ i $P_W = \sum_{j \in W} p_j$. Uvjet programa: $P_W \ge \min(k, F_W)$ za <em>svaki</em> prozor. Prozori koji ne sijeku $[1, n]$ imaju $F_W = 0$ i trivijalni su; ostali imaju desni kraj $r \in [1, n+m-1]$ i dovoljno je promatrati njihov presjek s $[1, n]$: $[\max(1, r-m+1), \min(n, r)]$. Prozori koji vire izvan podataka nisu formalnost: u primjeru ($m = 3$, $k = 2$) prozor $[8, 10]$ sadrži samo $6$ letova 8. mjeseca i zahtijeva $2$ plaćena, a prozor $[7, 9]$ zahtijeva $2$ plaćena među letovima 7. i 8. mjeseca.</p>
+<h3>2. Pohlepni algoritam</h3>
+<ol>
+<li>Za $r = 1, 2, \dots, n + m - 1$: ako je $r \le n$, dodaj mjesec $r$ u prozor ($F \mathrel{+}= f_r$, na stog stavi $(r, f_r)$); ako je $r - m \ge 1$, izbaci mjesec $r - m$ ($F \mathrel{-}= f_{r-m}$, $P \mathrel{-}= p_{r-m}$).</li>
+<li>Izračunaj manjak $d = \min(k, F) - P$. Dok je $d \gt 0$: uzmi vrh stoga $(j, u)$, plati $\min(d, u)$ letova mjeseca $j$ (povećaj $p_j$, $P$ i ukupni odgovor, smanji $d$ i $u$); ako je $u$ palo na $0$, skini vrh.</li>
+</ol>
+<p>Zašto je vrh stoga uvijek unutar prozora kad je $d \gt 0$? Ako je $d \gt 0$, onda je $P \lt F$, pa u prozoru postoji mjesec $j \ge l$ s neplaćenim letovima; on je na stogu (mjeseci se skidaju tek kad su potpuno plaćeni), a vrh stoga ima mjesec $\ge j \ge l$. Zato zastarjele mjesece na dnu stoga ne treba čistiti. Pohlepni nikad ne zapne jer je $\min(k, F) \le F$: uvijek ima dovoljno letova za platiti.</p>
+<h3>3. Dokaz optimalnosti (argument zamjene)</h3>
+<p>Gledajmo svaki let kao zaseban „utor” (mjesec $j$ ima $f_j$ utora); rješenje je skup plaćenih utora. Tvrdimo da tijekom algoritma postoji optimalno rješenje $O$ koje sadrži sve utore koje je pohlepni $G$ do tada platio. Na početku je to bilo koje optimalno rješenje. Neka pohlepni na prozoru $W$ (desni kraj $r$) plati skup $A$ od $d$ najnovijih još neplaćenih utora u $W$. Kako je $O \supseteq G$ dopustivo, $O$ sadrži u $W$ barem $\min(k, F_W) = |G \cap W| + d$ utora, dakle skup $B$ od barem $d$ utora izvan $G$. Svaki utor $b \in B \setminus A$ je dostupan (nije u $G$), a nije među $d$ najnovijih dostupnih, pa je njegov mjesec $\le$ mjesecu svakog $a \in A \setminus B$. Zamijenimo redom svaki $a \in A \setminus B$ za neki $b \in B \setminus A$ (ima ih dovoljno jer $|B| \ge |A|$): $O' = O \setminus \{b\} \cup \{a\}$.</p>
+<ul>
+<li>Trošak je isti, a utori su različiti pa kapaciteti $p_j \le f_j$ vrijede.</li>
+<li>Prozori s desnim krajem $\lt r$ su zadovoljeni već samim $G$, a $G \subseteq O'$.</li>
+<li>Prozor s desnim krajem $r' \ge r$ koji sadrži $b$ (mjesec $j_b \ge l$) sadrži i $a$, jer je $l' \le j_b \le j_a \le r \le r'$. Ostali prozori nisu izgubili utor.</li>
+</ul>
+<p>Dakle $O'$ je dopustivo, optimalno i sadrži $G \cup A$. Na kraju algoritma $O \supseteq G$, pa je $|G| \le |O|$, a $G$ je dopustivo po konstrukciji – $G$ je optimalno.</p>
+<h3>4. Prolaz kroz primjer</h3>
+<p>$m = 3$, $k = 2$, $f = (3,1,4,1,5,9,2,6)$. $r=1$: $[1,1]$, $F=3$, treba $2$: plati $2$ u 1. mjesecu. $r=2,3$: prozori $[1,2],[1,3]$ imaju $P = 2$. $r=4$: $[2,4]$, $P = 0$: plati $1$ u 4. mjesecu (sve), pa $1$ u 3. mjesecu; ukupno $4$. $r=5$: $[3,5]$, $P=2$. $r=6$: $[4,6]$, $P=1$: plati $1$ u 6. mjesecu ($5$). $r=7$: $[5,7]$, $P=1$: plati $1$ u 7. ($6$). $r=8$: $[6,8]$, $P=2$. $r=9$: $[7,8]$, $P=1$: plati $1$ u 8. ($7$). $r=10$: $[8,8]$, $F = 6$, $P = 1$: plati još $1$ ($8$). Odgovor $8$.</p>
+<h3>5. Složenost i zamke</h3>
+<ul>
+<li>Vrijeme $O(n + m)$: svaka iteracija unutarnje petlje ili isprazni jedan mjesec (ukupno $\le n$) ili je posljednja za taj prozor (ukupno $\le n+m-1$). Memorija $O(n)$.</li>
+<li>$F_W$ do $2\cdot 10^{14}$ i odgovor do $\sum f_j$ – obavezno 64-bitni tipovi; $k$ do $10^9$ stane u 32 bita, ali $\min(k, F_W)$ računaj u 64 bita.</li>
+<li>Petlja mora ići do $r = n + m - 1$, ne do $n$; mjesec $r - m$ izbacuj tek kad je $\ge 1$.</li>
+<li>Ne „čisti” stog po lijevom kraju prozora skidanjem s dna – nije potrebno, a pogrešno implementirano može izbaciti mjesece koji su još u prozoru.</li>
+</ul>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 6$, $m \le 5$, $f_i \le 3$, $k$ do $\sum f + 1$) protiv brute forcea koji iscrpno ispituje sve vektore plaćenih letova i sve prozore $r = 1..n+m-1$; 3 velika testa s $n, m$ do $2\cdot 10^5$ i $f_i, k$ do $10^9$ (najviše $0.02$ s).''',
 },
 # ---------------------------------------------------------------- H
 {
@@ -200,7 +328,63 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>$x = 15625 \to 25$; $x = 64000000 \to 20$; $x = 65536 \to -1$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Ne traži $n$ izravno – traži $f(n)$. Ako je $n^{f(n)} = x$, što to govori o $x$ kao potenciji?</p>
+''',
+        r'''
+<p>$x$ mora biti točna $f(n)$-ta potencija. Za $n \ge 2$ je $f(n) \ge 2$, pa je $n^{f(n)} \ge 2^{f(n)}$: koliko najviše može biti $f(n)$ ako je $x \le 10^{18}$?</p>
+''',
+        r'''
+<p>Za svaki $\tau \in \{2,\dots,60\}$ izračunaj cjelobrojni $\tau$-ti korijen $n$ od $x$ (binarno pretraživanje s množenjem koje ne prelijeva), provjeri $n^\tau = x$ i $f(n) = \tau$ probnim dijeljenjem, te uzmi najmanji takav $n$.</p>
+''',
+    ],
+    'coach': [
+        ('Koja je nepoznanica „manja”: $n$ ili eksponent $f(n)$?',
+         r'''
+<p>Eksponent. $n$ može biti do $10^9$, ali eksponent $\tau = f(n)$ je za $n \ge 2$ barem $2$, a $n^\tau \le 10^{18}$ daje $2^\tau \le 10^{18}$, dakle $\tau \le 59$. Zato fiksiramo $\tau$ (najviše $60$ kandidata) i iz njega izvedemo $n$.</p>
+'''),
+        ('Kad je $\tau$ fiksiran, koliko je kandidata za $n$?',
+         r'''
+<p>Točno jedan: $n$ mora biti cjelobrojni $\tau$-ti korijen od $x$, tj. $n = \sqrt[\tau]{x}$, a to postoji samo ako je $x$ točna $\tau$-ta potencija. Korijen nađemo binarnim pretraživanjem po $n \in [1, 2\cdot 10^9]$ uz „zasićeno” množenje (ako međurezultat premaši $2\cdot 10^{18}$, prekinemo) – tako izbjegavamo prelijevanje i ne oslanjamo se na <code>pow</code> u pomičnom zarezu.</p>
+'''),
+        ('Je li dovoljno da je $x = n^\tau$?',
+         r'''
+<p>Nije – još treba $f(n) = \tau$, jer inače $n^{f(n)} \ne x$. Broj djelitelja računamo probnim dijeljenjem do $\sqrt{n}$; najgori slučaj je $\tau = 2$ s $n \approx 10^9$, dakle oko $3\cdot 10^4$ dijeljenja – trivijalno.</p>
+'''),
+        ('Kako među više valjanih $\tau$ odabrati najmanji $n$ i koji su rubni slučajevi?',
+         r'''
+<p>Različiti $\tau$ daju različite $n$ (veći $\tau$ daje manji korijen), pa jednostavno pamtimo minimum svih $n$ koji prolaze obje provjere. Rubni slučaj $x = 1$: $n = 1$ jer $f(1) = 1$ i $1^1 = 1$; za $x \ge 2$ kandidat $n = 1$ nikad ne prolazi, a $\tau = 1$ bi zahtijevao $n = x$ s $f(x) = 1$, što vrijedi samo za $x = 1$.</p>
+'''),
+    ],
+    'tips': [
+        r'''Kad je u jednadžbi nepoznanica i u bazi i u eksponentu, fiksiraj onu s <em>malim</em> rasponom (eksponent je ograničen logaritmom) i drugu izvedi.''',
+        r'''Cjelobrojne korijene velikih brojeva računaj binarnim pretraživanjem sa „zasićenim” množenjem ili u <code>__int128</code>; <code>pow</code>/<code>cbrt</code> u pomičnom zarezu treba barem provjeriti za $\pm 1$.''',
+        r'''Uvijek zapiši rubne slučajeve poput $x = 1$ ili $n = 1$ prije nego što napišeš glavnu petlju – u ovakvim zadacima to su najčešći uzroci pogrešnog odgovora.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Ako je $n^{f(n)} = x$, onda je $x$ točna $\tau$-ta potencija za $\tau = f(n)$. Za $n \ge 2$ vrijedi $\tau \ge 2$ i $2^\tau \le n^\tau = x \le 10^{18}$, pa je $\tau \le 59$. Za svaki $\tau \in \{2,\dots,60\}$ binarnim pretraživanjem (množenje sa zaštitom od prelijevanja) nađemo $n = \lfloor \sqrt[\tau]{x} \rfloor$, provjerimo $n^\tau = x$ i probnim dijeljenjem $f(n) = \tau$, te ispišemo najmanji takav $n$; ako nijedan ne prolazi, $-1$. Poseban slučaj $x = 1 \to n = 1$. Složenost $O(60\cdot(\log x \cdot 60 + \sqrt{n}))$, zanemarivo.</p>
+''',
+    'detailed': r'''
+<h3>1. Preokret: fiksiramo eksponent</h3>
+<p>Jednadžba $n^{f(n)} = x$ ima nepoznanicu i u bazi i u eksponentu, ali eksponent je „mali”. Neka je $\tau = f(n)$. Za $n = 1$ je $\tau = 1$ i $x = 1$. Za $n \ge 2$ broj $n$ ima barem djelitelje $1$ i $n$, pa je $\tau \ge 2$; tada je $x = n^\tau \ge 2^\tau$, a iz $x \le 10^{18} < 2^{60}$ slijedi $\tau \le 59$. Dakle postoji najviše $58$ mogućih eksponenata i možemo ih sve probati.</p>
+<h3>2. Za fiksni $\tau$ postoji najviše jedan $n$</h3>
+<p>Funkcija $n \mapsto n^\tau$ je strogo rastuća, pa je $n$ jedinstveno određen kao $\sqrt[\tau]{x}$ i mora biti cijeli broj. Računamo $r = \max\{n : n^\tau \le x\}$ binarnim pretraživanjem na $[1, 2\cdot 10^9]$ (za $\tau \ge 2$ korijen je $\le 10^9$) i provjerimo $r^\tau = x$. Potenciju računamo u petlji s <em>zasićenjem</em>: prije množenja provjerimo <code>r &gt; LIMIT / n</code> i tada vratimo „preveliko” – tako nikad ne prelijevamo 64-bitni broj. To je pouzdanije od <code>pow(x, 1.0/tau)</code>, koji za $x \approx 10^{18}$ ima grešku zaokruživanja i lako promaši za $1$.</p>
+<h3>3. Provjera broja djelitelja</h3>
+<p>Kandidat $n = r$ vrijedi samo ako je stvarno $f(n) = \tau$ – inače je $n^{f(n)} \ne x$. Broj djelitelja računamo iz faktorizacije probnim dijeljenjem do $\sqrt{n}$: $f(n) = \prod (e_i + 1)$. Najveći $n$ nastaje za $\tau = 2$, $n \le 10^9$, dakle najviše $\approx 31623$ koraka; za sve $\tau$ zajedno to je i dalje daleko ispod milisekunde.</p>
+<h3>4. Najmanji $n$ i točnost</h3>
+<p>Ako više eksponenata prolazi obje provjere, tražimo najmanji $n$. (Zapravo je $n = x^{1/\tau}$ strogo padajuće u $\tau$, pa bi bilo dovoljno uzeti najveći valjani $\tau$, ali čuvanje minimuma je jednostavnije i jednako brzo.) Algoritam je točan jer <em>svaki</em> $n$ koji zadovoljava $n^{f(n)} = x$ nužno ima $\tau = f(n) \in [2, 59]$ i bit će pronađen upravo pri tom $\tau$; obrnuto, sve što ispišemo prolazi izravnu provjeru $n^\tau = x$, $f(n) = \tau$.</p>
+<h3>5. Rubni slučajevi</h3>
+<ul>
+<li>$x = 1$: odgovor $1$ ($1^{f(1)} = 1^1 = 1$). Petlja za $\tau \ge 2$ bi vratila $r = 1$, što odbacujemo jer $f(1) = 1 \ne \tau$; zato $x = 1$ obrađujemo posebno.</li>
+<li>$x$ prost ili nije potencija: nijedan $\tau$ ne prolazi, ispisujemo $-1$.</li>
+<li>$x = 65536 = 2^{16} = 4^8 = 16^4 = 256^2$: $f(2)=2$, $f(4)=3$, $f(16)=5$, $f(256)=9$ – ništa ne odgovara eksponentu, dakle $-1$, kao u primjeru.</li>
+<li>$x = 10^{18} = 100^9$ i $f(100) = 9$: odgovor $100$.</li>
+</ul>
+<h3>6. Složenost</h3>
+<p>$O\big(60 \cdot (60 \log x + \sqrt{x^{1/2}})\big) \approx O(10^5)$ operacija; memorija $O(1)$.</p>
+''',
+    'verified': r'''uzorci 3/3; 300 slučajnih malih testova ($x \le 3\cdot 10^6$, uključujući točne potencije $n^{f(n)}$ i „lažne” potencije) protiv brute forcea koji iscrpno računa $n^{f(n)}$ za $n \le \sqrt{x}$; 3 velika testa s $x \le 10^{18}$ (<0.01 s), ručno provjereni $x = 1$ i $x = 10^{18}$.''',
 },
 # ---------------------------------------------------------------- J
 {
@@ -216,7 +400,73 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p><code>aaaa</code> $\to 9$; <code>axabxbcxcdxd</code> $\to 22$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Neka je spoj $T = XY$ s $|X| \ne |Y|$ i $T = WW$. Napiši što jednakost polovica znači za duži od dva podstringa: kakav oblik mora imati?</p>
+''',
+        r'''
+<p>Duži podstring je oblika $ABA$, a kraći je točno $B$ (u oba redoslijeda). Slučaj $|X| = |Y|$ znači jednostavno $X = Y$.</p>
+''',
+        r'''
+<p>Tablica $\mathrm{lcp}[i][j]$ (najdulji zajednički prefiks sufiksa) u $O(n^2)$ omogućuje $O(1)$ usporedbu podstringova. Fiksiraj $B = s[a..b]$ unutar dužeg podstringa, prefiksnim sumama prebroji početke kopija $B$, pa prođi po početku dužeg podstringa – $O(n^3)$ s vrlo malom konstantom.</p>
+''',
+    ],
+    'coach': [
+        ('Kako iz $XY = WW$ izgleda struktura podstringova kad su duljine jednake, a kako kad nisu?',
+         r'''
+<p>Neka je $|X| = L_1$, $|Y| = L_2$, $L_1 + L_2 = 2h$. Ako je $L_1 = L_2 = h$, polovice su točno $X$ i $Y$, pa je uvjet $X = Y$. Ako je $L_1 \gt L_2$, prva polovica je $X[0..h-1]$, a druga je $X[h..L_1-1]$ spojeno s $Y$. Jednakost polovica daje $X[0..L_1-h-1] = X[h..L_1-1] =: A$ i $X[L_1-h..h-1] = Y$. Dakle $X = A\,Y\,A$ s $|A| = L_1 - h = (L_1-L_2)/2 \ge 1$. Ako je $L_1 \lt L_2$, potpuno simetrično dobivamo $Y = A\,X\,A$. Zaključak: kraći podstring je $B$, a duži $ABA$ – to je cijela kombinatorika zadatka.</p>
+'''),
+        ('Kako prebrojati parove jednake duljine bez ponavljanja?',
+         r'''
+<p>Par je određen početcima $a \lt c$ i duljinom $h$; uvjeti su $s[a..a+h-1] = s[c..c+h-1]$ i nepreklapanje $a + h \le c$. Prvi uvjet je $h \le \mathrm{lcp}[a][c]$, drugi $h \le c - a$, pa je za fiksni par početaka broj valjanih duljina $\min(\mathrm{lcp}[a][c],\, c-a)$. Zbrajanjem po svim parovima dobivamo $O(n^2)$ rješenje ovog dijela, a tablica $\mathrm{lcp}$ računa se rekurzijom $\mathrm{lcp}[i][j] = [s_i = s_j]\,(1 + \mathrm{lcp}[i+1][j+1])$ unatrag.</p>
+'''),
+        ('Što fiksirati u slučaju $ABA$ + $B$ da svaki par pozicija prebrojimo točno jednom?',
+         r'''
+<p>Par pozicija (duži podstring $[d, e]$, kraći $[c, c+|B|-1]$) jednoznačno određuje $|A| = (|\text{duži}| - |\text{kraći}|)/2$, a time i položaj $B$ unutar dužeg: $[a, b] = [d + |A|, e - |A|]$. Obrnuto, trojka $(a, b, d)$ određuje $|A| = a - d$, $e = b + |A|$ i traži $c$ – dakle bijekcija, nema dvostrukog brojanja. Fiksiramo $B = s[a..b]$ i početak $d \lt a$ dužeg podstringa; uvjet $s[d..a-1] = s[b+1..e]$ je $\mathrm{lcp}[d][b+1] \ge a - d$, a $e \le n - 1$ ograničava $d$.</p>
+'''),
+        ('Kako za fiksne $(a, b, d)$ u $O(1)$ prebrojati moguće položaje kraćeg podstringa?',
+         r'''
+<p>Kraći podstring je kopija $B$ na početku $c$: $\mathrm{lcp}[a][c] \ge |B|$. Za fiksni $(a, b)$ napravimo prefiksne sume $\mathrm{pre}[c] = \#\{c' \lt c : \mathrm{lcp}[a][c'] \ge |B|\}$ u $O(n)$. Kad je duži prvi, kraći mora početi iza $e$: $\mathrm{pre}[n] - \mathrm{pre}[e+1]$. Kad je kraći prvi, mora završiti prije $d$: $c \le d - |B|$, tj. $\mathrm{pre}[d - |B| + 1]$. Prolaz po svim $(a, b)$ i $d$ daje $O(n^3)$ s oko $n^3/6$ koraka unutarnje petlje plus $n^3/2$ za prefiksne sume – za $n = 800$ ispod $0.2$ s.</p>
+'''),
+    ],
+    'tips': [
+        r'''Kad se spoj dvaju stringova mora podudarati sa samim sobom pomaknuto, zapiši jednakost po dijelovima (crtež s dvije trake) – iz toga gotovo uvijek ispadne struktura tipa $ABA$, $AB=BA$ ili periodičnost.''',
+        r'''Za $n \le 1000$ tablica $\mathrm{lcp}[i][j]$ svih parova sufiksa ($O(n^2)$ memorije i vremena, jednostavna rekurzija unatrag) zamjenjuje hashiranje i sufiksne strukture i daje $O(1)$ usporedbu bilo kojih dvaju podstringova.''',
+        r'''Kod brojanja parova objekata odaberi parametrizaciju koja je bijekcija s onim što brojiš (ovdje $(a, b, d)$ + prebrojani $c$) i eksplicitno provjeri da slučajevi ne preklapaju (jednake vs. različite duljine, duži prvi vs. kraći prvi).''',
+        r'''Odgovor može biti reda $n^4/24 \approx 10^{10}$ (za $a^{800}$ točno $8\,554\,693\,400$) – 64-bitni tip.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Neka je $T = XY = WW$. Ako je $|X| = |Y|$, uvjet je $X = Y$; inače duži podstring ima oblik $ABA$, a kraći je $B$, s $|A| = (|\text{duži}|-|\text{kraći}|)/2$ (zapiši jednakost polovica). Izračunamo $\mathrm{lcp}[i][j]$ za sve sufikse u $O(n^2)$. Jednake duljine: $\sum_{a \lt c} \min(\mathrm{lcp}[a][c], c-a)$. Različite: za svaki $B = s[a..b]$ prefiksnim sumama prebrojimo početke $c$ s $\mathrm{lcp}[a][c] \ge |B|$, zatim za svaki početak $d \lt a$ dužeg podstringa ($|A| = a-d$, kraj $e = b + |A| \lt n$, uvjet $\mathrm{lcp}[d][b+1] \ge |A|$) dodamo broj $c \gt e$ (duži prvi) i broj $c \le d - |B|$ (kraći prvi). Ukupno $O(n^3)$, za $n = 800$ oko $0.15$ s; odgovor u 64 bita.</p>
+''',
+    'detailed': r'''
+<h3>1. Struktura ponavljajućeg spoja</h3>
+<p>Neka su $X = s[a_1..b_1]$ i $Y = s[c_1..d_1]$ s $b_1 \lt c_1$ i $T = XY = WW$, $|W| = h$, $|X| = L_1$, $|Y| = L_2$, $L_1 + L_2 = 2h$.</p>
+<ul>
+<li><strong>$L_1 = L_2$.</strong> Tada je $W = X = Y$; uvjet je jednostavno $X = Y$.</li>
+<li><strong>$L_1 \gt L_2$.</strong> Prva polovica $T$ je $X[0..h-1]$, druga je $X[h..L_1-1]\,Y$. Uspoređujući ih znak po znak: prvih $L_1 - h$ znakova daje $X[0..L_1-h-1] = X[h..L_1-1]$; nazovimo taj string $A$, $|A| = L_1 - h = (L_1 - L_2)/2 \ge 1$. Preostalih $L_2$ znakova daje $X[L_1-h..h-1] = Y$. Dakle $X = A\,Y\,A$.</li>
+<li><strong>$L_1 \lt L_2$.</strong> Prva polovica je $X\,Y[0..h-L_1-1]$, druga $Y[h-L_1..L_2-1]$. Prvih $L_1$ znakova: $X = Y[h-L_1..h-1]$; ostatak: $Y[0..h-L_1-1] = Y[h..L_2-1] =: A$. Dakle $Y = A\,X\,A$.</li>
+</ul>
+<p>Obrat je očit: $(ABA)(B)$ i $(B)(ABA)$ su oblika $(AB)(AB)$ odnosno $(BA)(BA)$. Zaključak: par podstringova daje ponavljajući string točno kad su jednaki, ili kad je duži oblika $ABA$ a kraći jednak $B$, gdje je $|A| = (|\text{duži}| - |\text{kraći}|)/2$ (posebno, razlika duljina mora biti parna).</p>
+<h3>2. Tablica lcp</h3>
+<p>$\mathrm{lcp}[i][j]$ = duljina najduljeg zajedničkog prefiksa sufiksa $s[i..]$ i $s[j..]$. Rekurzija unatrag: $\mathrm{lcp}[i][j] = 1 + \mathrm{lcp}[i+1][j+1]$ ako je $s_i = s_j$, inače $0$, s $\mathrm{lcp}[n][\cdot] = \mathrm{lcp}[\cdot][n] = 0$. Tada je $s[i..i+\ell-1] = s[j..j+\ell-1]$ ekvivalentno s $\mathrm{lcp}[i][j] \ge \ell$ (što ujedno jamči da oba podstringa stanu u $s$). Tablica ima $801^2$ 32-bitnih brojeva, oko $2.6$ MB.</p>
+<h3>3. Brojanje: jednake duljine</h3>
+<p>Par je određen početcima $a \lt c$ i duljinom $h \ge 1$; treba $h \le \mathrm{lcp}[a][c]$ (jednakost) i $a + h \le c$ (nepreklapanje). Broj valjanih $h$ je $\min(\mathrm{lcp}[a][c], c - a)$, pa je doprinos $\sum_{a \lt c} \min(\mathrm{lcp}[a][c], c-a)$ u $O(n^2)$. Za <code>aaaa</code>: parovi $(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)$ daju $1+2+1+1+1+1 = 7$.</p>
+<h3>4. Brojanje: različite duljine</h3>
+<p>Par (duži $[d, e]$, kraći $[c, c+|B|-1]$) jednoznačno određuje $|A|$ i položaj $B$ unutar dužeg: $[a, b] = [d + |A|, e - |A|]$. Obrnuto, iz $(a, b, d)$ s $d \lt a$ slijedi $|A| = a - d$ i $e = b + |A|$. Dakle brojimo trojke $(a, b, d)$ uz uvjete $e \le n-1$ i $s[d..a-1] = s[b+1..e]$, tj. $\mathrm{lcp}[d][b+1] \ge a - d$, i za svaku prebrojimo položaje $c$ kopije $B$ (uvjet $\mathrm{lcp}[a][c] \ge |B|$) koji se ne preklapaju s $[d, e]$:</p>
+<ol>
+<li>Za fiksni $(a, b)$ izračunamo $\mathrm{pre}[c] = \#\{c' \lt c : \mathrm{lcp}[a][c'] \ge b - a + 1\}$ u $O(n)$.</li>
+<li>Za $d = a-1, a-2, \dots$ dok je $e = b + (a-d) \le n-1$: ako $\mathrm{lcp}[d][b+1] \ge a-d$, dodaj $\mathrm{pre}[n] - \mathrm{pre}[e+1]$ (kraći iza dužeg, $c \gt e$) i, ako je $d - |B| \ge 0$, $\mathrm{pre}[d - |B| + 1]$ (kraći ispred dužeg, $c + |B| - 1 \lt d$).</li>
+</ol>
+<p>Slučajevi „jednake duljine”, „duži prvi” i „kraći prvi” su disjunktni, a unutar svakog je parametrizacija bijekcija, pa nema dvostrukog brojanja. Za <code>aaaa</code>: $B = $ <code>a</code> na $a = b = 1$, $d = 0$, $e = 2$: kopija na $c = 3$ ($+1$); $a = b = 2$, $d = 1$, $e = 3$: kopija na $c = 0$ ($+1$). Ukupno $7 + 2 = 9$.</p>
+<h3>5. Složenost i zamke</h3>
+<ul>
+<li>Prefiksne sume: $\binom{n}{2} \cdot n \approx n^3/2$ jednostavnih operacija; unutarnja petlja po $d$: broj trojki $(d \lt a \le b)$ s $e \lt n$ je oko $n^3/6$. Za $n = 800$ to je ispod $0.2$ s (mjereno $0.15$ s na $a^{800}$).</li>
+<li>Odgovor za $a^{800}$ je $8\,554\,693\,400 \gt 2^{31}$ – koristi 64-bitni tip.</li>
+<li>Indeksi: $\mathrm{lcp}[d][b+1]$ za $b = n-1$ čita stupac $n$ koji mora biti $0$ – dimenzioniraj tablicu na $(n+1)^2$.</li>
+<li>$|A| \ge 1$ je automatski ($d \lt a$); slučaj $|A| = 0$ bi bio slučaj jednakih duljina i ne smije se brojati dvaput.</li>
+</ul>
+''',
+    'verified': r'''uzorci 2/2; 300 slučajnih malih testova ($|s| \le 12$, abecede od 1–3 slova) protiv brute forcea koji provjerava sve četvorke $(a, b, c, d)$; 3 velika testa s $|s| = 800$ (sve isto slovo, periodični i slučajni stringovi; najviše $0.15$ s).''',
 },
 # ---------------------------------------------------------------- K
 {
@@ -231,7 +481,70 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>Redci <code>{</code>, <code>ss{</code>, <code>sts{</code>, <code>tt}</code>, <code>t}</code>, <code>t{</code>, <code>ss}</code>, <code>}</code>, <code>{</code>, <code>}</code>: $2$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Za svaki redak izračunaj tri broja: dubinu ugniježđenosti $p$ (pazi: redak sa <code>}</code> je na dubini bloka koji zatvara), broj tabulatora $t$ i broj razmaka $s$. Što redak zahtijeva ako tabulator vrijedi $k$ razmaka?</p>
+''',
+        r'''
+<p>Zahtjev je $t k + s = p \cdot i$ za zajednički $i \gt 0$. Kad je $k$ fiksan, sve je linearno i provjera je $O(n)$ – zato je prirodno isprobati $k = 1, 2, 3, \dots$ redom. Pitanje je samo do kuda.</p>
+''',
+        r'''
+<p>Ako dva retka „ne biraju” isti $k$, iz njihovih jednadžbi slijedi $k = \dfrac{p_1 s_2 - p_2 s_1}{p_2 t_1 - p_1 t_2}$, a brojnik je po apsolutnoj vrijednosti najviše $49 \cdot 999$. Dakle je dovoljno provjeriti $k \le 50\,000$.</p>
+''',
+    ],
+    'coach': [
+        ('Koje podatke o retku uopće trebamo, a što je nebitno?',
+         r'''
+<p>Redoslijed znakova <code>s</code> i <code>t</code> u retku je nebitan – nakon zamjene svaki redak ima $t k + s$ razmaka, gdje je $t$ broj tabulatora, $s$ broj razmaka i $k$ tražena širina tabulatora. Osim toga trebamo dubinu $p$ retka: redak koji otvara blok (<code>{</code>) je na trenutnoj dubini i nakon njega dubina raste, a redak koji zatvara (<code>}</code>) najprije spusti dubinu i onda je na toj (novoj) dubini – zatvarajuća zagrada se poravnava s otvarajućom.</p>
+'''),
+        ('Zašto ne možemo jednostavno riješiti sustav jednadžbi po $k$ i $i$?',
+         r'''
+<p>Možemo, ali je nezgodno: uvjet je $t_j k + s_j = p_j i$ za sve retke s $p_j \gt 0$ (a redci na dubini $0$ moraju imati $t_j = s_j = 0$), s dvije cjelobrojne nepoznanice, pozitivnošću, mnogim zavisnim jednadžbama i traženjem <em>najmanjeg</em> $k$. Puno je lakše primijetiti da je za <em>fiksni</em> $k$ provjera trivijalna: prvi uvučeni redak određuje $i = (t_1 k + s_1)/p_1$ (mora biti pozitivan cijeli broj), a svaki drugi redak mora dati isti $i$. To je $O(n)$ po kandidatu.</p>
+'''),
+        ('Do koje granice moramo isprobavati $k$?',
+         r'''
+<p>Uzmimo dva uvučena retka. Množenjem jednadžbi s $p_2$ odnosno $p_1$ i oduzimanjem nestaje $i$: $k\,(p_2 t_1 - p_1 t_2) = p_1 s_2 - p_2 s_1$. Ako je zagrada različita od nule, $k$ je jednoznačno određen i $|k| \le |p_1 s_2 - p_2 s_1| \le 49 \cdot 999 \lt 50\,000$ (dubina je najviše $49$ jer ima najviše $100$ redaka, a $s \le 999$). Ako je zagrada nula za <em>sve</em> parove, svi su retci „proporcionalni” ($t_j/p_j$ i $s_j/p_j$ su konstante $c$ i $e$), pa je $i = ck + e$ i jedini uvjet je da $i$ bude pozitivan cijeli broj – nazivnici od $c$ i $e$ dijele sve $p_j \le 49$, pa neki $k \le 49$ radi. Zaključak: ako rješenje postoji, najmanje je $\lt 50\,000$; inače ispisujemo $-1$.</p>
+'''),
+        ('Je li granica $1000$ iz službenih slajdova dovoljna?',
+         r'''
+<p>Nije općenito. Službeno rješenje isprobava $k \le 1000$, što vrijedi kad dva retka <em>iste</em> dubine određuju $k$. No za retke <code>{</code>, <code>s</code>$^{999}$<code>{</code> (dubina $1$), <code>t{</code> (dubina $2$) i <code>ts</code>$^{999}$<code>{</code> (dubina $3$) dobivamo $i = 999$, $k = 2i = 1998$ i $k + 999 = 3i$ – jedinstveno rješenje $k = 1998 \gt 1000$. Zato koristimo dokazanu granicu $50\,000$; ukupno $5\cdot 10^4 \cdot 100 = 5 \cdot 10^6$ jednostavnih operacija, daleko unutar limita.</p>
+'''),
+    ],
+    'tips': [
+        r'''Kad su nepoznanice cjelobrojne i jedna od njih ima mali raspon, „isprobaj sve vrijednosti i provjeri u $O(n)$” često pobjeđuje elegantno rješavanje sustava – ali dokaži granicu raspona, ne pogađaj je.''',
+        r'''Iz dviju linearnih jednadžbi s dvije nepoznanice eliminiraj jednu množenjem i oduzimanjem; tako se dobiva eksplicitna gornja međa za drugu nepoznanicu (brojnik ograničen podacima, nazivnik cijeli broj $\ge 1$).''',
+        r'''Pri simulaciji dubine zagrada pazi na redoslijed: otvarajuća zagrada „pripada” vanjskoj razini (najprije zabilježi dubinu, pa povećaj), zatvarajuća se poravnava s otvarajućom (najprije smanji, pa zabilježi).''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023 (uz strožu granicu pretrage). Za svaki redak odredimo dubinu $p$, broj tabulatora $t$ i razmaka $s$; zatvarajuća zagrada je na dubini bloka koji zatvara. Za fiksni broj razmaka po tabulatoru $k$ redak zahtijeva $t k + s = p \cdot i$ za zajednički cijeli $i \gt 0$ (redci na dubini $0$ moraju imati $t = s = 0$), što se provjeri u $O(n)$. Isprobamo $k = 1, 2, \dots, 50\,000$ i ispišemo prvi koji prolazi, inače $-1$. Granica: ako dva retka određuju $k$, onda $k = \frac{p_1 s_2 - p_2 s_1}{p_2 t_1 - p_1 t_2}$ pa $|k| \le 49 \cdot 999$; ako nijedan par ne određuje $k$, radi neki $k \le 49$. Složenost $O(50\,000 \cdot n)$.</p>
+''',
+    'detailed': r'''
+<h3>1. Što redak zapravo zahtijeva</h3>
+<p>Nakon što svaki tabulator zamijenimo s $k$ razmaka, redak s $t$ tabulatora i $s$ razmaka ima točno $t k + s$ razmaka ispred zagrade – redoslijed znakova je nebitan. Dosljedno uvlačenje traži da to bude $p \cdot i$, gdje je $p$ dubina ugniježđenosti retka, a $i \gt 0$ jedna zajednička širina uvlake za cijelu datoteku. Dubinu računamo jednim prolazom: redak s <code>{</code> je na trenutnoj dubini $d$ i nakon njega $d$ raste za $1$; redak s <code>}</code> najprije smanji $d$ i tada je na dubini $d$ (zatvarajuća zagrada se poravnava s otvarajućom). Provjera na primjeru: redak <code>tt}</code> zatvara blok otvoren retkom <code>sts{</code>, oba su na dubini $2$; s $k = 2$ prvi ima $4$, drugi $2 + 2 = 4$ razmaka i $i = 2$.</p>
+<p>Uz $n \le 100$ redaka i uparene zagrade dubina nikad ne prelazi $49$: da bi neki redak bio na dubini $50$, prije njega bi moralo biti barem $50$ otvaranja, a poslije njega $50$ zatvaranja, ukupno $101$ redak.</p>
+<h3>2. Provjera za fiksni $k$</h3>
+<p>Ako $k$ znamo, sve postaje linearno. Redak na dubini $0$ ne smije imati nikakvo uvlačenje: $t k + s = 0$, tj. $t = s = 0$ (neovisno o $k$). Za retke s $p \gt 0$ količina $u_j = t_j k + s_j$ mora biti djeljiva s $p_j$ i kvocijent $u_j / p_j$ mora biti isti pozitivan cijeli broj $i$ za sve takve retke. Algoritam: prođi retke, za prvi uvučeni redak postavi $i = u_j / p_j$ (ako nije cijeli ili je $0$, $k$ otpada), za ostale usporedi. Ako nema nijednog uvučenog retka (npr. datoteka <code>{</code>, <code>}</code>), svaki $k$ radi i odgovor je $1$. Provjera traje $O(n)$.</p>
+<h3>3. Zašto je pretraga $k \le 50\,000$ dovoljna (dokaz)</h3>
+<p>Neka rješenje postoji i neka su $(t_1, s_1, p_1)$ i $(t_2, s_2, p_2)$ dva uvučena retka. Iz $t_1 k + s_1 = p_1 i$ i $t_2 k + s_2 = p_2 i$ množenjem prve s $p_2$, druge s $p_1$ i oduzimanjem dobivamo</p>
+<p>$$k\,(p_2 t_1 - p_1 t_2) = p_1 s_2 - p_2 s_1 .$$</p>
+<ul>
+<li><strong>Slučaj A:</strong> za neki par je $p_2 t_1 - p_1 t_2 \ne 0$. Tada je $k$ jednoznačno određen kao kvocijent dvaju cijelih brojeva s nazivnikom $\ge 1$ po apsolutnoj vrijednosti, pa $k \le |p_1 s_2 - p_2 s_1| \le \max(p_1 s_2, p_2 s_1) \le 49 \cdot 999 = 48\,951 \lt 50\,000$. (Svaki redak ima najviše $1000$ znakova uključujući zagradu, dakle $s \le 999$.)</li>
+<li><strong>Slučaj B:</strong> za sve parove je $p_2 t_1 = p_1 t_2$, tj. omjer $t_j / p_j = c$ je isti za sve uvučene retke. Tada iz $t_j k + s_j = p_j i$ slijedi $s_j / p_j = i - ck =: e$, također konstanta. Jednadžbe se svode na jednu: $i = ck + e$, i jedini uvjet je da $i$ bude pozitivan cijeli broj. Nazivnici razlomaka $c = a/b$ i $e = f/g$ (u skraćenom obliku) dijele sve $p_j$, pa za $k$ višekratnik od $\operatorname{lcm}(b, g)$ – koji dijeli $p_1 \le 49$ – vrijednost $c k + e$ je cijela, a pozitivna je jer je $c \ge 0$, $e \ge 0$ i nisu oba nula (inače bi uvučeni redak imao $t = s = 0$, što ne može dati $i \gt 0$). Dakle neki $k \le 49$ prolazi.</li>
+</ul>
+<p>U oba slučaja najmanje valjano $k$ je manje od $50\,000$; ako nijedan $k$ u tom rasponu ne prolazi, rješenja nema i odgovor je $-1$. Petlja od $50\,000$ kandidata s $O(n)$ provjerom daje $5 \cdot 10^6$ operacija.</p>
+<h3>4. Napomena o službenoj granici $1000$</h3>
+<p>Službeni slajdovi NAC 2023 predlažu $k \le 1000$, s argumentom da dva retka <em>iste</em> dubine daju $k = (s_2 - s_1)/(t_1 - t_2)$. Za retke različitih dubina to ne vrijedi: datoteka <code>{</code>, <code>s</code>$^{999}$<code>{</code>, <code>t{</code>, <code>ts</code>$^{999}$<code>{</code>, <code>ts</code>$^{999}$<code>}</code>, <code>t}</code>, <code>s</code>$^{999}$<code>}</code>, <code>}</code> ima jedinstveno rješenje $i = 999$, $k = 1998$ (iz $k = 2i$ i $k + 999 = 3i$). Naše rješenje i brute force na tom testu ispisuju $1998$; petlja do $1000$ bi pogrešno ispisala $-1$. Zato koristimo dokazanu granicu – cijena je zanemariva.</p>
+<h3>5. Implementacija i zamke</h3>
+<ul>
+<li>Ne treba fizički graditi nizove razmaka – dovoljno je brojati <code>t</code> i <code>s</code> po retku; koristimo <code>long long</code> jer $t k \le 999 \cdot 50\,000$ prelazi $2^{31}$ tek u teoriji, ali sigurnije je.</li>
+<li>Redoslijed ažuriranja dubine (točka 1) je najčešća greška: zatvarajuću zagradu treba staviti na dubinu <em>nakon</em> smanjenja.</li>
+<li>Redci na dubini $0$ s uvlakom (npr. <code>s{</code> odmah nakon zatvaranja svega) odmah znače $-1$, bez obzira na $k$.</li>
+<li>Kvocijent $u_j / p_j$ mora biti strogo pozitivan: uvučeni redak s $t = s = 0$ znači $i = 0$, što je zabranjeno.</li>
+</ul>
+<h3>6. Složenost</h3>
+<p>Vrijeme $O(K_{\max} \cdot n) = O(5 \cdot 10^6)$, memorija $O(n)$ uz čitanje redaka.</p>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 10$, konstruirana dosljedna uvlačenja s nasumičnim $k, i$ i pokvarenim retcima te posve nasumični redci) protiv brute forcea koji za $k \le 60\,000$ doslovno zamjenjuje tabulatore i provjerava uvlačenje; 3 velika testa ($n = 100$, redci do $1000$ znakova, $k$ do $49\,000$) usporedena s brute forceom (<0.01 s); ručno provjeren test s odgovorom $1998 \gt 1000$.''',
 },
 # ---------------------------------------------------------------- L
 {
@@ -247,7 +560,73 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>$(1, 1, 1) \to 0$; $(1, 1, 2) \to 1$; $(2, 2, 2) \to 0$; $(4, 4, 4, 4) \to 1$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Igra je konačna (ukupan broj kamenja strogo pada), a jedino stanje bez poteza je „sve hrpe imaju jedan kamen”. Odigraj ručno male slučajeve s parnim $n$ i pogledaj parnost hrpi.</p>
+''',
+        r'''
+<p>Za paran $n$: iz stanja u kojem su sve hrpe neparne <em>svaki</em> potez stvara parnu hrpu (neparan broj se dijeli na paran + neparan). Obrnuto, ako postoji parna hrpa, možeš li uvijek u jednom potezu doći do stanja „sve neparne”?</p>
+''',
+        r'''
+<p>Za neparan $n$ pravu invarijantu vidiš tek nakon dijeljenja s najvećom potencijom dvojke koja dijeli sve hrpe: gubitničko je stanje točno kad sve hrpe imaju <em>isti</em> broj dvojki u rastavu, $v_2(s_1) = \dots = v_2(s_n)$.</p>
+''',
+    ],
+    'coach': [
+        ('Koje je jedino završno stanje i kako iz njega „unatrag” naslutiti invarijantu?',
+         r'''
+<p>Potez ne postoji točno kad nijedna hrpa nema barem dva kamena, tj. sve su hrpe jedinice. To je gubitničko stanje i ono ima svojstvo „sve hrpe neparne” (i, još jače, sve hrpe imaju isti broj dvojki u rastavu, nula). Igra je konačna jer uklanjanje $k \ge 1$ hrpi smanjuje ukupan broj kamenja, a dijeljenje ga čuva. Kod ovakvih igara tražimo svojstvo $P$ za koje vrijedi: (1) iz stanja s $P$ nijedan potez ne vodi u stanje s $P$, (2) iz stanja bez $P$ postoji potez u stanje s $P$, (3) završno stanje ima $P$. Tada su stanja s $P$ točno gubitnička.</p>
+'''),
+        ('Zašto je za paran $n$ svojstvo „sve hrpe neparne” upravo to $P$?',
+         r'''
+<p>(1) Ako su sve hrpe neparne, dijeljenje neparne hrpe $x = a + b$ daje jedan paran i jedan neparan dio, pa nakon poteza sigurno postoji parna hrpa. (2) Neka je $e \ge 1$ broj parnih hrpi. Ako je $e \le n/2$: uklonimo $e$ neparnih hrpi (ima ih $n - e \ge n/2 \ge e$) i svaku parnu hrpu $x$ podijelimo na $1$ i $x - 1$, oba neparna – sve postaje neparno. Ako je $e \gt n/2$: uzmemo $k = n/2$, podijelimo $n/2$ parnih hrpi na neparno + neparno, a uklonimo preostalih $e - n/2$ parnih hrpi i sve $n - e$ neparnih hrpi (zajedno točno $n/2$ hrpi). (3) Sve jedinice su neparne. Dakle za paran $n$ Alice pobjeđuje točno kad postoji parna hrpa.</p>
+'''),
+        ('Zašto za neparan $n$ isto svojstvo ne radi i što ga zamjenjuje?',
+         r'''
+<p>Uzorak $(2,2,2) \to 0$ pokazuje da stanje sa svim parnim hrpama može biti gubitničko kad je $n$ neparan: uklonimo li jednu hrpu i podijelimo drugu na $1 + 1$, ostaje $(1,1,2)$ koje je pobjedničko za protivnika – a to je jedini mogući potez (iz $(1,1,2)$ protivnik ukloni jedinicu i podijeli dvojku u $(1,1,1)$). Ključ je da za neparan $n$ nakon poteza uvijek ostaje barem $n - 2k \ge 1$ netaknuta hrpa. Označimo $v(x)$ broj dvojki u rastavu od $x$. Tvrdnja: gubitnička su točno stanja u kojima sve hrpe imaju istu vrijednost $v$, tj. nakon dijeljenja s najvećom zajedničkom potencijom dvojke sve su hrpe neparne.</p>
+'''),
+        ('Kako dokazati tvrdnju za neparan $n$?',
+         r'''
+<p>(1) Neka sve hrpe imaju $v = p$. Dijelimo $x = 2^p u$ ($u$ neparan) na $a + b$. Ako je $v(a) \lt p$, onda je i $v(b) = v(a) \lt p$; ako je $v(a) \ge p$, pišemo $a = 2^p u_1$, $b = 2^p u_2$ s $u_1 + u_2 = u$ neparnim, pa je točno jedan od $u_1, u_2$ paran – jedan dio ima $v = p$, drugi $v \gt p$. U oba slučaja novo stanje sadrži dvije različite vrijednosti $v$ (u prvom zato što netaknuta hrpa ima $v = p$, a dijelovi $v \lt p$). (2) Ako nisu sve $v$ jednake, neka je $p$ najmanja i $e$ broj hrpi s $v \gt p$, $1 \le e \le n - 1$. Hrpu $x$ s $v(x) \gt p$ dijelimo na $2^p$ i $x - 2^p$: oba dijela imaju $v = p$ jer je $x/2^p$ paran, pa je $x/2^p - 1$ neparan. Zatim točno kao u parnom slučaju: ako je $e \le (n-1)/2$, podijelimo sve takve hrpe i uklonimo $e$ hrpi s $v = p$; inače podijelimo $(n-1)/2$ njih, a uklonimo ostale „visoke” i sve „niske” hrpe (ukupno $(n-1)/2$). Rezultat: sve hrpe imaju $v = p$. (3) Završno stanje ima sve $v = 0$. Za paran $n$ ista tvrdnja s $p = 0$ daje ranije pravilo – ali za paran $n$ stanje sa svim $v = p \gt 0$ je pobjedničko (npr. $(2,2)$: ukloni jednu, podijeli drugu na $1+1$), jer tada može nestati svaka netaknuta hrpa.</p>
+'''),
+    ],
+    'tips': [
+        r'''Za igre s neobičnim potezima ne traži odmah Sprague-Grundyjeve vrijednosti; prvo brute forceom ispiši gubitnička stanja za male ulaze i traži invarijantu tipa parnost, valuacija dvojkom ili suma modulo nečega.''',
+        r'''Standardni dokazni obrazac za karakterizaciju gubitničkih stanja: (1) iz $P$ se ne može u $P$, (2) iz ne-$P$ se može u $P$, (3) završna stanja su u $P$. Napiši sva tri koraka eksplicitno – ovdje se točno na koraku (2) vidi razlika između parnog i neparnog $n$.''',
+        r'''Kad hipoteza „sve neparno” pukne na nekom uzorku, probaj je „skalirati”: podijeli sve vrijednosti najvećom zajedničkom potencijom dvojke (ili NZD-om) i ponovno provjeri.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Neka je $v(x)$ broj dvojki u rastavu od $x$. Gubitnička su stanja: za paran $n$ ona u kojima su sve hrpe neparne, a za neparan $n$ ona u kojima sve hrpe imaju istu vrijednost $v$. Dokaz: iz takvog stanja svaki potez uništi svojstvo (dijeljenje $2^p u$, $u$ neparan, daje dijelove s različitim ili manjim $v$, a za neparan $n$ barem jedna hrpa ostaje netaknuta), a iz stanja bez svojstva podijelimo do $\lfloor n/2 \rfloor$ hrpi s najvećim $v$ na $2^p + (x - 2^p)$ i uklonimo odgovarajući broj drugih hrpi tako da sve hrpe dobiju $v = p$. Odgovor je $1$ točno kad stanje nije gubitničko; $O(n \log s)$ po igri.</p>
+''',
+    'detailed': r'''
+<h3>1. Struktura igre</h3>
+<p>Potez uklanja $k$ hrpi ($1 \le k \le \lfloor n/2 \rfloor$) i zatim $k$ preostalih hrpi s barem dva kamena dijeli na dvije neprazne. Broj hrpi ostaje $n$, a ukupan broj kamenja strogo pada (uklonjene hrpe su neprazne), pa igra završava. Potez ne postoji točno kad nema $k \ge 1$ hrpi s barem dva kamena među preostalima – s obzirom na to da možemo uklanjati po volji, to znači: <em>nema poteza točno kad su sve hrpe jedinice</em> (ako postoji hrpa $\ge 2$, uklonimo neku drugu hrpu i podijelimo nju). Za neparan $n$ vrijedi $n - 2k \ge 1$: barem jedna hrpa uvijek ostane netaknuta; za paran $n$ i $k = n/2$ svaka hrpa je ili uklonjena ili podijeljena.</p>
+<h3>2. Metoda: karakterizacija gubitničkih stanja</h3>
+<p>Skup stanja $L$ je točno skup gubitničkih stanja ako vrijedi: (1) iz stanja u $L$ nijedan potez ne vodi u $L$; (2) iz stanja izvan $L$ postoji potez u $L$; (3) sva završna stanja su u $L$. Dokaz indukcijom po ukupnom broju kamenja: u stanju iz $L$ svaki potez vodi u stanje izvan $L$, koje je po indukciji pobjedničko za protivnika; u stanju izvan $L$ potez iz (2) vodi u gubitničko stanje za protivnika.</p>
+<h3>3. Paran $n$: $L = \{$sve hrpe neparne$\}$</h3>
+<ul>
+<li>(1) Neparna hrpa $x = a + b$ ima jedan paran i jedan neparan dio, pa nakon bilo kojeg poteza (barem jedno dijeljenje) postoji parna hrpa.</li>
+<li>(2) Neka je $e \ge 1$ broj parnih hrpi. Parnu hrpu $x$ dijelimo na $1$ i $x-1$ (oba neparna). Ako je $e \le n/2$: uzmemo $k = e$, uklonimo $e$ neparnih hrpi (ima ih $n - e \ge e$), podijelimo svih $e$ parnih. Ako je $e \gt n/2$: $k = n/2$, podijelimo $n/2$ parnih, a uklonimo preostalih $e - n/2$ parnih i svih $n - e$ neparnih hrpi; zbroj uklonjenih je $(e - n/2) + (n - e) = n/2 = k$. U oba slučaja sve hrpe postaju neparne.</li>
+<li>(3) Sve jedinice su neparne.</li>
+</ul>
+<p>Dakle Alice pobjeđuje točno kad postoji barem jedna parna hrpa. Primjer $(4,4,4,4) \to 1$.</p>
+<h3>4. Neparan $n$: $L = \{$sve hrpe imaju istu valuaciju $v\}$</h3>
+<p>Ovdje $v(x)$ označava najveći $p$ takav da $2^p \mid x$. Uzorak $(2,2,2) \to 0$ pokazuje da „sve neparne” nije dovoljno – gubitnička su i stanja koja se, nakon dijeljenja svih hrpi zajedničkom potencijom dvojke, svode na „sve neparne”.</p>
+<ul>
+<li>(1) Neka sve hrpe imaju $v = p$ i dijelimo $x = 2^p u$, $u$ neparan, na $a + b$. Ako je $v(a) \lt p$, onda je $v(b) = v(a)$ (zbroj dvaju brojeva različitih valuacija ima manju od njih, a $v(x) = p \gt v(a)$ pa mora biti $v(b) = v(a)$); tada dijelovi imaju $v \lt p$, a netaknuta hrpa (postoji jer je $n$ neparan) ima $v = p$. Ako je $v(a) \ge p$, onda $a = 2^p u_1$, $b = 2^p u_2$, $u_1 + u_2 = u$ neparan, pa je točno jedan od $u_1, u_2$ paran: dijelovi imaju $v = p$ i $v \gt p$. U svakom slučaju nakon poteza postoje dvije različite valuacije, tj. napustili smo $L$.</li>
+<li>(2) Neka valuacije nisu sve jednake; $p = \min v$, a $e$ broj hrpi s $v \gt p$, $1 \le e \le n - 1$. Hrpu $x$ s $v(x) \gt p$ dijelimo na $2^p$ i $x - 2^p = 2^p (x/2^p - 1)$; kako je $x / 2^p$ paran, $x/2^p - 1$ je neparan i oba dijela imaju $v = p$. Ako je $e \le (n-1)/2$: $k = e$, podijelimo sve „visoke” hrpe i uklonimo $e$ „niskih” (ima ih $n - e \ge e$). Ako je $e \gt (n-1)/2$: $k = (n-1)/2$, podijelimo $k$ visokih, uklonimo ostalih $e - k$ visokih i $k - (e - k) = n - 1 - e$ niskih (ima ih $n - e \ge n - 1 - e$). Sve hrpe sada imaju $v = p$.</li>
+<li>(3) Završno stanje (sve jedinice) ima sve $v = 0$.</li>
+</ul>
+<p>Zašto isti argument ne daje isto pravilo za paran $n$? Korak (1) koristi netaknutu hrpu s $v = p$ kad dijelovi padnu na $v \lt p$; za paran $n$ i $k = n/2$ takve hrpe nema, npr. $(2,2)$: uklonimo jednu, drugu podijelimo na $1 + 1$ i protivnik gubi. Za paran $n$ zato ostaje pravilo s $p = 0$ – ono je, uostalom, poseban slučaj ovog pravila jer za $p = 0$ „dijelovi s $v \lt 0$” ne postoje.</p>
+<h3>5. Algoritam</h3>
+<ol>
+<li>Za paran $n$: ispiši $0$ ako su sve hrpe neparne, inače $1$.</li>
+<li>Za neparan $n$: izračunaj $v(s_i)$ za sve hrpe (petlja dijeljenja s $2$, najviše $40$ koraka jer $s \le 10^{12} \lt 2^{40}$); ispiši $0$ ako su sve jednake, inače $1$.</li>
+</ol>
+<p>Provjera na uzorcima: $(1,1,1)$ sve $v = 0 \to 0$; $(1,1,2)$ valuacije $0,0,1 \to 1$; $(2,2,2)$ sve $v = 1 \to 0$; $(4,4,4,4)$ paran $n$, postoji parna hrpa $\to 1$.</p>
+<h3>6. Složenost i zamke</h3>
+<p>$O(n \log s)$ po igri, ukupno zanemarivo. Hrpe do $10^{12}$ zahtijevaju 64-bitne cijele brojeve; pravilo za paran $n$ ne smije se zamijeniti pravilom za neparan (stanje $(2,2)$ je pobjedničko, a $(2,2,2)$ gubitničko).</p>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 5$, hrpe $\le 8$, uključujući stanja s jednakim valuacijama i „gotovo jednakim”) protiv brute forcea koji potpunim pretraživanjem igre s memoizacijom (svi izbori uklonjenih hrpi, podijeljenih hrpi i načina dijeljenja) određuje pobjednika; 3 velika testa s $t = 1000$, $n \le 50$, hrpe do $10^{12}$ (<0.01 s).''',
 },
 # ---------------------------------------------------------------- M
 {
