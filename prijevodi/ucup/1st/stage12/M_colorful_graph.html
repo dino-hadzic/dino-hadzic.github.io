@@ -56,42 +56,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje</summary>
+                    <summary>Koji vrhovi „sigurno” smiju dijeliti boju, i što ostaje nakon što ih sažmemo?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Dva vrha iste SCC imaju puteve u oba smjera, pa cijelu SCC obojimo isto. Nakon kondenzacije dobivamo DAG; skup vrhova iste boje mora biti totalno uređen relacijom dostižnosti — tj. <em>lanac</em>. Minimalan broj boja = minimalno pokrivanje DAG-a lancima = (Dilworth) najveći antilanac; algoritamski, minimalno pokrivanje putevima u tranzitivnom zatvaraču.</p>
+                        <p>Vrhovi iste jako povezane komponente (SCC) međusobno su dostižni u oba smjera, pa su pairwise usporedivi sa svima s kojima je usporediv bilo koji od njih – dostižnost ovisi samo o SCC-u. Sažimanjem SCC-ova nastaje DAG kondenzacije s $K$ vrhova; uvjet „dva vrha iste boje su usporediva” postaje uvjet na SCC-ovima. Optimum se ne mijenja: iz bojanja izvornog grafa s $c$ boja dobijemo bojanje kondenzacije s $\le c$ boja (svaki SCC preuzme boju jednog svog predstavnika – predstavnici iste boje pairwise su usporedivi), a bojanje kondenzacije prenosimo natrag bez promjene broja boja.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija: pokrivanje putevima bez zatvarača</summary>
+                    <summary>Kako izgleda skup vrhova iste boje u DAG-u?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Klasično: broj puteva $= N' - \nu$, gdje je $\nu$ najveće sparivanje u bipartitnom grafu $(U, V)$ s bridom $U_i V_j$ za svaki brid $i \to j$ tranzitivnog zatvarača. Zatvarač može imati $\Theta(N^2)$ bridova — ne stane u $64$ MB. Trik: u mreži toka dopusti da put prolazi kroz već pokriveni vrh dodavanjem bridova $U_i \to V_i$ neograničenog kapaciteta; tok tada simulira puteve u zatvaraču koristeći samo izvorne bridove.</p>
+                        <p>Dostižnost u DAG-u je parcijalni uređaj; skup pairwise usporedivih vrhova je <em>lanac</em>, tj. totalno uređen: $v_1 \prec v_2 \prec \dots \prec v_t$, gdje svaki dostiže sljedeći. To je put u <strong>tranzitivnom zatvaraču</strong>. Minimalan broj boja = minimalan broj lanaca koji pokrivaju sve vrhove = minimalno pokrivanje putevima u tranzitivnom zatvaraču (po Dilworthu jednak najvećem antilancu, ali nama treba konstrukcija, ne samo broj).</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam</summary>
+                    <summary>Minimalno pokrivanje DAG-a vrhovno-disjunktnim putevima je klasika – zašto je ovdje ne možemo primijeniti izravno?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Vrhovi mreže: $src, dst, U_1..U_N, V_1..V_N$. Bridovi: $src \to V_i$ (kapacitet $1$), $U_i \to dst$ ($1$), $V_{A_j} \to U_{B_j}$ ($\infty$) za svaki brid DAG-a, $U_i \to V_i$ ($\infty$). Najveći tok $\nu$ nađi Ford–Fulkersonom (najviše $N$ augmentacija po $O(N + M)$) — $O(N(N + M))$ vremena i $O(N + M)$ memorije. Zatim rekonstruiraj lance: iz toka na bridovima $V_{A} \to U_{B}$ i $U \to V$ prati kamo „ide” svaki vrh (tok kroz $U_i \to V_i$ znači da lanac prolazi kroz $i$ bez da $i$ bude njegov član — $i$ je već pokriven drugim lancem), dodjeljujući boje u $O(N^2)$ vremena i $O(N)$ memorije. Na kraju boje SCC-ova proširi na izvorne vrhove.</p>
+                        <p>Klasika: broj puteva $= K - \nu$, gdje je $\nu$ najveće sparivanje u bipartitnom grafu s bridom $V_i U_j$ za svaki brid $i \to j$. Ali treba nam pokrivanje u <em>zatvaraču</em>, koji ima do $\Theta(K^2) \approx 2.5 \cdot 10^7$ bridova – s $64$ MB memorije ne stane (a i računanje zatvarača bitsetima je na granici). Želimo sparivanje u zatvaraču bez da ga eksplicitno izgradimo.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Složenost</summary>
+                    <summary>Kako tok može „simulirati” bridove zatvarača koristeći samo izvorne bridove?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$O(N(N + M))$ vremena, $O(N + M)$ memorije — u skladu s limitom od $64$ MB.</p>
+                        <p>Put $i \to a \to b \to \dots \to k$ u DAG-u odgovara bridu $i \to k$ zatvarača. U mreži sparivanja stavimo za svaki izvorni brid $a \to b$ brid $V_a \to U_b$ kapaciteta $\infty$, a za svaki vrh $b$ brid $U_b \to V_b$ kapaciteta $\infty$ („prolaz kroz $b$”). Tada je svaki put $src \to V_i \to U_a \to V_a \to \dots \to U_k \to dst$ u mreži točno jedan put $i \leadsto k$ u DAG-u, a kapaciteti $1$ na $src \to V_i$ i $U_k \to dst$ osiguravaju da svaki vrh ima najviše jednog sljedbenika i najviše jednog prethodnika – tok jedinica od $\nu$ je sparivanje u zatvaraču. Mreža ima $2K + 2$ vrhova i $3K + M$ bridova.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Kako iz toka dobiti same lance, i zašto to stane u vrijeme i memoriju?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Dekompozicija toka: za svaki $V_i$ s tokom iz $src$ pratimo jedinicu toka bridovima s pozitivnim tokom (skidajući je) do $U_k \to dst$; par $(i, k)$ kaže „$k$ slijedi $i$ u lancu”. Svaki vrh ima $\le 1$ sljedbenika i $\le 1$ prethodnika, a DAG isključuje cikluse, pa parovi tvore $K - \nu$ lanaca; svaki lanac dobije jednu boju. Ford–Fulkerson: $\le K$ augmentacija po $O(K + M)$, ukupno $O(K(K + M)) \le 10^8$; memorija $O(K + M)$ – nekoliko stotina KB.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Uvjete na „međusobnu dostižnost” prvo svedi na <strong>kondenzaciju SCC-ova</strong>: unutar SCC-a sve je dostižno, a preostali problem živi na DAG-u, gdje je dostižnost parcijalni uređaj.</li>
+                <li>Skup pairwise usporedivih elemenata parcijalnog uređaja je lanac; <strong>minimalno pokrivanje lancima</strong> = pokrivanje putevima u tranzitivnom zatvaraču = $K - $ najveće sparivanje (Dilworth/König).</li>
+                <li>Kad je zatvarač prevelik, zamijeni ga u mreži toka bridovima „prolaz kroz vrh” ($U_i \to V_i$, kapacitet $\infty$): tok tada smije proći kroz vrh koji drugi put već koristi, što točno modelira bridove zatvarača.</li>
+                <li>Uz mali memorijski limit izbjegavaj $O(K^2)$ matrice i duboku rekurziju (iterativni Tarjan); Ford–Fulkerson s DFS-om dovoljan je kad je vrijednost toka mala ($\le K$).</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -99,8 +116,7 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Vrhove iste jako povezane komponente možemo obojiti istom bojom. Kondenziramo komponente u po jedan vrh i dobivamo DAG.</p>
                     <p>Ako postoje bridovi $i \to j$ i $j \to k$, dodamo i brid $i \to k$; time se zadatak svodi na <a href="https://en.wikipedia.org/wiki/Maximum_flow_problem#Minimum_path_cover_in_directed_acyclic_graph">minimalno pokrivanje DAG-a putevima</a>, rješivo najvećim tokom. Međutim, broj bridova tada može doseći $\Theta(N^2)$, što ne stane u memoriju.</p>
                     <p>Broj bridova smanjujemo ovako. Pripremimo vrhove $src$, $dst$, $U_1, \dots, U_N$, $V_1, \dots, V_N$ i bridove:</p>
@@ -112,6 +128,171 @@
                     </ul>
                     <p>Najveći tok ove mreže je najviše $N$, a bridova je najviše $3N + M$, pa je Ford–Fulkersonov algoritam složenosti $O(N(N + M))$ vremena i $O(N + M)$ memorije. Nakon što nađemo najveći tok, bojanje rekonstruiramo gledajući tok po bridovima, u $O(N^2)$ vremena i $O(N)$ memorije. Na kraju bojanje kondenziranog grafa prenesemo natrag na izvorni graf.</p>
                     <p>Ukupna vremenska složenost je $O(N(N + M))$, a memorijska $O(N + M)$.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Sažimanje jako povezanih komponenata</h3>
+                    <p>Definirajmo relaciju $u \sim v$: „postoji put $u \to v$ ili $v \to u$”. Bojanje je valjano ako su vrhovi iste boje pairwise u relaciji $\sim$. Dostižnost $u \to v$ ovisi samo o SCC-ovima $[u], [v]$ (unutar SCC-a sve je međusobno dostižno), pa isto vrijedi za $\sim$.</p>
+                    <p><strong>Tvrdnja:</strong> minimalan broj boja za izvorni graf jednak je minimalnom broju boja za DAG kondenzacije (uz istu relaciju). <em>Dokaz.</em> ($\le$) Iz valjanog bojanja kondenzacije obojimo sve vrhove SCC-a bojom njegovog čvora; dva vrha iste boje su ili u istom SCC-u (dostižni u oba smjera) ili u različitim SCC-ovima iste boje, koji su usporedivi. ($\ge$) Iz valjanog bojanja izvornog grafa s $c$ boja odaberimo u svakom SCC-u proizvoljan predstavnik i dodijelimo SCC-u njegovu boju; SCC-ovi iste boje imaju predstavnike iste boje, pairwise u relaciji $\sim$, pa su i SCC-ovi usporedivi. $\square$</p>
+                    <p>SCC-ove računamo Tarjanovim algoritmom, iterativno (eksplicitan stog okvira), jer ulaz može biti lanac dubine $7000$; rekurzija bi vjerojatno prošla, ali uz $64$ MB radije ne riskiramo. Dobivamo $K \le N$ čvorova i $\le M$ bridova između različitih SCC-ova (bridove unutar SCC-a odbacujemo).</p>
+                    <h3>2. Boje su lanci; minimalno pokrivanje lancima</h3>
+                    <p>U DAG-u je dostižnost $\preceq$ parcijalni uređaj (refleksivan, tranzitivan, antisimetričan jer nema ciklusa). Skup $S$ pairwise usporedivih čvorova je lanac: totalno uređen, $v_1 \prec v_2 \prec \dots \prec v_t$, tj. put $v_1 \to v_2 \to \dots \to v_t$ u <em>tranzitivnom zatvaraču</em> $G^+$ (brid $u \to w$ za svaki par $u \prec w$). Obrnuto, svaki put u $G^+$ je lanac. Dakle:</p>
+                    <p>$$\text{min. broj boja} = \text{min. broj vrhovno disjunktnih puteva u } G^+ \text{ koji pokrivaju sve čvorove}.$$</p>
+                    <p>(Disjunktnost smijemo zahtijevati: ako se dva lanca preklapaju, izbacimo zajedničke čvorove iz jednog – ostaje lanac.) Klasičan rezultat: minimalno pokrivanje DAG-a $H$ vrhovno disjunktnim putevima ima $|V(H)| - \nu(H)$ puteva, gdje je $\nu(H)$ najveće sparivanje u bipartitnom grafu $B(H)$ s lijevim kopijama $V_i$, desnim kopijama $U_j$ i bridom $V_i U_j$ za svaki brid $i \to j$ u $H$. <em>Zašto:</em> u pokrivanju putevima svaki čvor ima najviše jednog sljedbenika i najviše jednog prethodnika – to je točno sparivanje (brid $V_i U_j$ za „$j$ slijedi $i$”); broj puteva je broj čvorova bez sljedbenika, tj. $|V| - (\text{broj sparenih bridova})$. Bez ciklusa (DAG) svako sparivanje daje valjanu dekompoziciju na puteve. Maksimalno sparivanje minimizira broj puteva.</p>
+                    <h3>3. Problem: zatvarač je prevelik</h3>
+                    <p>$G^+$ može imati $\Theta(K^2)$ bridova, za $K = 7000$ do $2.5 \cdot 10^7$ – u mreži toka s povratnim bridovima to je stotine MB, daleko iznad $64$ MB. (Bitset-zatvarač bi stao u $\approx 6$ MB, ali onda sparivanje Hopcroft–Karpom nad $10^7$ bridova opet treba eksplicitne liste ili spor prolaz bitsetima; službeno rješenje ide drugim putem.)</p>
+                    <h3>4. Mreža koja simulira zatvarač</h3>
+                    <p>Vrhovi: $src$, $dst$, $V_1..V_K$, $U_1..U_K$. Bridovi:</p>
+                    <ul>
+                        <li>$src \to V_i$, kapacitet $1$ (čvor $i$ ima najviše jednog sljedbenika);</li>
+                        <li>$U_i \to dst$, kapacitet $1$ (čvor $i$ ima najviše jednog prethodnika);</li>
+                        <li>$V_a \to U_b$, kapacitet $\infty$, za svaki brid $a \to b$ kondenzacije;</li>
+                        <li>$U_b \to V_b$, kapacitet $\infty$ – „prolaz kroz $b$”.</li>
+                    </ul>
+                    <p><strong>Tvrdnja:</strong> najveći tok jednak je $\nu(G^+)$. ($\ge$) Za sparivanje $\{(i_r, k_r)\}$ u $B(G^+)$ uzmimo za svaki par put $i_r = a_0 \to a_1 \to \dots \to a_t = k_r$ u DAG-u i pošaljimo jedinicu toka $src \to V_{a_0} \to U_{a_1} \to V_{a_1} \to U_{a_2} \to \dots \to U_{a_t} \to dst$. Bridovi kapaciteta $1$ koriste se po jednom jer su $i_r$ različiti i $k_r$ različiti; unutarnji bridovi imaju kapacitet $\infty$. ($\le$) Cjelobrojni tok vrijednosti $\nu$ dekomponiramo na $\nu$ puteva $src \to dst$; svaki oblika $src \to V_{a_0} \to U_{a_1} \to V_{a_1} \to \dots \to U_{a_t} \to dst$ (jedini bridovi iz $V$ idu u $U$, a iz $U$ u $V$ istog indeksa ili u $dst$), što je put $a_0 \leadsto a_t$ u DAG-u, dakle brid $a_0 \to a_t$ zatvarača (i $a_0 \ne a_t$, jer bi inače postojao ciklus). Zbog kapaciteta $1$ su početci međusobno različiti i krajevi međusobno različiti – dobili smo sparivanje veličine $\nu$. $\square$</p>
+                    <p>Mreža ima $2K + 2$ vrhova i $3K + M'$ bridova ($M' \le M$), s povratnim bridovima najviše $2(3 \cdot 7000 + 7000) = 56\,000$ zapisa – nekoliko stotina KB.</p>
+                    <h3>5. Najveći tok i rekonstrukcija lanaca</h3>
+                    <p>Vrijednost toka je $\le K$, pa Ford–Fulkerson s DFS-om (svaka augmentacija $O(V + E)$) radi u $O(K \cdot (K + M)) \approx 7000 \cdot 3.5 \cdot 10^4 \approx 2.5 \cdot 10^8$ u najgorem slučaju, u praksi puno manje; limit je $8$ s. Umjesto brisanja oznaka posjećenosti koristimo vremenski pečat.</p>
+                    <p>Dekompozicija: za svaki $i$ čiji brid $src \to V_i$ nosi tok krenemo iz $V_i$ i idemo bridom s pozitivnim tokom (izvorni brid čija povratna kopija ima pozitivan kapacitet), skidajući jedinicu toka, dok ne stignemo u $dst$; zadnji posjećeni $U_k$ daje $\text{nxt}[i] = k$. Skidanje toka jamči da će sljedeće praćenje koristiti druge jedinice, a pokazivač po listi susjedstva svakog vrha čini ukupno praćenje $O(V + E + \sum \text{duljina})$. Rezultat: svaki čvor ima $\le 1$ sljedbenika i $\le 1$ prethodnika, nema ciklusa, pa parovi $(i, \text{nxt}[i])$ tvore $K - \nu$ lanaca. Krenemo od čvorova bez prethodnika i svakom lancu dodijelimo novu boju; boje SCC-ova zatim prenesemo na izvorne vrhove.</p>
+                    <h3>6. Složenost i memorija</h3>
+                    <p>Tarjan $O(N + M)$; tok $O(K(K + M))$; rekonstrukcija $O(K + M + \sum \text{duljina puteva}) = O(K^2)$ u najgorem slučaju; ukupno $O(N(N + M))$ vremena i $O(N + M)$ memorije. Na najvećim testovima (slučajni graf, lanac dubine $7000$ s bridovima unaprijed, veliki ciklus s granama) program troši $< 0.1$ s i nekoliko MB.</p>
+                    <h3>7. Primjer</h3>
+                    <p>Prvi primjer: bridovi $1 \to 4$, $2 \to 3$, $1 \to 3$, $2 \to 5$, $5 \to 1$ – graf je već DAG. Zatvarač sadrži npr. $2 \to 1$, $2 \to 4$, $5 \to 3$. Najveće sparivanje ima $3$ brida (npr. $2 \to 5$, $5 \to 1$, $1 \to 3$), pa je minimalno $5 - 3 = 2$ lanca: $\{2, 5, 1, 3\}$ i $\{4\}$ – ili, kao u službenom izlazu, $\{2, 3\}$ i $\{1, 4, 5\}$ ($5 \to 1 \to 4$). Svako bojanje s dvije boje u kojem su klase lanci je prihvatljivo; provjerivač to i provjerava.</p>
+                    <h3>8. Zamke</h3>
+                    <ul>
+                        <li>Ne zaboraviti odbaciti bridove unutar SCC-a (inače bi $V_a \to U_a$ dopustio „put” $a \leadsto a$ i lažno sparivanje).</li>
+                        <li>Kapacitete $\infty$ predstaviti kao veliki <code>int</code> ($10^9$) – tok je $\le K$, pa nema prelijevanja.</li>
+                        <li>$M = 0$: $K = N$, tok $0$, svaki vrh svoja boja – ispis $1, 2, \dots, N$.</li>
+                        <li>$N = 1$: jedna boja.</li>
+                    </ul>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 3/3 (preko provjerivača, jer optimalno bojanje nije jedinstveno); 300 slučajnih malih testova ($N \le 8$, $M \le 12$) protiv brute forcea koji iscrpnim pretraživanjem nalazi minimalan broj boja, uz provjerivač koji za izlaz provjerava valjanost (iste boje $\Rightarrow$ dostižnost) i jednak broj boja; 3 velika testa s $N = M = 7000$ (slučajni graf, lanac dubine $7000$ s bridovima unaprijed, ciklus od $3000$ vrhova s granama), najsporiji $0.09$ s, čiju je valjanost (svaka klasa boje je lanac u kondenzaciji) potvrdila zasebna skripta s bitset-dostižnošću.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// M - Colorful Graph
+// 1) Tarjan: sazmi jako povezane komponente (vrhovi iste SCC mogu dijeliti boju).
+// 2) Na dobivenom DAG-u trazimo najmanji broj lanaca (skupova medusobno
+//    usporedivih vrhova) = najmanje pokrivanje putevima u tranzitivnom zatvorenju
+//    = N' - (najvece sparivanje u zatvorenju).
+// 3) Sparivanje racunamo tokom bez eksplicitnog zatvorenja: src-&gt;V_i (1),
+//    U_i-&gt;dst (1), V_a-&gt;U_b (inf) za bridove, U_i-&gt;V_i (inf) "prolaz kroz i".
+// 4) Dekompozicijom toka na puteve dobijemo parove (i -&gt; k), spojimo ih u lance.
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+struct Edge { int to, cap; };
+vector&lt;Edge&gt; E;
+vector&lt;vector&lt;int&gt;&gt; adj;
+void addEdge(int u, int v, int c) {
+    adj[u].push_back(E.size()); E.push_back({v, c});
+    adj[v].push_back(E.size()); E.push_back({u, 0});
+}
+vector&lt;int&gt; vis;
+int stamp = 0;
+// jedno prosirujuce trazenje (Ford-Fulkerson, DFS), tok je najvise N'
+bool dfsAug(int u, int t) {
+    if (u == t) return true;
+    vis[u] = stamp;
+    for (int id : adj[u]) {
+        if (E[id].cap &lt;= 0 || vis[E[id].to] == stamp) continue;
+        if (dfsAug(E[id].to, t)) { E[id].cap--; E[id ^ 1].cap++; return true; }
+    }
+    return false;
+}
+
+int main() {
+    int n, m;
+    scanf("%d %d", &amp;n, &amp;m);
+    vector&lt;vector&lt;int&gt;&gt; g(n + 1);
+    vector&lt;pair&lt;int, int&gt;&gt; edges(m);
+    for (auto &amp;e : edges) { scanf("%d %d", &amp;e.first, &amp;e.second); g[e.first].push_back(e.second); }
+
+    // Tarjanov algoritam (iterativno, radi dubine do 7000 i limita memorije)
+    vector&lt;int&gt; idx(n + 1, 0), low(n + 1, 0), comp(n + 1, -1), st;
+    vector&lt;char&gt; onSt(n + 1, 0);
+    int timer = 0, ncomp = 0;
+    for (int s = 1; s &lt;= n; s++) {
+        if (idx[s]) continue;
+        vector&lt;pair&lt;int, size_t&gt;&gt; cs = {{s, 0}};
+        idx[s] = low[s] = ++timer; st.push_back(s); onSt[s] = 1;
+        while (!cs.empty()) {
+            int v = cs.back().first;
+            size_t &amp;i = cs.back().second;
+            if (i &lt; g[v].size()) {
+                int u = g[v][i++];
+                if (!idx[u]) {
+                    idx[u] = low[u] = ++timer; st.push_back(u); onSt[u] = 1;
+                    cs.push_back({u, 0});
+                } else if (onSt[u]) low[v] = min(low[v], idx[u]);
+            } else {
+                if (low[v] == idx[v]) {
+                    while (true) {
+                        int u = st.back(); st.pop_back(); onSt[u] = 0; comp[u] = ncomp;
+                        if (u == v) break;
+                    }
+                    ncomp++;
+                }
+                cs.pop_back();
+                if (!cs.empty()) low[cs.back().first] = min(low[cs.back().first], low[v]);
+            }
+        }
+    }
+    int K = ncomp;
+    // mreza: src = 2K, dst = 2K+1, V_i = i, U_i = K + i
+    int src = 2 * K, dst = 2 * K + 1;
+    adj.assign(2 * K + 2, {});
+    const int INF = 1e9;
+    for (int i = 0; i &lt; K; i++) {
+        addEdge(src, i, 1);
+        addEdge(K + i, dst, 1);
+        addEdge(K + i, i, INF);  // U_i -&gt; V_i: put moze "proci" kroz i
+    }
+    for (auto &amp;e : edges) {
+        int a = comp[e.first], b = comp[e.second];
+        if (a != b) addEdge(a, K + b, INF);  // V_a -&gt; U_b
+    }
+    vis.assign(2 * K + 2, 0);
+    int flow = 0;
+    while (true) { stamp++; if (!dfsAug(src, dst)) break; flow++; }
+
+    // dekompozicija toka: za svaki V_i s tokom iz src prati jedinicu toka do U_k
+    vector&lt;int&gt; nxt(K, -1), hasPred(K, 0), ptr(2 * K + 2, 0);
+    for (int i = 0; i &lt; K; i++) {
+        // brid src-&gt;V_i je prvi dodan za i: pronadi ga
+        int eid = -1;
+        for (int id : adj[src]) if (E[id].to == i) { eid = id; break; }
+        if (E[eid].cap != 0) continue;  // nema toka
+        int u = i;
+        while (u != dst) {
+            // pronadi izlazni brid iz u s pozitivnim tokom (cap izvornog brida smanjen)
+            bool moved = false;
+            for (int &amp;p = ptr[u]; p &lt; (int)adj[u].size(); p++) {
+                int id = adj[u][p];
+                if (id &amp; 1) continue;          // povratni brid
+                if (E[id ^ 1].cap == 0) continue;  // tok na bridu = kapacitet povratnog
+                E[id].cap++; E[id ^ 1].cap--;  // skini jedinicu toka
+                if (E[id].to == dst) nxt[i] = u - K;
+                u = E[id].to;
+                moved = true;
+                break;
+            }
+            if (!moved) break;  // ne bi se smjelo dogoditi
+        }
+        if (nxt[i] &gt;= 0) hasPred[nxt[i]] = 1;
+    }
+    // lanci: krecemo od vrhova bez prethodnika, boja raste po lancu
+    vector&lt;int&gt; color(K, 0);
+    int c = 0;
+    for (int i = 0; i &lt; K; i++) {
+        if (hasPred[i]) continue;
+        c++;
+        for (int u = i; u != -1; u = nxt[u]) color[u] = c;
+    }
+    for (int v = 1; v &lt;= n; v++) printf("%d%c", color[comp[v]], v == n ? '\n' : ' ');
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>

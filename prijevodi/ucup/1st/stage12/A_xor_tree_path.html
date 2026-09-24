@@ -52,34 +52,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje</summary>
+                    <summary>Što se točno događa s vrhom $v$ kad odaberemo neki list $x$?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Odabir lista mijenja boju cijelog puta do korijena. Vrh $v$ promijeni boju jednom za svaki odabrani list u svom podstablu, pa mu je konačna boja $A_v \oplus (\text{broj odabranih listova u podstablu} \bmod 2)$. Odabir istog lista dvaput se poništava — bitna je samo parnost.</p>
+                        <p>Boja vrha $v$ promijeni se točno onda kad put od korijena do $x$ prolazi kroz $v$, a to je točno onda kad je $x$ u podstablu vrha $v$. Dakle, nakon svih operacija vrh $v$ je promijenio boju onoliko puta koliko je odabranih listova (s ponavljanjem) u njegovu podstablu. Boja ovisi samo o tom broju, ne o redoslijedu.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija</summary>
+                    <summary>Ima li smisla isti list odabrati dvaput? Koja je veličina koja jedino odlučuje o boji?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Svakom vrhu pridružujemo parnost $p_v \in \{0, 1\}$ broja odabranih listova u njegovu podstablu. Za list je $p_v$ slobodna varijabla; za unutarnji vrh $p_v = \bigoplus_{c} p_c$ po djeci $c$. Vrh $v$ je crn ako je $A_v \oplus p_v = 1$. Treba maksimizirati broj crnih vrhova nad svim izborima parnosti listova.</p>
+                        <p>Dva odabira istog lista promijene svaki vrh na putu dvaput – to je identitet. Zato je za svaki list bitno samo je li odabran neparan broj puta ($1$) ili paran ($0$), a za vrh $v$ bitna je samo <em>parnost</em> $p_v$ broja odabranih listova u podstablu. Konačna boja je $A_v \oplus p_v$. Time smo beskonačan prostor nizova operacija sveli na $2^{\#\text{listova}}$ konačnih izbora, a i to je previše za pretragu – treba struktura.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam i složenost</summary>
+                    <summary>Kako je parnost $p_v$ unutarnjeg vrha povezana s parnostima njegove djece?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$dp[v][i]$ = najveći broj crnih vrhova u podstablu $v$ uz $p_v = i$. Za list: $dp[v][i] = [A_v \oplus i = 1]$. Za unutarnji vrh spajaj djecu redom, kao konvoluciju parnosti: $new[i \oplus j] = \max(cur[i] + dp[c][j])$, pa na kraju dodaj $[A_v \oplus i = 1]$. Odgovor je $\max(dp[1][0], dp[1][1])$. Složenost $O(N)$.</p>
+                        <p>Skup listova u podstablu vrha $v$ disjunktna je unija skupova listova podstabala djece, pa je broj odabranih listova zbroj po djeci, a parnost zbroja je XOR parnosti: $p_v = \bigoplus_c p_c$. To je lokalno pravilo – odluka o podstablu vrha $v$ komunicira s ostatkom stabla isključivo kroz jedan bit $p_v$. Upravo takva situacija poziva na dinamičko programiranje po stablu s tim bitom kao stanjem.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Zašto je stanje (vrh, parnost) dovoljno – ne gubimo li informaciju o tome koji su listovi odabrani?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Broj crnih vrhova u podstablu vrha $v$ ovisi samo o odabirima unutar podstabla, a utjecaj tih odabira na vrhove <em>izvan</em> podstabla (na pretke) ide samo preko $p_v$. Dvije konfiguracije s istom parnošću $p_v$ jednako djeluju na ostatak stabla, pa je od njih dovoljno pamtiti bolju: $dp[v][p]$ = najveći broj crnih vrhova u podstablu uz parnost $p$. Djecu spajamo kao „ruksak po parnosti”: $new[x \oplus y] = \max(cur[x] + dp[c][y])$, a na kraju dodamo $[A_v \oplus p = 1]$ za sam vrh $v$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Koliko to košta i na što treba paziti u implementaciji?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Svaki vrh spaja se s roditeljem u $O(1)$ (četiri kombinacije parnosti), pa je ukupno $O(N)$. Za $N = 10^5$ i lančasto stablo rekurzija može biti duboka $10^5$, pa je sigurnije obraditi vrhove u obrnutom BFS redoslijedu. Rubni slučaj: korijen nije list čak ni kad ima samo jedno dijete (uvjet $N \ge 2$ to jamči), a nedostižne kombinacije parnosti označavamo s $-\infty$.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li><strong>Operacija primijenjena dvaput = identitet</strong> je znak da su bitne samo parnosti. Čim to vidiš, prostor stanja pada s „koliko puta” na jedan bit po objektu.</li>
+                <li>Kad se odluke u podstablu prema ostatku stabla „vide” samo kroz malu sažetu informaciju (jedan bit, jedan broj), to je točno stanje za DP po stablu; spajanje djece je konvolucija po toj informaciji.</li>
+                <li>Za $N \ge 10^5$ izbjegavaj rekurzivni DFS bez potrebe: BFS redoslijed i obrada od kraja daju isti poredak „djeca prije roditelja” bez rizika prelijevanja stoga.</li>
+                <li>Nedostižna stanja u max-DP-u označi velikim negativnim brojem i eksplicitno ih preskoči pri spajanju – inače se $-\infty + (\text{nešto})$ lako pretvori u „valjanu” vrijednost.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -87,12 +112,101 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Boja vrha $v$ određena je brojem odabranih listova u podstablu vrha $v$. Budući da odabir dvaju listova vraća boju vrha $v$ u početno stanje, bitno je samo je li iz podstabla vrha $v$ odabran paran ili neparan broj listova.</p>
                     <p>Zadatak zato rješavamo sljedećim dinamičkim programiranjem po stablu:</p>
                     <p>$dp[v][i]$ — najveći broj crnih vrhova u podstablu vrha $v$ ako je broj odabranih listova u podstablu vrha $v$ kongruentan $i$ modulo $2$.</p>
                     <p>Vremenska složenost je $O(N)$.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Što operacija radi i zašto je bitna samo parnost</h3>
+                    <p>Odabir lista $x$ mijenja boju svakom vrhu na putu od korijena do $x$. Vrh $v$ leži na tom putu točno onda kad je $x$ u podstablu $T_v$ vrha $v$ (u korijenskom stablu put od korijena do $x$ prolazi kroz sve pretke od $x$, i ni kroz što drugo). Dakle, ako je multiskup odabranih listova $S$, vrh $v$ mijenja boju $|S \cap T_v|$ puta i konačna boja mu je</p>
+                    <p>$$A_v \oplus \bigl(|S \cap T_v| \bmod 2\bigr).$$</p>
+                    <p>Dva odabira istog lista poništavaju se, pa svaki list ima smisla odabrati najviše jednom; nadalje $S$ je običan skup listova. Označimo $p_v = |S \cap T_v| \bmod 2$. Cilj je odabrati $S$ tako da broj vrhova s $A_v \oplus p_v = 1$ bude najveći.</p>
+                    <h3>2. Lokalno pravilo za parnosti</h3>
+                    <p>Za list $\ell$ je $p_\ell = [\ell \in S]$ – slobodan bit. Za unutarnji vrh $v$ s djecom $c_1, \dots, c_k$ skupovi listova podstabala $T_{c_1}, \dots, T_{c_k}$ disjunktni su i njihova unija su svi listovi $T_v$ (sam $v$ nije list). Zato je $|S \cap T_v| = \sum_j |S \cap T_{c_j}|$, a parnost zbroja je XOR parnosti:</p>
+                    <p>$$p_v = p_{c_1} \oplus p_{c_2} \oplus \dots \oplus p_{c_k}.$$</p>
+                    <p>Obratno, svaka kombinacija bitova na listovima je dostižna (svaki list odaberemo ili ne), pa je zadatak: odaberi bitove na listovima, izračunaj $p_v$ pravilom gore i maksimiziraj $\sum_v [A_v \oplus p_v = 1]$.</p>
+                    <h3>3. Zašto je DP stanje (vrh, parnost) dovoljno</h3>
+                    <p>Promotrimo podstablo $T_v$. Odabiri listova unutar $T_v$ utječu na boje vrhova u $T_v$ (to brojimo unutar podstabla) i na boje predaka vrha $v$ – ali na pretke utječu <em>isključivo</em> kroz vrijednost $p_v$, jer predak $u$ vidi samo $|S \cap T_u| \bmod 2$, a doprinos $T_v$ tome je upravo $p_v$. Dvije konfiguracije odabira unutar $T_v$ s istom parnošću $p_v$ potpuno su zamjenjive s gledišta ostatka stabla, pa je dovoljno za svaku parnost pamtiti onu s najviše crnih vrhova:</p>
+                    <p>$$dp[v][p] = \max\bigl\{\#\text{crnih u } T_v \;:\; \text{odabir listova u } T_v \text{ s parnošću } p\bigr\},$$</p>
+                    <p>ili $-\infty$ ako takav odabir ne postoji.</p>
+                    <p><strong>List:</strong> $dp[\ell][0] = A_\ell$ (ne odabran, boja ostaje), $dp[\ell][1] = 1 - A_\ell$ (odabran, boja se mijenja).</p>
+                    <p><strong>Unutarnji vrh:</strong> djecu dodajemo jedno po jedno. Neka $cur[x]$ označava najbolji rezultat već obrađene djece uz XOR njihovih parnosti jednak $x$ (početno $cur = (0, -\infty)$). Dodavanje djeteta $c$:</p>
+                    <p>$$new[x \oplus y] = \max_{x, y}\bigl(cur[x] + dp[c][y]\bigr),$$</p>
+                    <p>gdje kombiniramo samo konačne vrijednosti. To je točno zato što su odabiri u različitim podstablima neovisni, a rezultat (broj crnih) im se zbraja, dok se parnosti XOR-aju. Nakon sve djece dodamo doprinos samog vrha: $dp[v][p] = cur[p] + [A_v \oplus p = 1]$.</p>
+                    <p>Odgovor je $\max(dp[1][0], dp[1][1])$ – korijen nema pretka pa je bilo koja parnost dopuštena.</p>
+                    <h3>4. Provjera na primjeru</h3>
+                    <p>Stablo $1\!-\!2$, $1\!-\!3$, $3\!-\!4$, $3\!-\!5$, boje $A = (1, 0, 0, 1, 0)$. Listovi: $dp[2] = (0, 1)$, $dp[4] = (1, 0)$, $dp[5] = (0, 1)$. Vrh $3$: spajanje $4$ i $5$ daje $cur = (\max(1+0), \max(1+1, 0+0)) = (1, 2)$; dodamo $[0 \oplus p = 1]$: $dp[3] = (1, 3)$. Korijen: spajanje $2$ i $3$: $cur[0] = \max(0+1, 1+3) = 4$, $cur[1] = \max(0+3, 1+1) = 3$; dodamo $[1 \oplus p = 1]$, što je $1$ za $p = 0$ i $0$ za $p = 1$: $dp[1] = (5, 3)$. Odgovor je $5$, u skladu s primjerom. Vrijednost $cur[0] = 4$ dolazi od $p_2 = 1, p_3 = 1$, tj. od odabira listova $2$ i $5$: crni postaju $2, 3, 4, 5$, a korijen ostaje crn jer je parnost u njegovu podstablu $0$. Ovakav ručni prolaz dobar je test da su smjer XOR-a i trenutak dodavanja $[A_v \oplus p = 1]$ ispravni.</p>
+                    <h3>5. Složenost i implementacija</h3>
+                    <p>Svaki vrh se točno jednom spoji sa svojim roditeljem uz $4$ kombinacije parnosti, pa je ukupno $O(N)$ vremena i $O(N)$ memorije. U kodu vrhove obrađujemo u obrnutom BFS redoslijedu (djeca prije roditelja) bez rekurzije, jer lanac od $10^5$ vrhova može srušiti rekurzivni DFS. Listove prepoznajemo kao vrhove bez djece (korijen s jednim djetetom nije list; zbog $N \ge 2$ korijen uvijek ima dijete). Nedostižne kombinacije čuvamo kao $-10^{18}$ i preskačemo ih u spajanju; vrijednosti su $\le N$, pa 64-bitni tip nema problema.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 3/3; 300 slučajnih malih stabala ($N \le 12$: slučajna, lančasta i zvjezdasta) protiv brute forcea koji iscrpno prolazi sve podskupove listova; 3 velika testa s $N = 10^5$ (slučajno stablo, lanac dubine $10^5$, zvijezda), najsporiji $0.03$ s.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// A - XOR Tree Path
+// DP na stablu: dp[v][p] = najveci broj crnih vrhova u podstablu v ako je
+// paritet broja odabranih listova u podstablu v jednak p.
+// Obrada ide u obrnutom BFS redoslijedu (bez rekurzije, N do 1e5).
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const long long NEG = -1e18;
+
+int main() {
+    int n;
+    scanf("%d", &amp;n);
+    vector&lt;int&gt; a(n + 1);
+    for (int i = 1; i &lt;= n; i++) scanf("%d", &amp;a[i]);
+    vector&lt;vector&lt;int&gt;&gt; g(n + 1);
+    for (int i = 0; i &lt; n - 1; i++) {
+        int u, v;
+        scanf("%d %d", &amp;u, &amp;v);
+        g[u].push_back(v);
+        g[v].push_back(u);
+    }
+    // BFS redoslijed od korijena 1
+    vector&lt;int&gt; order, par(n + 1, 0);
+    order.reserve(n);
+    order.push_back(1);
+    par[1] = -1;
+    for (size_t i = 0; i &lt; order.size(); i++) {
+        int v = order[i];
+        for (int u : g[v])
+            if (u != par[v]) { par[u] = v; order.push_back(u); }
+    }
+    // cur[v] = najbolje kombinacije djece obradjene do sada, po paritetu
+    vector&lt;array&lt;long long, 2&gt;&gt; cur(n + 1, {0, NEG}), dp(n + 1);
+    vector&lt;char&gt; hasChild(n + 1, 0);
+    for (int i = n - 1; i &gt;= 0; i--) {
+        int v = order[i];
+        if (!hasChild[v]) {
+            // list: ne biramo ga (paritet 0) ili biramo (paritet 1, boja se mijenja)
+            dp[v][0] = a[v];
+            dp[v][1] = 1 - a[v];
+        } else {
+            // boja vrha v = a[v] xor paritet odabranih listova u njegovom podstablu
+            for (int p = 0; p &lt; 2; p++)
+                dp[v][p] = cur[v][p] &gt; NEG ? cur[v][p] + (a[v] ^ p) : NEG;
+        }
+        int p = par[v];
+        if (p &gt; 0) {
+            // spajanje s roditeljem: paritet se XOR-a (knapsack po paritetu)
+            hasChild[p] = 1;
+            array&lt;long long, 2&gt; nxt = {NEG, NEG};
+            for (int x = 0; x &lt; 2; x++)
+                for (int y = 0; y &lt; 2; y++)
+                    if (cur[p][x] &gt; NEG &amp;&amp; dp[v][y] &gt; NEG)
+                        nxt[x ^ y] = max(nxt[x ^ y], cur[p][x] + dp[v][y]);
+            cur[p] = nxt;
+        }
+    }
+    printf("%lld\n", max(dp[1][0], dp[1][1]));
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>

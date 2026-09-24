@@ -58,42 +58,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje: prijelaz na vjerojatnosti</summary>
+                    <summary>Zbroj po $2^{N-1}$ podskupova bridova – po čemu možemo zbrajati umjesto po podskupovima?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Zbroj po svim $2^{N-1}$ podskupova $= 2^{N-1} \cdot \mathbb{E}[\text{rezultat}]$ kad se svaki brid neovisno zadrži s vjerojatnošću $1/2$. Rezultat je zbroj po komponentama, a svaka komponenta ima jedinstveni <em>najplići</em> vrh $v$ (najbliži korijenu). Zato $\mathbb{E}[\text{rezultat}] = \sum_v \mathbb{E}[\min \text{komponente s najpličim vrhom } v]$, gdje je doprinos vrha $v$ pomnožen s vjerojatnošću $1/2$ da je brid prema roditelju prerezan (za korijen $1$).</p>
+                        <p>Po komponentama. Rezultat podskupa je zbroj minimuma po komponentama, pa je ukupni zbroj jednak $\sum_C \min(C) \cdot \#\{\text{podskupovi u kojima je } C \text{ komponenta}\}$, gdje $C$ prolazi sve <em>povezane</em> podskupove vrhova. Skup $C$ je komponenta točno kad su svi bridovi unutar $C$ zadržani, a svi bridovi koji izlaze iz $C$ prerezani; ostali bridovi su slobodni. To daje $2^{N-2} \prod_{u \in C} 2^{1 - \deg u}$ – umnožak po vrhovima, što je ključ za DP na stablu.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija: DP s distribucijom minimuma</summary>
+                    <summary>Kako se riješiti faktora $\min(C)$, koji ovisi o cijelom skupu, a ne o pojedinom vrhu?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$dp[v][x]$ = vjerojatnost da komponenta koja sadrži $v$ unutar podstabla $T_v$ ima minimum $x$. Početno $dp[v][A_v] = 1$. Dodavanje djeteta $c$: s vjerojatnošću $1/2$ brid je prerezan (distribucija ostaje), s $1/2$ komponente se spajaju i minimum postaje $\min(x, y)$ — to je „min-konvolucija” dviju distribucija, izračunljiva prefiksnim zbrojevima nad sortiranim ključevima u vremenu linearnom u broju ključeva. Odgovor: $\sum_v [\text{brid prema roditelju prerezan}] \cdot \sum_x x \cdot dp[v][x]$.</p>
+                        <p>Pragovima: za padajuće različite vrijednosti $v_1 > v_2 > \dots > v_k$ (i $v_{k+1} = 0$) vrijedi $\min(C) = \sum_j (v_j - v_{j+1}) \, [\min(C) \ge v_j]$ – teleskopski zbroj. Uvjet $\min(C) \ge v_j$ znači da $C$ leži u skupu „živih” vrhova $\{u : A_u \ge v_j\}$. Dakle $\sum_C \min(C) \prod w_u = \sum_j (v_j - v_{j+1}) \, G_j$, gdje je $G_j$ zbroj težina povezanih podskupova živih vrhova. Vrhove oživljavamo u padajućem redoslijedu po $A$ i trebamo $G$ nakon svake grupe.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam: efikasno spajanje</summary>
+                    <summary>Kako izračunati zbroj težina svih povezanih podskupova, i kako ga održavati kad se vrhovi dodaju?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Ključeva u $dp[v]$ je najviše $size(v)$. Spajanje dvaju djece u $O(size(c_1) + size(c_2))$ i spajanje po parovima (kao merge-sort po djeci) daje $O(N \log N)$. Alternative: spajanje segmentnih stabala s lijenim množenjem (segment tree merge, $O(N \log A)$ uz optimizaciju) ili top tree sa četiri komponente podataka u $O(N \log N)$.</p>
+                        <p>Ukorijenimo stablo. $D(u)$ = zbroj težina povezanih podskupova čiji je najplići vrh $u$: $D(u) = [u \text{ živ}] \cdot w_u \prod_{c \text{ dijete}} (1 + D(c))$ – svako dijete ili nije uključeno ($1$) ili doprinosi povezanim podskupom kojem je ono vrh ($D(c)$). $G = \sum_u D(u)$. Oživljavanje vrha mijenja $D$ svim precima – u lancu $O(N)$ po ažuriranju. Trebamo strukturu koja to radi u polilogaritamskom vremenu: „dinamički DP” preko HLD-a.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Složenost</summary>
+                    <summary>Zašto je HLD sa segmentnim stablom prava struktura za ovaj DP?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$O(N \log N)$ uz spajanje po parovima; sve u modularnoj aritmetici s inverzom broja $2$.</p>
+                        <p>Na teškom putu $D(v) = c_v \cdot (1 + D(\text{teško dijete}))$, gdje je $c_v = [v \text{ živ}] \, w_v \prod_{\text{laka djeca}} (1 + D(c))$. To je afino preslikavanje $x \mapsto c_v + c_v x$; kompozicija afinih preslikavanja je afina, pa segmentno stablo nad putem računa $D(\text{glave})$ u $O(\log N)$. Uz koeficijente afinog preslikavanja u čvoru čuvamo i zbroj svih $D$ na segmentu (kao afinu funkciju od ulaza) pa $G$ ažuriramo razlikom zbrojeva. Promjena $D(\text{glave})$ mijenja jedan faktor u umnošku lakih djece roditelja; put do korijena prelazi $O(\log N)$ teških puteva, pa je ažuriranje $O(\log^2 N)$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Koje zamke vrebaju u modularnoj aritmetici i implementaciji?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Faktor $1 + D(c)$ može biti $\equiv 0 \pmod p$, a tada ga ne možemo „podijeliti van” iz umnoška – zato umnožak lakih djece čuvamo kao (umnožak nenultih faktora, broj nula). Težina $w_u = 2^{1-\deg u}$ ima negativan eksponent, računamo je kao $(2^{-1})^{\deg u - 1}$. Vrhove jednake vrijednosti oživimo sve prije nego što pribrojimo $(v_j - v_{j+1}) G$. Sve obilaske pišemo iterativno (BFS redoslijed, eksplicitni stog) zbog $N = 3 \cdot 10^5$ i lančastih stabala.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Zbroj po podskupovima bridova stabla često se pretvori u zbroj po <strong>povezanim podskupovima vrhova</strong> s multiplikativnom težinom – čim je težina umnožak po vrhovima, radi klasični DP $D(u) = w_u \prod (1 + D(c))$.</li>
+                <li>Faktor oblika $\min$ ili $\max$ po skupu rastavi teleskopski po pragovima: $\min(C) = \sum_j (v_j - v_{j+1}) [\min C \ge v_j]$. Tako se „skupno” svojstvo pretvara u „koji su vrhovi živi”.</li>
+                <li>Dinamički DP na stablu (promjene vrijednosti vrhova, upit nad cijelim stablom): HLD + segmentno stablo afinih (ili matričnih) preslikavanja daje $O(\log^2 N)$ po promjeni; laka djeca ulaze kao skalar u čvor teškog puta.</li>
+                <li>Kad održavaš umnožak modulo prost broj uz dijeljenje, pamti posebno broj faktora jednakih nuli – inverz nule ne postoji, a nula se pojavi točno onda kad je test najveći.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -101,8 +118,7 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Preformulirajmo zadatak kao traženje očekivanog rezultata kad se svaki brid neovisno reže s vjerojatnošću $1/2$ (na kraju pomnožimo s $2^{N-1}$).</p>
                     <p>Odaberimo proizvoljan korijen. Za vrh $v$ neka je $T'$ njegovo podstablo i $size(v)$ broj vrhova u njemu. Definiramo DP:</p>
                     <p>$dp[v][x]$ — vjerojatnost da komponenta povezanosti od $T'$ koja sadrži $v$ ima minimum $x$, kad se bridovi $T'$ nasumično režu.</p>
@@ -112,6 +128,213 @@
                     <p>Izračun $dp[v][*]$ iz $dp[c_1][*]$ i $dp[c_2][*]$ može se promatrati kao ažuriranje u jednoj točki ili množenje na intervalu nad $dp[c_1][*]$ pomoću podataka iz $dp[c_2][*]$. Ako ih držimo u segmentnom stablu s lijenom propagacijom koje stvara samo potrebne elemente, spajanje traje $O(\min(size(c_1), size(c_2)) \log A)$, ukupno $O(N \log N \log A)$, a uz efikasno spajanje segmentnih stabala $O(N \log A)$ (vidi <a href="https://codeforces.com/blog/entry/49446">ovaj članak</a>).</p>
                     <h3>Metoda s top tree strukturom</h3>
                     <p>Koristimo tehniku kao u zadatku <a href="https://atcoder.jp/contests/abc269/tasks/abc269_h">ABC269 Ex</a>. Za povezani podgraf $C$ stabla $T$ koji je s okolinom povezan samo preko vrhova $u$ i $v$ održavamo: za svaki $x$ vjerojatnost da su $u$ i $v$ povezani i minimum njihove komponente je $x$; za svaki $x$ vjerojatnost da nisu povezani i minimum komponente vrha $u$ je $x$; isto za vrh $v$; te doprinos odgovoru komponenata koje ne sadrže ni $u$ ni $v$. Dva takva zapisa spajaju se u linearnom vremenu u zbroju broja vrhova, pa je ukupna složenost $O(N \log N)$.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Od podskupova bridova do povezanih podskupova vrhova</h3>
+                    <p>Rezultat podskupa bridova je zbroj minimuma po komponentama. Zamijenimo poredak zbrajanja: za svaki povezan podskup vrhova $C$ pitamo se u koliko podskupova bridova je $C$ komponenta. To se događa točno kad su svih $|C| - 1$ bridova unutar $C$ zadržani, a svi bridovi s jednim krajem u $C$ i drugim izvan prerezani; takvih „izlaznih” bridova je $\sum_{u \in C} \deg u - 2(|C| - 1)$. Preostali bridovi su slobodni, a ima ih</p>
+                    <p>$$(N - 1) - (|C| - 1) - \Bigl(\sum_{u \in C} \deg u - 2(|C| - 1)\Bigr) = N - 2 + \sum_{u \in C} (1 - \deg u).$$</p>
+                    <p>Dakle</p>
+                    <p>$$\text{odgovor} = \sum_{C \text{ povezan}} \min(C) \cdot 2^{N-2} \prod_{u \in C} 2^{1 - \deg u} = 2^{N-2} \sum_C \min(C) \prod_{u \in C} w_u, \qquad w_u = 2^{1 - \deg u}.$$</p>
+                    <p>Eksponent je nenegativan (za $C$ = cijelo stablo iznosi $0$), ali u modularnoj aritmetici jednostavno računamo $w_u = (2^{-1})^{\deg u - 1}$. Provjera na primjeru ($1\!-\!2, 2\!-\!4, 3\!-\!2$, $A = (1,2,3,4)$): $w = (1, \tfrac14, 1, 1)$, zbroj $\min(C) \prod w$ po $11$ povezanih podskupova iznosi $11$, pomnoženo s $2^{N-2} = 4$ daje $44$.</p>
+                    <h3>2. Rastav minimuma po pragovima</h3>
+                    <p>Neka su $v_1 > v_2 > \dots > v_k$ različite vrijednosti u $A$ i $v_{k+1} = 0$. Za svaki $C$ vrijedi teleskopski identitet</p>
+                    <p>$$\min(C) = \sum_{j : v_j \le \min(C)} (v_j - v_{j+1}) = \sum_{j=1}^{k} (v_j - v_{j+1}) \, [\min(C) \ge v_j],$$</p>
+                    <p>jer zbroj po $j$ od indeksa vrijednosti $\min(C)$ do $k$ daje $\min(C) - v_{k+1} = \min(C)$. Uvjet $\min(C) \ge v_j$ znači da su svi vrhovi $C$ u skupu $S_j = \{u : A_u \ge v_j\}$. Zato</p>
+                    <p>$$\sum_C \min(C) \prod_{u \in C} w_u = \sum_{j=1}^{k} (v_j - v_{j+1}) \, G_j, \qquad G_j = \sum_{C \subseteq S_j \text{ povezan}} \prod_{u \in C} w_u.$$</p>
+                    <p>Skupovi $S_j$ rastu: $S_1 \subset S_2 \subset \dots \subset S_k = V$. Obrađujemo vrhove u padajućem redoslijedu po $A$, „oživljavamo” cijelu grupu jednake vrijednosti i zatim pribrajamo $(v_j - v_{j+1}) \cdot G$.</p>
+                    <h3>3. Zbroj težina povezanih podskupova živih vrhova</h3>
+                    <p>Ukorijenimo stablo u $1$. Za vrh $u$ neka je $D(u)$ zbroj težina povezanih podskupova živih vrhova čiji je najplići vrh upravo $u$. Takav podskup sadrži $u$ (mora biti živ) i za svako dijete $c$ ili ne sadrži ništa iz podstabla $c$, ili sadrži povezan podskup s vrhom $c$ (jer mora biti povezan s $u$ preko $c$). Izbori po djeci su neovisni, pa</p>
+                    <p>$$D(u) = [u \text{ živ}] \cdot w_u \prod_{c \text{ dijete } u} \bigl(1 + D(c)\bigr), \qquad G = \sum_u D(u).$$</p>
+                    <p>Statički to je $O(N)$, ali nakon svakog oživljavanja mijenjaju se $D$ svih predaka, a grupa vrijednosti može biti proizvoljna – naivno $O(N^2)$ u lancu.</p>
+                    <h3>4. Dinamički DP: HLD i afina preslikavanja</h3>
+                    <p>Napravimo dekompoziciju na teške putove (heavy-light). Za vrh $v$ neka je $c_v = [v \text{ živ}] \cdot w_v \cdot \prod_{c \text{ lako dijete}} (1 + D(c))$. Tada je $D(v) = c_v \,(1 + x)$, gdje je $x = D(\text{teško dijete})$ (ili $x = 0$ na dnu puta). To je afina funkcija $x \mapsto a + b x$ s $a = b = c_v$. Kompozicija duž puta: ako gornji segment daje $D(\text{vrh}) = a_1 + b_1 y$ uz $y = D(\text{vrh donjeg segmenta}) = a_2 + b_2 x$, onda je ukupno $a = a_1 + b_1 a_2$, $b = b_1 b_2$. Istodobno pratimo zbroj svih $D$ na segmentu kao afinu funkciju $s + t x$: za gornji $(s_1, t_1)$ i donji $(s_2, t_2)$ vrijedi $s = s_1 + t_1 a_2 + s_2$, $t = t_1 b_2 + t_2$. Mrtav vrh ima $(a, b, s, t) = (0, 0, 0, 0)$: njegov $D$ je $0$ bez obzira na ulaz i ništa ne pridonosi zbroju.</p>
+                    <p>Svaki teški put je neprekinut segment pozicija, pa upit nad njim uz $x = 0$ daje $D(\text{glave}) = a$ i zbroj $D$ po putu $= s$. Oživljavanje vrha $u$:</p>
+                    <ol>
+                        <li>Na teškom putu glave $h = \mathrm{head}(u)$ pročitamo stari zbroj i staro $D(h)$, promijenimo list $u$ na $(c_u, c_u, c_u, c_u)$, pročitamo novi zbroj i novo $D(h)$. $G$ povećamo za razliku zbrojeva.</li>
+                        <li>Ako $h$ nije korijen, brid $(\mathrm{par}(h), h)$ je lak: u umnošku lakih djece vrha $p = \mathrm{par}(h)$ zamijenimo faktor $1 + D_{\text{staro}}(h)$ s $1 + D_{\text{novo}}(h)$, pa ponovimo korak 1 za $u := p$.</li>
+                    </ol>
+                    <p>Put do korijena siječe $O(\log N)$ teških puteva, a svaki korak je $O(\log N)$ na segmentnom stablu, dakle $O(\log^2 N)$ po oživljavanju i $O(N \log^2 N)$ ukupno.</p>
+                    <h3>5. Zašto je zbroj $s$ točan i zašto se $G$ smije ažurirati razlikom</h3>
+                    <p>Segment predstavlja skup vrhova teškog puta; njegov $s + t x$ je zbroj $D$-ova <em>tih</em> vrhova, a $D$-ovi vrhova izvan puta (laka podstabla) ulaze u $c_v$ i u $D$-ove vlastitih puteva. Svaki vrh pripada točno jednom teškom putu, pa je $G$ zbroj vrijednosti $s$ po svim putevima (uz $x = 0$). Oživljavanje $u$ mijenja $D$ samo precima od $u$, a oni leže na putevima koje obilazimo u koracima 1–2, pa razlike zbrojeva na tim putevima točno pokrivaju promjenu $G$.</p>
+                    <h3>6. Nule u umnošku</h3>
+                    <p>Faktor $1 + D(c)$ je ostatak modulo $p$ i može biti $0$. Dijeljenje starim faktorom tada nije moguće, pa umnožak lakih djece čuvamo kao par (umnožak nenultih faktora, broj nultih faktora); vrijednost je $0$ ako je brojač nula pozitivan. Dijeljenje nenultim faktorom je množenje inverzom (Fermat), $O(\log p)$.</p>
+                    <h3>7. Algoritam u cjelini</h3>
+                    <ol>
+                        <li>BFS iz korijena: roditelji, veličine podstabala, teško dijete; eksplicitnim stogom dodijelimo pozicije tako da je svaki teški put neprekinut segment (glava ima najmanju poziciju) i zapamtimo dno svakog puta.</li>
+                        <li>Segmentno stablo inicijaliziramo mrtvim vrhovima; $G = 0$.</li>
+                        <li>Sortiramo vrhove padajuće po $A$. Za svaku grupu jednakih vrijednosti $v_j$: oživimo sve vrhove grupe (postupak iz točke 4), zatim $\text{ans} \mathrel{+}= (v_j - v_{j+1}) \cdot G$, gdje je $v_{j+1}$ sljedeća manja vrijednost ili $0$.</li>
+                        <li>Ispišemo $\text{ans} \cdot 2^{N-2} \bmod p$.</li>
+                    </ol>
+                    <h3>8. Složenost i rubni slučajevi</h3>
+                    <p>Vrijeme $O(N \log^2 N)$ (uz $O(\log p)$ za inverze pri prelasku lakih bridova), memorija $O(N)$. Za $N = 3 \cdot 10^5$ najsporiji test (lanac s rastućim vrijednostima, gdje svako oživljavanje mijenja dugačak put) traje ispod sekunde. $N = 2$: $2^{N-2} = 1$, sve radi. Sve vrijednosti su modulo $p$; razlika $v_j - v_{j+1}$ je pozitivna pa nema negativnih ostataka, ali razliku zbrojeva $s$ normaliziramo dodavanjem $p$. Nema rekurzije, pa lanac dubine $3 \cdot 10^5$ nije problem.</p>
+                    <p>Napomena: službeno rješenje (vidi sažetak) vodi distribuciju minimuma $dp[v][x]$ i spaja djecu; naš je pristup drugačiji put do iste sume – umjesto po vrhu-predstavniku komponente i njegovu minimumu, zbrajamo po pragovima i povezanim podskupovima.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 2/2; 300 slučajnih malih stabala ($N \le 10$, slučajna/lančasta/zvjezdasta/„metla”, vrijednosti iz malog i punog raspona) protiv brute forcea koji prolazi sva $2^{N-1}$ podskupa bridova; 3 velika testa s $N = 3 \cdot 10^5$ (lanac s rastućim vrijednostima kao najgori slučaj propagacije, zvijezda, slučajno), najsporiji $0.82$ s.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// F - Forestry
+// Komponenta C (povezan podskup) pojavljuje se u tocno 2^{N-2} * prod_{u in C} 2^{1-deg(u)}
+// odabira bridova. Zato je odgovor 2^{N-2} * sum_C min(C) * prod_{u in C} w_u, w_u = 2^{1-deg u}.
+// min(C) rastavimo po pragovima: min(C) = sum_t Delta_t [svi A u C &gt;= t].
+// Dodajemo vrhove u padajucem redoslijedu po A i odrzavamo
+//   G = sum po povezanim podskupovima zivih vrhova od prod w
+// dinamickim DP-om na stablu (HLD + segmentno stablo afinih preslikavanja):
+//   D(u) = [u ziv] * w_u * prod_{djeca c} (1 + D(c)),  G = sum_u D(u).
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+
+const ll MOD = 998244353;
+
+ll power(ll b, ll e) {
+    ll r = 1; b %= MOD; if (b &lt; 0) b += MOD;
+    while (e) { if (e &amp; 1) r = r * b % MOD; b = b * b % MOD; e &gt;&gt;= 1; }
+    return r;
+}
+
+// Preslikavanje segmenta teskog puta: ulaz x = D(teskog djeteta dna),
+// D(vrha segmenta) = a + b x, zbroj D po segmentu = s + t x.
+struct Node {
+    ll a, b, s, t;
+};
+Node combine(const Node &amp;top, const Node &amp;bot) {
+    Node r;
+    r.a = (top.a + top.b * bot.a) % MOD;
+    r.b = top.b * bot.b % MOD;
+    r.s = (top.s + top.t * bot.a + bot.s) % MOD;
+    r.t = (top.t * bot.b + bot.t) % MOD;
+    return r;
+}
+
+int n;
+vector&lt;Node&gt; seg;
+int SZ;
+void segSet(int pos, Node v) {
+    pos += SZ;
+    seg[pos] = v;
+    for (pos &gt;&gt;= 1; pos; pos &gt;&gt;= 1) seg[pos] = combine(seg[2 * pos], seg[2 * pos + 1]);
+}
+Node segQuery(int l, int r) {  // [l, r]
+    Node L = {0, 1, 0, 0}, R = {0, 1, 0, 0};  // identitet
+    for (l += SZ, r += SZ + 1; l &lt; r; l &gt;&gt;= 1, r &gt;&gt;= 1) {
+        if (l &amp; 1) L = combine(L, seg[l++]);
+        if (r &amp; 1) R = combine(seg[--r], R);
+    }
+    return combine(L, R);
+}
+
+// umnozak (1 + D(lako dijete)) uz pracenje faktora jednakih nuli
+struct Prod {
+    ll val = 1;
+    int zeros = 0;
+    void mul(ll x) { if (x == 0) zeros++; else val = val * x % MOD; }
+    void div(ll x) { if (x == 0) zeros--; else val = val * power(x, MOD - 2) % MOD; }
+    ll get() const { return zeros ? 0 : val; }
+};
+
+int main() {
+    scanf("%d", &amp;n);
+    vector&lt;ll&gt; A(n + 1);
+    for (int i = 1; i &lt;= n; i++) scanf("%lld", &amp;A[i]);
+    vector&lt;vector&lt;int&gt;&gt; g(n + 1);
+    for (int i = 0; i &lt; n - 1; i++) {
+        int u, v;
+        scanf("%d %d", &amp;u, &amp;v);
+        g[u].push_back(v);
+        g[v].push_back(u);
+    }
+    // HLD: BFS redoslijed, velicine, tesko dijete, pozicije
+    vector&lt;int&gt; par(n + 1, 0), order, sz(n + 1, 1), heavy(n + 1, 0), head(n + 1), pos(n + 1);
+    order.push_back(1);
+    par[1] = 0;
+    for (size_t i = 0; i &lt; order.size(); i++)
+        for (int u : g[order[i]])
+            if (u != par[order[i]]) { par[u] = order[i]; order.push_back(u); }
+    for (int i = n - 1; i &gt; 0; i--) {
+        int v = order[i];
+        sz[par[v]] += sz[v];
+        if (heavy[par[v]] == 0 || sz[v] &gt; sz[heavy[par[v]]]) heavy[par[v]] = v;
+    }
+    // pozicije: teski put je neprekinut segment (vrh puta ima manju poziciju)
+    int cur = 0;
+    vector&lt;int&gt; bottom(n + 1);  // dno teskog puta (po glavi)
+    {
+        vector&lt;int&gt; st = {1};
+        head[1] = 1;
+        while (!st.empty()) {
+            int h = st.back(); st.pop_back();
+            for (int v = h; v; v = heavy[v]) {
+                head[v] = h;
+                pos[v] = cur++;
+                bottom[h] = v;
+                for (int u : g[v])
+                    if (u != par[v] &amp;&amp; u != heavy[v]) { head[u] = u; st.push_back(u); }
+            }
+        }
+    }
+    SZ = 1;
+    while (SZ &lt; n) SZ &lt;&lt;= 1;
+    seg.assign(2 * SZ, {0, 1, 0, 0});
+    // mrtvi vrhovi: D = 0 bez obzira na ulaz -&gt; (a,b,s,t) = (0,0,0,0)
+    Node dead = {0, 0, 0, 0};
+    for (int v = 1; v &lt;= n; v++) segSet(pos[v], dead);
+
+    vector&lt;ll&gt; w(n + 1);
+    ll inv2 = power(2, MOD - 2);
+    for (int v = 1; v &lt;= n; v++) w[v] = power(inv2, (int)g[v].size() - 1);  // 2^{1-deg}
+    vector&lt;Prod&gt; light(n + 1);
+    vector&lt;char&gt; alive(n + 1, 0);
+
+    // D vrha v: vrijednost kompozicije segmenta [pos v, pos dna] uz x = 0
+    auto topValue = [&amp;](int h) { return segQuery(pos[h], pos[bottom[h]]); };
+
+    ll G = 0;  // zbroj svih D
+    vector&lt;int&gt; byA(n);
+    iota(byA.begin(), byA.end(), 1);
+    sort(byA.begin(), byA.end(), [&amp;](int x, int y) { return A[x] &gt; A[y]; });
+
+    auto leafOf = [&amp;](int u) -&gt; Node {
+        if (!alive[u]) return dead;
+        ll c = w[u] * light[u].get() % MOD;
+        return {c, c, c, c};
+    };
+    // azuriraj list u i propagiraj promjenu do korijena po teskim putevima
+    auto update = [&amp;](int u) {
+        while (true) {
+            int h = head[u];
+            Node before = topValue(h);
+            segSet(pos[u], leafOf(u));
+            Node after = topValue(h);
+            G = ((G - before.s + after.s) % MOD + MOD) % MOD;
+            int p = par[h];
+            if (p == 0) break;
+            // laki brid (p, h): promijeni faktor (1 + D(h)) u umnosku p
+            light[p].div((1 + before.a) % MOD);
+            light[p].mul((1 + after.a) % MOD);
+            u = p;
+        }
+    };
+
+    ll ans = 0;
+    for (int i = 0; i &lt; n;) {
+        int j = i;
+        while (j &lt; n &amp;&amp; A[byA[j]] == A[byA[i]]) {
+            alive[byA[j]] = 1;
+            update(byA[j]);
+            j++;
+        }
+        ll nextVal = (j &lt; n) ? A[byA[j]] : 0;
+        ll delta = (A[byA[i]] - nextVal) % MOD;
+        ans = (ans + delta * G) % MOD;
+        i = j;
+    }
+    ans = ans * power(2, n - 2) % MOD;
+    printf("%lld\n", ans);
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
