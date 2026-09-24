@@ -174,7 +174,75 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>$n = 4$, bridovi $(1,2,10), (2,3,3), (3,4,1), (1,4,4)$: $1$ zamjena, <code>1 4</code>.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Svaka zamjena izbaci točno jedan brid. Ako je $F$ konačno (minimalno) stablo, treba barem $|T \setminus F|$ zamjena. Koje minimalno razapinjuće stablo $F$ minimizira taj broj?</p>
+''',
+        r'''
+<p>Kruskal koji među bridovima jednake težine prvo uzima bridove početnog stabla daje MST $T^*$ s najvećim presjekom s $T$ (pohlepnost na matroidu unutar svake klase težine).</p>
+''',
+        r'''
+<p>Dodaj brid iz $T^* \setminus T$: na nastalom ciklusu sigurno postoji brid koji nije u $T^*$ – njega izbaci. Svaka zamjena povećava $|T \cap T^*|$ za $1$.</p>
+''',
+    ],
+    'coach': [
+        ('Koja je očita donja granica za broj zamjena?',
+         r'''
+<p>Zamjena izbaci jedan brid stabla i doda jedan novi. Ako je konačno stablo $F$, svaki brid iz $T \setminus F$ mora u nekom trenutku biti izbačen, dakle zamjena je barem $|T \setminus F|$. Kako je $F$ nužno neko minimalno razapinjuće stablo, odgovor je barem $\min_{F \text{ MST}} |T \setminus F| = (n-1) - \max_F |T \cap F|$. Postavlja se pitanje koji MST ima najveći presjek s $T$ i može li se ta granica doista dostići.</p>
+'''),
+        ('Zašto Kruskal s preferencijom bridova stabla daje MST s najvećim presjekom?',
+         r'''
+<p>Svi MST-ovi imaju isti multiskup težina i, za svaku težinu $w$, isti skup komponenti grafa bridova težine $\lt w$ (standardno svojstvo Kruskala). Bridovi težine $w$ u bilo kojem MST-u tvore razapinjuću šumu multigrafa $G_w$ dobivenog sažimanjem tih komponenti, i obratno: svaki izbor takvih razapinjućih šuma po težinama daje MST. Broj bridova iz $T$ težine $w$ u MST-u je dakle veličina neovisnog skupa u grafičkom matroidu $G_w$ presječenog s $T$; pohlepni algoritam koji prvo uzima bridove iz $T$ (težina $1$) pa ostale (težina $0$) nalazi bazu maksimalne težine – to je točno Kruskal s tim redoslijedom. Zbroj po $w$ daje $\max_F |T \cap F|$.</p>
+'''),
+        ('Kako dostići donju granicu $|T \setminus T^*|$?',
+         r'''
+<p>Uzmimo brid $f \in T^* \setminus T_{\text{tren}}$ i dodajmo ga: nastaje točno jedan ciklus, $f$ plus put u stablu između krajeva $f$. Da su svi bridovi tog puta u $T^*$, $T^*$ bi sadržavao ciklus – kontradikcija. Dakle na putu postoji brid $e \notin T^*$; izbacimo ga. Rezultat je opet razapinjuće stablo (uklonili smo brid s ciklusa), $|T_{\text{tren}} \cap T^*|$ je narastao za $1$. Nakon $|T \setminus T^*|$ zamjena stablo je $T^*$.</p>
+'''),
+        ('Kako to učinkovito implementirati i što provjeriti?',
+         r'''
+<p>Put u stablu nalazimo DFS-om/BFS-om od jednog kraja $f$ do drugog, pamteći roditeljski brid, pa hodamo natrag i tražimo prvi brid koji nije u $T^*$: $O(n)$ po zamjeni, ukupno $O(n^2)$ uz $O(m \log m)$ za Kruskal – trivijalno za $n \le 2000$. Zbog višestrukih bridova pamtimo <em>indekse</em> bridova, ne parove vrhova. Provjera: broj zamjena jednak je broju bridova stabla koje Kruskal nije uzeo.</p>
+'''),
+    ],
+    'tips': [
+        r'''Kad se traži MST „najsličniji” zadanom skupu bridova, dovoljno je u Kruskalu razriješiti izjednačenja u korist tih bridova – svi MST-ovi dijele strukturu po klasama težina.''',
+        r'''Zamjena bridova u stablu: dodavanje brida stvara točno jedan ciklus; izbaci s njega bilo koji „nepoželjan” brid i stablo ostaje razapinjuće – osnovni korak mnogih dokaza o razapinjućim stablima.''',
+        r'''Brute force za male konstruktivne zadatke: BFS po svim stanjima (ovdje po svim razapinjućim stablima) daje neovisnu provjeru optimalnog broja koraka, a checker provjerava valjanost niza.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Kruskalom, koji među bridovima jednake težine prvo uzima bridove početnog stabla $T$, nađemo MST $T^*$ s najvećim presjekom s $T$. Odgovor je $k = |T \setminus T^*|$: donja granica jer svaka zamjena izbaci jedan brid, a dostiže se ovako: za svaki $f \in T^* \setminus T$ dodamo $f$, na nastalom ciklusu (put u trenutnom stablu) uvijek postoji brid $e \notin T^*$ (inače bi $T^*$ imao ciklus) i njega izbacimo. Put nalazimo DFS-om, $O(n)$ po zamjeni; ukupno $O(m \log m + n^2)$.</p>
+''',
+    'detailed': r'''
+<h3>1. Donja granica</h3>
+<p>Zamjena uklanja točno jedan brid stabla. Ako je konačno stablo $F$, svaki brid iz $T \setminus F$ mora biti uklonjen u zasebnoj zamjeni, pa je broj zamjena $\ge |T \setminus F|$. Konačno stablo je minimalno, dakle odgovor je $\ge \min_{F \in \mathcal{M}} |T \setminus F|$, gdje je $\mathcal{M}$ skup svih MST-ova.</p>
+<h3>2. MST s najvećim presjekom s $T$</h3>
+<p><strong>Lema.</strong> Neka je $T^*$ rezultat Kruskala koji bridove sortira po $(w, [\text{nije u } T])$, tj. među jednakim težinama prvo uzima bridove iz $T$. Tada je $|T \cap T^*| = \max_{F \in \mathcal{M}} |T \cap F|$.</p>
+<p><em>Dokaz.</em> Za težinu $w$ neka je $G_{\lt w}$ graf svih bridova težine $\lt w$. Poznato svojstvo: za svaki MST $F$, bridovi $F$ težine $\lt w$ razapinju točno komponente od $G_{\lt w}$ (Kruskal ih spaja redom), a bridovi $F$ težine $w$ tvore razapinjuću šumu multigrafa $G_w$ koji nastaje sažimanjem komponenti $G_{\lt w}$ i dodavanjem bridova težine $w$. Obratno, biramo li za svaku težinu $w$ proizvoljnu razapinjuću šumu $G_w$, dobivamo MST. Zato je $\max_F |T \cap F| = \sum_w \max\{|B \cap T| : B \text{ razapinjuća šuma } G_w\}$. Razapinjuće šume su baze grafičkog matroida od $G_w$; baza s najviše elemenata iz $T$ je baza maksimalne težine za težine $[e \in T]$, a nju nalazi pohlepni algoritam: prvo bridovi iz $T$, zatim ostali, svaki uzet ako ne zatvara ciklus. To je upravo ono što Kruskal s našim redoslijedom radi unutar klase težine $w$ (unija-pronađi u tom trenutku predstavlja točno komponente $G_{\lt w}$ proširene već uzetim bridovima težine $w$). $\square$</p>
+<h3>3. Konstrukcija s $|T \setminus T^*|$ zamjena</h3>
+<p>Održavamo trenutno stablo $T_{\text{tren}}$ (početno $T$). Dok postoji $f \in T^* \setminus T_{\text{tren}}$:</p>
+<ol>
+<li>Dodavanjem $f$ nastaje točno jedan ciklus: $f$ i put $P$ u $T_{\text{tren}}$ između krajeva $f$.</li>
+<li>Kad bi svi bridovi $P$ bili u $T^*$, ciklus $P + f$ bio bi sadržan u $T^*$ – nemoguće. Dakle postoji $e \in P$, $e \notin T^*$.</li>
+<li>Zamjena $(e, f)$: rezultat je razapinjuće stablo (ima $n-1$ bridova i povezan je jer je $e$ uklonjen s ciklusa), $|T_{\text{tren}} \cap T^*|$ raste za $1$, a $|T_{\text{tren}} \setminus T^*|$ pada za $1$.</li>
+</ol>
+<p>Nakon točno $|T \setminus T^*|$ koraka $T_{\text{tren}} = T^*$, što je MST. Zajedno s donjom granicom to je optimum.</p>
+<h3>4. Implementacija</h3>
+<ul>
+<li>Sortiranje bridova: $O(m \log m)$; unija-pronađi označi bridove koji ulaze u $T^*$.</li>
+<li>Trenutno stablo čuvamo kao liste susjednosti s <em>indeksima bridova</em> (višestruki bridovi!). Za zamjenu radimo DFS od $U_f$ do $V_f$ pamteći roditeljski brid, zatim hodamo od $V_f$ natrag i vratimo prvi brid koji nije u $T^*$; $O(n)$.</li>
+<li>Ukupno $O(m \log m + n \cdot |T\setminus T^*|) \subseteq O(m \log m + n^2)$, ovdje ispod $0.02$ s.</li>
+<li>Ispis je u 1-indeksiranju: $(e+1, f+1)$.</li>
+</ul>
+<h3>5. Primjer</h3>
+<p>Stablo $\{1,2,3\}$ težina $10, 3, 1$; brid $4$ ima težinu $4$. Kruskal: $3\,(1), 2\,(3), 4\,(4)$; brid $1\,(10)$ zatvara ciklus. $T^* = \{2,3,4\}$, $|T \setminus T^*| = 1$. Dodamo brid $4 = (1,4)$: put $1\text{-}2\text{-}3\text{-}4$ sadrži brid $1 \notin T^*$ – zamjena <code>1 4</code>.</p>
+<h3>6. Zamke</h3>
+<ul>
+<li>Jednake težine: bez preferencije bridova iz $T$ Kruskal može odabrati MST s manjim presjekom i dati previše zamjena.</li>
+<li>Višestruki bridovi između istih vrhova imaju različite indekse; put u stablu mora pamtiti brid, ne susjeda.</li>
+<li>Već optimalno stablo: ispiši $0$.</li>
+<li>Težine do $10^9$ – zbrajanje težina (ako ga radite radi provjere) u 64 bita.</li>
+</ul>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 6$, $m \le 8$, male težine s mnogo izjednačenja, višestruki bridovi) uz checker: broj zamjena uspoređen s brute forceom koji BFS-om po svim razapinjućim stablima nalazi najmanji broj zamjena, a niz zamjena provjeren korak po korak (svaki rezultat razapinjuće stablo, konačna težina jednaka težini MST-a); 6 velikih testova ($n = 2000$, $m = 3000$, uključujući sve jednake težine) prošlo checker (valjanost i $k = |T \setminus T^*|$), najviše $0.01$ s.''',
 },
 # ---------------------------------------------------------------- D
 {
@@ -190,7 +258,82 @@ PROBLEMS = [
 <h3>Primjer</h3>
 <p>Testovi $(100, 0.5, 0), (200, 0.1, 1), (10, 0.5, 2), (10, 0.9, 0)$: redoslijed $4, 1, 2, 3$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>Bez ovisnosti: usporedi dva susjedna testa $a, b$ – zamjena mijenja očekivani trošak samo kroz njih. Koji uvjet na $(c_a, p_a), (c_b, p_b)$ kaže da $a$ ide prije $b$?</p>
+''',
+        r'''
+<p>Poredak je po omjeru $\rho = c/(1-p)$ rastuće. S ovisnostima: test s najmanjim $\rho$ među preostalima u optimalnom rasporedu ide odmah nakon svoje ovisnosti – ako je ona već izvedena, izvedi ga; inače ga „zalijepi” za roditelja u jednu jedinicu.</p>
+''',
+        r'''
+<p>Jedinica (roditelj $P$ pa dijete $T$) ima $c = c_P + p_P c_T$, $p = p_P p_T$ – i dalje se uspoređuje omjerom $c/(1-p)$. Prioritetni red + unija-pronađi + povezane liste daju $O(n \log n)$.</p>
+''',
+    ],
+    'coach': [
+        ('Kako pojednostavniti izraz za očekivani trošak?',
+         r'''
+<p>Za redoslijed $S$ neka su $C_i = \sum_{j \le i} c_j$ i $P_i = \prod_{j \le i} p_j$. Tada $E(S) = \sum_i C_i P_{i-1}(1-p_i) = \sum_i C_i (P_{i-1} - P_i)$. Abelovom sumacijom to je $\sum_i c_i P_{i-1} - C_n P_n$, a $C_n P_n$ ne ovisi o redoslijedu. Dakle minimiziramo $F(S) = \sum_i c_i P_{i-1}$ – očekivani zbroj troškova testova koji se <em>stvarno izvedu</em>. Ovaj oblik je ugodan jer se spoj dvaju blokova $A$ pa $B$ ponaša kao jedan test: $c_{AB} = c_A + p_A c_B$, $p_{AB} = p_A p_B$.</p>
+'''),
+        ('Koji je optimalan poredak bez ovisnosti?',
+         r'''
+<p>Zamjena susjednih $a, b$ mijenja $F$ samo u njihovom doprinosu: $c_a + p_a c_b$ nasuprot $c_b + p_b c_a$ (pomnoženo zajedničkim $P$ ispred). $a$ prije $b$ je bolje točno kad $c_a(1-p_b) \le c_b(1-p_a)$, tj. $\rho_a \le \rho_b$ za $\rho = c/(1-p)$. Kako svaki poredak koji nije sortiran po $\rho$ ima susjedni par u krivom poretku čijom zamjenom trošak ne raste, sortiranje po $\rho$ je optimalno. Ista formula vrijedi i za blokove jer blok ima svoje $(c, p)$.</p>
+'''),
+        ('Zašto omjer spoja leži između omjera dijelova i zašto je to ključno za ovisnosti?',
+         r'''
+<p>$1 - p_A p_B = (1 - p_A) + p_A(1 - p_B)$, pa je $\rho_{AB} = \dfrac{c_A + p_A c_B}{(1-p_A) + p_A(1-p_B)}$ medijanta razlomaka $\dfrac{c_A}{1-p_A}$ i $\dfrac{p_A c_B}{p_A(1-p_B)}$, dakle $\min(\rho_A,\rho_B) \le \rho_{AB} \le \max(\rho_A,\rho_B)$. Posljedica: neka je $T$ jedinica s najmanjim $\rho$ među preostalima. U bilo kojem rasporedu blok $B$ između roditelja od $T$ i samog $T$ sastoji se od jedinica s $\rho \ge \rho_T$, pa je $\rho_B \ge \rho_T$; premještanje $T$ ispred $B$ je dopušteno (u $B$ nema potomaka od $T$, roditelj je već prije) i ne povećava trošak. Dakle postoji optimalan raspored u kojem $T$ ide <em>odmah</em> nakon svog roditelja (ili odmah, ako roditelja nema ili je izveden).</p>
+'''),
+        ('Kako iz te tvrdnje slijedi algoritam i kako ga izvesti u $O(n \log n)$?',
+         r'''
+<p>Uzmi jedinicu $T$ s najmanjim $\rho$. Ako je njezin roditelj izveden (ili ga nema), izvedi $T$ – ostatak je manji problem istog oblika. Inače spoji $T$ s roditeljskom jedinicom $P$ u jedinicu „$P$ pa $T$” s $c = c_P + p_P c_T$, $p = p_P p_T$; rasporedi nove instance točno odgovaraju rasporedima stare u kojima $T$ slijedi $P$, a među njima postoji optimalan. Implementacija: prioritetni red po $\rho$ s verzijama zapisa (lijeno brisanje), unija-pronađi koji za test vraća korijen jedinice (ovisnost testa $d_i$ prevodi se u jedinicu $\text{nadji}(d_i)$), povezane liste za redoslijed testova u jedinici (spajanje u $O(1)$). Svaki test se spoji najviše jednom, pa je ukupno $O(n \log n)$.</p>
+'''),
+    ],
+    'tips': [
+        r'''Kod „izvodi dok prvi ne padne” problema pretvori cilj u očekivani zbroj troškova izvedenih koraka ($\sum c_i P_{i-1}$) – tada se blokovi spajaju kao jedan korak $(c_A + p_A c_B,\ p_A p_B)$.''',
+        r'''Poredak po omjeru i ovisnosti u obliku šume: opća shema (Sidney/Horn) – najmanji prioritet ide odmah nakon roditelja, pa ga spoji s roditeljem; uvjet za ispravnost je da prioritet spoja leži između prioriteta dijelova.''',
+        r'''Prioritetni red s promjenjivim ključevima: umjesto brisanja spremi verziju zapisa i preskoči zastarjele.''',
+        r'''Checker za „bilo koji optimalan redoslijed”: računaj trošak egzaktno razlomcima i dopusti zadanu toleranciju.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. $E(S) = \sum_i c_i P_{i-1} - C_n P_n$, pa minimiziramo $F = \sum_i c_i P_{i-1}$. Susjedna zamjena daje poredak po $\rho = c/(1-p)$ rastuće; blok $A$ pa $B$ ponaša se kao test $(c_A + p_A c_B, p_A p_B)$, a $\rho_{AB}$ leži između $\rho_A$ i $\rho_B$. Zato jedinica s najmanjim $\rho$ u nekom optimalnom rasporedu ide odmah nakon svog roditelja: ako je roditelj izveden, izvedi je; inače je spoji s roditeljskom jedinicom i ubaci novi $\rho$. Prioritetni red s lijenim brisanjem, unija-pronađi za pripadnost jedinici i povezane liste za sadržaj jedinice: $O(n \log n)$.</p>
+''',
+    'detailed': r'''
+<h3>1. Preoblikovanje cilja</h3>
+<p>Za redoslijed $S = (s_1, \dots, s_n)$ s troškovima $c_i$ i vjerojatnostima prolaska $p_i$ (indeksirano po položaju) neka je $C_i = \sum_{j\le i} c_j$, $P_i = \prod_{j \le i} p_j$, $P_0 = 1$. Prvi pad na položaju $i$ ima vjerojatnost $P_{i-1}(1-p_i)$ i trošak $C_i$; ako svi prođu, trošak je $0$:</p>
+$$E(S) = \sum_{i=1}^n C_i (P_{i-1} - P_i) = \sum_{i=1}^n c_i P_{i-1} - C_n P_n .$$
+<p>(Abelova sumacija: $\sum_i C_i P_{i-1} - \sum_i C_i P_i$, pa se $C_i P_i$ pokrati s $C_{i+1}P_i$ do na $c_{i+1}P_i$.) Član $C_n P_n$ ne ovisi o redoslijedu, pa minimiziramo $F(S) = \sum_i c_i P_{i-1}$: očekivani zbroj troškova testova koji se izvedu (test $i$ izvodi se s vjerojatnošću $P_{i-1}$).</p>
+<h3>2. Blokovi kao testovi</h3>
+<p>Za niz testova $A$ definiramo $c_A = F(A)$ (očekivani trošak izvođenja niza) i $p_A = \prod_{i \in A} p_i$. Za spoj $A$ pa $B$: $c_{AB} = c_A + p_A c_B$ (do $B$ dolazimo s vjerojatnošću $p_A$), $p_{AB} = p_A p_B$. Doprinos bloka na položaju iza prefiksa s produktom $P$ je $P \cdot c_{\text{blok}}$. Time se sve tvrdnje o pojedinim testovima prenose na blokove.</p>
+<h3>3. Susjedna zamjena i omjer</h3>
+<p>Za susjedne blokove $A, B$ iza prefiksa $P$: $A$ pa $B$ daje $P(c_A + p_A c_B)$, $B$ pa $A$ daje $P(c_B + p_B c_A)$, ostatak je nepromijenjen ($P$ iza njih je isti). $A$ prije $B$ nije gore točno kad $c_A(1 - p_B) \le c_B (1 - p_A)$, tj. $\rho_A \le \rho_B$ uz</p>
+$$\rho_X = \frac{c_X}{1 - p_X}.$$
+<p>Bez ovisnosti: svaki poredak koji nije sortiran po $\rho$ ima susjedni par s $\rho_a \gt \rho_b$; zamjena ne povećava $F$ i smanjuje broj inverzija, pa je sortirani poredak optimalan (izjednačeni omjeri daju jednak trošak).</p>
+<h3>4. Lema o medijanti</h3>
+<p>$1 - p_A p_B = (1 - p_A) + p_A (1 - p_B)$, pa je</p>
+$$\rho_{AB} = \frac{c_A + p_A c_B}{(1 - p_A) + p_A(1 - p_B)},$$
+<p>medijanta razlomaka $\frac{c_A}{1-p_A} = \rho_A$ i $\frac{p_A c_B}{p_A(1-p_B)} = \rho_B$ (brojnici i nazivnici se zbrajaju, svi pozitivni), dakle $\min(\rho_A, \rho_B) \le \rho_{AB} \le \max(\rho_A, \rho_B)$. Indukcijom: blok sastavljen od jedinica s $\rho \ge r$ ima $\rho \ge r$.</p>
+<h3>5. Ključna tvrdnja</h3>
+<p>Ovisnosti tvore šumu (svaki test ima najviše jednog roditelja, nema ciklusa). Radimo s <em>jedinicama</em> – nizovima testova koji se izvode uzastopno; početno je svaki test jedinica, roditelj jedinice je jedinica koja sadrži ovisnost njezina prvog testa.</p>
+<p><strong>Tvrdnja.</strong> Neka je $T$ jedinica s najmanjim $\rho$ među preostalima. Postoji optimalan raspored preostalih jedinica u kojem $T$ dolazi odmah nakon svoje roditeljske jedinice (odnosno na sam početak ako roditelja nema ili je već izveden).</p>
+<p><em>Dokaz.</em> Uzmimo optimalan raspored i neka je $B$ blok jedinica strogo između roditelja od $T$ (ili početka) i $T$. Sve jedinice u $B$ imaju $\rho \ge \rho_T$, pa po lemi $\rho_B \ge \rho_T$. Raspored $\dots T\, B \dots$ je dopušten: roditelj od $T$ je i dalje prije $T$, a u $B$ nema potomaka od $T$ (oni moraju biti nakon $T$), dok su ovisnosti unutar $B$ i prema van netaknute jer je $B$ pomaknut kao cjelina iza $T$ koji im nije predak. Po odjeljku 3 trošak se ne povećava. $\square$</p>
+<h3>6. Algoritam</h3>
+<ol>
+<li>Prioritetni red jedinica po $\rho$; unija-pronađi $\text{nadji}(x)$ = korijen jedinice koja sadrži test $x$; za svaku jedinicu $(c, p)$, glava/rep povezane liste testova i broj verzije.</li>
+<li>Izvadi jedinicu $u$ s najmanjim $\rho$ (preskoči ako nije korijen ili je verzija zastarjela). Roditeljska jedinica je $r = \text{nadji}(d_{u})$, gdje je $d_u$ ovisnost korijenskog testa jedinice ($0$ = nema).</li>
+<li>Ako $r$ ne postoji ili je izvedena: izvedi $u$ – ispiši testove njezine liste redom, označi izvedenom.</li>
+<li>Inače spoji: $c_r \leftarrow c_r + p_r c_u$, $p_r \leftarrow p_r p_u$, nadoveži listu $u$ na kraj liste $r$, $\text{dsu}[u] \leftarrow r$, povećaj verziju $r$ i ubaci $(\rho_r, r, \text{verzija})$.</li>
+</ol>
+<p>Korak 4 je opravdan tvrdnjom: rasporedi nove instance (s jedinicom „$r$ pa $u$”) su točno rasporedi stare u kojima $u$ slijedi $r$, a među njima je optimalan. Korak 3 je slučaj „na sam početak”. Svaki test se spaja najviše jednom i svako spajanje/izvođenje ubaci $O(1)$ zapisa u red, pa je složenost $O(n \log n)$; ovdje ispod $0.1$ s za $n = 10^5$.</p>
+<h3>7. Primjer</h3>
+<p>$\rho$: $t_1 = 100/0.5 = 200$, $t_2 = 200/0.9 \approx 222.2$, $t_3 = 10/0.5 = 20$, $t_4 = 10/0.1 = 100$. Najmanji je $t_3$, roditelj $t_2$ nije izveden – spoj: $c = 200 + 0.1\cdot 10 = 201$, $p = 0.05$, $\rho \approx 211.6$. Zatim $t_4$ ($100$, bez roditelja) – izvedi; $t_1$ ($200$) – izvedi; jedinica $(t_2, t_3)$ – roditelj $t_1$ izveden, izvedi. Redoslijed $4, 1, 2, 3$.</p>
+<h3>8. Preciznost i zamke</h3>
+<ul>
+<li>$0 \lt p \lt 1$ sa $6$ decimala, pa je $1 - p \ge 10^{-6}$; produkti $p$ mogu podbaciti na $0$ u <code>double</code>, ali tada je $\rho = c$ i sve ostaje ispravno. Tolerancija $10^{-6}$ na trošak oprašta izjednačene omjere.</li>
+<li>Ovisnost testa prevodi se u <em>jedinicu</em> preko $\text{nadji}(d)$ – roditelj se mogao već spojiti s nečim.</li>
+<li>Lijeno brisanje: provjeri i „je li korijen” i verziju, inače se spojena jedinica može izvesti dvaput.</li>
+<li>Ispis od $10^5$ redaka – skupljaj u međuspremnik.</li>
+</ul>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 7$, šume/lanci/bez ovisnosti, vjerojatnosti s $1$–$6$ decimala) uz checker koji provjerava permutaciju i ovisnosti te egzaktno (razlomcima) uspoređuje očekivani trošak s optimalnim redoslijedom brute forcea po svim permutacijama; 8 velikih testova ($n = 10^5$: lanac, šuma, zvijezda, bez ovisnosti) prošlo provjeru valjanosti, najviše $0.09$ s.''',
 },
 # ---------------------------------------------------------------- E
 {
