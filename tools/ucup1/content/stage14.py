@@ -271,14 +271,29 @@ gdje je $s_{ij}$ početno stanje. To je sustav od $N(N+1)/2$ linearnih jednadžb
 <p>Za $4 \times 4$ ploču s nekompatibilnim ćelijama $(0,3)$ i $(3,0)$ odgovor je $2$.</p>
 ''',
     'hints': [
-        r'''<p>Dva U-komada koji se „isprepliću” (jedan okrenut prema dolje umetnut u drugi) čine jedinstveno spojivi blok. Ključno: ako particija postoji, gotovo je uvijek jednoznačna — odgovor je malen broj i računa se konstruktivno, ne DP-om.</p>''',
-        r'''<p>Uzmi leksikografski najmanju nepokrivenu ćeliju $(i, j)$. Ako se može pokriti na točno jedan način, pokrij je i ponovi. Inače je oko nje forsiran $3 \times 3$ blok i analiza malog broja slučajeva odlučuje koja je konfiguracija ispravna (ili da postoje dvije valjane).</p>''',
+        r'''<p>Svaki U-komad sadrži gornji-lijevi kut svoje $3 \times 3$ kutije. Što to govori o komadu koji pokriva leksikografski najmanju slobodnu ćeliju? Koliko kandidata za njega postoji?</p>''',
+        r'''<p>Uzmi leksikografski najmanju nepokrivenu ćeliju $(i, j)$. Ako se može pokriti na točno jedan način, pokrij je i ponovi. Inače je svih $8$ ćelija oko središta $(i+1, j+1)$ slobodno i sve ovisi o tome je li središte slobodno.</p>''',
+        r'''<p>Ako je središte slobodno, dva U-komada se „isprepliću” u blok od $14$ ćelija ($4 \times 4$ bez dvaju nasuprotnih kutova) koji ima <em>točno dvije</em> unutarnje podjele — svaki takav blok množi odgovor s $2$. Ako je središte blokirano, drugi komad je forsiran u jednu od četiri konfiguracije; kad su dvije valjane, prati koje ćelije ostaju „zaključane” i dokaži da najviše jedna grana preživi.</p>''',
     ],
     'coach': [
-        ('Opažanje', r'''<p>Spajanje dvaju isprepletenih komada daje jedinstvenu strategiju particioniranja ako ona postoji („spojeni komad”). Dokaz te tvrdnje izravno daje algoritam.</p>'''),
-        ('Redukcija: pohlepno od leksikografski najmanje ćelije', r'''<p>Neka je $(i, j)$ leksikografski najmanja slobodna ćelija. Ona je gornji-lijevi kut svog komada (sve iznad i lijevo je pokriveno). Ako je pokrivanje jedinstveno, pokrij i nastavi. Inače mora biti slobodno $8$ određenih ćelija oko nje.</p>'''),
-        ('Algoritam: analiza slučajeva', r'''<p><b>Slučaj 1</b>, $(i+1, j+1)$ slobodna: komad koji pokriva $(i, j)$ mora biti spojeni komad, u jednoj od dvije konfiguracije A/B. Ako se u $3 \times 3$ kvadrat s gornjim-lijevim kutom $(i+1, j-3)$ ne može smjestiti komad, forsirana je B; inače je pokrivanje $(i, j+3)$ uz B jedinstveno, a A na njemu ne radi — biraj A ili B prema dostupnosti te particije. <b>Slučaj 2</b>, $(i+1, j+1)$ zauzeta: četiri načina L, BL, R, BR pokrivanja $3 \times 3$ kvadrata s kutom $(i, j)$. Ako je točno jedan valjan, uzmi ga. L i BL (odn. R i BR) ne mogu biti oba valjana; kombinacije L&amp;R, L&amp;BR, R&amp;BL vode na nepokrivljive ćelije ($(i+1, j+3)$ i $(i+2, j+4)$, odn. $(i+1, j-1)$ i $(i+2, j-2)$), pa su nemoguće. Ostaje BL&amp;BR: ako je $(i+1, j-1)$ slobodna, forsiran je BR; inače odluči kao u slučaju A/B. Odgovor je $0$, $1$ ili (u slučaju sample 1) $2$ zbog jedinstvenosti nakon prvog izbora.</p>'''),
-        ('Složenost', r'''<p>Svaka ćelija obrađuje se $O(1)$ puta: $O(NM)$.</p>'''),
+        ('Zašto ovo nije zadatak za dinamičko programiranje po profilu?',
+         r'''<p>Ploča je $1000 \times 1000$, pa DP po „lomljenom profilu” s $2^M$ stanja otpada. Traži se broj particija <em>modulo</em> prost broj — no primjeri (odgovori $2$ i $1$) sugeriraju da je broj particija zapravo malen i strukturiran. To je signal za <em>konstruktivno</em> brojanje: dokazati da je particija, ako postoji, gotovo jednoznačna, a sav „višak” dolazi iz malog broja neovisnih lokalnih izbora.</p>'''),
+        ('Koja ćelija ima najmanje slobode i što ona forsira?',
+         r'''<p>Leksikografski najmanja slobodna ćelija $(i, j)$: sve ćelije u ranijim redovima i lijevo od nje u retku $i$ već su pokrivene ili nedostupne. Svaka od četiri orijentacije U-komada sadrži gornji-lijevi kut svoje $3 \times 3$ kutije, a taj kut je leksikografski najmanja ćelija komada. Dakle komad koji pokriva $(i, j)$ ima kutiju s kutom točno u $(i, j)$ — ostaju samo $4$ kandidata (otvor gore, dolje, lijevo, desno). Ako stane točno jedan, izbor je forsiran; ako nijedan, particije nema.</p>'''),
+        ('Što znači da barem dvije orijentacije stanu?',
+         r'''<p>Svake dvije različite orijentacije zajedno pokrivaju svih $8$ ćelija kutije osim središta, pa je cijeli „prsten” oko $(i+1, j+1)$ slobodan. Komad $P$ koji odaberemo pokrije $7$ od tih $8$ ćelija; preostala ćelija prstena $X$ i (ako je slobodno) središte moraju biti pokriveni drugim komadom $Q$, čiji je kut opet strogo ograničen — mora biti u retku $i$ ili $i+1$ i blizu $(i, j)$. Ispisivanjem svih mogućnosti za $(P, Q)$ dobiva se vrlo kratak popis konfiguracija.</p>'''),
+        ('Odakle dolazi faktor $2$ i zašto samo on?',
+         r'''<p>Ako je središte slobodno, jedini parovi $(P, Q)$ koji ne upadaju u proturječje daju istu uniju od $14$ ćelija: „spojeni komad” A ($4 \times 4$ s kutom $(i, j)$ bez $(i, j+3)$ i $(i+3, j)$) ili B ($4 \times 4$ s kutom $(i, j-1)$ bez $(i, j-1)$ i $(i+3, j+2)$). Svaki od njih ima točno dvije podjele na dva U-komada (npr. za A: desno+lijevo ili dolje+gore), i te dvije podjele pokrivaju iste ćelije, pa ostatak ploče ne ovisi o tome koju smo uzeli. Zato je odgovor $2^{k}$, gdje je $k$ broj spojenih komada u particiji — ili $0$.</p>'''),
+        ('Kako odlučiti kad su dvije konfiguracije lokalno valjane?',
+         r'''<p>Isti argument primijenimo korak dalje: pretpostavimo jednu granu i pogledajmo koja ćelija uz nju ostaje slobodna, ali „stisnuta” (npr. $(i+1, j-1)$ uz A ili $(i+2, j+1)$ uz konfiguraciju BL). Za nju opet postoji najviše jedan komad koji je može pokriti, taj komad ostavlja novu stisnutu ćeliju, i tako dalje — lanac se zaustavi nakon dva komada, ili u proturječju (grana je nemoguća) ili u točno određenom lokalnom uzorku koji, pokaže se, isključuje drugu granu. Zato nikad ne treba grananje: u svakom trenutku najviše jedna grana može voditi do particije.</p>'''),
+        ('Koja je složenost i gdje su zamke u implementaciji?',
+         r'''<p>Svaku slobodnu ćeliju gledamo kao „najmanju” najviše jednom, a tada radimo $O(1)$ provjera na ćelijama unutar udaljenosti $5$; pokrivanje ćelija ukupno je $O(NM)$. Sve provjere izvan ploče tretiramo kao „blokirano”, pa ne treba posebno rubno rukovanje. Ako u nekom trenutku nijedna grana nije valjana, odgovor je $0$; inače na kraju ispišemo $2^{k} \bmod 998244353$.</p>'''),
+    ],
+    'tips': [
+        r'''Kod popločavanja s ograničenim brojem oblika uvijek gledaj <strong>leksikografski najmanju nepokrivenu ćeliju</strong>: komad koji je pokriva mora imati tu ćeliju kao svoju leksikografski najmanju, što drastično smanjuje broj kandidata (ovdje s $4 \cdot 7 = 28$ položaja na $4$).''',
+        r'''Kad primjeri velikog zadatka „modulo $998244353$” imaju sitne odgovore poput $1$ i $2$, posumnjaj da je broj rješenja oblika $2^{k}$ ili slično strukturiran — i traži <strong>lokalne neovisne izbore</strong> umjesto DP-a nad cijelim stanjem.''',
+        r'''U analizama slučajeva „grana X ostavlja ćeliju $c$ koju može pokriti samo komad $Y$, a on ostavlja ćeliju $c'$…” uvijek zapiši koje su ćelije <em>nužno blokirane</em> u svakoj grani; takvi uvjeti su ono što se u kodu provjerava i ono što isključuje suparničku granu.''',
+        r'''Ovakva rješenja s mnogo indeksa testiraj protiv brute forcea koji rekurzivno probava sve komade na leksikografski najmanjoj ćeliji, s generatorom koji <em>namjerno usađuje</em> dvoznačne uzorke — slučajni ulazi gotovo nikad ne pogode rijetke grane.''',
     ],
     'solution': r'''
 <p>Ključno opažanje: spajanje dvaju isprepletenih komada daje jedinstvenu strategiju particioniranja, ako postoji. Takav par zovemo <em>spojeni komad</em>. Dokaz te tvrdnje prirodno daje algoritam za rješavanje zadatka.</p>
@@ -287,11 +302,94 @@ gdje je $s_{ij}$ početno stanje. To je sustav od $N(N+1)/2$ linearnih jednadžb
 <p><b>Slučaj 2:</b> $(i+1, j+1)$ nije slobodna. Postoje $4$ načina da se pokriju sve ćelije $3 \times 3$ kvadrata s gornjim-lijevim kutom $(i, j)$: konfiguracije L, BL, R i BR. Ako je točno jedna valjana, koristimo je i vraćamo se na početak. Pretpostavimo da su barem dvije valjane. L i BL ne mogu biti obje valjane, kao ni R i BR, pa ostaju $4$ slučaja.</p>
 <ul>
 <li>L i R valjane: ako odaberemo L, nemoguće je istodobno pokriti $(i+1, j+3)$ i $(i+2, j+4)$; slično za R. Slučaj je nemoguć.</li>
-<li>L i BR valjane: ako odaberemo L, opet je nemoguće pokriti $(i+1, j+3)$ i $(i+2, j+4)$; ako odaberemo R, ne mogu se pokriti $(i+1, j-1)$ i $(i+2, j-2)$. Slučaj je nemoguć.</li>
+<li>L i BR valjane: ako odaberemo L, opet je nemoguće pokriti $(i+1, j+3)$ i $(i+2, j+4)$; ako odaberemo BR, ne mogu se pokriti $(i+1, j-1)$ i $(i+2, j-2)$. Slučaj je nemoguć.</li>
 <li>R i BL valjane: nemoguće sličnim argumentom.</li>
 <li>BL i BR valjane: ako je $(i+1, j-1)$ slobodna, mora se odabrati BR. Inače, argumentom sličnim onome za A i B, biramo BL ili BR ovisno o dostupnosti odgovarajuće particije.</li>
 </ul>
 ''',
+    'detailed': r'''
+<h3>Oblik komada i notacija</h3>
+<p>U-komad je $3 \times 3$ kvadrat iz kojega su izbačene dvije susjedne ćelije: središte kutije i sredina jedne stranice. Označimo li ćelije kutije relativnim koordinatama $(dr, dc)$, $0 \le dr, dc \le 2$, četiri orijentacije su:</p>
+<ul>
+<li><b>gore</b> (otvor prema gore): nedostaju $(0,1)$ i $(1,1)$;</li>
+<li><b>dolje</b>: nedostaju $(1,1)$ i $(2,1)$;</li>
+<li><b>lijevo</b>: nedostaju $(1,0)$ i $(1,1)$;</li>
+<li><b>desno</b>: nedostaju $(1,1)$ i $(1,2)$.</li>
+</ul>
+<p>Komad orijentacije $o$ s kutom kutije u $(a, b)$ pišemo $o(a, b)$, npr. $\mathrm{dolje}(i, j)$. Ćeliju zovemo <em>slobodnom</em> ako je kompatibilna i još nije pokrivena; ćelije izvan ploče, nekompatibilne ćelije i već pokrivene ćelije zovemo <em>blokiranima</em>. Tražimo broj particija skupa kompatibilnih ćelija na U-komade, modulo $998244353$. Sve tvrdnje koje slijede su provjere na konačno mnogo ćelija; za svaku navodimo argument tako da ga čitatelj može ponoviti na papiru, a u kodu su to upravo uvjeti koji se testiraju.</p>
+
+<h3>Lema 1: gdje je komad koji pokriva najmanju ćeliju</h3>
+<p>Neka je $(i, j)$ leksikografski najmanja slobodna ćelija (prvo po retku, zatim po stupcu). Sve četiri orijentacije <em>sadrže</em> ćeliju $(0,0)$ svoje kutije — izbačene su samo $(1,1)$ i jedna sredina stranice. Kut $(0,0)$ je ujedno leksikografski najmanja ćelija komada. Ako komad $P$ pokriva $(i, j)$, sve njegove ćelije su slobodne, pa nijedna nije leksikografski manja od $(i, j)$; dakle njegova najmanja ćelija, kut kutije, jest točno $(i, j)$. <b>Zaključak:</b> komad koji pokriva $(i, j)$ je $\mathrm{gore}(i,j)$, $\mathrm{dolje}(i,j)$, $\mathrm{lijevo}(i,j)$ ili $\mathrm{desno}(i,j)$ — samo $4$ kandidata. Ako nijedan ne stane (neka ćelija je blokirana ili izvan ploče), particije nema i odgovor je $0$. Ako stane točno jedan, on je forsiran: pokrijemo ga i tražimo sljedeću najmanju slobodnu ćeliju.</p>
+
+<h3>Lema 2: dvije orijentacije stanu $\Rightarrow$ prsten je slobodan</h3>
+<p>Svake dvije različite orijentacije zajedno izostavljaju samo središte $(1,1)$: npr. gore i lijevo izostavljaju $\{(0,1),(1,1)\}$ i $\{(1,0),(1,1)\}$, presjek je $\{(1,1)\}$. Dakle ako barem dvije orijentacije stanu na $(i, j)$, svih $8$ ćelija kutije osim središta $(i+1, j+1)$ je slobodno. Nazovimo ih <em>prsten</em>. Koji god komad $P$ odaberemo, on pokriva $7$ od $8$ ćelija prstena, a jedna ćelija prstena $X_P$ ostaje slobodna: $X_{\mathrm{gore}} = (i, j+1)$, $X_{\mathrm{dolje}} = (i+2, j+1)$, $X_{\mathrm{lijevo}} = (i+1, j)$, $X_{\mathrm{desno}} = (i+1, j+2)$. Ta ćelija mora biti pokrivena nekim komadom $Q$, i to je poluga cijele analize: kut kutije od $Q$ je u retku $i$ ili $i+1$ (redci iznad su blokirani, a $Q$ sadrži ćeliju iz retka $\le i+2$), u retku $i$ desno od $j$, a k tome $Q$ ne smije dirati ćelije od $P$. To ostavlja vrlo malo mogućnosti.</p>
+
+<h3>Slučaj 1: središte $(i+1, j+1)$ je slobodno — spojeni komad</h3>
+<p>Središte također mora pokriti neki komad $Q$; kut kutije od $Q$ je $(a, b)$ s $a \in \{i, i+1\}$ i $b \in \{j-1, j, j+1\}$, pri čemu $(a, b)$ mora biti slobodna i $Q$ mora izbjegavati sve ćelije od $P$. Prođimo mogućnosti.</p>
+<ul>
+<li>$a = i$: jedina slobodna ćelija u retku $i$ u tom rasponu može biti $(i, j+1)$, i to samo ako je $P = \mathrm{gore}(i,j)$. Tada $Q$ ima kutiju s kutom $(i, j+1)$; ćelija $(i, j+2)$ je u $P$, pa $Q$ mora izostaviti $(0,1)$, tj. $Q = \mathrm{gore}$, ali $\mathrm{gore}(i, j+1)$ sadrži $(i+2, j+1) \in P$. Proturječje.</li>
+<li>$a = i+1$, $b = j+1$: $Q$ uvijek izostavlja $(i+2, j+2)$ (to je njegovo središte, a ta je ćelija u $P$ — dobro). Osim toga $Q$ mora izbjeći $(i+2, j+1)$ osim ako $P = \mathrm{dolje}$, i $(i+1, j+2)$ osim ako $P = \mathrm{desno}$. $Q$ izostavlja točno jednu sredinu stranice, pa su moguće samo kombinacije $P = \mathrm{desno}(i,j),\ Q = \mathrm{lijevo}(i+1,j+1)$ i $P = \mathrm{dolje}(i,j),\ Q = \mathrm{gore}(i+1,j+1)$. Obje daju <em>istu</em> uniju: $4 \times 4$ kutiju s kutom $(i, j)$ bez $(i, j+3)$ i $(i+3, j)$. To je <b>spojeni komad A</b>.</li>
+<li>$a = i+1$, $b = j$: $(i+1, j)$ je slobodna samo za $P = \mathrm{lijevo}$, ali tada $Q$ sadrži $(i+1, j+2) \in P$ (relativno $(0,2)$, koje nijedna orijentacija ne izostavlja). Proturječje.</li>
+<li>$a = i+1$, $b = j-1$: $Q$ mora izbjeći $(i+1, j)$ (relativno $(0,1)$) osim ako $P = \mathrm{lijevo}$, te $(i+2, j)$, $(i+2, j+1)$ (relativno $(1,1)$, $(1,2)$) osim ako ih $P$ ne sadrži. Ostaju $P = \mathrm{dolje}(i,j),\ Q = \mathrm{gore}(i+1, j-1)$ i $P = \mathrm{lijevo}(i,j),\ Q = \mathrm{desno}(i+1, j-1)$, obje s unijom $4 \times 4$ kutija s kutom $(i, j-1)$ bez $(i, j-1)$ i $(i+3, j+2)$. To je <b>spojeni komad B</b>.</li>
+</ul>
+<p>Dakle: ako je središte slobodno, $P \cup Q$ je nužno A ili B, a $P = \mathrm{gore}$ nikad nije moguć. Svaki spojeni komad ima <em>točno dvije</em> podjele na dva U-komada i obje pokrivaju iste $14$ ćelija. Zato je broj particija cijele ploče jednak $2 \cdot$ (broj particija ostatka nakon uklanjanja tih $14$ ćelija), neovisno o tome koju podjelu „odaberemo”. Ukupno je odgovor $2^{k}$, gdje je $k$ broj spojenih komada, ili $0$.</p>
+<p><b>Ako stane samo jedan od A, B</b>, on je forsiran. <b>Ako stanu oba</b>, treba pokazati da najviše jedan vodi do particije, i odlučiti koji.</p>
+<p><em>Pretpostavimo A.</em> Ćelija $(i+1, j-1)$ je slobodna (jer B stane) i mora je pokriti komad $P'$ s kutom u retku $i+1$ (u retku $i$ lijevo od $j$ sve je blokirano, a $(i, j+3)$ je predaleko). Kut $(i+1, j-1)$ traži izostavljanje $(i+1, j) \in A$, dakle $\mathrm{gore}$, koje sadrži $(i+2, j+1) \in A$ — ne. Kut $(i+1, j-2)$ sadrži $(i+1, j) \in A$ — ne. Ostaje kut $(i+1, j-3)$, sa zasad bilo kojom orijentacijom. Zatim $(i+3, j)$ (slobodna, nije u A) mora biti pokrivena: sustavnim prolaskom kutova $(a, b)$, $a \in \{i+1, i+2, i+3\}$, $b \in \{j-2, j-1, j\}$ otpada sve osim kuta $(i+3, j-2)$, koji je slobodan samo ako je $P' = \mathrm{dolje}(i+1, j-3)$, a tada komad u $(i+3, j-2)$ mora izostaviti $(i+3, j-1) \in P'$, tj. mora biti $\mathrm{gore}(i+3, j-2)$. Ta dva komada izostavljaju $(i+2, j-2)$ i $(i+4, j-1)$, a istim prolaskom kutova vidi se da <em>nijedan</em> komad ne može pokriti te dvije ćelije, pa one moraju biti blokirane. <b>Zaključak:</b> A je moguć samo ako vrijedi uzorak $S_A$: $\mathrm{dolje}(i+1, j-3)$ i $\mathrm{gore}(i+3, j-2)$ stanu, a $(i+2, j-2)$ i $(i+4, j-1)$ su blokirane.</p>
+<p><em>Pretpostavimo B uz $S_A$.</em> Ćelija $(i+1, j-2)$ je slobodna (dio $\mathrm{dolje}(i+1, j-3)$), a jedini komad koji je može pokriti je $\mathrm{desno}(i+1, j-4)$ (ostali kutovi diraju B ili blokiranu $(i+2, j-2)$). Tada je $(i+2, j-3)$ slobodna, a nijedan komad je ne može pokriti: kut $(i+2, j-3)$ traži $\mathrm{gore}$ koji sadrži $(i+2, j-1) \in B$, kut $(i+2, j-5)$ traži $\mathrm{gore}$ koji sadrži $(i+3, j-3) \in \mathrm{desno}(i+1, j-4)$, a kutovi u retku $i+1$ diraju $\mathrm{desno}(i+1, j-4)$. Dakle uz $S_A$ grana B propada.</p>
+<p><b>Pravilo odluke za slučaj 1:</b> ako stanu oba, provjeri $S_A$: vrijedi $\Rightarrow$ uzmi A, inače uzmi B. U oba slučaja odgovor se množi s $2$ (a ako se kasnije pokaže da ni odabrana grana ne daje particiju, algoritam će vratiti $0$ — što je i točan odgovor, jer druga grana sigurno ne daje particiju). Službeno rješenje isti izbor formulira „s druge strane”, preko jedinstvenog načina pokrivanja $(i, j+3)$ uz B; obje formulacije provjeravaju isti lokalni uzorak.</p>
+
+<h3>Slučaj 2: središte je blokirano — četiri konfiguracije</h3>
+<p>Sada $Q$ pokriva samo $X_P$, a središte je blokirano, što dodatno sužava izbor.</p>
+<ul>
+<li>$P = \mathrm{gore}$: $X = (i, j+1)$, kut od $Q$ mora biti $(i, j+1)$; $(i, j+2) \in P$ traži $Q = \mathrm{gore}$, ali on sadrži $(i+2, j+1) \in P$. <b>Nemoguće.</b></li>
+<li>$P = \mathrm{lijevo}$: $X = (i+1, j)$. Kut $(i+1, j)$ traži izostavljanje blokiranog središta $(i+1, j+1)$, dakle $\mathrm{gore}$, koji sadrži $(i+1, j+2) \in P$; kut $(i+1, j-1)$ sadrži $(i+1, j+1)$; ostaje kut $(i+1, j-2)$, koji mora izostaviti $(i+2, j) \in P$: $Q = \mathrm{desno}(i+1, j-2)$. To je <b>konfiguracija L</b>. Ona ostavlja $(i+2, j-1)$ nepokrivenu, a nijedan komad je ne može pokriti (kutovi u recima $i+1$, $i+2$ redom diraju $Q$ ili $P$), pa $(i+2, j-1)$ mora biti blokirana.</li>
+<li>$P = \mathrm{desno}$: zrcalno, $Q = \mathrm{lijevo}(i+1, j+2)$ — <b>konfiguracija R</b>, uz blokiranu $(i+2, j+3)$.</li>
+<li>$P = \mathrm{dolje}$: $X = (i+2, j+1)$. Kutovi u retku $i$ su zauzeti, kut $(i+1, j-1)$ traži $\mathrm{gore}$ koji sadrži blokirano središte, kut $(i+1, j+1)$ je blokiran. Ostaju kutovi u retku $i+2$: kut $(i+2, j-1)$ mora izostaviti $(i+2, j) \in P$, dakle $Q = \mathrm{gore}(i+2, j-1)$ — <b>konfiguracija BL</b>, koja ostavlja nepokrivljivu $(i+3, j)$ (mora biti blokirana); kut $(i+2, j+1)$ mora izostaviti $(i+2, j+2) \in P$, dakle $Q = \mathrm{gore}(i+2, j+1)$ — <b>konfiguracija BR</b>, uz blokiranu $(i+3, j+2)$.</li>
+</ul>
+<p>Svaka konfiguracija je, dakle, „dva komada + jedna nužno blokirana ćelija”; upravo to kod provjerava. Ako je valjana točno jedna, forsirana je. Ako nijedna, odgovor je $0$. Preostaje pitanje što kad su valjane dvije.</p>
+<p><b>L i BL</b> ne mogu biti valjane istodobno: L traži blokiranu $(i+2, j-1)$, a BL slobodnu (kut od $\mathrm{gore}(i+2, j-1)$). Zrcalno za R i BR. Ostaju parovi L&amp;R, L&amp;BR, R&amp;BL i BL&amp;BR.</p>
+<p><b>L i R valjane.</b> Odaberemo L. Ćelija $(i+1, j+3)$ (slobodna, dio $\mathrm{lijevo}(i+1, j+2)$ iz R) može biti pokrivena samo komadom s kutom $(i+1, j+3)$ koji izostavlja blokiranu $(i+2, j+3)$, tj. $\mathrm{lijevo}(i+1, j+3)$. Tada za $(i+3, j+2)$ (slobodnu, iz R) ne postoji nijedan komad: kutovi $(i+3, j)$, $(i+3, j+1)$, $(i+3, j+2)$ diraju $\mathrm{desno}(i+1, j-2)$ odnosno $\mathrm{lijevo}(i+1, j+3)$, a kutovi u recima $i+1$, $i+2$ diraju L. Dakle L daje $0$; zrcalno i R daje $0$, pa je odgovor $0$. (Službeno rješenje isti zaključak izvodi preko ćelija $(i+1, j+3)$ i $(i+2, j+4)$.)</p>
+<p><b>L i BR valjane.</b> Odaberemo L: $(i+3, j+1)$ (slobodna iz $\mathrm{gore}(i+2, j+1)$) može pokriti samo $\mathrm{gore}(i+3, j+1)$, koji ostavlja $(i+4, j+2)$ — slobodnu, a nepokrivljivu. Odaberemo BR: $(i+1, j-1)$ (slobodna iz $\mathrm{desno}(i+1, j-2)$) može pokriti samo $\mathrm{desno}(i+1, j-3)$, a tada je $(i+2, j-2)$ slobodna i nepokrivljiva. Odgovor $0$. <b>R i BL</b>: zrcalno.</p>
+<p><b>BL i BR valjane.</b> Obje počinju s $P = \mathrm{dolje}(i,j)$; razlikuju se u $Q$.</p>
+<ul>
+<li>Ako je $(i+1, j-1)$ slobodna: uz BL je jedini kandidat za nju $\mathrm{desno}(i+1, j-3)$, koji sadrži $(i+3, j-1) \in \mathrm{gore}(i+2, j-1)$ — proturječje. Dakle BL propada, forsiran je <b>BR</b>.</li>
+<li>Ako je $(i+1, j-1)$ blokirana: uz BR ostaje slobodna $(i+2, j-1)$, koju može pokriti samo komad s kutom $(i+2, j-3)$; zatim $(i+4, j)$ može pokriti samo $\mathrm{gore}(i+4, j-2)$, i to jedino ako je prvi komad $\mathrm{dolje}(i+2, j-3)$; ta dva komada izostavljaju $(i+3, j-2)$ i $(i+5, j-1)$, koje nitko ne može pokriti, pa moraju biti blokirane. Nazovimo taj uzorak $S_{BR}$ (to je $S_A$ pomaknut za jedan redak dolje). Ako $S_{BR}$ ne vrijedi, BR propada i forsiran je <b>BL</b>. Ako vrijedi, uz BL je $(i+2, j-2)$ slobodna i jedini kandidat je $\mathrm{desno}(i+2, j-4)$, nakon čega je $(i+3, j-3)$ nepokrivljiva; dakle BL propada i forsiran je <b>BR</b>.</li>
+</ul>
+<p>U slučaju 2 nema množenja s $2$: dva komada su različiti, disjunktni komadi particije, a ne dvije podjele istog skupa.</p>
+
+<h3>Algoritam</h3>
+<ol>
+<li>$ans \leftarrow 1$. Prolazi ćelije po recima, pa po stupcima; preskoči blokirane.</li>
+<li>Za slobodnu $(i, j)$ provjeri koje od $4$ orijentacija stanu. Nijedna $\Rightarrow$ ispiši $0$. Točno jedna $\Rightarrow$ postavi je.</li>
+<li>Inače, ako je $(i+1, j+1)$ slobodna: provjeri stanu li A i B (svih $14$ ćelija slobodno). Nijedan $\Rightarrow 0$; jedan $\Rightarrow$ postavi ga; oba $\Rightarrow$ postavi A ako vrijedi $S_A$, inače B. Zatim $ans \leftarrow 2 \cdot ans \bmod p$.</li>
+<li>Inače (središte blokirano): izračunaj valjanost L, BL, R, BR (dva komada stanu i treća ćelija je blokirana). Nijedna $\Rightarrow 0$. Dvije koje nisu $\{BL, BR\}$ $\Rightarrow 0$. Za BL&amp;BR odluči pravilom: $(i+1, j-1)$ slobodna $\Rightarrow$ BR; inače $S_{BR}$ vrijedi $\Rightarrow$ BR, ne vrijedi $\Rightarrow$ BL. Postavi odabranu konfiguraciju.</li>
+<li>Na kraju ispiši $ans$.</li>
+</ol>
+<p>Postavljanje komada znači označiti njegovih $7$ ćelija kao blokirane (u kodu <code>'1'</code>), pa se „slobodno” i „blokirano” prirodno mijenjaju tijekom prolaza.</p>
+
+<h3>Zašto pohlepni prolaz daje točan broj</h3>
+<p>Dokazali smo: u svakom koraku, za leksikografski najmanju slobodnu ćeliju, skup komada koji je pokrivaju u <em>bilo kojoj</em> particiji ostatka ploče je ili jednoznačno određen (slučaj 2 i jednoznačni podslučajevi), ili je jedan od dva spojena komada, od kojih najviše jedan može biti dio particije, a svaki ima točno dvije podjele koje pokrivaju iste ćelije. Indukcijom po broju slobodnih ćelija: broj particija ploče $= c \cdot$ (broj particija ploče bez odabranih ćelija), gdje je $c = 2$ za spojeni komad i $c = 1$ inače; prazan skup ima točno jednu particiju. Ako u nekom koraku nema valjanog izbora, broj particija je $0$. Zato algoritam nikad ne mora vraćati se ni granati.</p>
+
+<h3>Složenost</h3>
+<p>Svaku ćeliju obrađujemo kao „najmanju slobodnu” najviše jednom, a tada obavimo konstantan broj provjera (<code>fits</code> gleda $9$ ćelija, spojeni komad $16$, uzorci $S_A$/$S_{BR}$ još dvadesetak) na ćelijama unutar udaljenosti $5$. Postavljanje komada je $O(7)$ po komadu, a komada je najviše $NM/7$. Ukupno $O(NM) = O(10^6)$ elementarnih operacija; rješenje radi u stotinki sekunde uz memoriju $O(NM)$ za ploču.</p>
+
+<h3>Rubni slučajevi i implementacijske zamke</h3>
+<ul>
+<li>Sve provjere prolaze kroz jednu funkciju <code>freeCell(r, c)</code> koja vraća <code>false</code> izvan ploče. Time su indeksi poput $j-4$ ili $i+5$ automatski „blokirani” i ne treba ručno paziti na rubove.</li>
+<li>Ploča bez kompatibilnih ćelija ima točno jednu (praznu) particiju: ispis je $1$. Ako broj kompatibilnih ćelija nije višekratnik od $7$, algoritam sam dođe do ćelije koju ne može pokriti i ispiše $0$.</li>
+<li>Množenje s $2$ radimo modulo $998244353$ u 64-bitnom tipu; odgovor je $2^{k}$ s $k \le NM/14 \approx 71\,000$, pa bez modula ne bi stao ni u 64 bita.</li>
+<li>Ne smije se zaboraviti da provjera konfiguracije uključuje <em>blokiranost</em> treće ćelije, ne samo to da dva komada stanu: bez toga bi npr. L i BL mogle biti „valjane” istodobno i pravila odluke bila bi pogrešna.</li>
+<li>Kad u slučaju 1 stanu oba spojena komada, uzorak $S_A$ provjeravamo na <em>trenutnoj</em> ploči (prije postavljanja A ili B) — u njemu ne sudjeluju ćelije od A ni od B, pa redoslijed nije bitan.</li>
+</ul>
+
+<h3>Prolaz kroz primjere</h3>
+<p><b>Primjer 1</b> ($4 \times 4$, blokirane $(0,3)$ i $(3,0)$): najmanja slobodna je $(0,0)$; stanu sve četiri orijentacije, središte $(1,1)$ je slobodno. A (kutija s kutom $(0,0)$ bez $(0,3)$ i $(3,0)$) stane i pokriva svih $14$ kompatibilnih ćelija; B bi trebao stupac $-1$ i ne stane. Postavimo A, $ans = 2$, ploča je prazna: <b>2</b>. Dvije particije su $\mathrm{desno}(0,0) + \mathrm{lijevo}(1,1)$ i $\mathrm{dolje}(0,0) + \mathrm{gore}(1,1)$.</p>
+<p><b>Primjer 2</b> ($5 \times 4$): kompatibilnih ćelija je $14$. U $(0,0)$ stanu sve četiri orijentacije (ćelija $(1,1)$ je blokirana, a prsten je slobodan), pa smo u slučaju 2. L i BL trebaju stupce $-2$ odnosno $-1$, R treba stupac $4$ — ne stanu. BR: $\mathrm{dolje}(0,0)$ pokriva $(0,0),(0,1),(0,2),(1,0),(1,2),(2,0),(2,2)$, $\mathrm{gore}(2,1)$ pokriva $(2,1),(2,3),(3,1),(3,3),(4,1),(4,2),(4,3)$, a $(3,2)$ je blokirana — valjano. Postavimo BR, ploča je prazna, odgovor <b>1</b>.</p>
+
+<h3>Napomena o službenom rješenju</h3>
+<p>U službenom tekstu, u slučaju „L i BR valjane”, druga grana je nazvana R umjesto BR; u prijevodu smo to ispravili. Argument za par L&amp;BR kod izbora L ondje ponavlja ćelije iz para L&amp;R ($(i+1, j+3)$, $(i+2, j+4)$), koje u ovom paru ne moraju biti slobodne; gore je dan izravan argument preko $(i+3, j+1)$ i $(i+4, j+2)$. Sam algoritam je nepromijenjen.</p>
+''',
+    'verified': r'''uzorci 2/2; 300 slučajnih testova ($N, M \le 9$; ploče građene slaganjem slučajnih U-komada i spojenih komada, u trećini slučajeva s namjerno usađenim uzorcima za dvoznačne grane A/B, BL/BR i L/R, u dijelu slučajeva s pokvarenim ćelijama) protiv brute forcea koji rekurzivno probava sve četiri orijentacije na leksikografski najmanjoj slobodnoj ćeliji; dodatno 6500 seedova s instrumentiranim brojanjem grana (svaka od grana „oba stanu”, uključujući $S_A$ i $S_{BR}$, pogođena je više desetaka puta) bez ijednog neslaganja; 3 velika testa $1000 \times 1000$ (najviše 0.01 s).''',
 },
 # ---------------------------------------------------------------- E
 {
