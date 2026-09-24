@@ -17,9 +17,9 @@ int main() {
     if (scanf("%d", &t) != 1) return 0;
     while (t--) {
         int n;
-        scanf("%d", &n);
+        if (scanf("%d", &n) != 1) return 0;
         vector<ll> s(n);
-        for (auto &x : s) scanf("%lld", &x);
+        for (auto &x : s) if (scanf("%lld", &x) != 1) return 0;
         bool gubitnicko;
         if (n % 2 == 0) {
             gubitnicko = true;

@@ -995,6 +995,78 @@ $$\rho_{AB} = \frac{c_A + p_A c_B}{(1 - p_A) + p_A(1 - p_B)},$$
 <h3>Primjer</h3>
 <p>Dronovi $(66,45,10; 73,39,36)$, $(95,14,26; 47,84,59)$, $(14,66,89; 89,36,78)$, $(16,27,94; 79,24,24)$: $4$.</p>
 ''',
-    'solution': None,
+    'hints': [
+        r'''
+<p>„Svaki gleda točno jednog i svakoga gleda točno jedan” je permutacija bez fiksnih točaka – unija ciklusa duljine $\ge 2$. Koji parovi $(i, j)$ smiju biti brid? Koliko stoji brid koji već postoji?</p>
+''',
+        r'''
+<p>Premještanje ($1000$) je skuplje od okretanja svih ($n \le 500$), pa se isplati samo kad bez njega nema rješenja. Kad graf vidljivosti nema pokrivanje ciklusima? Sortiraj točke po generičkom smjeru – susjedne su uvijek međusobno vidljive.</p>
+''',
+        r'''
+<p>Bipartitno uparivanje minimalne cijene ($0/1/\infty$, mađarski algoritam). Poseban slučaj: $n$ neparan i svi kolinearni – pomakni točno jednog izvan pravca; on je u ciklusu sa susjednim komadom pravca, ostatak se uparuje; okrete za njega i njegova „gledača” određuje presjek dviju zraka u 3D.</p>
+''',
+    ],
+    'coach': [
+        ('Kako izgleda tražena konfiguracija kao graf?',
+         r'''
+<p>Svaki dron gleda točno jednog (prvog na svojoj zraci), svakoga gleda točno jedan: to je funkcija $\sigma$ na dronovima bez fiksne točke koja je bijekcija – permutacija čiji su ciklusi duljine $\ge 2$ (dvociklus = dva drona koja gledaju jedno drugo). Brid $i \to \sigma(i)$ moguć je točno kad na otvorenom segmentu $(P_i, P_{\sigma(i)})$ nema drugog drona (tada se $i$ može okrenuti prema $\sigma(i)$ i vidjet će baš njega). Cijena brida: $0$ ako $\sigma(i)$ već jest prvi dron na zraci $i$, inače $1$.</p>
+'''),
+        ('Zašto premještanje gotovo nikad nije isplativo?',
+         r'''
+<p>Okretanje <em>svih</em> dronova stoji $n \le 500 \lt 1000$. Ako bez premještanja postoji ikakvo rješenje, njegova je cijena $\le n$, pa je premještanje suvišno. Zato je zadatak: minimalno uparivanje u bipartitnom grafu (lijeva kopija „tko gleda”, desna „koga gleda”) s cijenama $0/1/\infty$ – mađarski algoritam u $O(n^3)$; a premještamo samo ako savršeno uparivanje ne postoji, i tada točno jednog (dva premještanja stoje $2000 \gt 1000 + n$).</p>
+'''),
+        ('Kad pokrivanje ciklusima ne postoji?',
+         r'''
+<p>Sortiraj točke po projekciji na generički smjer $d$ (sve projekcije različite). Ako je $R$ strogo unutar segmenta $AB$, njegova je projekcija strogo između, pa su <em>susjedne</em> točke u tom poretku uvijek vidljive: graf sadrži Hamiltonov put $P_1 \dots P_n$. Za paran $n$ upari $(P_1P_2)(P_3P_4)\dots$. Za neparan $n$ trebamo neparan ciklus: ako je neka trojka $P_i, P_{i+1}, P_{i+2}$ s neparnim $i$ nekolinearna, ona je trokut ($P_i$–$P_{i+2}$ blokira samo $P_{i+1}$, a on nije na segmentu), ostatak se uparuje. Inače su sve trojke $(P_{2k-1}, P_{2k}, P_{2k+1})$ kolinearne; ako točke nisu sve na jednom pravcu, dvije susjedne takve trojke leže na različitim pravcima $L_1 \ne L_2$ kroz zajedničku točku $c = P_{2k+1}$: za $a,b,c \in L_1$ i $c,d,e \in L_2$ (u poretku projekcija) vrijedi da $a$ vidi $d$ i $e$ te $d$ vidi $e$ (svaki blokator bi značio $L_1 = L_2$), pa trokut $(a, d, e)$ + par $(b, c)$ + upareni ostatak. Dakle rješenje bez premještanja ne postoji točno kad je $n = 1$ ili kad je $n$ neparan i svi su dronovi kolinearni (graf vidljivosti je put, a put nema ciklusa).</p>
+'''),
+        ('Kako riješiti kolinearan neparan slučaj?',
+         r'''
+<p>Pomaknemo točno jedan dron $M$ izvan pravca $L$ (na $L$ bi ostalo kolinearno i neparno). Preostalih $n - 1$ točaka na $L$ čini put $Q_0, \dots, Q_{n-2}$, a $M$ vidi sve njih i sve one vide $M$. $M$ leži u ciklusu $M \to Q_i \to \dots \to Q_j \to M$ (ili obrnuto) sa <em>susjednim</em> komadom puta; lijevo i desno od komada moraju ostati parni blokovi, pa je $i$ paran i $j$ neparan (0-indeksirano). Cijene na pravcu su jednostavne: $Q_a$ gleda $Q_{a+1}$ besplatno točno kad je $v_{Q_a}$ paralelan s $L$ u pozitivnom smjeru (nakon uklanjanja $M$ između njih više nema nikoga). Za $M$ i njegova gledača $W$: $M$ ne treba okret ako ga stavimo na $P_T - t v_M$ ($t \gt 0$; mora biti $v_M \nparallel L$), $W$ ne treba okret ako je $M = P_W + s v_W$ ($s \gt 0$, $v_W \nparallel L$); oboje besplatno ako se te dvije zrake sijeku (egzaktno u cijelim brojevima: komplanarnost i predznaci $t, s$ preko vektorskih produkata). Za svaki $M$ i svaki $(i, j)$ ukupno $1000 + $ (upareni prefiks) $+$ (upareni sufiks) $+ \min$(dvije orijentacije) – prefiksne sume daju $O(n^3/4)$.</p>
+'''),
+    ],
+    'tips': [
+        r'''„Svaki pokazuje na točno jednog, na svakoga pokazuje točno jedan” = permutacija; ograničenja na bridove čine to bipartitnim uparivanjem (lijevo izvor, desno cilj), a cijene $0/1$ rješava mađarski algoritam.''',
+        r'''Prije nego se upustiš u skupe operacije, usporedi ih s cijenom „napravi sve jeftino”: $1000 \gt n$ odmah kaže da se premješta najviše jednom i samo kad je nužno.''',
+        r'''Vidljivost u skupu točaka: točke sortirane po generičkom smjeru su susjedno vidljive; za sve parove usporedi normalizirani smjer $(\Delta x, \Delta y, \Delta z)/\gcd$ – vidljiv je samo najbliži u svakom smjeru.''',
+        r'''3D presjek zraka računaj egzaktno: $t\,(u\times w) = D\times w$, komplanarnost $D\cdot(u\times w) = 0$; produkti do $10^{25}$ traže <code>__int128</code>.''',
+    ],
+    'solution': r'''
+<p>Prema službenim rješenjima NAC 2023. Cilj je permutacija bez fiksnih točaka: brid $i \to j$ postoji ako na segmentu nema drugog drona (cijena $1$, ili $0$ ako $i$ već gleda $j$). Premještanje ($1000 \gt n$) isplati se samo kad nema rješenja bez njega: $n = 1$ ($-1$) ili $n$ neparan i svi kolinearni; inače mađarski algoritam na bipartitnom grafu s cijenama $0/1/\infty$, $O(n^3)$. Kolinearan neparan slučaj: pomakni točno jednog $M$ izvan pravca; ostali čine put $Q_0..Q_{n-2}$, $M$ je u ciklusu sa susjednim komadom $Q_i..Q_j$ ($i$ paran, $j$ neparan), ostatak upareni susjedi; okreti $M$ i njegova gledača su $0/1/2$ ovisno o egzaktnom presjeku zrake gledača i zrake unazad od cilja. Prefiksne sume, $O(n^3)$.</p>
+''',
+    'detailed': r'''
+<h3>1. Model</h3>
+<p>Dron gleda prvog drona na svojoj zraci (ili nikoga). Konačno stanje: funkcija $\sigma$ „$i$ gleda $\sigma(i)$”, $\sigma(i) \ne i$, i svaki je dron slika točno jednog – dakle permutacija bez fiksnih točaka, tj. disjunktni ciklusi duljine $\ge 2$. Brid $i \to j$ moguć je točno kad je $j$ <em>vidljiv</em> iz $i$: na otvorenom segmentu $(P_i, P_j)$ nema drugog drona (tada okret prema $j$ vidi baš $j$; ako netko jest na segmentu, $i$ nikad ne može vidjeti $j$ bez premještanja). Cijena brida je $0$ ako je $j$ već prvi dron na zraci $i$, inače $1$. Vidljivost je simetrična.</p>
+<h3>2. Premještanje je (gotovo) nikad</h3>
+<p>Okret svih $n \le 500$ dronova stoji $\lt 1000$. Ako postoji ikakvo pokrivanje ciklusima u grafu vidljivosti, optimalno rješenje ne premješta nikoga. Ako ne postoji, premješta se točno jedan dron (dva stoje $2000 \gt 1000 + n$). Zato prvo riješimo <em>bez</em> premještanja i utvrdimo kada to nije moguće.</p>
+<h3>3. Kad postoji pokrivanje ciklusima?</h3>
+<p><strong>Lema 1.</strong> Za generički smjer $d$ (sve projekcije $d \cdot P_i$ različite) sortirajmo točke: $P_1, \dots, P_n$. Tada su $P_i$ i $P_{i+1}$ vidljive. <em>Dokaz:</em> točka strogo unutar segmenta ima projekciju strogo između, a takve nema. $\square$</p>
+<p><strong>Lema 2.</strong> $P_i$ i $P_{i+2}$ su vidljive točno kad $P_i, P_{i+1}, P_{i+2}$ nisu kolinearne (jedini kandidat za blokatora je $P_{i+1}$). $\square$</p>
+<p><strong>Tvrdnja.</strong> Pokrivanje ciklusima postoji točno kad $n \ge 2$ i (ili je $n$ paran ili točke nisu sve kolinearne).</p>
+<p><em>Nužnost:</em> $n = 1$ nema koga gledati; za sve kolinearne točke graf vidljivosti je put (vidljivi su samo susjedi na pravcu), put nema ciklusa duljine $\ge 3$, a savršeno uparivanje puta s neparno mnogo vrhova ne postoji.</p>
+<p><em>Dovoljnost:</em> $n$ paran – upari $(P_1P_2), (P_3P_4), \dots$ po Lemi 1. $n$ neparan, nekolinearne: (a) ako je za neki <em>neparan</em> $i$ trojka $P_i, P_{i+1}, P_{i+2}$ nekolinearna, po Lemama 1–2 to je trokut (ciklus duljine 3), a $P_1..P_{i-1}$ i $P_{i+3}..P_n$ imaju paran broj točaka i uparuju se susjedno. (b) Inače su sve trojke $(P_{2k-1}, P_{2k}, P_{2k+1})$ kolinearne; kad bi svi ti pravci bili isti, sve bi točke bile kolinearne, pa postoje susjedne trojke na pravcima $L_1 \ne L_2$ sa zajedničkom točkom $c = P_{2k+1}$. Označimo $a = P_{2k-1}, b = P_{2k} \in L_1$ i $d = P_{2k+2}, e = P_{2k+3} \in L_2$. Kandidati za blokatore segmenta $ad$ su $b$ i $c$; da je $b$ na $ad$, točka $d$ bila bi na $L_1$, pa bi $c, d \in L_1 \cap L_2$ dalo $L_1 = L_2$; isto za $c$ na $ad$. Analogno, blokatori $ae$ ($b, c, d$) i $de$ (nitko, susjedni) ne postoje. Dakle $(a, d, e)$ je trokut, $(b, c)$ par (susjedi), a $P_1..P_{2k-2}$ i $P_{2k+4}..P_n$ imaju paran broj točaka. $\square$</p>
+<h3>4. Opći slučaj: uparivanje minimalne cijene</h3>
+<p>Bipartitni graf: lijeva kopija $i$ (tko gleda), desna kopija $j$ (koga gleda), brid $(i, j)$, $i \ne j$, s cijenom $0$ (već gleda), $1$ (vidljiv) ili $\infty$. Savršeno uparivanje $\leftrightarrow$ permutacija bez fiksnih točaka po dopuštenim bridovima, a njegova cijena je broj okreta. Mađarski algoritam, $O(n^3) \approx 1.25 \cdot 10^8$. Vidljivost za sve parove u $O(n^2 \log n)$: za fiksni $i$ svaki $j$ svrstaj po normaliziranom smjeru $(P_j - P_i)/\gcd$; vidljiv je samo najbliži u svakom smjeru, a $i$ „već gleda” najbližega u smjeru $v_i/\gcd$.</p>
+<h3>5. Kolinearan neparan slučaj ($n \ge 3$)</h3>
+<p>Neka je $L$ pravac. Pomičemo točno jedan dron $M$; mora otići <em>izvan</em> $L$ (inače ostaje kolinearno i neparno). Preostale točke, sortirane duž $L$, čine put $Q_0, \dots, Q_{n-2}$ ($n - 1$ paran). $M$ izvan $L$ vidi sve $Q$-ove i oni vide njega (segment $MQ$ siječe $L$ samo u $Q$), a $M$ ne može blokirati ništa na $L$.</p>
+<p><strong>Struktura.</strong> Ciklusi koji ne sadrže $M$ su parovi susjeda. Ciklus s $M$ je $M \to Q_i \to Q_{i+1} \to \dots \to Q_j \to M$ ili obrnuti (put $Q_i..Q_j$ mora biti susjedni komad). Lijevo ostaje $i$ točaka, desno $n - 2 - j$; oba broja moraju biti parna: $i$ paran, $j$ neparan (jer je $n - 2$ neparan). Posebno, dvociklus $(M, Q_i)$ nije moguć.</p>
+<p><strong>Cijene na pravcu.</strong> Nakon uklanjanja $M$ između $Q_a$ i $Q_{a+1}$ nema nikoga, pa $Q_a$ gleda $Q_{a+1}$ besplatno točno kad je $v_{Q_a} \parallel L$ u pozitivnom smjeru (znak $+1$); analogno znak $-1$ za $Q_{a-1}$. Cijena para $(Q_a, Q_{a+1})$ je $[\text{znak}(Q_a) \ne +1] + [\text{znak}(Q_{a+1}) \ne -1]$; prefiksne sume $\mathrm{L}[i]$ (upareni $Q_0..Q_{i-1}$), $\mathrm{R}[j]$ (upareni $Q_{j+1}..Q_{n-2}$), te prefiksne sume „naprijed” i „natrag” za komad $Q_i..Q_j$.</p>
+<p><strong>Cijena za $M$ i njegova gledača $W$</strong> ($T$ = cilj $M$-a, $W$ = zadnji u komadu koji gleda $M$):</p>
+<ul>
+<li>$M$ bez okreta: $M = P_T - t\, v_M$, $t \gt 0$; moguće samo ako $v_M \nparallel L$ (inače je $M \in L$). Tada je $T$ prvi na zraci $M$-a.</li>
+<li>$W$ bez okreta: $M = P_W + s\, v_W$, $s \gt 0$; moguće samo ako $v_W \nparallel L$.</li>
+<li>Oboje bez okreta: zrake $P_T - t v_M$ i $P_W + s v_W$ moraju se sjeći. Ako su pravci isti, to je pravac $L$ (sadrži $P_T \ne P_W$) – nevaljano. Inače: $u = -v_M$, $w = v_W$, $D = P_W - P_T$, $N = u \times w \ne 0$; presjek postoji ako $D \cdot N = 0$, a $t\,|N|^2 = (D \times w)\cdot N$, $s\,|N|^2 = (D \times u)\cdot N$ moraju biti $\gt 0$. Vrijednosti dosežu $\sim 10^{25}$, pa <code>__int128</code>.</li>
+<li>Ukupno: $0$ ako se zrake sijeku (uz oba uvjeta $\nparallel$), $1$ ako je jedan od dva uvjeta ispunjen (stavi $M$ na tu zraku, drugi se okrene), inače $2$ ($M$ bilo gdje izvan $L$).</li>
+</ul>
+<p>Odgovor $= \min_{M,\, i,\, j} \big(1000 + \mathrm{L}[i] + \mathrm{R}[j] + \min(\text{naprijed}(i,j) + \text{extra}(T{=}Q_i, W{=}Q_j),\ \text{natrag}(i,j) + \text{extra}(T{=}Q_j, W{=}Q_i))\big)$. Parova $(i, j)$ je $\approx (n/2)^2$, pa je ukupno $O(n^3/4)$ jeftinih operacija ($\approx 0.15$ s).</p>
+<h3>6. Zamke</h3>
+<ul>
+<li>$n = 1 \Rightarrow -1$; $n = 2$ je uvijek kolinearno, ali parno – rješava ga uparivanje.</li>
+<li>Cijena $0$ traži da je cilj <em>prvi</em> dron na zraci, ne samo da leži na njoj.</li>
+<li>Normalizacija smjera dijeljenjem s $\gcd$ svih triju komponenti (i predznak ostaje!) – ključ za „najbliži u smjeru”.</li>
+<li>Kvadrat udaljenosti do $1.2 \cdot 10^{13}$ – <code>long long</code>; skalarni produkti trostrukih produkata – <code>__int128</code>.</li>
+<li>U kolinearnom slučaju znak smjera određuj prema referentnom vektoru pravca, a poredak po skalarnom produktu s njim.</li>
+</ul>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 7$: slučajne točke, točke na 1–3 pravca, cijele mreže, svi kolinearni – 65 testova kolinearno-neparnih; smjerovi često ciljaju druge dronove) protiv brute forcea koji ispituje sve derangemente s provjerom vidljivosti, a za slučaj premještanja egzaktno (razlomcima) prolazi kandidatske pozicije na zrakama, njihovim presjecima i generičkoj točki; 11 velikih testova ($n = 497$–$500$, sve vrste) najviše $0.14$ s.''',
 },
 ]
