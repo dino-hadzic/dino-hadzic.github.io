@@ -24,7 +24,7 @@
     <div class="zadatak">
         <h1>ZADATAK B: Random Interactive Convex Hull Bot</h1>
         <p><i>Slučajna interaktivna konveksna ljuska</i> — The 1st Universal Cup, Stage 13: Iberia (44th Petrozavodsk Programming Camp, Day 6: Um_nik mod 998 244 353 Contest). Vremensko ograničenje: 4 s, memorijsko ograničenje: 512 MiB.</p>
-        <p><em>Interaktivni zadatak.</em> Skup od $n$ točaka odabran je uniformno slučajno među svim skupovima točaka s pozitivnim cjelobrojnim koordinatama do $10^9$ u kojima nikoje tri točke nisu kolinearne. Točke ne vidiš; smiješ postavljati upite „<code>? i j k</code>”, na koje sudac odgovara $1$ ako je zaokret od $\overrightarrow{P_iP_j}$ prema $\overrightarrow{P_iP_k}$ u smjeru suprotnom od kazaljke na satu, a $-1$ inače (predznak vektorskog produkta). Odredi konveksnu ljusku i ispiši „<code>! k i_1 \dots i_k</code>” s indeksima vrhova ljuske u pozitivnom smjeru.</p>
+        <p><em>Interaktivni zadatak.</em> Skup od $n$ točaka odabran je uniformno slučajno među svim skupovima točaka s pozitivnim cjelobrojnim koordinatama do $10^9$ u kojima nikoje tri točke nisu kolinearne. Točke ne vidiš; smiješ postavljati upite „<code>? i j k</code>”, na koje sudac odgovara $1$ ako je zaokret od $\overrightarrow{P_iP_j}$ prema $\overrightarrow{P_iP_k}$ u smjeru suprotnom od kazaljke na satu, a $-1$ inače (predznak vektorskog produkta). Odredi konveksnu ljusku i ispiši „<code>! k i_1 … i_k</code>” s indeksima vrhova ljuske u pozitivnom smjeru.</p>
         <h3>Ograničenja</h3>
         <p>$3 \le n \le 5000$, najviše $30\,000$ upita. Poredak točaka je također slučajan; interaktor nije adaptivan.</p>
     </div>
@@ -54,42 +54,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje</summary>
+                    <summary>Što točno saznajemo jednim upitom i kako se iz toga provjerava je li točka unutar konveksnog poligona?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Upit „$? i j k$” odgovara na pitanje u kojoj poluravnini u odnosu na pravac $P_iP_j$ leži $P_k$. Nova točka je unutar konveksnog poligona ako je s iste (unutarnje) strane svih pravaca stranica. Za slučajne točke ljuska je mala ($O(\log n)$ vrhova), a većina novih točaka pada unutra.</p>
+                        <p>Upit „<code>? i j k</code>” vraća predznak vektorskog produkta $\overrightarrow{P_iP_j} \times \overrightarrow{P_iP_k}$, tj. kaže je li $P_k$ <em>lijevo</em> ($+1$) ili <em>desno</em> ($-1$) od usmjerenog pravca $P_i \to P_j$; nule nema jer nikoje tri točke nisu kolinearne. Konveksan poligon zadan vrhovima u pozitivnom smjeru (suprotno od kazaljke) leži lijevo od svakog svog usmjerenog brida, pa je točka unutra ako i samo ako je lijevo od svih $H$ bridova. To je $H$ upita po točki — prevelik trošak, ali pokazuje da je „lijevo od pravca” jedini alat koji imamo.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija: lokalizacija binarnim pretraživanjem</summary>
+                    <summary>Zašto ne možemo primijeniti Grahamov ili Andrewov algoritam i zašto je inkrementalni pristup prirodan baš za slučajne točke?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Održavaj ljusku $H$ kao cikličku listu. Za novu točku $p$ odaberi dijagonalu koja dijeli poligon na dva približno jednaka dijela i pitaj na kojoj je strani $p$; nastavi u toj polovici. Nakon $\approx \log_2 |H|$ upita ostaje trokut; s još najviše $3$ upita znaš je li $p$ unutra ili preko koje stranice je izašla. Stranice koje su dijagonale izvornog poligona već su upitane, pa je trošak $\max(3, 2 + \log_2(|H| - 2))$.</p>
+                        <p>Ti algoritmi sortiraju točke po koordinati ili kutu, a mi nemamo koordinate: sortiranje $5000$ točaka usporedbama tražilo bi $\approx n \log_2 n \approx 60\,000$ upita, više od limita. S druge strane, konveksna ljuska $i$ slučajnih točaka u kvadratu ima očekivano samo $\Theta(\log i)$ vrhova (za $i = 5000$ oko $20$), a nova slučajna točka pada izvan trenutne ljuske s vjerojatnošću reda $H_i / i$. Dodajemo li točke jednu po jednu, gotovo svaka je unutra i ljusku treba mijenjati samo $O(\log^2 n)$ puta; pitanje se svodi na to koliko upita košta test „je li nova točka unutar poligona od $H$ vrhova”.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam: umetanje i popravak</summary>
+                    <summary>Kako uz $O(\log H)$ upita saznati je li točka unutra, a ako nije — preko kojeg je brida izašla?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Ako je $p$ vani preko stranice $(a, b)$, umetni $p$ između $a$ i $b$, a zatim uklanjaj susjede dok poligon nije konveksan (svaki test je jedan upit; svaka točka može biti uklonjena najviše jednom). Ukupno: $\le 2n + 3k + \sum_{i} \log_2 H_{i-1}$ upita, gdje je $k$ broj umetanja — očekivano $O(\log^2 n)$ umetanja i $O(n \log\log n)$ za lokalizaciju; službena rješenja troše $24\,000$–$27\,000$ upita.</p>
+                        <p>Fiksiramo jedan vrh ljuske kao <em>pivot</em> $h_0$ i gledamo lepezu zraka $h_0 \to h_1, \dots, h_0 \to h_{H-1}$; one se okreću u pozitivnom smjeru i zajedno pokrivaju kut manji od $180^\circ$. Za točku $q$ predikat $L(t) = $ „$q$ je lijevo od $h_0 \to h_t$” je, kad je $q$ unutar toga kuta, oblika istina, …, istina, laž, …, laž — pa binarno pretraživanje s $\lceil \log_2 H \rceil$ upita nađe trokut lepeze $(h_0, h_t, h_{t+1})$ u kojem $q$ leži. Dvije stranice tog trokuta su zrake za koje već znamo stranu, pa još jedan upit za brid $h_t \to h_{t+1}$ odlučuje: lijevo znači unutra, desno znači da je baš taj brid vidljiv iz $q$. Ako je $q$ izvan kuta lepeze („iza” pivota), predikat je ili konstantan ili oblika laž…istina, a binarno pretraživanje tada završi na jednom od dva kraja — i u oba je slučaja odgovarajući brid uz pivot vidljiv, pa je zaključak i tada točan.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Složenost</summary>
+                    <summary>Kako se ljuska popravlja kad je točka vani i zašto je to jeftino?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$O(n \log n)$ vremena; broj upita ispod $30\,000$ u očekivanju (randomiziran ulaz, neadaptivan interaktor).</p>
+                        <p>Bridovi vidljivi iz vanjske točke čine neprekinut lanac na konveksnom poligonu, a mi već znamo jedan njegov brid. Hodamo od njega u oba smjera i pitamo za susjedni brid dok je vidljiv; svaki korak ukloni jedan vrh i košta jedan upit, a dva zadnja upita zaustavljaju hodanje. Novi poligon je $h_{lo}, q, h_{hi}, \dots$ i ostaje konveksan i pozitivno orijentiran. Svaki vrh može biti uklonjen najviše jednom, pa je ukupni trošak popravaka $O(n + \text{broj umetanja})$ upita.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Je li $30\,000$ upita doista dovoljno i kako binarno pretraživanje učiniti jeftinijim od $\lceil \log_2 H \rceil$?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Gruba procjena $\sum_i (1 + \lceil \log_2 H_{i-1} \rceil) \approx 5000 \cdot 6$ je opasno blizu limita. Trokuti lepeze imaju vrlo različite površine (uz kutove ljuske su sitni, prema suprotnim stranama kvadrata veliki), a nova točka je uniformno slučajna — vjerojatnost da padne u trokut proporcionalna je njegovoj površini. Površine ne znamo, ali ih procjenjujemo brojem ranijih točaka koje su pale u pojedini trokut, pa u binarnom pretraživanju dijelimo lepezu po <em>težini</em>, a ne po broju zraka. Očekivani broj upita tada pada s $\log_2 H$ na približno entropiju te raspodjele (oko $3$–$4$ bita). Ispravnost ne ovisi o težinama, samo brzina; mjereno na lokalnom interaktoru: prosječno $\approx 23\,500$, najviše $26\,529$ upita za $n = 5000$.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>U interaktivnim zadacima svaki odgovor je jedan bit informacije: prebroji koliko bitova trebaš (npr. $\log_2$ broja mogućih ishoda) i usporedi s limitom prije nego što kreneš kodirati — ako je procjena blizu limita, treba ideja koja smanjuje očekivani broj upita, ne samo najgori slučaj.</li>
+                <li>Kad ulaz obećava slučajnost, iskoristi je: ljuska slučajnih točaka ima $O(\log n)$ vrhova, a empirijske frekvencije ranijih točaka izvrsna su procjena vjerojatnosti za buduće — tim se procjenama može voditi „težinsko” binarno pretraživanje.</li>
+                <li>Za interaktivne zadatke napiši vlastiti interaktor (skripta koja generira ulaz, odgovara na upite i provjerava ispis) i mjeri najgori broj upita na mnogo slučajnih testova — to je jedini pošten lokalni test.</li>
+                <li>Predikat „točka je lijevo od usmjerenog pravca” monoton je duž lepeze zraka iz jednog vrha konveksnog poligona samo unutar kuta lepeze; uvijek provjeri što se događa s krajnjim slučajevima (točka „iza” pivota) i dokaži da pretraga i tada daje smislen odgovor.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -97,8 +114,7 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Budući da nemamo pristup koordinatama, teško je koristiti standardne algoritme koji se oslanjaju na traženje najljevije točke; i sortiranje točaka zahtijevalo bi previše upita. Trebamo drugačiji pristup.</p>
                     <p>Umećemo točke jednu po jednu i održavamo trenutnu konveksnu ljusku. Ako je točka unutar trenutne ljuske, ništa ne mijenjamo; inače je umećemo na pravo mjesto i uklanjamo točke koje više nisu na ljusci.</p>
                     <p>Upit interpretiramo kao pitanje „u kojoj poluravnini u odnosu na pravac $(P_iP_j)$ leži $P_k$?”. Želimo provjeriti leži li nova točka u istoj poluravnini kao ostatak poligona za sve pravce koji sadrže stranice poligona, i ako ne, pronaći „lošu” stranicu. Linearno pretraživanje troši previše upita, ali kako je zadatak interaktivan, koristimo binarno pretraživanje.</p>
@@ -106,6 +122,196 @@
                     <p>Ako leži, gotovi smo. Ako ne, znamo kamo je umetnuti, a zatim uklanjamo točke u njezinoj blizini dok poligon nije konveksan.</p>
                     <p>Procijenimo broj upita. Ako novu točku umećemo $k$ puta, točke uklanjamo najviše $k$ puta, pa nakon utvrđivanja da smo izvan trokuta trošimo najviše $3k$ upita. U dijelu s trokutom ne trebamo pitati za stranice koje su dijagonale izvornog poligona jer smo ih već pitali, što broj upita smanjuje na $\max(3, 2 + \log_2(H - 2))$; s dodatnim doradama može se postići $\max(3, 1 + \log_2(H - 1))$, no to nije nužno.</p>
                     <p>Ukupan broj upita ograničen je s $2n + 3k + \sum_{i=3}^{n} \log_2(H_{i-1})$. Poznato je da je očekivana veličina konveksne ljuske $m$ slučajnih točaka u kvadratu $O(\log m)$, a kako je prefiks (više-manje) slučajan skup, taj zbroj je $O(n \log \log n)$. Vjerojatnost da nakon dodavanja $i$-te točke moramo popraviti ljusku je otprilike $H_i / i$, pa je $k = O(\log^2 n)$. To ulazi u limit; naše implementacije troše između $24\,000$ i $27\,000$ upita.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Što upit zapravo govori</h3>
+                    <p>Odgovor na „<code>? i j k</code>” je predznak vektorskog produkta $\overrightarrow{P_iP_j}\times\overrightarrow{P_iP_k}$. Predznak $+1$ znači da je $P_k$ <em>lijevo</em> od usmjerenog pravca $P_i\to P_j$, a $-1$ da je desno; nula se ne pojavljuje jer je zajamčeno da nikoje tri točke nisu kolinearne. To je jedini alat koji imamo — nemamo koordinate, ne možemo uspoređivati po $x$ ni sortirati po kutu bez mnogo upita. Cijelo rješenje treba izgraditi iz pitanja oblika „na kojoj je strani pravca točka”.</p>
+                    <p>Za konveksan poligon $h_0,h_1,\dots,h_{m-1}$ zadan u pozitivnom smjeru (suprotno od kazaljke na satu) unutrašnjost je presjek lijevih poluravnina svih usmjerenih bridova $h_t\to h_{t+1}$. Kažemo da je brid $h_t\to h_{t+1}$ <em>vidljiv</em> iz točke $q$ ako je $q$ desno od njega; točka je izvan poligona ako i samo ako vidi barem jedan brid, a bridovi koje vidi čine neprekinut (ciklički) lanac.</p>
+
+                    <h3>2. Zašto inkrementalno i zašto to za slučajne točke radi</h3>
+                    <p>Ulaz je slučajan i redoslijed točaka je slučajan, a to je ključno. Poznato je da konveksna ljuska $i$ uniformno slučajnih točaka u kvadratu ima očekivano $\frac{8}{3}\ln i + O(1)$ vrhova, dakle oko $20$ za $i=5000$. Ako točke dodajemo redom $1,2,\dots,n$ i održavamo ljusku dosad viđenih točaka, tada je $i$-ta točka (po simetriji – svaka od prvih $i$ točaka jednako je vjerojatno „zadnja”) vrh ljuske prvih $i$ točaka s vjerojatnošću $H_i/i$, pa je očekivani broj umetanja $\sum_i H_i/i = O(\log^2 n)$, u praksi oko $80$–$100$. Gotovo sve točke su, dakle, unutra, i glavno je pitanje koliko upita košta test „je li $q$ unutar trenutne ljuske”, a ako nije, koji je brid vidljiv.</p>
+                    <p>Početak: točke $1,2,3$ čine trokut; jedan upit „<code>? 1 2 3</code>” kaže je li redoslijed $1,2,3$ pozitivan (tada je ljuska $[1,2,3]$) ili treba $[1,3,2]$. Za $n=3$ to je sve.</p>
+
+                    <h3>3. Lokalizacija lepezom iz pivota</h3>
+                    <p>Ljusku držimo u vektoru <code>ljuska</code>, u pozitivnom smjeru, i njezin prvi vrh $h_0$ zovemo <em>pivot</em>. Zrake $h_0\to h_1, h_0\to h_2,\dots,h_0\to h_{m-1}$ okreću se u pozitivnom smjeru i zajedno zatvaraju kut manji od $180^\circ$ (unutarnji kut konveksnog poligona u vrhu $h_0$). Za novu točku $q$ definiramo predikat $L(t)=$ „$q$ je lijevo od $h_0\to h_t$”, $1\le t\le m-1$, i dogovorno $L(0)=\text{istina}$, $L(m)=\text{laž}$. Ravninu oko $h_0$ dijelimo na <em>utore</em>:</p>
+                    <ul>
+                    <li>utor $0$: desno od zrake $h_0\to h_1$ (izvan poligona, iza brida $h_0h_1$);</li>
+                    <li>utor $s$, $1\le s\le m-2$: između zraka $h_0\to h_s$ i $h_0\to h_{s+1}$ — to je trokut lepeze $(h_0,h_s,h_{s+1})$ produljen preko brida $h_sh_{s+1}$;</li>
+                    <li>utor $m-1$: lijevo od zrake $h_0\to h_{m-1}$ (izvan poligona, iza brida $h_{m-1}h_0$).</li>
+                    </ul>
+                    <p>Tražimo $s$ takvo da vrijedi $L(s)$ i ne vrijedi $L(s+1)$. Binarno pretraživanje održava $lo\le s\le hi$ (početno $lo=0$, $hi=m-1$): pita za $t\in(lo,hi]$; ako $L(t)$ vrijedi, $lo\leftarrow t$, inače $hi\leftarrow t-1$. Ono je ispravno kad je $L$ „monotono”: istina za male $t$, laž za velike. Kada je to slučaj?</p>
+                    <p><strong>Tvrdnja.</strong> Označimo smjer zrake $h_0\to h_t$ kutom $\theta_t$ ($\theta_1\lt \theta_2\lt \dots\lt \theta_{m-1}$, raspon manji od $\pi$) i smjer $h_0\to q$ kutom $\varphi$. $L(t)$ vrijedi točno kad je $\varphi-\theta_t\in(0,\pi)$ (mod $2\pi$).</p>
+                    <ul>
+                    <li>Ako je $\varphi\in(\theta_1,\theta_{m-1})$ ($q$ je u kutu lepeze), tada je $L(t)$ istina točno za $\theta_t\lt \varphi$, dakle za $t=1,\dots,s$ i laž za $t>s$: predikat je monoton, a pronađeni utor $s\in[1,m-2]$ zaista je trokut lepeze koji sadrži $q$ (odnosno njegovo produljenje).</li>
+                    <li>Ako je $q$ lijevo od svih zraka, $L\equiv$ istina, pretraga završi u utoru $m-1$; ako je desno od svih, $L\equiv$ laž i završi u utoru $0$. Oba su slučaja opisana ispravno.</li>
+                    <li>Ako je $q$ „iza” pivota ($\varphi\in(\theta_1+\pi,\theta_{m-1}+\pi)$), predikat je oblika laž, …, laž, istina, …, istina — u <em>krivom</em> smjeru. No pretraga i tada završi u utoru $0$ ili $m-1$: na kraju je $lo=hi=s$, pri čemu je $L(s)$ bila upitana i istinita (ili je $s=0$) i $L(s+1)$ upitana i lažna (ili je $s=m-1$). Za $1\le s\le m-2$ to bi značilo istina pa laž u rastućem predikatu — nemoguće. Dakle $s=0$ (pa znamo $L(1)$ laž) ili $s=m-1$ (pa znamo $L(m-1)$ istina).</li>
+                    </ul>
+                    <p>Sad zaključujemo: utor $0$ znači „$q$ desno od $h_0\to h_1$”, što je točno definicija vidljivosti brida $h_0h_1$; utor $m-1$ znači „$q$ lijevo od $h_0\to h_{m-1}$”, tj. desno od $h_{m-1}\to h_0$, pa je vidljiv brid $h_{m-1}h_0$. Za utor $1\le s\le m-2$ postavljamo još jedan upit, za brid $h_s\to h_{s+1}$: ako je $q$ lijevo, $q$ je u trokutu $(h_0,h_s,h_{s+1})\subseteq$ ljuska, dakle unutra; ako je desno, brid $h_sh_{s+1}$ je vidljiv. U svakom slučaju ili znamo da je točka unutra ili imamo jedan vidljiv brid, uz $\lceil\log_2 m\rceil+1$ upita u najgorem slučaju.</p>
+
+                    <h3>4. Težinsko dijeljenje umjesto dijeljenja na pola</h3>
+                    <p>Sami $\lceil\log_2 H\rceil+1$ upita po točki dali bi za $H\approx 20$ oko $6$ upita, tj. $\approx 30\,000$ ukupno — preblizu limitu. Poboljšanje dolazi iz slučajnosti: nova točka je uniformna u kvadratu, pa je vjerojatnost da padne u utor $s$ proporcionalna njegovoj površini unutar kvadrata. Te su površine vrlo neujednačene (trokuti uz „kutove” ljuske su sitni, oni prema suprotnim stranama veliki). Površine ne znamo, ali imamo njihovu prirodnu procjenu: broj <em>ranijih</em> točaka koje su pale u pojedini utor, koji pamtimo u <code>tezina[s]</code>. U binarnom pretraživanju zato ne biramo sredinu indeksa nego $t$ za koji su zbrojevi težina utora $[lo,t-1]$ i $[t,hi]$ što ujednačeniji (uz $+1$ po utoru da prazni utori ne budu potpuno „nevidljivi”). To je, u biti, Huffmanovo/entropijsko kodiranje: očekivani broj upita je približno entropija raspodjele točaka po utorima, koja je za ovakve lepeze oko $3$–$4$ bita umjesto $\log_2 20\approx 4.3$. Bitno: <strong>težine utječu samo na broj upita, ne na ispravnost</strong> — dokaz iz odjeljka 3 vrijedi za bilo koji izbor $t\in(lo,hi]$.</p>
+
+                    <h3>5. Umetanje vanjske točke</h3>
+                    <p>Neka je $e$ indeks vidljivog brida $h_e\to h_{e+1}$. Od njega hodamo unatrag: dok je brid $h_{lo-1}\to h_{lo}$ vidljiv (jedan upit po koraku), pomičemo $lo$ unatrag; i unaprijed: dok je $h_{hi}\to h_{hi+1}$ vidljiv, pomičemo $hi$. Kako vidljivi bridovi vanjske točke čine neprekinut lanac, a ne mogu biti vidljivi svi bridovi, hodanje se zaustavlja i dobivamo točno lanac $h_{lo},\dots,h_{hi}$. Vrhovi strogo između njih (ciklički) više nisu na ljusci; nova ljuska je $h_{lo},q,h_{hi},h_{hi+1},\dots$ i ostaje konveksna u pozitivnom smjeru. Trošak: po jedan upit za svaki uklonjeni vrh plus dva upita koja zaustavljaju hodanje; kako svaka točka može biti uklonjena najviše jednom, sve umetanja zajedno stoje $O(n+\text{broj umetanja})$ upita.</p>
+                    <p>Održavanje težina: utori s indeksom manjim od $lo$ i većim od $hi$ ne mijenjaju se (zrake do tih vrhova ostaju iste). Utori koji nestaju zbroje se i podijele na dva nova utora (između zraka na $h_{lo}$ i $q$ te između zraka na $q$ i $h_{hi}$); ako je neki od tih novih utora vanjski (kad je $lo=0$ ili $hi=0$, tj. novi utor $0$ ili $m'-1$), dobiva težinu $0$ jer vanjske točke odmah završavaju u umetanju. Ako je pivot uklonjen ($0$ je strogo unutar cikličkog raspona $(lo,hi)$), novi pivot postaje $h_{hi}$, a težine jednostavno resetiramo na jednolike — to se događa rijetko i ne utječe na ispravnost.</p>
+
+                    <h3>6. Broj upita i vremenska složenost</h3>
+                    <p>Po točki: $1$ upit za početni trokut, za unutarnje točke $b_i+1$ upita, gdje je $b_i$ broj koraka težinskog binarnog pretraživanja; za vanjske točke $b_i$ (plus eventualno $1$) i još broj uklonjenih vrhova $+2$. Ukupno $\le n\cdot(\max_i b_i+1)+2\cdot\text{umetanja}+n$, a u očekivanju znatno manje. Na lokalnom interaktoru za $n=5000$ dobivamo prosječno oko $23\,500$ i najviše $26\,529$ upita u $143$ pokretanja, što je u skladu sa službenim rješenjima ($24\,000$–$27\,000$). Vrijeme rada je zanemarivo: $O(nH)$ operacija uz $H=O(\log n)$, sav trošak je u komunikaciji.</p>
+
+                    <h3>7. Rubni slučajevi i zamke</h3>
+                    <ul>
+                    <li>Nakon svakog upita obavezno <code>fflush(stdout)</code>; ako čitanje odgovora ne uspije, program treba prekinuti.</li>
+                    <li>Indeksi ljuske su ciklički: susjed od $0$ unatrag je $m-1$; pri uklanjanju vrhova treba razlikovati raspon koji se „omata” preko indeksa $0$ (tada pivot nestaje) od raspona s $hi=0$ (uklonjeni su samo vrhovi $lo+1,\dots,m-1$, pivot ostaje).</li>
+                    <li>Ljuska ima uvijek barem $3$ vrha, pa binarno pretraživanje uvijek ima barem dva utora i pretraga za utor $0$ ili $m-1$ doista upita $L(1)$ odnosno $L(m-1)$ (na to se dokaz iz odjeljka 3 oslanja).</li>
+                    <li>Odgovor se ispisuje kao „<code>! k i_1 … i_k</code>” u pozitivnom smjeru; početni vrh je proizvoljan, pa naš vektor <code>ljuska</code> ispisujemo kakav jest.</li>
+                    <li>Broj upita valja mjeriti na mnogo slučajnih testova, ne na jednom: raspodjela ima „rep”, a limit je strog.</li>
+                    </ul>
+
+                    <h3>8. Kako smo to provjerili</h3>
+                    <p>Uobičajeni stress harness ne može testirati interaktivan zadatak, pa je uz rješenje priložena skripta <code>interactor.py</code>: generira slučajne različite točke s cjelobrojnim koordinatama do $10^9$ (kolinearne trojke su pri takvim koordinatama praktički nemoguće; ako bi ih upit ipak pogodio, skripta test prekida s greškom), odgovara na upite predznakom vektorskog produkta, broji upite i na kraju uspoređuje ispisani ciklički niz s ljuskom izračunatom Andrewovim algoritmom. Time smo potvrdili točnost i izmjerili broj upita za $n$ od $3$ do $5000$.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> Interaktivan zadatak – stress harness nije primjenjiv; lokalni interaktor (<code>interactor.py</code> u mapi rješenja, s provjerom ljuske Andrewovim algoritmom i limita od $30\,000$ upita): 143 testa s $n=5000$ (najviše $26\,529$ upita, prosjek $\approx 23\,500$; dodatnih 20 testova s $n=5000$ nakon završnog uređivanja koda, najviše $25\,662$ upita), 50 testova $n=2500$, po 200–300 testova za $n\in\{3,4,5,6,7,8,12,20,30,50,100,1000\}$ — svi točni.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// UCup 1, Stage 13 (Um_nik mod 998244353 Contest), B. Random Interactive Convex Hull Bot
+// Inkrementalno gradimo konveksnu ljusku: tocke dodajemo jednu po jednu i za svaku odredimo
+// je li unutar trenutne ljuske. Lokalizaciju radimo binarnim pretrazivanjem po "lepezi"
+// dijagonala iz jednog fiksnog vrha ljuske (pivota); podjelu biramo tezinski, prema broju
+// ranijih tocaka koje su pale u pojedini trokut lepeze, jer su tocke slucajne pa je to dobra
+// procjena povrsine. Ako je tocka izvan ljuske, od pronadenog vidljivog brida hodamo lijevo i
+// desno dok su bridovi vidljivi te ih zamijenimo novom tockom.
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+int n;
+int brojUpita = 0;
+
+// Upit: 1 ako je skretanje iz vektora (i -&gt; j) u (i -&gt; k) u smjeru suprotnom od kazaljke,
+// tj. ako je tocka k lijevo od usmjerenog pravca i -&gt; j; inace -1.
+int upit(int i, int j, int k) {
+    ++brojUpita;
+    printf("? %d %d %d\n", i, j, k);
+    fflush(stdout);
+    int r;
+    if (scanf("%d", &amp;r) != 1) exit(0);
+    return r;
+}
+
+// Je li tocka k lijevo od usmjerenog pravca i -&gt; j?
+bool lijevo(int i, int j, int k) { return upit(i, j, k) == 1; }
+
+vector&lt;int&gt; ljuska;          // vrhovi ljuske u smjeru suprotnom od kazaljke, ljuska[0] je pivot
+vector&lt;long long&gt; tezina;    // tezina[s] = broj tocaka koje su pale u "utor" s (vidi dolje)
+
+// Utori za ljusku velicine m (pivot p = ljuska[0], zrake p -&gt; ljuska[t], t = 1..m-1):
+//   utor 0      : desno od zrake p -&gt; ljuska[1]       (izvan ljuske, iza brida (0,1))
+//   utor s      : izmedu zraka p -&gt; ljuska[s] i p -&gt; ljuska[s+1], 1 &lt;= s &lt;= m-2
+//   utor m-1    : lijevo od zrake p -&gt; ljuska[m-1]    (izvan ljuske, iza brida (m-1,0))
+// Tocka q je u utoru s  &lt;=&gt;  L(s) istinito i L(s+1) lazno, gdje je L(t) = "q lijevo od p -&gt; ljuska[t]",
+// uz dogovor L(0) = istina, L(m) = laz. Za tocku koja nije "iza" pivota L je oblika istina...laz,
+// a za tocku iza pivota pretraga zavrsi u utoru 0 ili m-1, sto je u oba slucaja vidljiv brid.
+
+void postaviJednolikeTezine(int m, long long ukupno) {
+    tezina.assign(m, max(1LL, ukupno / max(1, m)));
+}
+
+// Vraca utor u kojem se nalazi tocka q.
+int pronadiUtor(int q) {
+    int m = ljuska.size();
+    int lo = 0, hi = m - 1;                 // utor je u [lo, hi]
+    vector&lt;long long&gt; pref(m + 1, 0);
+    for (int s = 0; s &lt; m; ++s) pref[s + 1] = pref[s] + tezina[s] + 1;   // +1 da prazni utori ne budu nula
+    while (lo &lt; hi) {
+        // Biramo t u (lo, hi] tako da su tezine utora [lo, t-1] i [t, hi] sto ujednacenije.
+        long long cilj = (pref[lo] + pref[hi + 1]) / 2;
+        int t = int(lower_bound(pref.begin() + lo + 1, pref.begin() + hi + 1, cilj) - pref.begin());
+        if (t &lt;= lo) t = lo + 1;
+        if (t &gt; hi) t = hi;
+        // Ako je tezina bliza s druge strane, pomakni t (lokalna korekcija).
+        if (t &gt; lo + 1 &amp;&amp; llabs(pref[t - 1] - cilj) &lt; llabs(pref[t] - cilj)) --t;
+        if (lijevo(ljuska[0], ljuska[t], q)) lo = t;     // L(t) istina =&gt; utor &gt;= t
+        else hi = t - 1;                                 // L(t) laz    =&gt; utor &lt;= t-1
+    }
+    return lo;
+}
+
+// Ubaci tocku q ako je izvan ljuske; e je indeks vidljivog brida (ljuska[e] -&gt; ljuska[(e+1)%m]).
+void ubaci(int q, int e, long long ukupnoTocaka) {
+    int m = ljuska.size();
+    int lo = e, hi = (e + 1) % m;
+    // Hodamo unatrag dok je brid (lo-1, lo) vidljiv, tj. q desno od njega.
+    while (!lijevo(ljuska[(lo - 1 + m) % m], ljuska[lo], q)) lo = (lo - 1 + m) % m;
+    // Hodamo unaprijed dok je brid (hi, hi+1) vidljiv.
+    while (!lijevo(ljuska[hi], ljuska[(hi + 1) % m], q)) hi = (hi + 1) % m;
+
+    // Uklonjeni su vrhovi lo+1, ..., hi-1 (ciklicki). Pivot (indeks 0) ostaje ako se raspon ne omata
+    // preko nule; hi == 0 znaci da su uklonjeni samo indeksi lo+1..m-1.
+    // Nova ljuska: ljuska[lo], q, ljuska[hi], ljuska[hi+1], ..., (ciklicki) do ljuska[lo].
+    bool pivotOstaje = (lo &lt; hi) || (hi == 0);
+    vector&lt;int&gt; nova;
+    vector&lt;long long&gt; novaTezina;
+    if (pivotOstaje) {
+        int hiEff = (hi == 0) ? m : hi;
+        long long zbroj = 0;
+        for (int s = lo; s &lt; hiEff; ++s) zbroj += tezina[s];      // utori koji nestaju
+        for (int s = 0; s &lt;= lo; ++s) nova.push_back(ljuska[s]);
+        for (int s = 0; s &lt; lo; ++s) novaTezina.push_back(tezina[s]);
+        nova.push_back(q);
+        // Dva nova utora: izmedu zraka na ljuska[lo] i q, te izmedu zraka na q i ljuska[hi].
+        // Ako je neki od njih "vanjski" utor (lo == 0 ili hi == 0), dobiva tezinu 0.
+        long long prvi = zbroj / 2, drugi = zbroj - zbroj / 2;
+        if (lo == 0) { prvi = 0; drugi = zbroj; }
+        if (hiEff == m) { drugi = 0; prvi = zbroj; }
+        if (lo == 0 &amp;&amp; hiEff == m) prvi = drugi = 0;
+        novaTezina.push_back(prvi);
+        novaTezina.push_back(drugi);
+        for (int s = hiEff; s &lt; m; ++s) nova.push_back(ljuska[s]);
+        for (int s = hiEff; s &lt; m; ++s) novaTezina.push_back(tezina[s]);
+        ljuska = nova;
+        tezina = novaTezina;
+    } else {
+        // Pivot je uklonjen: novi pivot je ljuska[hi]; tezine resetiramo na jednolike.
+        for (int s = hi; s != lo; s = (s + 1) % m) nova.push_back(ljuska[s]);
+        nova.push_back(ljuska[lo]);
+        nova.push_back(q);
+        ljuska = nova;
+        postaviJednolikeTezine(ljuska.size(), ukupnoTocaka);
+    }
+}
+
+int main() {
+    if (scanf("%d", &amp;n) != 1) return 0;
+
+    // Pocetni trokut od tocaka 1, 2, 3, orijentiran u smjeru suprotnom od kazaljke.
+    if (lijevo(1, 2, 3)) ljuska = {1, 2, 3};
+    else ljuska = {1, 3, 2};
+    postaviJednolikeTezine(3, 3);
+
+    for (int q = 4; q &lt;= n; ++q) {
+        int m = ljuska.size();
+        int s = pronadiUtor(q);
+        if (s == 0) {
+            ubaci(q, 0, q);                      // vidljiv brid (0, 1)
+        } else if (s == m - 1) {
+            ubaci(q, m - 1, q);                  // vidljiv brid (m-1, 0)
+        } else if (lijevo(ljuska[s], ljuska[s + 1], q)) {
+            tezina[s] += 1;                      // unutar trokuta lepeze =&gt; unutar ljuske
+        } else {
+            ubaci(q, s, q);                      // vidljiv brid (s, s+1)
+        }
+    }
+
+    printf("! %d", (int)ljuska.size());
+    for (int v : ljuska) printf(" %d", v);
+    printf("\n");
+    fflush(stdout);
+    fprintf(stderr, "upita: %d\n", brojUpita);
+    return 0;
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
