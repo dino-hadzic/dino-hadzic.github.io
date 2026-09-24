@@ -76,7 +76,7 @@ $$a < a + b = n \le a + a = 2a.$$
 <h3>7. Primjer</h3>
 <p>$n = 786$: kandidati duljine $3$ su $111, 222, \dots, 999$, a duljine $2$ su $11, \dots, 99$. Za $a = 777$ dobivamo $b = 9$ – repdigit, gotovo. Za $n = 10^{28} + 1 = 1\underbrace{00\ldots0}_{27}1$ svi kandidati duljine $29$ premašuju $n$ ($111\ldots1 > 100\ldots01$), pa prolazimo kandidate duljine $28$: $a = 99\ldots9$ daje $b = 10^{28} + 1 - (10^{28} - 1) = 2$.</p>
 ''',
-    'verified': r'''uzorak 1/1 (tri službena para); 300 slučajnih testova ($n$ do $8$ znamenki, generiran kao zbroj dvaju slučajnih repdigita) protiv brute forcea u Pythonu, uz checker koji provjerava da su ispisani $a, b$ repdigiti sa zbrojem $n$; 3 velika testa ($25$ brojeva s $\approx 4000$ znamenki, $<0.01$ s).''',
+    'verified': r'''uzorak 1/1 (tri službena para); 300 slučajnih testova ($n$ do $8$ znamenki, generiran kao zbroj dvaju slučajnih repdigita) protiv brute forcea u Pythonu, uz checker koji provjerava da su ispisani $a, b$ repdigiti sa zbrojem $n$; 3 velika testa ($25$ brojeva s $\approx 4000$ znamenki, $<0.01$ s, izlazi zasebno provjereni checkerom).''',
 },
 # ---------------------------------------------------------------- B
 {
@@ -469,7 +469,7 @@ $$N(P) = \prod_{i=1}^{k} (a_i - p), \qquad W(a, t) = \sum_{p=0}^{t} (-1)^p \bino
 <li>$p = (0,0,0)$: nula poteza (dopušten je i ispis $0$).</li>
 </ul>
 ''',
-    'verified': r'''uzorak 1/1 (usporedba preko checkera koji simulira poteze i zahtijeva udaljenost $\le 10^{-6}$); 300 slučajnih testova (do $200$ boja po testu, s naglaskom na rubne vrijednosti $0, 1, 127, 128, 254, 255$) i 3 velika testa s $10^4$ boja, svi provjereni checkerom; dodatno mreža od $32^3 = 32768$ boja (sve kombinacije $32$ odabranih vrijednosti uključujući $0, 1, 2, 127, 128, 253, 254, 255$) – sve prošle, najviše $4$ poteza.''',
+    'verified': r'''uzorak 1/1 (usporedba preko checkera koji simulira poteze i zahtijeva udaljenost $\le 10^{-6}$); 300 slučajnih testova (do $200$ boja po testu, s naglaskom na rubne vrijednosti $0, 1, 127, 128, 254, 255$) i 3 velika testa s $10^4$ boja, svi provjereni checkerom (veliki testovi zasebnim pokretanjem checkera, jer ih stress.py samo mjeri); dodatno mreža od $32^3 = 32768$ boja (sve kombinacije $32$ odabranih vrijednosti uključujući $0, 1, 2, 127, 128, 253, 254, 255$) – sve prošle, najviše $4$ poteza.''',
 },
 # ---------------------------------------------------------------- G
 {
@@ -573,7 +573,7 @@ $\#1 > \#2$, ili $\#1 = \#2$ i ( $\#0 = 0$ i $|V_1| = |V_2| + 1$, ili $\#0 = 2$ 
 <p>Put $1 - 2 - 3$: listovi $1, 3$ (tip $0$), nema trojki. RecoverEndvertex($1$): $w = 2$ ima još list $z = 3$; $1, 3 \to V_1$, $2 \to V_2$. Graf prazan; $|V_2| = 1 = \lfloor 3/2 \rfloor$, pa $S = \{2\}$. </p>
 <p>Uzorak s dva trokuta $\{1,2,3\}$, $\{4,5,6\}$ spojena bridom $3 - 4$ ($n = 6$): nema listova ni trojki, pa korak 3 uzima brid $1 - 2$: $1 \to V_1$, $2 \to V_2$. Prune($1$): vrh $2$ postaje list tipa $1$, ali se odmah briše u Prune($2$), pri čemu $3$ postaje list tipa $2$ (obrisan brid $2 - 3$ vodi u $V_2$) s jedinim susjedom $4$. RecoverEndvertex($3$): $w = 4$ nema drugih listova; skupovi su jednaki pa $3 \to V_1$, $4 \to V_2$; Prune($4$) čini $5$ i $6$ listovima tipa $2$ (susjedi jedan drugome). RecoverEndvertex($6$): $w = 5$, $6 \to V_1$, $5 \to V_2$. Rezultat $V_1 = \{1, 3, 6\}$, $V_2 = \{2, 4, 5\}$; provjera: $1 \leftrightarrow 2$, $3 \leftrightarrow 2$, $4 \leftrightarrow 3$, $5 \leftrightarrow 6$ – svaki vrh ima susjeda preko puta, $|V_1| = 3$, pa ispisujemo $S = \{1, 3, 6\}$.</p>
 ''',
-    'verified': r'''uzorak 1/1 (checker: $|S| = \lfloor n/2 \rfloor$, različiti vrhovi, $S$ i $V \setminus S$ oba dominirajuća); 300 slučajnih testova (do $15$ povezanih grafova s $n \le 14$ po testu: slučajna stabla s dodatnim bridovima, gusjenice, putevi, ciklusi, „čvorišta” s po dva lista) i 3 velika testa ($n = 2 \cdot 10^5$, $m$ do $5 \cdot 10^5$; te $10^4$ malih grafova) provjereni checkerom; dodatno iscrpno svi povezani grafovi s $2 \le n \le 7$ vrhova koji zadovoljavaju uvjet o listovima ($1\,889\,294$ grafova) – svi prošli checker.''',
+    'verified': r'''uzorak 1/1 (checker: $|S| = \lfloor n/2 \rfloor$, različiti vrhovi, $S$ i $V \setminus S$ oba dominirajuća); 300 slučajnih testova (do $15$ povezanih grafova s $n \le 14$ po testu: slučajna stabla s dodatnim bridovima, gusjenice, putevi, ciklusi, „čvorišta” s po dva lista) i 3 velika testa ($n = 2 \cdot 10^5$, $m$ do $5 \cdot 10^5$; te $10^4$ malih grafova) provjereni checkerom zasebnim pokretanjem (stress.py velike testove samo mjeri); dodatno iscrpno svi povezani grafovi s $2 \le n \le 7$ vrhova koji zadovoljavaju uvjet o listovima ($1\,889\,294$ grafova) – svi prošli checker.''',
 },
 # ---------------------------------------------------------------- H
 {
@@ -657,7 +657,7 @@ $\#1 > \#2$, ili $\#1 = \#2$ i ( $\#0 = 0$ i $|V_1| = |V_2| + 1$, ili $\#0 = 2$ 
 <li>Točke $(0,0),(0,1),(0,2),(0,3)$: zvijezda sa središtem $x = 0$ i $4$ brida; $k = 2$.</li>
 </ul>
 ''',
-    'verified': r'''uzorak 1/1 (checker: valjano sparivanje, točno $k$ prijateljskih, $k$ jednak brute-force optimumu); 300 slučajnih testova ($n \le 4$, koordinate iz raspona $[-3, 3]$ radi mnogo poklapanja) protiv Python brute forcea koji ispituje sva sparivanja; 3 velika testa ($n = 10^5$: slučajne točke u malom rasponu, „stepenasti” lanac s dubinom DFS-a $2 \cdot 10^5$, te $10^4$ malih testova) unutar $0.15$ s.''',
+    'verified': r'''uzorak 1/1 (checker: valjano sparivanje, točno $k$ prijateljskih, $k$ jednak brute-force optimumu); 300 slučajnih testova ($n \le 4$, koordinate iz raspona $[-3, 3]$ radi mnogo poklapanja) protiv Python brute forcea koji ispituje sva sparivanja; 3 velika testa ($n = 10^5$: slučajne točke u malom rasponu, „stepenasti” lanac s dubinom DFS-a $2 \cdot 10^5$, te $10^4$ malih testova) unutar $0.15$ s, izlazi velikih testova zasebno provjereni checkerom.''',
 },
 # ---------------------------------------------------------------- I
 {
@@ -751,7 +751,7 @@ $$\text{odgovor} \ge \max(0, k - n).$$
 <li>$(0,0),(1,1),(2,2),(3,3)$: $k = 1$, odgovor $0$; svaki par je neprijateljski.</li>
 </ul>
 ''',
-    'verified': r'''uzorak 1/1 (checker: valjano sparivanje, točno $k$ prijateljskih, $k$ jednak brute-force minimumu); 300 slučajnih testova ($n \le 4$; točke iz malog raspona ili namjerno nagurane na jedan pravac s $k$ od $1$ do $2n$) protiv Python brute forcea koji ispituje sva sparivanja; 3 velika testa ($n = 10^5$: pravac s $k > n$ točaka plus samci, slučajne točke, $10^4$ malih testova) unutar $0.2$ s.''',
+    'verified': r'''uzorak 1/1 (checker: valjano sparivanje, točno $k$ prijateljskih, $k$ jednak brute-force minimumu); 300 slučajnih testova ($n \le 4$; točke iz malog raspona ili namjerno nagurane na jedan pravac s $k$ od $1$ do $2n$) protiv Python brute forcea koji ispituje sva sparivanja; 3 velika testa ($n = 10^5$: pravac s $k > n$ točaka plus samci, slučajne točke, $10^4$ malih testova) unutar $0.2$ s, izlazi velikih testova zasebno provjereni checkerom.''',
 },
 # ---------------------------------------------------------------- J
 {
@@ -829,7 +829,7 @@ $$\text{odgovor} \ge \max(0, k - n).$$
 <h3>8. Primjer</h3>
 <p>$t = 100$, teme $(a, b)$: $1{:}(20, 1)$, $2{:}(40, 4)$, $3{:}(60, 3)$, $4{:}(30, 3)$. Poredak po $b$: $1, 3, 4, 2$ ($b = 1, 3, 3, 4$). Provjera $x = 2$: kandidat $i = 4$ (druga po $b$ među odabranima): ispred jedna najjeftinija tema $\{1\}$ ($20$), $c = 3 - 2 = 1$ najjeftinija iza – tema $2$ ($40$); ukupno $20 + 30 + 40 = 90 \le 100$ – izvedivo. $x = 3$: bilo koji $i$ traži $2$ teme ispred plus $i$, npr. $i = 4$: $\{1, 3\} + 4 = 110 > 100$; $i = 2$: $b_2 = 4 > 3$ pa $c = 1$, ali iza teme $2$ nema tema – neizvedivo. Odgovor $2$, naučiti $\{1, 4, 2\}$.</p>
 ''',
-    'verified': r'''uzorak 1/1 (checker: broj sigurnih jednak očekivanom, odabir valjan i unutar $t$); 300 slučajnih testova ($n \le 9$, mali $a$ i $t$) protiv Python brute forcea koji ispituje sve podskupove; 3 velika testa ($n = 2 \cdot 10^5$: slučajni, svi $b \ge n/2$ uz jeftine teme, te $10^4$ testova s $n = 20$) unutar $0.2$ s.''',
+    'verified': r'''uzorak 1/1 (checker: broj sigurnih jednak očekivanom, odabir valjan i unutar $t$); 300 slučajnih testova ($n \le 9$, mali $a$ i $t$) protiv Python brute forcea koji ispituje sve podskupove; 3 velika testa ($n = 2 \cdot 10^5$: slučajni, svi $b \ge n/2$ uz jeftine teme, te $10^4$ testova s $n = 20$) unutar $0.2$ s, izlazi velikih testova zasebno provjereni checkerom.''',
 },
 # ---------------------------------------------------------------- K
 {
