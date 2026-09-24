@@ -52,34 +52,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje</summary>
+                    <summary>Što se zapravo plaća – ovisi li cijena o tome na koje elemente primjenjujemo pomak?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Redoslijed operacija nije bitan: element $x$ postaje $0$ ako je zbroj primijenjenih pomaka $\equiv -x$. Isti pomak $y$ kupljen jednom (cijena $w_y$) može se primijeniti na proizvoljan podskup, a ponovna primjena istog $y$ na isti element košta ponovno — ali kako biramo $T$ slobodno, svaki $y$ plaćamo najviše onoliko puta koliko ga najviše puta koristi jedan element. Zadatak se svodi na: odaberi multiskup pomaka $Y$ minimalne cijene tako da je svaki $-x$ ($x \in S$) zbroj nekog podmultiskupa od $Y$.</p>
+                        <p>Ne: operacija s pomakom $y$ košta $w_y$ bez obzira na veličinu podskupa $T$. Zato je cijena cijelog postupka jednaka zbroju cijena <em>kupljenih pomaka</em> (multiskup $Y$), a pitanje je samo koje elemente svaki kupljeni pomak pogađa. Element $x$ završi u $0$ ako i samo ako je zbroj pomaka koji su ga pogodili $\equiv -x \pmod n$.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija</summary>
+                    <summary>Kad multiskup kupljenih pomaka $Y$ uspijeva poništiti cijeli skup $S$?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Neka je $g_S$ najmanja cijena multiskupa pomaka čiji skup podmultiskup-zbrojeva (mod $n$) sadrži $S$ — ekvivalentno, minimalna cijena da se točno skup $S$ svih „dostižnih” ostataka generira. Prijelaz: dodavanjem pomaka $y$ skupu dostižnih ostataka $S$ dobivamo $S \cup \operatorname{rot}_y(S)$, gdje je $\operatorname{rot}_y$ ciklički pomak bitmaske za $y$ — $O(1)$ bitovnim operacijama na maski od $n$ bitova. To je DP po ruksaku nad skupovima: $g_{S \cup \operatorname{rot}_y(S)} \gets \min(g_{S \cup \operatorname{rot}_y(S)}, g_S + w_y)$.</p>
+                        <p>Svaki element bira svoj podskup od $Y$ (svaka operacija ima vlastiti $T$, pa izbori različitih elemenata ne smetaju jedni drugima). Dakle $Y$ poništava $S$ ako i samo ako je za svaki $x \in S$ ostatak $-x \bmod n$ <em>podzbroj</em> nekog pod-multiskupa od $Y$. Označimo $\Sigma(Y) \subseteq \mathbb{Z}_n$ skup svih podzbrojeva (uvijek sadrži $0$). Uvjet je $-S \subseteq \Sigma(Y)$, pa je $f(S) = \min\{\operatorname{cijena}(Y) : -S \subseteq \Sigma(Y)\}$.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam i složenost</summary>
+                    <summary>Kako se $\Sigma(Y)$ mijenja dodavanjem jednog pomaka i kako to iskoristiti kao stanje?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Nakon što izračunamo $g$ za sve maske ($n 2^n$ prijelaza), $f(S) = \min_{S' \supseteq S} g_{S'}$ — minimum po nadskupovima računamo SOS-DP-om u $O(n 2^n)$. Odgovor je $\sum_S f(S) \cdot \text{mask}(S) \bmod 998244353$. Ukupno $\Theta(n 2^n) \approx 9 \cdot 10^7$.</p>
+                        <p>$\Sigma(Y \cup \{y\}) = \Sigma(Y) \cup (\Sigma(Y) + y)$, gdje je $\Sigma(Y) + y$ ciklički pomak skupa za $y$. Ako skup zapišemo kao bitmasku $R$ duljine $n$, pomak je rotacija maske, a unija je OR. Stanje DP-a je dakle sama maska $R$: $g[R]$ = najmanja cijena multiskupa $Y$ sa $\Sigma(Y) = R$ točno. Prijelaz: $g[R \lor \operatorname{rot}_y(R)] \leftarrow g[R] + w_y$. Kako je nova maska nadskup stare, kao cijeli broj je veća, pa obrada maski u rastućem poretku jamči da je $g[R]$ konačan kad ga koristimo.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Zašto ne možemo jednostavno pročitati $f(S) = g[-S]$?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Jer optimalan $Y$ obično generira <em>više</em> ostataka nego što $S$ traži – npr. $Y = \{1, 1\}$ generira $\{0, 1, 2\}$, a to je najjeftiniji način da se dobije $\{1, 2\}$. Točan izraz je $f(S) = \min_{R \supseteq -S} g[R]$. Minimum po nadskupovima za sve maske istodobno računa se standardnim SOS-DP-om (po bitovima: $h[M] \leftarrow \min(h[M], h[M \cup \{b\}])$) u $O(n 2^n)$. Prije toga masku treba „negirati”: $h[S] = g[-S]$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Kolika je konačna složenost i pazimo li na prelijevanje?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Prijelazi: $2^n$ maski $\times$ $n$ pomaka, svaki $O(1)$ bitovnih operacija – za $n = 22$ oko $9 \cdot 10^7$. SOS-DP još $n 2^n$. Cijene su do $22 \cdot 10^9$, pa $g$ držimo u 64-bitnim cijelim brojevima; u završnom zbroju $\sum_S f(S) \cdot \sum_{v \in S} 2^v$ množimo modulo $998244353$ tek nakon što oba faktora svedemo modulo $p$.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Kad cijena operacije ne ovisi o tome na koliko se elemenata primjenjuje, razdvoji „što kupujemo” od „kako to raspoređujemo” – problem se često raspadne na neovisne uvjete po elementima.</li>
+                <li>Skup ostataka modulo $n$ kao bitmaska: zbrajanje konstante je rotacija maske (<code>((R &lt;&lt; y) | (R &gt;&gt; (n - y))) &amp; full</code>), a unija je OR. Prijelazi ruksaka postaju $O(1)$.</li>
+                <li>„Minimum/zbroj po svim nadskupovima (ili podskupovima)” za sve maske odjednom je SOS-DP u $O(n 2^n)$ – prepoznaj ga čim se u formuli pojavi $\min_{R \supseteq S}$.</li>
+                <li>Kad DP-om obrađuješ maske u rastućem poretku i prijelazi vode samo u nadskupove, ne treba ti nikakav poredak po veličini skupa – nadskup je uvijek numerički veći.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -87,12 +112,91 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Najprije zadatak preoblikujemo u odabir skupa $S$ (pomaka) koji može generirati sve brojeve skupa $T$, uz minimizaciju zbroja cijena $\sum_{x \in S} w_x$.</p>
                     <p>Neka je $f_S$ najmanja cijena generiranja svih brojeva iz skupa $S$. Bitovnim operacijama učinkovito prenosimo stanje dodavanjem $x$ u ruksak skupa $S$.</p>
                     <p>Zatim za svaki $S$ nađemo minimum po nadskupovima, što daje odgovor za skup $S$.</p>
                     <p>Vremenska složenost: $\Theta(n 2^n)$.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Preoblikovanje: kupovanje pomaka</h3>
+                    <p>Jedna operacija bira podskup $T$ trenutnog multiskupa i pomak $y$ te svaki $x \in T$ zamjenjuje s $(x + y) \bmod n$ uz cijenu $w_y$, <em>neovisno o $|T|$</em>. Promotrimo cijeli postupak kao niz kupnji pomaka $y_1, y_2, \dots, y_k$ (multiskup $Y$) ukupne cijene $\sum w_{y_i}$; pri $i$-toj kupnji svaki element odluči hoće li biti pogođen. Element koji je krenuo od $x$ završi u $0$ ako i samo ako je zbroj pomaka koji su ga pogodili $\equiv -x \pmod n$.</p>
+                    <p>Označimo $\Sigma(Y) = \{\sum_{y \in Y'} y \bmod n : Y' \subseteq Y\}$ skup podzbrojeva (ostataka) multiskupa $Y$; uvijek je $0 \in \Sigma(Y)$ (prazan podskup). Odluke različitih elemenata su neovisne (svaka operacija ima vlastiti $T$), pa vrijedi:</p>
+                    <p style="text-align:center">$Y$ poništava $S$ $\iff$ $-S := \{(-x) \bmod n : x \in S\} \subseteq \Sigma(Y)$,</p>
+                    <p>a time $f(S) = \min \{ \operatorname{cijena}(Y) : -S \subseteq \Sigma(Y) \}$. Redoslijed kupnji nije bitan.</p>
+                    <h3>2. Stanje DP-a: skup podzbrojeva kao bitmaska</h3>
+                    <p>Skup $R \subseteq \mathbb{Z}_n$ zapisujemo kao bitmasku od $n$ bitova. Dodavanje pomaka $y$ u multiskup mijenja skup podzbrojeva prema $$\Sigma(Y \cup \{y\}) = \Sigma(Y) \cup \bigl(\Sigma(Y) + y\bigr),$$ jer novi podskupovi ili ne sadrže $y$ (stari zbrojevi) ili ga sadrže (stari zbroj $+ y$). U bitovima: $R \mapsto R \lor \operatorname{rot}_y(R)$, gdje je $\operatorname{rot}_y$ ciklička rotacija maske za $y$ mjesta: <code>((R &lt;&lt; y) | (R &gt;&gt; (n - y))) &amp; full</code>.</p>
+                    <p>Definiramo $g[R]$ = najmanja cijena multiskupa $Y$ sa $\Sigma(Y) = R$ <em>točno</em>; $g[\{0\}] = 0$ (prazan multiskup), ostalo $\infty$. Prijelaz za svaki $R$ i svaki $y \in [0, n)$: $$g[R \lor \operatorname{rot}_y(R)] \leftarrow \min\bigl(\cdot,\; g[R] + w_y\bigr).$$</p>
+                    <p><strong>Zašto je redoslijed po rastućoj masci ispravan.</strong> Nova maska $R' = R \lor \operatorname{rot}_y(R)$ je nadskup od $R$; ako je $R' \ne R$, kao cijeli broj je strogo veća. Zato svaki multiskup $Y$ s $\Sigma(Y) = R'$ nastaje dodavanjem posljednjeg pomaka nekom $Y_0$ s $\Sigma(Y_0) = R_0 \subsetneq R'$, a $R_0 < R'$ numerički je već obrađen kad dođemo do $R'$. Prijelazi s $R' = R$ ništa ne mijenjaju i smijemo ih preskočiti. (Zbog komutativnosti smijemo pretpostaviti da je „posljednji” pomak bilo koji, pa $g$ zaista pokriva sve multiskupove.) Svaka konačna vrijednost $g[R]$ pripada nekom stvarnom multiskupu, pa je $g$ točno.</p>
+                    <h3>3. Od $g$ do $f$: minimum po nadskupovima</h3>
+                    <p>$f(S) = \min_{R \supseteq -S} g[R]$. Definiramo $h[M] = g[-M]$ (negacija maske: bit $v$ ide na bit $(n - v) \bmod n$), pa je $f(S) = \min_{M \supseteq S} h[M]$. To je klasični SOS-DP po nadskupovima: za svaki bit $b$ i svaku masku $M$ bez bita $b$ postavimo $h[M] \leftarrow \min(h[M], h[M \cup \{b\}])$. Nakon obrade svih bitova $h[S]$ je upravo $f(S)$. Ispravnost: nakon obrade bitova $b_1, \dots, b_k$, $h[M]$ je minimum po svim maskama koje se od $M$ razlikuju samo dodavanjem nekih od tih bitova; indukcija po $k$.</p>
+                    <p>Minimum je uvijek konačan: multiskup od $n - 1$ kopija pomaka $1$ generira sve ostatke, pa je puna maska dostižna.</p>
+                    <h3>4. Odgovor</h3>
+                    <p>$\sum_{\emptyset \ne S} f(S) \cdot \sum_{v \in S} 2^v \bmod 998244353$. Drugi faktor je upravo maska $S$ pročitana kao cijeli broj. $f(S) \le n \cdot 10^9 < 2^{35}$ stane u 64 bita; prije množenja oba faktora svedemo modulo $p$.</p>
+                    <h3>5. Provjera na primjeru</h3>
+                    <p>$n = 3$, $w = (2, 1, 2)$. Vrijednosti $f$: $f(\{0\}) = 0$; $f(\{1\})$ traži ostatak $2$: $Y = \{2\}$ ili $\{1, 1\}$, cijena $2$; $f(\{2\})$ traži $1$: $Y = \{1\}$, cijena $1$; $f(\{1, 2\})$ traži $\{1, 2\}$: $Y = \{1, 1\}$ generira $\{0, 1, 2\}$ za cijenu $2$ (ovdje se vidi zašto treba minimum po <em>nadskupovima</em>); $f(\{0, 1\}) = 2$, $f(\{0, 2\}) = 1$, $f(\{0, 1, 2\}) = 2$. Zbroj $0 \cdot 1 + 2 \cdot 2 + 1 \cdot 4 + 2 \cdot 3 + 1 \cdot 5 + 2 \cdot 6 + 2 \cdot 7 = 45$.</p>
+                    <h3>6. Složenost i implementacija</h3>
+                    <ul>
+                    <li>Prijelazi: $n \cdot 2^n$ rotacija i OR-ova; za $n = 22$ oko $9.2 \cdot 10^7$ jednostavnih operacija.</li>
+                    <li>SOS-DP: $n \cdot 2^n$ minimuma.</li>
+                    <li>Memorija: dva niza od $2^{22}$ 64-bitnih brojeva (po $32$ MB) ili jedan uz negaciju „u mjestu”.</li>
+                    <li>Rotacija za $y = 0$ je identitet (preskoči); pri $y > 0$ pomak <code>R &gt;&gt; (n - y)</code> je dobro definiran jer je $0 < n - y < n \le 22$.</li>
+                    <li>Skupovi $S$ u zadatku nemaju duplikata, pa maska jednoznačno opisuje $S$; početni multiskup s duplikatima ne bi ništa promijenio, jer element dva puta ista vrijednost traži isti ostatak.</li>
+                    </ul>
+                    <p>Ukupno $\Theta(n 2^n)$ vremena i $\Theta(2^n)$ memorije.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> Uzorci 2/2, 300 slučajnih malih testova protiv brute forcea, 3 velika testa (najviše 0.10 s).</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// UCup 1, Stage 15 (ZJCPC 2023), D. Master of Both III
+// g[R] = najmanja cijena multiskupa pomaka čiji je skup podzbrojeva (mod n) točno R;
+// f(S) = min g[R] po R koji sadrže -S; SOS-DP po nadskupovima.
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+const ll MOD = 998244353;
+
+int main() {
+    int n;
+    scanf("%d", &amp;n);
+    vector&lt;ll&gt; w(n);
+    for (auto &amp;x : w) scanf("%lld", &amp;x);
+    int full = (1 &lt;&lt; n) - 1;
+    const ll INF = LLONG_MAX / 4;
+    vector&lt;ll&gt; g(1 &lt;&lt; n, INF);
+    g[1] = 0;  // prazan multiskup pomaka generira samo ostatak 0 (bit 0)
+    for (int mask = 1; mask &lt;= full; ++mask) {
+        if (g[mask] == INF) continue;
+        for (int y = 0; y &lt; n; ++y) {
+            // ciklički pomak bitmaske za y: R + y (mod n)
+            int rot = ((mask &lt;&lt; y) | (mask &gt;&gt; (n - y))) &amp; full;
+            int nm = mask | rot;               // nm &gt;= mask, pa je već obrađeno sve što treba
+            if (g[mask] + w[y] &lt; g[nm]) g[nm] = g[mask] + w[y];
+        }
+    }
+    // h[S] = g[-S]: skup S može se poništiti pomacima koji generiraju -S
+    vector&lt;ll&gt; h(1 &lt;&lt; n, INF);
+    for (int mask = 1; mask &lt;= full; ++mask) {
+        if (g[mask] == INF) continue;
+        int neg = 0;
+        for (int v = 0; v &lt; n; ++v)
+            if (mask &gt;&gt; v &amp; 1) neg |= 1 &lt;&lt; ((n - v) % n);
+        h[neg] = min(h[neg], g[mask]);
+    }
+    // minimum po nadskupovima (SOS-DP)
+    for (int b = 0; b &lt; n; ++b)
+        for (int mask = 0; mask &lt;= full; ++mask)
+            if (!(mask &gt;&gt; b &amp; 1)) h[mask] = min(h[mask], h[mask | 1 &lt;&lt; b]);
+    ll ans = 0;
+    for (int mask = 1; mask &lt;= full; ++mask)
+        ans = (ans + (h[mask] % MOD) * (mask % MOD)) % MOD;
+    printf("%lld\n", ans);
+    return 0;
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
