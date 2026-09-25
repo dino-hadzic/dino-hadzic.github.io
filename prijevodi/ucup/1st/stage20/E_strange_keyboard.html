@@ -52,42 +52,51 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje 1: DP po prefiksima cilja</summary>
+                    <summary>Kako izgleda konačni string $T$ u odnosu na pritisnute tipke?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Konačni string se gradi „segment po segment”: $dp_i$ = najmanji broj poteza da string bude točno $T[1..i]$. $dp_i = \min_{j \lt i} \bigl(dp_j + c(j+1, i)\bigr)$, gdje je $c(x, y)$ najmanji broj poteza da od praznog stringa dobijemo točno $T[x..y]$. Kako je $\sum |T| \le 5000$, $O(|T|^2)$ prijelaza je u redu.</p>
+                        <p>Backspace briše samo s kraja, pa ako je neki znak dodanog stringa $S$ preživio, preživjeli su i svi znakovi ispred njega iz istog $S$. Dakle od svakog pritiska preživi <em>prefiks</em> (možda prazan) i $T = P_1 P_2 \cdots P_b$, gdje su $P_j$ neprazni prefiksi pritisnutih stringova, u redoslijedu pritisaka. Pritisci s praznim preživjelim prefiksom su „smeće” koje služi samo za poravnanje brisanja.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje 2: brisanja ovise samo o duljinama</summary>
+                    <summary>Što se mora dogoditi između pritiska koji daje $P_j$ i pritiska koji daje $P_{j+1}$?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Segment $T[x..y]$ nastaje tako da dodamo neki $S_i$ čiji je prefiks $T[x..y]$ i onda izbrišemo višak od $|S_i| - (y-x+1)$ znakova — pri čemu smijemo dodavati još stringova (bilo kojih, važna je samo duljina) pa ih brisati. $cost(x)$ = najmanji broj poteza da se izbriše točno $x$ znakova s kraja: $cost(0) = 0$; za $x \ge K$: $cost(x) = 1 + cost(x-K)$; za $x \lt K$: $cost(x) = 1 + \min_L cost(x+L)$ po različitim duljinama $L$. Različitih duljina je $O(\sqrt{\sum|S_i|})$.</p>
+                        <p>U trenutku pritiska za $P_{j+1}$ string mora biti točno $P_1 \cdots P_j$: sve što bi stajalo iza $P_j$ ostalo bi između $P_j$ i $P_{j+1}$, a brisanje toga poslije bi prvo uništilo $P_{j+1}$. Zato se rad dijeli na neovisne blokove: pritisni $S$ (cijena $1$), pa obriši točno višak $x = |S| - |P_j|$ znakova uz eventualno dodavanje smeća. Cijena bloka je $1 + cost(x)$, gdje $cost(x)$ ovisi samo o $x$, ne o tome što je ispred.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam</summary>
+                    <summary>Kako izračunati $cost(x)$, najmanji broj poteza da se obriše točno $x$ zadnjih znakova?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>1) Izračunaj $cost$ za $x \lt K + \max|S_i|$ u $O(\max|S_i| + K\sqrt{\sum|S_i|})$. 2) Ubaci sve $S_i$ u trie; čvoru na dubini $d$ pridruži $val = 1 + \min cost(D - d)$ po duljinama $D$ stringova koji prolaze tim čvorom (svaki string doprinosi svakom svojem pretku, ukupno $O(\sum|S_i|)$ parova). 3) Za svaki početak $x$ hodaj trie-om po $T[x..]$; $c(x, y)$ je $val$ dosegnutog čvora. 4) $dp$.</p>
+                        <p>Ako je $x \ge K$, backspace odmah: $cost(x) = 1 + cost(x-K)$ (backspace se može pomaknuti ispred svih dodavanja bez promjene broja poteza). Ako je $0 \lt x \lt K$, backspace bi zagrizao u sačuvani dio ili ne bi radio ništa, pa moramo dodati neki string; važna je samo njegova duljina $L$: $cost(x) = 1 + \min_L cost(x+L)$. Slijedi $cost(x) = \lfloor x/K \rfloor + cost(x \bmod K)$, a za ostatke $r \lt K$ dobivamo najkraći put u grafu na $K$ vrhova s bridovima $r \to (r+L) \bmod K$ težine $1 + \lfloor (r+L)/K \rfloor$ do cilja $0$. Različitih duljina $L$ je $O(\sqrt{\sum|S_i|})$, pa Dijkstra ima $O(K\sqrt{\sum|S_i|})$ bridova.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Složenost i zamka</summary>
+                    <summary>Kako za svaki podstring $T[i..i+l)$ brzo naći najjeftiniji $S$ kojemu je on prefiks?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$O\!\left(K\sqrt{\sum|S_i|} + 26\sum|S_i| + |T|^2\right)$. Zbroj $K$ preko testova nije ograničen, pa bi $O(K^2)$ po testu ($100$ testova s $K = 5000$) bio prespor — otud trik s $O(\sqrt{\cdot})$ različitih duljina.</p>
+                        <p>Trie svih $S_i$: čvor $u$ na dubini $l$ predstavlja prefiks, a $val[u] = \min_{S \text{ kroz } u} cost(|S| - l)$ računamo hodajući svakim $S$ kroz njegove čvorove — ukupno $\sum |S_i|$ koraka. Zatim $dp[i+l] = \min(dp[i] + 1 + val[u])$ gdje $u$ dobivamo hodanjem trie-om po $T$ od pozicije $i$; hodanje staje kad slovo ne postoji. Kako je $\sum |T| \le 5000$, $O(|T|^2)$ prijelaza je zanemarivo.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Operacije „dodaj na kraj / briši s kraja” daju stogovnu strukturu: od svakog dodavanja preživi prefiks, a konačni string je konkatenacija takvih prefiksa. To odmah sugerira DP po prefiksima cilja.</li>
+                <li>Kad cijena nekog koraka ovisi o brojevima do $K$ preko „zbroj modulo $K$”, radi se o najkraćem putu na ostacima — Dijkstra ili BFS po $K$ vrhova, a ne DP kvadratne složenosti.</li>
+                <li>Broj različitih duljina među stringovima ukupne duljine $\Sigma$ je najviše $O(\sqrt{\Sigma})$ — klasična ušteda kad prijelaz ovisi samo o duljini.</li>
+                <li>Kad treba „najjeftiniji string s danim prefiksom”, trie s agregatom po podstablu je standardna struktura; agregat popuni obilaskom svakog stringa umjesto rekurzije.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -95,8 +104,7 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Koristimo dinamičko programiranje. Neka je $dp_i$ najmanji broj poteza potreban da se formira točno prefiks duljine $i$ od $T$. Prijelaz: $dp_i = \min(dp_j + c(j+1, i))$ po svim $j \lt i$, gdje je $c(x, y)$ najmanji broj poteza potreban da se od nule formira string $T[x : y]$.</p>
                     <p>Za računanje vrijednosti $c(x, y)$ prvo predračunamo $cost(x)$: broj poteza potreban da se s kraja trenutnog stringa izbriše točno $x$ znakova. Uočimo da brisanja uvijek možemo pokušati obraditi prije dodavanja, pa:</p>
                     <ul>
@@ -107,6 +115,147 @@
                     <p>Različitih duljina ulaznih stringova ima samo $O\!\left(\sqrt{\sum |S_i|}\right)$, pa se sve vrijednosti $cost$ računaju u $O\!\left(\max |S_i| + K\sqrt{\sum |S_i|}\right)$.</p>
                     <p>Konačno, sve $S_i$ stavimo u trie i pomoću niza $cost$ nađemo najmanji broj poteza za formiranje svakog prefiksa. To nam ujedno daje vrijednosti $c(x, y)$ koje trebamo za početni DP, jer su jedini relevantni stringovi koje možemo formirati kombinacije prefiksa stringova $S_i$.</p>
                     <p>Složenost je $O\!\left(K\sqrt{\sum|S_i|} + 26 \cdot \sum |S_i| + |T|^2\right)$. Napomena: zbroj $K$ preko testova nije ograničen, pa bi $O(K^2)$ po testu prekoračilo vremensko ograničenje.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Struktura konačnog stringa</h3>
+                    <p>Dodavanje piše na kraj, brisanje briše s kraja. Promatrajmo bilo koji niz poteza koji završava sa stringom $T$. Znak dodan pritiskom tipke $S$ preživio je ako nikad nije obrisan; ako je preživio, preživjeli su i svi znakovi iz istog $S$ ispred njega (brisanje bi ih dosegnulo tek nakon njega). Zato je doprinos svakog pritiska <em>prefiks</em> stringa $S$ (možda prazan), i</p>
+                    <p style="text-align:center">$T = P_1 P_2 \cdots P_b,\qquad P_j$ neprazan prefiks nekog $S_{i_j}$,</p>
+                    <p>gdje su blokovi u redoslijedu pritisaka. Pritiske s praznim doprinosom zovemo <em>smeće</em>.</p>
+                    <h3>2. Rastav na neovisne blokove</h3>
+                    <p><strong>Lema.</strong> U trenutku pritiska tipke bloka $j+1$ string je točno $P_1 \cdots P_j$.<br>
+                    <em>Dokaz.</em> Prefiks $P_1 \cdots P_j$ nikad ne biva obrisan (svi ti znakovi preživljavaju do kraja). Sve što je u tom trenutku iza $P_j$ ostat će u konačnom stringu između $P_j$ i $P_{j+1}$, osim ako se obriše — ali brisanje s kraja bi prije toga obrisalo cijeli $P_{j+1}$, koji preživljava. Dakle iza $P_j$ nema ničega. $\square$</p>
+                    <p>Zato se potezi dijele na $b$ faza: u fazi $j$ pritisnemo $S_{i_j}$ (jedan potez), a zatim obrišemo točno višak $x_j = |S_{i_j}| - |P_j|$ znakova, pri čemu smijemo dodavati smeće; faza završava kad string postane $P_1 \cdots P_j$. Broj poteza u fazi $j$ je $1 + (\text{najmanji broj poteza da se obriše točno } x_j \text{ znakova})$. Taj broj, $cost(x_j)$, ne ovisi o sadržaju ispred (backspace gleda samo duljinu, a duljina je $\ge x_j$ kad god $x_j \ge K$).</p>
+                    <h3>3. Funkcija $cost(x)$</h3>
+                    <p>$cost(0) = 0$. Za $x \gt 0$ imamo dva slučaja:</p>
+                    <ul>
+                    <li>$x \ge K$: tvrdimo $cost(x) = 1 + cost(x - K)$. Svaki niz poteza koji obriše točno $x$ znakova sadrži barem jedan backspace; premjestimo prvi backspace na sam početak. Dodavanja prije njega samo su povećavala višak, pa je backspace na početku dopušten ($x \ge K$) i briše $K$ znakova viška; ostatak niza sada briše višak $x - K$ plus isto smeće — isti broj poteza, ista završna situacija. Dakle optimalno je brisati odmah.</li>
+                    <li>$0 \lt x \lt K$: backspace bi ili obrisao dio sačuvanog stringa (ako je ukupna duljina $\ge K$) ili ne bi učinio ništa — u oba slučaja beskoristan. Prvi potez je dodavanje nekog $S_i$; nakon njega višak je $x + |S_i|$ i važna je samo duljina: $cost(x) = 1 + \min_{L \in \mathcal{L}} cost(x + L)$, gdje je $\mathcal{L}$ skup različitih duljina među $S_i$.</li>
+                    </ul>
+                    <p>Iz prvog slučaja indukcijom: $cost(x) = \lfloor x/K \rfloor + cost(x \bmod K)$. Za ostatke $r \in [1, K-1]$ drugi slučaj glasi $cost(r) = 1 + \min_L \left(\lfloor (r+L)/K \rfloor + cost((r+L) \bmod K)\right)$: to je <strong>najkraći put</strong> u usmjerenom grafu s vrhovima $0, \dots, K-1$, bridovima $r \to (r+L) \bmod K$ težine $1 + \lfloor (r+L)/K \rfloor \ge 1$ i ciljem $0$ (udaljenost $0$). Računamo ga Dijkstrom iz cilja po obrnutim bridovima: iz $r'$ u $r = (r' - L) \bmod K$ s istom težinom. Vrhovi nedostižni do $0$ imaju $cost = \infty$ (višak te veličine se ne može obrisati). Broj bridova je $K \cdot |\mathcal{L}|$, a $|\mathcal{L}| \le \sqrt{2\sum|S_i|} \approx 1414$ jer različite duljine $1, 2, \dots, d$ zbrajaju se na $d(d+1)/2 \le \sum |S_i|$.</p>
+                    <h3>4. Najjeftiniji blok za dani podstring</h3>
+                    <p>Za blok koji daje $P = T[i..i+l)$ trebamo $\min\{ cost(|S| - l) : S \in \{S_i\},\ P \text{ prefiks od } S \}$. Ubacimo sve $S_i$ u trie; čvor $u$ dubine $l$ odgovara prefiksu duljine $l$. Definiramo $val[u] = \min_{S \text{ prolazi kroz } u} cost(|S| - \mathrm{dubina}(u))$. Umjesto rekurzije po podstablu, za svaki $S$ prođemo njegovim čvorovima $u_1, \dots, u_{|S|}$ i za svaki postavimo $val[u_k] \leftarrow \min(val[u_k], cost(|S| - k))$: ukupno $\sum |S_i|$ koraka, svaki $O(1)$ preko $cost(x) = cres[x \bmod K] + \lfloor x/K \rfloor$.</p>
+                    <h3>5. DP po prefiksima cilja</h3>
+                    <p>$dp[i]$ = najmanji broj poteza da string bude točno $T[0..i)$. $dp[0] = 0$ i</p>
+                    <p style="text-align:center">$dp[i + l] = \min\big(dp[i + l],\ dp[i] + 1 + val[u_l]\big)$, gdje je $u_l$ čvor trie-a za $T[i..i+l)$.</p>
+                    <p>Za fiksni $i$ hodamo trie-om po slovima $T[i], T[i+1], \dots$ dok put postoji. Ispravnost: po odjeljcima 1–2 svaki valjan niz poteza rastavlja se na blokove čija je ukupna cijena $\sum (1 + cost(x_j))$, a za blok s prefiksom $P_j$ najbolji izbor tipke daje točno $val[u]$; obratno, svaki DP put odgovara stvarnom nizu poteza (pritisak, zatim optimalan niz brisanja/smeća iz definicije $cost$). Odgovor je $dp[|T|]$, ili $-1$ ako je $\infty$.</p>
+                    <h3>6. Složenost</h3>
+                    <p>Dijkstra: $O(K |\mathcal{L}| \log K)$ — u najgorem slučaju $\approx 7 \cdot 10^6$ relaksacija; trie: $O(26 \sum |S_i|)$ memorije i $O(\sum |S_i|)$ vremena za gradnju i $val$; DP: $O(|T|^2)$ s $\sum |T| \le 5000$. Sve unutar $1.5$ s. Napomena: $\sum K$ preko testova nije ograničen, pa bi bilo kakav $O(K^2)$ po testu bio prespor; zato je bitno da graf ostataka ima $K|\mathcal{L}|$, a ne $K^2$ bridova.</p>
+                    <h3>7. Primjer</h3>
+                    <p>$K = 3$, $S = \{\texttt{defgh}, \texttt{abc}\}$, $T = \texttt{abcde}$. $\mathcal{L} = \{3, 5\}$; $cost(0) = 0$, $cost(3) = 1$, $cost(1) = 1 + \min(cost(4), cost(6)) = 1 + \min(2, 2) = 3$, $cost(2) = 1 + \min(cost(5), cost(7)) = 1 + \min(cost(2)+1, cost(1)+2)$, tj. $cost(2) = 1 + \min(cost(2) + 1, 5) = 6$. Blok $\texttt{abc}$: $x = 0$, $dp[3] = 1$. Blok $\texttt{de}$ iz $\texttt{defgh}$: $x = 3$, $cost = 1$, $dp[5] = 1 + 1 + 1 = 3$. Drugi primjer: $T = \texttt{b}$, a nijedan $S$ ne počinje s $\texttt{b}$ — trie nema puta, $dp[1] = \infty$, odgovor $-1$.</p>
+                    <h3>8. Zamke</h3>
+                    <ul>
+                    <li>Backspace pri duljini $\lt K$ ne radi ništa — u analizi se to pojavljuje samo kao „beskorisan potez”, ali tvoj brute force mora ga simulirati doslovno.</li>
+                    <li>$cost$ može biti $\infty$ za neke ostatke (npr. $K = 2$, sve duljine parne, $x$ neparan): tada blok nije moguć; ne zbrajati $\infty + 1$ u tipu koji prelijeva — provjeravati prije zbrajanja.</li>
+                    <li>Trie s $10^6$ čvorova $\times 26$ pokazivača je $\approx 100$ MB — unutar $512$ MiB, ali ne alocirati po testu više nego treba ($\sum |S_i| \le 10^6$ ukupno).</li>
+                    <li>Brojevi poteza mogu biti veliki ($cost$ do $\approx 10^6$ po bloku), koristi 64-bitne tipove za $dp$.</li>
+                    </ul>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorak 1/1; 300 slučajnih testova ($N \le 3$, $K \le 3$, $|S_i| \le 3$, $|T| \le 5$, abeceda $\{a, b\}$) protiv brute forcea koji BFS-om po stvarnim stringovima doslovno simulira poteze (uz dokazanu gornju granicu duljine), plus dodatnih 1000 slučajnih testova; 3 velika testa ($\sum |S_i| = 10^6$, $K = 5000$, $|T| = 5000$).</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// UCup 1, Stage 20 (India), E. Strange Keyboard
+// Konacni T sastoji se od blokova: pritisnemo tipku S, od nje "prezivi" prefiks P (|P| = l &gt;= 1),
+// a visak od x = |S| - l znakova pobrisemo (uz eventualno dodavanje "smeca" da duljina bude visekratnik K).
+// cost(x) = najmanji broj poteza da pobrisemo tocno x znakova: za x &gt;= K brisemo odmah
+// (cost(x) = 1 + cost(x-K)), a za ostatke r &lt; K Dijkstra po ostacima:
+//   r -&gt; (r+L) mod K  s tezinom 1 + floor((r+L)/K), za svaku razlicitu duljinu L neke tipke.
+// Trie svih S_i; val[u] = min_{S u podstablu u} cost(|S| - dubina(u)). Racunamo naivno:
+// za svaki S i svaki njegov prefiks-cvor u azuriramo val[u] -&gt; ukupno sum |S_i| koraka.
+// dp[i] = najmanje poteza za tocno T[0..i); dp[i+l] = min(dp[i] + 1 + val[T[i..i+l)]) setnjom po trieu.
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+const ll INF = (ll)1e18;
+
+int main() {
+    int q;
+    scanf("%d", &amp;q);
+    static char buf[1000006];
+    while (q--) {
+        int n, K;
+        scanf("%d %d", &amp;n, &amp;K);
+        vector&lt;string&gt; S(n);
+        int maxL = 0;
+        for (int i = 0; i &lt; n; i++) {
+            scanf("%s", buf);
+            S[i] = buf;
+            maxL = max(maxL, (int)S[i].size());
+        }
+        scanf("%s", buf);
+        string T = buf;
+        int m = T.size();
+
+        // razlicite duljine tipki
+        vector&lt;char&gt; jeDuljina(maxL + 1, 0);
+        for (auto&amp; s : S) jeDuljina[s.size()] = 1;
+        vector&lt;int&gt; duljine;
+        for (int L = 1; L &lt;= maxL; L++) if (jeDuljina[L]) duljine.push_back(L);
+
+        // cres[r] = najmanje poteza da pobrisemo tocno r (&lt; K) znakova
+        vector&lt;ll&gt; cres(K, INF);
+        cres[0] = 0;
+        priority_queue&lt;pair&lt;ll, int&gt;, vector&lt;pair&lt;ll, int&gt;&gt;, greater&lt;&gt;&gt; pq;
+        pq.push({0, 0});
+        // Trazimo udaljenosti SVIH ostataka do cilja 0, pa vrtimo Dijkstru od 0 po obrnutim
+        // bridovima: iz r' = (r+L) mod K natrag u r = (r' - L) mod K, tezina 1 + floor((r+L)/K).
+        while (!pq.empty()) {
+            auto [d, r2] = pq.top(); pq.pop();
+            if (d &gt; cres[r2]) continue;
+            for (int L : duljine) {
+                int r = ((r2 - L) % K + K) % K;
+                ll w = 1 + (r + L) / K;
+                if (d + w &lt; cres[r]) { cres[r] = d + w; pq.push({cres[r], r}); }
+            }
+        }
+        auto cost = [&amp;](int x) -&gt; ll {       // x &gt;= 0
+            ll c = cres[x % K];
+            return c &gt;= INF ? INF : c + x / K;
+        };
+
+        // trie
+        vector&lt;array&lt;int, 26&gt;&gt; nxt(1);
+        nxt[0].fill(-1);
+        vector&lt;ll&gt; val(1, INF);
+        for (auto&amp; s : S) {
+            int u = 0;
+            for (char ch : s) {
+                int c = ch - 'a';
+                if (nxt[u][c] &lt; 0) {
+                    nxt[u][c] = nxt.size();
+                    nxt.push_back({});
+                    nxt.back().fill(-1);
+                    val.push_back(INF);
+                }
+                u = nxt[u][c];
+            }
+        }
+        for (auto&amp; s : S) {                  // val[u] = min cost(|S| - dubina(u)) po svim S kroz u
+            int u = 0, d = s.size();
+            for (int k = 0; k &lt; d; k++) {
+                u = nxt[u][s[k] - 'a'];
+                val[u] = min(val[u], cost(d - (k + 1)));
+            }
+        }
+
+        vector&lt;ll&gt; dp(m + 1, INF);
+        dp[0] = 0;
+        for (int i = 0; i &lt; m; i++) {
+            if (dp[i] &gt;= INF) continue;
+            int u = 0;
+            for (int l = 1; i + l &lt;= m; l++) {
+                u = nxt[u][T[i + l - 1] - 'a'];
+                if (u &lt; 0) break;
+                if (val[u] &lt; INF) dp[i + l] = min(dp[i + l], dp[i] + 1 + val[u]);
+            }
+        }
+        printf("%lld\n", dp[m] &gt;= INF ? -1 : dp[m]);
+    }
+    return 0;
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
