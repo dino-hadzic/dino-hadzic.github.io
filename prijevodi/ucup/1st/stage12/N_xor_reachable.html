@@ -56,42 +56,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje: struktura uvjeta</summary>
+                    <summary>Za koji skup vrijednosti $D$ je jedan brid s težinom $C$ aktivan, tj. $C \oplus D < K$?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$C \oplus D < K$: promatraj bitove od najvišeg. Na prvom bitu gdje se $C \oplus D$ i $K$ razlikuju, $K$ mora imati $1$, a $C \oplus D$ nulu. Za svaki bit $b$ na kojem $K$ ima $1$, skup $D$ koji se s $K$ podudaraju iznad $b$ (u XOR-u s $C$) i imaju $0$ na $b$ je jedan interval duljine $2^b$ u prostoru $D$ (potomci čvora binarnog trie-a). Dakle najviše $30$ intervala po bridu.</p>
+                        <p>Usporedba brojeva ide od najvišeg bita: $C \oplus D < K$ točno ako na prvom bitu $b$ gdje se $C \oplus D$ i $K$ razlikuju vrijedi $K_b = 1$ i $(C \oplus D)_b = 0$, a iznad $b$ se podudaraju. Neka je $P = C \oplus K$. „$C \oplus D$ se podudara s $K$ iznad $b$” isto je što i „$D$ se podudara s $P$ iznad $b$”, a $(C \oplus D)_b = 0$ znači $D_b = C_b = 1 - P_b$ (jer $K_b = 1$). Dakle za svaki bit $b$ s $K_b = 1$ dobivamo skup $D$-ova: prefiks iznad $b$ jednak prefiksu $P$, bit $b$ suprotan od $P_b$, niži bitovi proizvoljni – jedan interval duljine $2^b$, tj. jedno podstablo binarnog trie-a nad $D$. Skupovi za različite $b$ su disjunktni (razlikuje ih prvi bit neslaganja), a ima ih najviše $30$.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija: offline dinamička povezanost</summary>
+                    <summary>Ako brid „živi” u $\le 30$ podstabala trie-a, kako obraditi sve upite $D$ odjednom?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Sortiraj $D_1..D_Q$; brid $j$ je „prisutan” u upitima čiji $D$ pada u neki od njegovih intervala — to je unija najviše $30$ segmenata u indeksima upita (binarno pretraživanje granica). Dobivamo do $30M$ dodavanja/brisanja bridova na vremenskoj osi duljine $Q$; treba za svaki trenutak broj povezanih parova.</p>
+                        <p>Sortiramo upite po $D$ i spuštamo se rekurzivno po trie-u bitova $D$ (od bita $29$ do $0$), noseći: raspon upita čiji $D$ ima trenutni prefiks i popis bridova čiji $P$ ima isti prefiks (samo oni još mogu postati aktivni dublje – brid čiji se $P$ već razišao od $D$ ili je već aktiviran ili nikad neće biti). U čvoru na bitu $b$ s $K_b = 1$: bridovi s $P_b = 1$ aktivni su u <em>cijelom</em> podstablu djeteta $0$ (tamo je $D_b = 0 = 1 - P_b$), pa ih spojimo u DSU prije silaska u to dijete, a bridovi s $P_b = 0$ analogno prije silaska u dijete $1$. Bridovi s $P_b = D_b$ idu dalje u odgovarajuće dijete. Ako je $K_b = 0$, samo dijelimo. U listu je $D$ potpuno određen, DSU sadrži točno aktivne bridove i odgovor je trenutni broj povezanih parova.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam</summary>
+                    <summary>Spojili smo bridove za jedno podstablo – kako ih „odspojiti” za sestrinsko podstablo?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Segmentno stablo nad vremenom $[1, Q]$; svaki interval prisutnosti brida stavi u $O(\log Q)$ čvorova. DFS po stablu: pri ulasku u čvor spoji sve njegove bridove u DSU-u (bez sažimanja putova, s union by size, uz stog promjena), ažurirajući $ans \mathrel{+}= sz_a \cdot sz_b$; u listu zabilježi odgovor za upit; pri izlasku poništi spajanja (rollback). Svaki brid-interval spaja se $O(\log Q)$ puta, spajanje košta $O(\log N)$.</p>
+                        <p>DSU s poništavanjem (rollback): unija po veličini bez sažimanja putova, svaka unija zapiše na stog što je promijenila; nakon povratka iz djeteta vratimo stog na zapamćenu visinu. Bez sažimanja putova <code>find</code> je $O(\log N)$, ali su operacije reverzibilne. Broj parova održavamo inkrementalno: pri spajanju komponenata veličina $s_a, s_b$ dodamo $s_a s_b$, pri poništavanju oduzmemo.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Složenost</summary>
+                    <summary>Zašto je to brzo, i kako se odnosi na službeno rješenje s intervalima i segmentnim stablom?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>$O((Q + M \log N) \log \text{MAX})$ prema službenom rješenju, praktično $O(30 M \log Q \log N)$ — s $M = 10^5$ to je oko $10^9$ jednostavnih operacija, pa treba pažljiva implementacija (limit je $3$ s).</p>
+                        <p>Na svakoj razini svaki brid pripada popisu točno jednog čvora (onog čiji je prefiks jednak prefiksu njegova $P$) i tamo se ili aktivira jednom ili proslijedi; dakle $O(30 M)$ operacija podjele i $O(30 M)$ unija po $O(\log N)$, plus $O(Q)$ za listove – ukupno $O(30 (M \log N + Q))$. Podstabla u kojima nema upita preskačemo. Službeno rješenje isto stanje opisuje kao $\le 30$ intervala aktivnosti po bridu na vremenskoj osi sortiranih upita, ubačenih u segmentno stablo nad upitima; naša rekurzija po bitovima je to isto stablo, samo indeksirano bitovima $D$ umjesto pozicijama upita, pa nije potrebno binarno tražiti granice intervala.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Koje su zamke u implementaciji?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Odgovor doseže $\binom{10^5}{2} \approx 5 \cdot 10^9$ – <code>long long</code>. Pri poništavanju treba oduzeti točno ono što je dodano (zapamtiti oba korijena, a veličine rekonstruirati iz trenutnih vrijednosti). Unija koja ništa ne mijenja (isti korijen) također ide na stog kao prazan zapis, ili se preskače – ali dosljedno. Rekurzija je dubine $30$, pa nema problema sa stogom, a upiti s istim $D$ prirodno završe u istom listu.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Uvjet $C \oplus D < K$ (ili $\le$, $>$) rastavi po <strong>prvom bitu neslaganja s $K$</strong>: za svaki bit gdje $K$ ima $1$ dobivaš jedno podstablo binarnog trie-a – najviše $\log$ disjunktnih intervala za $D$.</li>
+                <li>Kad je svaki objekt aktivan na nekoliko intervala „vremena” i treba odgovoriti na sve trenutke, koristi <strong>offline dinamičku povezanost</strong>: dijeli-pa-vladaj po vremenu s DSU-om s poništavanjem (unija po veličini, bez sažimanja putova, stog promjena).</li>
+                <li>Ako je „vrijeme” zapravo vrijednost s bitovnom strukturom, rekurzija po bitovima zamjenjuje segmentno stablo nad sortiranim upitima – jednostavnija implementacija, ista složenost.</li>
+                <li>Broj povezanih parova $\sum \binom{sz}{2}$ održavaj inkrementalno: spajanje komponenata veličina $a$ i $b$ dodaje točno $ab$ parova.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -99,11 +116,125 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Promatramo $D = 0, 1, \dots, 2^{30} - 1$ redom. Za svaki brid $j$ skup vrijednosti $D$ takvih da je $(C_j \oplus D) < K$ rastavlja se na najviše $30$ intervala. Time se zadatak svodi na <strong>offline dinamičku povezanost</strong> s $30M$ dodavanja i brisanja bridova.</p>
                     <p>To rješavamo DSU-om s poništavanjem (rollback) i dijeli-pa-vladaj postupkom po vremenu (segmentno stablo nad upitima sortiranim po $D$), održavajući pritom broj povezanih parova $\sum \binom{sz}{2}$.</p>
                     <p>Vremenska složenost je $O((Q + M \log N) \log \mathrm{MAX})$.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Kad je brid aktivan</h3>
+                    <p>Fiksirajmo brid s težinom $C$ i promatrajmo uvjet $C \oplus D < K$ kao funkciju od $D$. Dva različita broja uspoređujemo po najvišem bitu na kojem se razlikuju. Zato je $C \oplus D < K$ ekvivalentno: postoji bit $b$ takav da (i) $C \oplus D$ i $K$ imaju jednake bitove iznad $b$, (ii) $K_b = 1$ i $(C \oplus D)_b = 0$. Za različite $b$ ti su uvjeti međusobno isključivi (bit $b$ je jedinstveno određen kao najviši bit neslaganja), pa je skup dopuštenih $D$ <em>disjunktna unija</em> po bitovima $b$ s $K_b = 1$.</p>
+                    <p>Neka je $P = C \oplus K$. XOR-anjem s $C$: bitovi $C \oplus D$ iznad $b$ jednaki su bitovima $K$ $\iff$ bitovi $D$ iznad $b$ jednaki su bitovima $P$. Nadalje $(C \oplus D)_b = 0 \iff D_b = C_b$, a kako je $K_b = 1$, $C_b = P_b \oplus 1$. Zaključak: za svaki $b$ s $K_b = 1$ skup dopuštenih $D$ je</p>
+                    <p>$$T_b(P) = \{ D : D \gg (b+1) = P \gg (b+1), \; D_b = 1 - P_b \},$$</p>
+                    <p>interval od $2^b$ uzastopnih vrijednosti – u binarnom trie-u nad $D$ to je podstablo <em>brata</em> čvora na putu $P$ na dubini $b$. Primjer: $K = 5 = 101_2$, $C = 4$: $P = 1 = 001_2$; za $b = 2$: $D$ iznad bita $2$ jednak $0$ i $D_2 = 1$, tj. $D \in [4, 7]$; za $b = 0$: $D \gg 1 = 0$ i $D_0 = 0$, tj. $D = 0$. Doista, $4 \oplus D < 5$ vrijedi točno za $D \in \{0, 4, 5, 6, 7\}$.</p>
+                    <h3>2. Rekurzija po bitovima $D$</h3>
+                    <p>Sortiramo upite po $D$; upiti s zajedničkim prefiksom bitova čine susjedan raspon. Definirajmo rekurziju $\text{solve}(b, E, [l, r))$: obrađujemo čvor trie-a na bitu $b$ za raspon upita $[l, r)$ (svi imaju jednak prefiks iznad $b$), a $E$ je popis bridova čiji $P$ ima taj isti prefiks iznad $b$. <strong>Invarijanta:</strong> DSU trenutno sadrži točno one bridove koji su aktivni za <em>sve</em> $D$ u ovom podstablu, tj. bridove kojima je neki $T_{b'}(P)$, $b' > b$, obuhvatio cijelo podstablo; a bridovi izvan $E$ koji nisu u DSU-u nisu aktivni ni za jedan $D$ u podstablu (njihov se $P$ razišao od prefiksa na nekom bitu $b' > b$ – ako je $K_{b'} = 1$ i razlika je bila „pravog smjera”, već su spojeni; inače uvjet (i) ne može biti ispunjen ni za jedan niži bit).</p>
+                    <p>Korak: razdvojimo upite po bitu $b$ na $[l, mid)$ (s $D_b = 0$) i $[mid, r)$ (s $D_b = 1$), a $E$ na $E_0$, $E_1$ po $P_b$. Ako je $K_b = 1$: bridovi iz $E_1$ zadovoljavaju $D_b = 0 = 1 - P_b$ za sve $D$ u djetetu $0$, pa pripadaju $T_b(P)$ cijelog tog podstabla – spojimo ih, rekurzivno riješimo $\text{solve}(b-1, E_0, [l, mid))$ i poništimo; simetrično bridove iz $E_0$ spojimo prije $\text{solve}(b-1, E_1, [mid, r))$. Ako je $K_b = 0$: nema aktivacije, samo $\text{solve}(b-1, E_0, [l, mid))$ i $\text{solve}(b-1, E_1, [mid, r))$. Prazne raspone upita preskačemo. U listu ($b < 0$) svi upiti raspona imaju isti $D$; po invarijanti DSU sadrži točno aktivne bridove pa je odgovor trenutni broj povezanih parova.</p>
+                    <p>Invarijanta se čuva: brid iz $E$ prelazi u dijete samo ako se $P_b$ podudara s $D_b$ (ostaje na putu prefiksa); ako se ne podudara, ili je aktiviran ($K_b = 1$) ili odbačen ($K_b = 0$, uvjet (i) više nikad ne može vrijediti jer se $C \oplus D$ i $K$ razlikuju na bitu $b$ uz $K_b = 0$, dakle $C \oplus D > K$ na tom prefiksu).</p>
+                    <h3>3. DSU s poništavanjem</h3>
+                    <p>Unija po veličini bez sažimanja putova: <code>find</code> se penje do korijena u $O(\log N)$ koraka (stablo veličine $s$ ima dubinu $\le \log_2 s$ jer se manje stablo uvijek vješa pod veće). Svaka unija zapisuje par (pripojeni korijen $b$, novi korijen $a$) na stog; neuspjela unija (isti korijen) zapisuje prazan zapis kako bi visina stoga bila neovisna o ishodu (nije nužno, ali pojednostavljuje). Broj povezanih parova: pri spajanju komponenata veličina $s_a$ i $s_b$ raste za $s_a s_b$ (svaki par „preko granice” postaje povezan); pri poništavanju oduzimamo isto ($s_b \cdot (s_a' - s_b)$, gdje je $s_a'$ trenutna veličina spojene komponente). Rollback do zapamćene visine stoga vraća DSU u točno prijašnje stanje jer operacije poništavamo u obrnutom redoslijedu.</p>
+                    <h3>4. Složenost</h3>
+                    <p>Na razini $b$ svaki brid pripada popisu $E$ najviše jednog čvora (onog čiji prefiks odgovara $P$), a njegov je udio u radu $O(1)$ za podjelu i najviše jedna unija $O(\log N)$. Dakle ukupno $O(30 \cdot M \log N)$ za bridove; upiti se dijele $O(30 Q)$ puta (skeniranje raspona za nalaženje $mid$; moglo bi i binarno, ali skeniranje je ukupno $O(30 Q)$). Sortiranje $O(Q \log Q)$. Ukupno $O(30 (M \log N + Q) + Q \log Q)$, oko $5 \cdot 10^7$ jednostavnih operacija – $0.12$ s uz limit $3$ s. Memorija: popisi bridova duž jednog puta rekurzije ukupno $\le 30 M$ cijelih brojeva u najgorem slučaju (obično mnogo manje), DSU $O(N)$, stog $O(M)$.</p>
+                    <h3>5. Veza sa službenim rješenjem</h3>
+                    <p>Službeno rješenje formulira zadatak kao offline dinamičku povezanost: svaki brid je aktivan na $\le 30$ intervala vrijednosti $D$, tj. na $\le 30$ intervala indeksa sortiranih upita, koji se ubace u segmentno stablo nad upitima i obrađuju DFS-om s rollback DSU-om. Intervali $T_b(P)$ upravo su podstabla trie-a, a naša rekurzija je isti obilazak stabla nad upitima – samo što je stablo određeno bitovima $D$, pa granice intervala ne treba binarno tražiti niti ih zapisivati u čvorove; brid se „prirodno” aktivira u trenutku kad se njegov put razdvoji od puta upita. Složenost je ista: $O((Q + M \log N) \log \max)$.</p>
+                    <h3>6. Primjer</h3>
+                    <p>$N = 4$, $K = 5$, bridovi $(1,2,17), (1,3,4), (2,3,20), (2,4,3), (3,4,5)$. Za $D = 7$: $17 \oplus 7 = 22$, $4 \oplus 7 = 3$, $20 \oplus 7 = 19$, $3 \oplus 7 = 4$, $5 \oplus 7 = 2$ – aktivni su bridovi $(1,3), (2,4), (3,4)$, sve je povezano, odgovor $\binom{4}{2} = 6$. Za $D = 16$: aktivni $(1,2)$ ($17 \oplus 16 = 1$) i $(2,3)$ ($20 \oplus 16 = 4$), komponenta $\{1,2,3\}$ daje $3$. Za $D = 167$ nijedan XOR nije $< 5$, odgovor $0$. Svi se slažu sa službenim izlazom $2, 6, 3, 0$.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 2/2; 300 slučajnih malih testova ($N \le 6$, $M \le 8$, $Q \le 6$, težine i $K$ s $2$–$8$ bitova) protiv brute forcea koji za svaki upit iznova gradi DSU po aktivnim bridovima; 4 velika testa s $N = M = Q = 10^5$ i $30$-bitnim vrijednostima ($K$ slučajno iz $\{2^{30} - 1, \text{slučajan}, 2^{29}, \texttt{0x2AAAAAAA}\}$), najsporiji $0.12$ s.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// N - XOR Reachable
+// (C xor D) &lt; K  &lt;=&gt;  postoji bit b s K_b = 1 takav da se D i P = C xor K
+// podudaraju iznad bita b, a D_b = C_b (= P_b xor 1). Zato radimo
+// "podijeli pa vladaj" po bitovima D (binarno stablo/trie prefiksa D):
+// u cvoru za bit b, ako je K_b = 1, bridovi cija staza P ide u dijete 1
+// aktivni su u CIJELOM podstablu djeteta 0 (i obratno) -&gt; spojimo ih u DSU
+// s vracanjem, rekurzivno obradimo dijete, vratimo. Svaki brid se u svakoj
+// razini obradi najvise jednom: O((M log N + Q) * 30).
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+
+int n;
+vector&lt;int&gt; par, sz;
+vector&lt;pair&lt;int, int&gt;&gt; hist;  // (korijen pripojen, prethodni korijen) za rollback
+ll pairs = 0;
+
+int find(int x) { while (par[x] != x) x = par[x]; return x; }
+void unite(int a, int b) {
+    a = find(a); b = find(b);
+    if (a == b) { hist.push_back({-1, -1}); return; }
+    if (sz[a] &lt; sz[b]) swap(a, b);
+    par[b] = a; sz[a] += sz[b];
+    pairs += (ll)sz[b] * (sz[a] - sz[b]);
+    hist.push_back({b, a});
+}
+void rollback(size_t to) {
+    while (hist.size() &gt; to) {
+        auto [b, a] = hist.back(); hist.pop_back();
+        if (b &lt; 0) continue;
+        pairs -= (ll)sz[b] * (sz[a] - sz[b]);
+        sz[a] -= sz[b]; par[b] = b;
+    }
+}
+
+int K;
+vector&lt;int&gt; A, B, P;      // bridovi; P = C xor K
+vector&lt;pair&lt;int, int&gt;&gt; qs;  // (D, indeks upita), sortirano po D
+vector&lt;ll&gt; ans;
+
+void solve(int b, const vector&lt;int&gt; &amp;edges, int ql, int qr) {
+    if (ql &gt;= qr) return;
+    if (b &lt; 0) {  // svi upiti u [ql,qr) imaju isti D: trenutni DSU je tocan
+        for (int i = ql; i &lt; qr; i++) ans[qs[i].second] = pairs;
+        return;
+    }
+    // podjela upita po bitu b (sortirani su, isti prefiks iznad b)
+    int mid = ql;
+    while (mid &lt; qr &amp;&amp; !((qs[mid].first &gt;&gt; b) &amp; 1)) mid++;
+    vector&lt;int&gt; e0, e1;
+    for (int id : edges) ((P[id] &gt;&gt; b) &amp; 1 ? e1 : e0).push_back(id);
+    bool kb = (K &gt;&gt; b) &amp; 1;
+    // dijete 0: D_b = 0; ako je K_b = 1 aktivni su bridovi s P_b = 1 (C_b = 0)
+    if (ql &lt; mid) {
+        size_t save = hist.size();
+        if (kb) for (int id : e1) unite(A[id], B[id]);
+        solve(b - 1, e0, ql, mid);
+        rollback(save);
+    }
+    if (mid &lt; qr) {
+        size_t save = hist.size();
+        if (kb) for (int id : e0) unite(A[id], B[id]);
+        solve(b - 1, e1, mid, qr);
+        rollback(save);
+    }
+}
+
+int main() {
+    int m;
+    scanf("%d %d %d", &amp;n, &amp;m, &amp;K);
+    A.resize(m); B.resize(m); P.resize(m);
+    for (int i = 0; i &lt; m; i++) {
+        int c;
+        scanf("%d %d %d", &amp;A[i], &amp;B[i], &amp;c);
+        P[i] = c ^ K;
+    }
+    int q;
+    scanf("%d", &amp;q);
+    qs.resize(q); ans.assign(q, 0);
+    for (int i = 0; i &lt; q; i++) { scanf("%d", &amp;qs[i].first); qs[i].second = i; }
+    sort(qs.begin(), qs.end());
+    par.resize(n + 1); sz.assign(n + 1, 1);
+    iota(par.begin(), par.end(), 0);
+    vector&lt;int&gt; all(m);
+    iota(all.begin(), all.end(), 0);
+    solve(29, all, 0, q);
+    for (int i = 0; i &lt; q; i++) printf("%lld\n", ans[i]);
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
