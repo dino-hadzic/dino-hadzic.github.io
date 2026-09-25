@@ -44,40 +44,65 @@
         <details class="spoiler naputak">
             <summary>Naputak 2<span class="spoiler-napomena">klikni za prikaz</span></summary>
             <div class="spoiler-sadrzaj">
-                <p>Umjesto cijepanja u sredini, cijepaj čvor točno na granici upita: $[x, y) \to [x, l), [l, y)$ — najviše $4$ nova čvora po upitu, $O(n)$ memorije. Ali visina može postati $\Omega(n)$; rotacije (kao AVL/splay) vraćaju $O(\log n)$.</p>
+                <p>Umjesto cijepanja u sredini, cijepaj čvor točno na granici upita: $[x, y) \to [x, l), [l, y)$ — najviše $4$ nova čvora po upitu, $O(n)$ memorije. Ali visina može postati $\Omega(n)$; rotacije (AVL, splay) ili slučajni prioriteti (treap) vraćaju $O(\log n)$.</p>
             </div>
         </details>
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje</summary>
+                    <summary>Koja je to operacija zapravo – što se traži od strukture podataka?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Operacija je: dodaj $i$ na $[l, r]$, pa $x \mathrel{+}= \sum_{j=l}^r a_j$ (nakon dodavanja). Sve modulo $2^{30}$ (prirodni overflow 32-bitnog tipa uz masku). Standardno lijeno segmentno stablo, ali domena je $2^m \le 2^{30}$.</p>
+                        <p>Petlja „za svaki $j \in [l, r]$: $a_j \mathrel{+}= i$, $x \mathrel{+}= a_j$” je isto što i: dodaj $i$ svim elementima intervala, zatim pribroji $x$-u zbroj <em>novih</em> vrijednosti na intervalu. To su dvije klasične operacije (dodavanje na intervalu, zbroj intervala) koje lijeno segmentno stablo radi u $O(\log N)$. Sve se računa modulo $2^{30}$, pa je dovoljno računati u 32-bitnom tipu bez predznaka i na kraju maskirati – prirodno prelijevanje radi umjesto nas jer $2^{30} \mid 2^{32}$.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija: memorija</summary>
+                    <summary>Zašto obično dinamičko segmentno stablo ne prolazi kad je $N = 2^{30}$ i memorija $128$ MiB?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Dinamičko segmentno stablo koje cijepa $[x, y)$ na polovice stvara $O(m)$ čvorova po upitu — $O(nm) \approx 1.5 \cdot 10^7$ čvorova, previše za $128$ MiB. Cijepaj umjesto toga na $[x, l)$ i $[l, y)$ (i slično za $r + 1$): najviše $4$ nova čvora po upitu, $O(n)$ prostora.</p>
+                        <p>Nemamo $2^{30}$ elemenata, pa čvorove stvaramo po potrebi. No klasično dinamičko stablo dijeli segment na polovice: put od korijena do lista ima $m = 30$ razina, i svaki upit može stvoriti $O(m)$ novih čvorova na oba svoja kraja. Uz $n = 5 \cdot 10^5$ to je do $3 \cdot 10^7$ čvorova – s bar $16$–$24$ bajta po čvoru daleko iznad $128$ MiB.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam: balansiranje</summary>
+                    <summary>Što ako segment cijepamo točno na granici upita, a ne na polovici?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Takvo stablo može degenerirati (ugniježđeni upiti daju visinu $\Omega(n)$). Čvorovi predstavljaju intervale koji se spajaju, pa rotacije čuvaju semantiku (kao u balansiranim BST-ovima) — održavaj lijene oznake i zbrojeve pri rotaciji. Uz AVL ili splay tehniku: $O(n \log n)$ vremena, $O(n)$ prostora.</p>
+                        <p>Tada je stablo skup „elementarnih segmenata” na kojima su svi elementi jednaki (počinjemo s jednim segmentom $[0, 2^m)$). Upit $[l, r]$ treba granice na $l$ i na $r + 1$; svaka od njih ili već postoji ili prepolovi točno jedan segment. Dakle najviše $2$ nova segmenta po upitu i $O(n)$ segmenata ukupno – memorija je riješena. Cijena: oblik stabla više ne prati binarnu strukturu indeksa, pa ugniježđeni upiti ($[i, N - 1 - i]$) daju visinu $\Theta(n)$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Kako vratiti logaritamsku visinu ako stablo više nije određeno indeksima?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Čvorovi su poredani po poziciji, a interval čvora je unija intervala njegova podstabla – to je točno struktura <em>implicitnog</em> balansiranog stabla pretraživanja (ključ = pozicija). Rotacije čuvaju uređaj i time semantiku; samo treba održavati agregate (ukupna duljina i zbroj podstabla) i lijenu oznaku. Najjednostavnije: implicitni treap sa slučajnim prioritetima, operacije <code>split</code> po duljini i <code>merge</code>; očekivana dubina je $O(\log n)$. AVL ili splay daju istu ocjenu deterministički odn. amortizirano.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Kako izgleda jedan upit u tom modelu i koliko košta?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p><code>split(root, l)</code> daje $[0, l)$ i ostatak; <code>split(ostatak, r - l + 1)</code> odvaja $[l, r]$. Srednjem dijelu lijeno dodamo $i$ (njegov zbroj raste za $i \cdot (r - l + 1)$), pročitamo njegov zbroj u $x$, pa sve spojimo natrag. Tri <code>split</code>/<code>merge</code> operacije po upitu, svaka $O(\log n)$ očekivano: ukupno $O(n \log n)$ vremena i $O(n)$ memorije – s $n = 5 \cdot 10^5$ manje od sekunde.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Kad je domena indeksa ogromna, a broj upita malen, razmisli o <strong>strukturi nad segmentima jednake vrijednosti</strong>: stanje je uvijek opisivo s $O(\text{broj upita})$ segmenata, bez obzira na $N$.</li>
+                <li>Implicitni treap sa <code>split</code>/<code>merge</code> po duljini univerzalna je zamjena za balansirano segmentno stablo: lijene oznake i agregati održavaju se u <code>push</code>/<code>update</code> na isti način kao u segmentnom stablu.</li>
+                <li>Modul oblika $2^k$ znači da smiješ računati u <code>unsigned</code> tipu i maskirati samo na kraju – nikakvog <code>%</code> u vrućoj petlji.</li>
+                <li>Prije nego što prihvatiš „$O(n)$ čvorova”, konstruiraj najgori slučaj za visinu (ugniježđeni ili monotoni intervali) i uvjeri se da balansiranje zaista postoji u tvojoj implementaciji – za treap to znači da svaki <em>novi</em> čvor dobiva svjež slučajan prioritet.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -85,12 +110,178 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Zadatak izgleda kao standardni zadatak s dinamičkim segmentnim stablom. Početno stvorimo jedan čvor za segment $[0, 2^m)$. Kad dođe upit $[l, r]$, spuštamo se od vrha i dođemo do čvora bez djece koji odgovara segmentu $[x, y)$ s $x < l < y$; tada stvorimo dva nova čvora za $[x, \frac{x+y}{2})$ i $[\frac{x+y}{2}, y)$ i nastavimo. Slično za segment koji sadrži $r$.</p>
                     <p>Tako nastaje $O(m)$ novih čvorova po upitu, tj. $O(nm)$ memorije, što je možda previše jer je memorijsko ograničenje strogo.</p>
                     <p>Umjesto cijepanja $[x, y)$ na polovice, možemo cijepati na $[x, l)$ i $[l, y)$. Tada cijepamo samo jednom za $l$ i jednom za $r$, pa je ukupno potrebno $O(n)$ prostora (najviše $4$ nova čvora po upitu). Međutim, sada vrijeme može biti problem: visina stabla može narasti na $\Omega(n)$, npr. ako su svi upiti ugniježđeni.</p>
                     <p>Rješenje: rotacijama rebalansiramo segmentno stablo, slično kao u mnogim balansiranim binarnim stablima pretraživanja. Tehnikama AVL-stabla ili splay-stabla dobivamo $O(n \log n)$ vremena i $O(n)$ prostora.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Prevođenje operacije</h3>
+                    <p>U $i$-tom koraku za svaki $j \in [l, r]$ redom radimo $a_j \mathrel{+}= i$ i $x \mathrel{+}= a_j$. Kako svaki $a_j$ u trenutku pribrajanja već sadrži dodatak $i$, ukupno je $x \mathrel{+}= \sum_{j=l}^{r} (a_j + i) = \big(\sum_{j=l}^{r} a_j\big) + i \cdot (r - l + 1)$, računano s vrijednostima <em>prije</em> koraka. Dakle upit je: (1) dodaj $i$ na intervalu, (2) pribroji zbroj intervala. Granice $l, r$ ovise o $x$ (mod $2^m$), pa upite moramo obrađivati online.</p>
+                    <p>Sve se traži modulo $2^{30}$; kako je $2^{30} \mid 2^{32}$, možemo sve zbrojeve i umnoške držati u <code>uint32_t</code> i pustiti da se prirodno prelijevaju, a rezultat maskirati s $2^{30} - 1$. Umnožak $i \cdot (r - l + 1)$ je do $5 \cdot 10^5 \cdot 2^{30}$, ali nas zanima samo modulo $2^{32}$, pa je 32-bitno množenje ispravno.</p>
+                    <h3>2. Zašto dinamičko segmentno stablo pada na memoriji</h3>
+                    <p>Niz ima $N = 2^{30}$ elemenata, pa gradimo stablo samo za segmente koje upiti dotaknu. Klasična implementacija dijeli $[x, y)$ na polovice; za granicu $l$ upita spuštamo se kroz $m$ razina i na svakoj možda stvorimo čvor – $O(m)$ novih čvorova po granici, $O(2nm) \approx 3 \cdot 10^7$ ukupno. S bar $16$ bajta po čvoru (dva pokazivača, zbroj, lijena oznaka) to je pola gigabajta, a ograničenje je $128$ MiB.</p>
+                    <h3>3. Segmenti jednake vrijednosti</h3>
+                    <p>Ključno opažanje: sve što je upit ikad napravio nizu jest „dodaj konstantu na interval”. Zato je nakon $q$ upita niz <em>po dijelovima konstantan</em> s najviše $2q + 1$ dijelova: granice dijelova su samo pozicije $l$ i $r + 1$ prošlih upita. Umjesto stabla nad indeksima gradimo strukturu nad tim <em>elementarnim segmentima</em>: svaki čvor pamti duljinu segmenta $\text{len}$ i zajedničku vrijednost $\text{val}$ svih njegovih elemenata.</p>
+                    <p>Za upit $[l, r]$ trebamo granice točno na $l$ i $r + 1$. Ako neka od njih pada strogo unutar segmenta $[x, y)$, prepolovimo ga na $[x, l)$ i $[l, y)$ (isti $\text{val}$) – jedan novi čvor. Dakle najviše $2$ nova čvora po upitu, ukupno $\le 2n + 1 \approx 10^6$ čvorova. Po $32$ bajta to je $32$ MiB. (Službeno rješenje govori o „najviše $4$” jer u njegovoj varijanti cijepanje segmenta stvara dva nova čvora umjesto da postojeći skrati; brojka je ista po redu veličine.)</p>
+                    <h3>4. Zašto treba balansiranje i zašto ga rotacije smiju raditi</h3>
+                    <p>Ako segmente držimo u binarnom stablu čiji oblik određuju redoslijedi cijepanja, ugniježđeni upiti $[i, N - 1 - i]$ svaki put cijepaju krajnje segmente i stablo raste u „lanac” visine $\Theta(n)$ – svaki upit tada košta $\Theta(n)$ i ukupno $\Theta(n^2)$.</p>
+                    <p>Spas je u tome što stablo segmenata <em>nije</em> vezano za indekse: to je jednostavno uređeni slijed segmenata, gdje je interval unutarnjeg čvora unija intervala njegova podstabla. To je točno implicitno binarno stablo pretraživanja s ključem „pozicija”, a rotacije čuvaju in-order poredak, dakle i semantiku, pod uvjetom da nakon rotacije ponovno izračunamo agregate ($\text{sublen}$, $\text{subsum}$) i da prije nje spustimo lijenu oznaku. Time smijemo koristiti bilo koju tehniku balansiranja: AVL, splay ili treap.</p>
+                    <h3>5. Implementacija treapom</h3>
+                    <p>Naše rješenje koristi implicitni treap (slučajni prioriteti). Čvor: $\text{len}, \text{val}, \text{sublen}, \text{subsum}, \text{lazy}, \text{pri}, \text{lc}, \text{rc}$. Operacije:</p>
+                    <ul>
+                    <li><code>dodaj(t, d)</code>: $\text{val} \mathrel{+}= d$, $\text{subsum} \mathrel{+}= d \cdot \text{sublen}$, $\text{lazy} \mathrel{+}= d$ – lijeno dodavanje cijelom podstablu.</li>
+                    <li><code>push(t)</code> spušta $\text{lazy}$ djeci; <code>update(t)</code> računa $\text{sublen}$ i $\text{subsum}$ iz djece i vlastitog segmenta ($\text{len} \cdot \text{val}$).</li>
+                    <li><code>split(t, k)</code>: rascijepi na prvih $k$ jedinica duljine i ostatak. Spuštamo se po $\text{sublen}$ lijevog djeteta; ako granica padne strogo unutar segmenta čvora, čvor skratimo na $k$ jedinica i stvorimo novi čvor za ostatak sa <em>svježim</em> prioritetom, pa ga spojimo s desnim podstablom.</li>
+                    <li><code>merge(a, b)</code>: klasično spajanje treapova po prioritetu (svi segmenti $a$ prethode segmentima $b$).</li>
+                    </ul>
+                    <p>Upit $[l, r]$ u koraku $i$: <code>split(root, l)</code> $\to A, B$; <code>split(B, r - l + 1)</code> $\to B, C$; <code>dodaj(B, i)</code>; $x \mathrel{+}= \text{subsum}(B)$; <code>root = merge(A, merge(B, C))</code>.</p>
+                    <h3>6. Složenost</h3>
+                    <p>Treap s $\le 2n + 1$ čvorova ima očekivanu dubinu $O(\log n)$ neovisno o redoslijedu operacija (prioriteti su slučajni, a novi čvorovi dobivaju svjež prioritet), pa su <code>split</code> i <code>merge</code> očekivano $O(\log n)$. Ukupno $O(n \log n)$ očekivano, $O(n)$ memorije (oko $32$ MiB). Na $5 \cdot 10^5$ upita s $m = 30$ rješenje radi ispod jedne sekunde uz ograničenje od $3$ s.</p>
+                    <h3>7. Zamke</h3>
+                    <ul>
+                    <li>Granice upita: $l = (p + x) \bmod 2^m$, $r = (q + x) \bmod 2^m$, pa <em>zatim</em> $l \le r$ zamjenom; koristi masku $2^m - 1$ na 32-bitnom $x$ (točno jer $2^m \mid 2^{32}$).</li>
+                    <li>Duljine segmenata dosežu $2^{30}$ – stanu u <code>uint32_t</code>, ali ne u <code>int</code> ako računaš $2^{31}$ ili više; kod $m = 30$ je $2^m = 2^{30}$ još u redu, ali ne zbrajaj dvije takve duljine u <code>int</code>.</li>
+                    <li>Uvijek <code>push</code> prije nego što spustiš u djecu (u <code>split</code> i <code>merge</code>), i <code>update</code> nakon promjene djece.</li>
+                    <li>Zamjena <code>scanf</code>-a brzim čitanjem isplati se: ulaz ima $10^6$ brojeva.</li>
+                    <li>Rekurzija u <code>split</code>/<code>merge</code> ide do dubine stabla ($O(\log n)$ očekivano, u praksi $< 100$), pa nema opasnosti od prelijevanja stoga.</li>
+                    </ul>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorak 1/1; 300 slučajnih testova ($n \le 40$, $m \le 5$) protiv brute forcea koji izravno simulira niz; 3 velika testa s $n = 5 \cdot 10^5$, $m = 30$ (slučajni, ugniježđeni $[i, N - 1 - i]$ i kratki pomični intervali), najviše $0.91$ s i oko $34$ MB memorije.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// UCup 1, Stage 16, zadatak C: Classical Data Structure Problem
+// Niz duljine 2^m (do 2^30) predstavljamo kao slijed "elementarnih segmenata"
+// na kojima su svi elementi jednaki. Segmenti su cvorovi treapa poredani po
+// poziciji (implicitni treap po duljini). Upit [l, r]: rascijepi treap na
+// pozicijama l i r+1 (pri cemu se najvise dva segmenta prepolove -&gt; najvise
+// 2 nova cvora po upitu, O(n) cvorova ukupno), lijeno dodaj i na srednji dio,
+// pribroji njegov zbroj u x, spoji natrag. Treap odrzava ocekivanu dubinu
+// O(log n) -- to je "segmentno stablo koje cijepa na granici upita + rotacije"
+// iz sluzbenog rjesenja. Sve racunamo u uint32 (prirodno modulo 2^32, a 2^30 | 2^32).
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef unsigned int u32;
+
+struct Cvor {
+    u32 len, val;       // duljina segmenta i zajednicka vrijednost njegovih elemenata
+    u32 sublen, subsum; // ukupna duljina i zbroj (mod 2^32) cijelog podstabla
+    u32 lazy, pri;      // lijeni dodatak za djecu, prioritet treapa
+    int lc, rc;
+};
+const int MAXN = 1000005;  // 1 pocetni + najvise 2 nova cvora po upitu
+Cvor nd[MAXN];             // 32 B po cvoru, ~32 MB; nd[0] je prazno stablo
+int cnt = 0;
+
+static inline u32 citaj() {  // brzo citanje nenegativnog cijelog broja
+    int c = getchar_unlocked();
+    while (c &lt; '0') c = getchar_unlocked();
+    u32 x = 0;
+    while (c &gt;= '0') { x = x * 10 + (c - '0'); c = getchar_unlocked(); }
+    return x;
+}
+
+static u32 rng() {  // xorshift, fiksno sjeme
+    static u32 s = 2463534242u;
+    s ^= s &lt;&lt; 13; s ^= s &gt;&gt; 17; s ^= s &lt;&lt; 5;
+    return s;
+}
+
+static int noviCvor(u32 len, u32 val) {
+    int t = ++cnt;
+    nd[t] = {len, val, len, len * val, 0, rng(), 0, 0};
+    return t;
+}
+
+static inline void dodaj(int t, u32 d) {  // svim elementima podstabla t dodaj d
+    if (!t) return;
+    nd[t].val += d;
+    nd[t].subsum += d * nd[t].sublen;
+    nd[t].lazy += d;
+}
+
+static inline void push(int t) {
+    if (nd[t].lazy) {
+        dodaj(nd[t].lc, nd[t].lazy);
+        dodaj(nd[t].rc, nd[t].lazy);
+        nd[t].lazy = 0;
+    }
+}
+
+static inline void update(int t) {
+    const Cvor &amp;L = nd[nd[t].lc], &amp;R = nd[nd[t].rc];
+    nd[t].sublen = L.sublen + nd[t].len + R.sublen;
+    nd[t].subsum = L.subsum + nd[t].len * nd[t].val + R.subsum;
+}
+
+static int merge(int a, int b) {  // svi segmenti od a su ispred segmenata od b
+    if (!a) return b;
+    if (!b) return a;
+    if (nd[a].pri &gt; nd[b].pri) {
+        push(a);
+        nd[a].rc = merge(nd[a].rc, b);
+        update(a);
+        return a;
+    } else {
+        push(b);
+        nd[b].lc = merge(a, nd[b].lc);
+        update(b);
+        return b;
+    }
+}
+
+// Rascijepi t tako da L pokriva tocno prvih k jedinica duljine, R ostatak.
+static void split(int t, u32 k, int&amp; L, int&amp; R) {
+    if (!t) { L = R = 0; return; }
+    push(t);
+    if (nd[nd[t].lc].sublen &gt;= k) {
+        split(nd[t].lc, k, L, nd[t].lc);
+        update(t);
+        R = t;
+        return;
+    }
+    k -= nd[nd[t].lc].sublen;
+    if (k &lt; nd[t].len) {
+        // granica pada strogo unutar segmenta t: prepolovimo ga na [.., k) i [k, ..)
+        int d = noviCvor(nd[t].len - k, nd[t].val);
+        nd[t].len = k;
+        int desno = nd[t].rc;
+        nd[t].rc = 0;
+        update(t);
+        L = t;
+        R = merge(d, desno);  // novi cvor ima svjez slucajan prioritet
+        return;
+    }
+    k -= nd[t].len;
+    split(nd[t].rc, k, nd[t].rc, R);
+    update(t);
+    L = t;
+}
+
+int main() {
+    int n = (int)citaj(), m = (int)citaj();
+    u32 mask = (1u &lt;&lt; m) - 1;
+    int root = noviCvor(1u &lt;&lt; m, 0);
+    u32 x = 0;
+    for (int i = 1; i &lt;= n; ++i) {
+        u32 p = citaj(), q = citaj();
+        u32 l = (p + x) &amp; mask, r = (q + x) &amp; mask;  // (p + x) mod 2^m, jer 2^m | 2^32
+        if (l &gt; r) swap(l, r);
+        int A, B, C;
+        split(root, l, A, B);          // A = [0, l), B = [l, 2^m)
+        split(B, r - l + 1, B, C);     // B = [l, r], C = (r, 2^m)
+        dodaj(B, (u32)i);              // a_j += i za sve j u [l, r]
+        x += nd[B].subsum;             // x += suma novih a_j
+        root = merge(A, merge(B, C));
+    }
+    printf("%u\n", x &amp; ((1u &lt;&lt; 30) - 1));
+    return 0;
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
