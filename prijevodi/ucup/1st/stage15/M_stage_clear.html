@@ -52,42 +52,59 @@
     </section>
 
     <section class="trener">
-        <h2>TRENERSKI NAČIN: korak po korak</h2>
-        <p>Vođeni tok razmišljanja: otvaraj korake redom i nakon svakog pokušaj sam nastaviti prije nego pogledaš sljedeći.</p>
+        <h2>TRENERSKI NAČIN: logički put do rješenja</h2>
+        <p>Logički put do rješenja: svaki je korak pitanje koje bi si iskusan natjecatelj postavio. Pokušaj na njega odgovoriti sam, pa tek onda otvori odgovor i usporedi – cilj je uvježbati način razmišljanja, a ne zapamtiti rješenje.</p>
         <ol class="koraci">
             <li>
                 <details class="spoiler korak">
-                    <summary>Opažanje</summary>
+                    <summary>Što od kretanja po grafu uopće ostaje bitno kad je teleport u $1$ besplatan?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Kretanje je slobodno (lukovi + teleport), pa je jedina restrikcija: čudovište $v$ može se napasti tek kad je pobijeđen neki njegov prethodnik (ili $v$ ima luk iz $1$). Tražimo poredak svih čudovišta koji minimizira potrebni početni HP; potrebni HP za poredak računa se unatrag: $\text{need}(x, \text{ostatak}) = a_x + \max(\text{need}(\text{ostatak}) - b_x, 0)$.</p>
+                        <p>Samo <em>redoslijed</em> borbi. Čudovište $v$ možemo napasti čim postoji put $1 \to \dots \to v$ čiji su svi unutarnji vrhovi već pobijeđeni; indukcijom je skup pobijeđenih uvijek „zatvoren prema dolje” (svaki pobijeđeni vrh ima pobijeđenog prethodnika ili prethodnika $1$), pa je uvjet ekvivalentan: $v$ ima barem jednog prethodnika u $\{1\} \cup \text{pobijeđeni}$. HP se mijenja samo u borbama, dakle tražimo poredak svih čudovišta, u kojem svako ima ranije pobijeđenog prethodnika, koji minimizira potreban početni HP.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija 1: $n \le 26$</summary>
+                    <summary>Kako se potreban početni HP za zadani poredak računa unatrag?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>DP po podskupovima: $f_S$ = najmanji HP potreban da se pobijede sva čudovišta iz $S$ kad su sva ostala već pobijeđena. $f_\emptyset = 0$; $f_{S \cup \{x\}} = \min_x \big(a_x + \max(f_S - b_x, 0)\big)$ po $x \notin S$ koji su „dostupni” — imaju prethodnika izvan $S \cup \{x\}$ (već pobijeđen) ili prethodnika $1$. Odgovor $f_{\{2..n\}}$; $O(n 2^{n-1})$.</p>
+                        <p>Ako nakon borbe s $x$ za ostatak treba $R$ HP-a, prije borbe treba $X \ge a_x$ i $X - a_x + b_x \ge R$, tj. $X \ge a_x + \max(R - b_x, 0)$. To je oblik koji se lako slaže u DP po skupu preostalih čudovišta: $f_S = \min_{x \in S \text{ dostupan}} \bigl(a_x + \max(f_{S \setminus x} - b_x, 0)\bigr)$, gdje je $x$ dostupan ako ima prethodnika izvan $S$ (već pobijeđenog ili $1$). Stanje je samo skup $S$ jer potreban HP ovisi samo o tome što preostaje. $O(n 2^{n-1})$ – dovoljno za $n \le 26$.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Redukcija 2: $n \ge 27$</summary>
+                    <summary>Što nam daje $n + m \le 72$ kad je $n$ velik?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Iz $n + m \le 72$ slijedi $m \le 45$; svih $n - 1$ vrhova ima ulazni luk, pa nakon uklanjanja jednog ulaznog luka po vrhu ostaje najviše $m - n + 1 \le 19$ lukova — najviše $19$ vrhova ima ulazni stupanj $> 1$. Za svaki vrh odaberi jedan ulazni luk kao roditeljski: $2^{m-n+1}$ korijenskih stabala, a optimalno rješenje DAG-a je optimum nekog stabla (u optimalnom poretku svaki vrh ima prvog pobijeđenog prethodnika — to mu je roditelj).</p>
+                        <p>Za $n \ge 27$ je $m \le 45$. Svaki vrh $v \ne 1$ ima bar jedan ulazni luk; ako svakom odaberemo točno jednog „roditelja”, dobijemo korijensko stablo, a broj izbora je $\prod_v \deg^-(v) \le 2^{m - (n-1)} \le 2^{19}$. U optimalnom poretku za DAG svaki vrh ima <em>prvog pobijeđenog</em> prethodnika – uzmemo li njega za roditelja, poredak je valjan i za to stablo. Obratno, poredak valjan za bilo koje stablo valjan je za DAG. Dakle: odgovor DAG-a $=$ minimum optimuma po svim stablima, a na stablu postoji brz pohlepni algoritam.</p>
                     </div>
                 </details>
             </li>
             <li>
                 <details class="spoiler korak">
-                    <summary>Algoritam na stablu: pohlepno spajanje</summary>
+                    <summary>Kako izgleda optimalan poredak bez ograničenja i zašto?</summary>
                     <div class="spoiler-sadrzaj">
-                        <p>Bez ograničenja roditelja optimalan poredak dobiva se sortiranjem: prvo čudovišta s $a_i \le b_i$ po rastućem $a_i$, zatim ona s $a_i > b_i$ po padajućem $b_i$. Uzmi prvo čudovište $x$ u tom poretku: čim je njegov roditelj $p$ pobijeđen, odmah treba pobijediti $x$. Spoji $x$ u $p$ u jedno „složeno” čudovište s $(a, b)$ jednakima potrebnom HP-u i neto dobitku niza $p, x$: $a' = a_p + \max(a_x - b_p, 0)$, $b' = b_p + b_x - a_x + (a' - a_p)$ (ekvivalentno: $b' = a' - a_p - a_x + b_p + b_x$). Problem se smanji za $1$; ponovi $n - 1$ puta. Po stablu $O(n \log n)$; ukupno $O(2^{m-n+1} n \log n)$.</p>
+                        <p>Blok borbi opišimo parom $(A, D)$: potreban HP i neto promjena. Spajanje: $(A_p, D_p) \oplus (A_q, D_q) = (\max(A_p, A_q - D_p), D_p + D_q)$. Zamjena dvaju susjednih blokova mijenja samo cijenu tog para (ukupni $D$ para je isti), pa je optimalan poredak sortiranje po pravilu susjedne zamjene: blokovi s $D \ge 0$ ispred onih s $D < 0$; među $D \ge 0$ po rastućem $A$; među $D < 0$ po padajućem $A + D$. Provjera po slučajevima pokazuje $\text{cijena}(x, y) \le \text{cijena}(y, x)$ kad god pravilo stavlja $x$ ispred $y$.</p>
+                    </div>
+                </details>
+            </li>
+            <li>
+                <details class="spoiler korak">
+                    <summary>Kako ograničenje „roditelj prije djeteta” uklopiti u pohlepni poredak?</summary>
+                    <div class="spoiler-sadrzaj">
+                        <p>Uzmemo nekorijenski blok $x$ najvišeg prioriteta. U optimalnom poretku (u kojem su dosadašnji blokovi uzastopni) između bloka roditelja $h$ i $x$ stoje neki blokovi $y_1, \dots, y_t$; nijedan nije potomak $x$-a, a svaki ima prioritet $\le x$. Zamjenama susjeda pomaknemo $x$ neposredno iza $h$ bez povećanja cijene, a ograničenja ostaju zadovoljena. Zato $x$ smijemo <em>spojiti</em> u $h$ operacijom $\oplus$; stablo se smanji za jedan vrh. Nakon $n-1$ spajanja korijenski blok ima $A$ = odgovor. $O(n^2)$ po stablu, ukupno $O(2^{m-n+1} n^2)$.</p>
                     </div>
                 </details>
             </li>
         </ol>
+        <div class="savjeti">
+            <h3>Opći savjeti i prečaci</h3>
+            <ul>
+                <li>Kad je ukupno „$n + m \le C$”, razmisli o dva režima: mali $n$ (eksponencijalno u $n$, npr. DP po podskupovima) i mali $m - n$ (eksponencijalno u broju „viška” lukova); rješenje bira jeftiniji.</li>
+                <li>Nizove borbi/poslova s pragom i promjenom opisuj parom $(A, D)$ sa spajanjem $(\max(A_p, A_q - D_p), D_p + D_q)$ – to je asocijativna operacija i temelj svih argumenata zamjene.</li>
+                <li>Pravilo susjedne zamjene daje optimalan poredak bez ograničenja; s ograničenjima oblika stabla (roditelj prije djeteta) standardno se pretvara u „spoji element najvišeg prioriteta s roditeljem”.</li>
+                <li>U DP-u po podskupovima s uvjetom dostupnosti provjeri uvjet bit-maskom prethodnika: $\text{maska}(v) \,\&\, \lnot S \ne 0$ u $O(1)$ umjesto petlje po lukovima.</li>
+            </ul>
+        </div>
     </section>
 
     <details class="spoiler rjesenje-spoiler">
@@ -95,13 +112,138 @@
         <div class="spoiler-sadrzaj">
             <div class="rjesenje">
                 <p class="trener-napomena">Savjet: prije čitanja rješenja prođi kroz korake trenerskog načina iznad.</p>
-                <div class="rjesenje-sazeto">
-                    <p class="detaljno-napomena">Detaljno rješenje za ovaj zadatak još nije napisano; prikazano je sažeto rješenje.</p>
+                <div class="rjesenje-sazeto ima-detaljno">
                     <p>Ako je $n \le 26$, koristimo DP po podskupovima. Neka je $f_S$ najmanji početni HP potreban kad je skup pobijeđenih čudovišta $S$. Nabrajamo prethodno pobijeđeno čudovište $x$ i ažuriramo $f_{S \cup \{x\}}$ vrijednošću $\max(f_S - b_x, 0) + a_x$, gdje $x \notin S$, a $S$ ne sadrži sve vrhove koji imaju luk prema $x$ (tj. $x$ je dostupan). Vremenska složenost: $O(n 2^{n-1})$.</p>
                     <p>Ako je $n \ge 27$, iz uvjeta $n + m \le 72$ slijedi $m \le 45$. Budući da vrh $1$ dostiže sve ostale vrhove, preostalih $n - 1$ vrhova ima barem jedan ulazni luk; nakon uklanjanja tih lukova najviše $19$ vrhova ima ulazni stupanj veći od $1$.</p>
                     <p>Za svaki vrh nabrojimo jedan ulazni luk kao roditeljski, čime dobivamo korijensko stablo. Ukupno ima $2^{m-n+1}$ mogućih stabala, a potproblem na korijenskom stablu klasičan je pohlepni algoritam.</p>
                     <p>Zanemarimo li ograničenje roditelja, optimalni redoslijed napada dobiva se sortiranjem. Uzmemo prvo čudovište koje treba pobijediti u optimalnom poretku; čim je njegov roditelj pobijeđen, odmah moramo pobijediti i njega. Stoga ga spojimo s roditeljem, smanjujući veličinu problema za $1$, i ponavljamo $n - 1$ krugova dok problem ne postane veličine $1$.</p>
                     <p>Složenost svakog potproblema je $O(n \log n)$, pa je ukupna vremenska složenost $O(2^{m-n+1} n \log n)$.</p>
+                </div>
+                <div class="rjesenje-detaljno">
+                    <h2>DETALJNO RJEŠENJE</h2>
+                    <h3>1. Svođenje na poredak</h3>
+                    <p>Kretanje lukovima je besplatno, teleport u $1$ također, HP se mijenja samo u prvoj borbi na svakom vrhu. Da bismo napali $v$, trebamo put $1 \to \dots \to v$ čiji su svi unutarnji vrhovi već pobijeđeni. <strong>Tvrdnja:</strong> to je moguće ako i samo ako $v$ ima prethodnika $u$ koji je vrh $1$ ili već pobijeđen. Smjer $\Rightarrow$ je očit; za $\Leftarrow$ indukcijom po broju pobijeđenih: svaki pobijeđeni vrh $u$ imao je u trenutku svoje borbe put kroz pobijeđene vrhove, koji i dalje postoji, pa ga produljimo lukom $u \to v$. $\square$</p>
+                    <p>Zadatak je stoga: naći poredak $\pi$ svih čudovišta $2..n$ u kojem svako ima ranije pobijeđenog prethodnika (ili prethodnika $1$) i koji minimizira potreban početni HP $X(\pi)$.</p>
+                    <h3>2. Potreban HP i blokovi</h3>
+                    <p>Za niz borbi $x_1, \dots, x_t$ potreban početni HP zadovoljava: $X \ge a_{x_1}$ i $X - a_{x_1} + b_{x_1} \ge$ (potreban HP za ostatak). Označimo blok uzastopnih borbi parom $(A, D)$: $A$ = najmanji HP s kojim se blok može odraditi, $D = \sum (b - a)$ = neto promjena HP-a. Pojedinačno čudovište je $(a_v, b_v - a_v)$, vrh $1$ je $(0, 0)$. <strong>Spajanje</strong> blokova $p$ pa $q$: $$p \oplus q = \bigl(\max(A_p,\ A_q - D_p),\ D_p + D_q\bigr),$$ jer nakon $p$ imamo $X + D_p$ HP-a i treba $X + D_p \ge A_q$. Operacija je asocijativna (odgovara nadovezivanju nizova). Vrijednosti su do $72 \cdot 10^{15} < 2^{63}$: <code>long long</code>.</p>
+                    <h3>3. Režim $n \le 26$: DP po podskupovima</h3>
+                    <p>Neka je $f_S$ najmanji HP potreban u trenutku kad je skup <em>preostalih</em> čudovišta $S$ (sva ostala pobijeđena). $f_\emptyset = 0$ i $$f_S = \min_{x \in S,\ x \text{ dostupan}} \bigl(a_x + \max(f_{S \setminus \{x\}} - b_x,\ 0)\bigr),$$ gdje je $x$ dostupan ako ima prethodnika izvan $S$ (pobijeđen ili $1$); odgovor je $f_{\{2..n\}}$. Ispravnost: potreban HP ovisi samo o skupu preostalih i poretku u kojem ćemo ih riješiti, a formula je upravo optimizacija po prvom sljedećem $x$. Dostupnost provjeravamo bit-maskom prethodnika u $O(1)$. Složenost $O(n 2^{n-1})$; za $n = 26$ oko $8.7 \cdot 10^8$ jednostavnih operacija i $2^{25}$ 64-bitnih vrijednosti ($256$ MB) – unutar limita ($7$ s, $1024$ MB).</p>
+                    <h3>4. Režim velikog $n$: nabrajanje stabala</h3>
+                    <p>Iz $n + m \le 72$ i $n \ge 27$ slijedi $m \le 45$. Svaki vrh $v \ne 1$ ima $d_v \ge 1$ ulaznih lukova, $\sum d_v = m$. Izbor po jednog ulaznog luka za svaki $v$ daje korijensko stablo; broj izbora je $\prod d_v \le \prod 2^{d_v - 1} = 2^{m - (n-1)} \le 2^{19}$ (jer $d \le 2^{d-1}$ za $d \ge 1$).</p>
+                    <p><strong>Lema.</strong> $\min_\pi X(\pi)$ po poredcima valjanim za DAG jednak je minimumu po svim stablima $T$ od $\min_\pi X(\pi)$ po poredcima valjanim za $T$ (roditelj prije djeteta). <em>Dokaz.</em> Poredak valjan za stablo valjan je za DAG (roditelj je prethodnik). Obratno, za optimalan DAG-poredak $\pi^\ast$ svakom $v$ dodijelimo kao roditelja njegova <em>prvog pobijeđenog</em> prethodnika (ili $1$); $\pi^\ast$ je valjan za to stablo. $\square$</p>
+                    <h3>5. Pohlepni algoritam na stablu</h3>
+                    <p><strong>Pravilo prioriteta (bez ograničenja).</strong> Za blokove $x, y$ neka je $x \prec y$ („$x$ ide prije”) ako: $D_x \ge 0 > D_y$; ili $D_x, D_y \ge 0$ i $A_x < A_y$; ili $D_x, D_y < 0$ i $A_x + D_x > A_y + D_y$. <strong>Lema o zamjeni.</strong> Ako $x \prec y$ (ili su neusporedivi), tada $\text{cijena}(x, y) := \max(A_x, A_y - D_x) \le \text{cijena}(y, x) = \max(A_y, A_x - D_y)$.</p>
+                    <ul>
+                    <li>$D_x \ge 0 > D_y$: $\text{cijena}(x, y) \le \max(A_x, A_y)$ jer $A_y - D_x \le A_y$; $\text{cijena}(y, x) \ge \max(A_y, A_x)$ jer $A_x - D_y > A_x$.</li>
+                    <li>$D_x, D_y \ge 0$, $A_x \le A_y$: $\text{cijena}(x, y) \le \max(A_x, A_y) = A_y \le \text{cijena}(y, x)$.</li>
+                    <li>$D_x, D_y < 0$, $A_x + D_x \ge A_y + D_y$: tada $A_y - D_x \le A_x - D_y$, a $A_x < A_x - D_y$; dakle $\text{cijena}(x, y) \le A_x - D_y \le \text{cijena}(y, x)$.</li>
+                    </ul>
+                    <p>Zamjena dvaju susjednih blokova ne mijenja ništa za blokove prije (isti početni HP) ni poslije (isti ukupni $D$ para), pa je poredak sortiran po $\prec$ optimalan bez ograničenja.</p>
+                    <p><strong>Ograničenja stabla.</strong> Održavamo blokove (početno pojedinačni vrhovi; korijen $1$ je blok $(0,0)$) i strukturu stabla nad blokovima. <em>Tvrdnja:</em> ako je $x$ nekorijenski blok najvišeg prioriteta, postoji optimalan poredak u kojem $x$ dolazi neposredno nakon bloka $h$ koji sadrži njegova roditelja. <em>Dokaz.</em> Indukcijom pretpostavimo da postoji optimalan poredak u kojem je svaki dosadašnji blok uzastopan. Neka između $h$ i $x$ stoje blokovi $y_1, \dots, y_t$. Nijedan $y_i$ nije potomak $x$-a (potomci dolaze iza $x$), a svaki ima prioritet $\le$ prioriteta $x$. Pomicanje $x$ ispred $y_t$, pa ispred $y_{t-1}$, … susjednim zamjenama ne povećava cijenu (lema o zamjeni) i ne krši ograničenja: $x$ ostaje iza $h$, a $y_i$ ostaju iza svojih roditelja. $\square$ Zato $x$ spajamo u $h$: $\text{blok}(h) \gets \text{blok}(h) \oplus \text{blok}(x)$, djeca $x$-a postaju djeca $h$-a (union–find nad vrhovima). Nakon $n - 1$ spajanja ostaje korijenski blok; njegov $A$ je potreban početni HP.</p>
+                    <p>Implementacija: u svakom koraku linearno nađi blok najvišeg prioriteta ($O(n)$), spoji ($O(1)$ uz union–find): $O(n^2)$ po stablu; sortiranje bi dalo $O(n \log n)$, ali za $n \le 72$ nije potrebno. Stabla nabrajamo brojačem u miješanoj bazi (indeks izabranog ulaznog luka za svaki vrh).</p>
+                    <h3>6. Izbor režima i složenost</h3>
+                    <p>Procijenimo $c_{\text{stabla}} = n^2 \prod d_v$ i $c_{\text{DP}} = n 2^{n-1}$ i pokrenemo jeftiniji (procjena u <code>double</code>, jer $\prod d_v$ može biti golem kad je $n$ malen). Za $n \le 26$ DP je $\le 8.7 \cdot 10^8$; za $n \ge 27$ stabla su $\le 2^{19} \cdot 72^2 \approx 2.7 \cdot 10^9$ u apsolutno najgorem slučaju, no tada je $n \le 45$ pa je realno $\le 2^{19} \cdot 45^2 \approx 10^9$ vrlo jednostavnih operacija – u praksi ispod sekunde (limit $7$ s). Često je $\prod d_v$ mnogo manji od granice pa se stabla isplate i za $n \le 26$.</p>
+                    <h3>7. Primjer</h3>
+                    <p>$n = 4$, $(a, b) = (4, 2), (5, 3), (2, 6)$ za vrhove $2, 3, 4$; lukovi $1 \to 2, 1 \to 3, 2 \to 4, 3 \to 4$. Blokovi: $2: (4, -2)$, $3: (5, -2)$, $4: (2, +4)$. Najviši prioritet ima $4$ ($D \ge 0$); stablo s roditeljem $2$: $\text{blok}(2) = (4, -2) \oplus (2, 4) = (\max(4, 2 + 2), 2) = (4, 2)$. Sad su blokovi $2': (4, 2)$ i $3: (5, -2)$; prioritet ima $2'$, spajamo u korijen: $(0,0) \oplus (4, 2) = (4, 2)$; zatim $3$: $(4, 2) \oplus (5, -2) = (\max(4, 3), 0) = (4, 0)$. Odgovor $4$ (poredak $2, 4, 3$: HP $4 \to 2 \to 6 \to 4$). Stablo s roditeljem $3$ za vrh $4$ daje $5$, pa je minimum $4$.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> Uzorak 1/1, 300 slučajnih malih testova protiv brute forcea (oba režima – DP i stabla – forsirana i međusobno uspoređena), 3 velika testa (najviše 0.50 s).</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">// UCup 1, Stage 15 (ZJCPC 2023), M. Stage Clear
+// Redoslijed borbi je valjan ako svaki čudak u trenutku borbe ima već poraženog prethodnika (ili 1).
+// Dva pristupa, biramo jeftiniji:
+//  1) DP po podskupovima preostalih čudovišta: f[S] = min_x max(f[S\x]-b_x,0)+a_x, O(n 2^{n-1});
+//  2) svakom vrhu izaberemo jednog roditelja (2^{m-n+1} korijenskih stabala) i za stablo
+//     pohlepno spajamo blok s najvišim prioritetom u blok njegova roditelja, O(n^2) po stablu.
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+
+int n, m;
+ll a[80], b[80];
+vector&lt;int&gt; ulaz[80];     // ulazni susjedi (manji od vrha)
+
+// blok = niz borbi: A = potreban HP na početku, D = ukupna promjena HP
+struct Blok { ll A, D; };
+Blok spoji(Blok p, Blok q) { return { max(p.A, q.A - p.D), p.D + q.D }; }
+// x ima veći prioritet od y (x ide ranije u neograničenom optimalnom poretku)
+bool prije(const Blok&amp; x, const Blok&amp; y) {
+    if ((x.D &gt;= 0) != (y.D &gt;= 0)) return x.D &gt;= 0;
+    if (x.D &gt;= 0) return x.A &lt; y.A;
+    return x.A + x.D &gt; y.A + y.D;
+}
+
+int rod[80], dsu[80];
+int nadji(int v) { return dsu[v] == v ? v : dsu[v] = nadji(dsu[v]); }
+ll rijesiStablo() {
+    static Blok blok[80]; static bool ziv[80];
+    for (int v = 1; v &lt;= n; ++v) { dsu[v] = v; blok[v] = { a[v], b[v] - a[v] }; ziv[v] = true; }
+    blok[1] = { 0, 0 };
+    for (int korak = 0; korak &lt; n - 1; ++korak) {
+        int naj = -1;
+        for (int v = 2; v &lt;= n; ++v)
+            if (ziv[v] &amp;&amp; (naj &lt; 0 || prije(blok[v], blok[naj]))) naj = v;
+        int h = nadji(rod[naj]);            // blok koji sadrži roditelja
+        blok[h] = spoji(blok[h], blok[naj]);
+        ziv[naj] = false; dsu[naj] = h;
+    }
+    return blok[1].A;
+}
+
+ll rijesiStablima() {
+    ll najbolje = LLONG_MAX;
+    vector&lt;int&gt; izbor(n + 1, 0);
+    while (true) {
+        for (int v = 2; v &lt;= n; ++v) rod[v] = ulaz[v][izbor[v]];
+        najbolje = min(najbolje, rijesiStablo());
+        int v = 2;                          // sljedeća kombinacija roditelja (miješana baza)
+        while (v &lt;= n &amp;&amp; ++izbor[v] == (int)ulaz[v].size()) izbor[v++] = 0;
+        if (v &gt; n) break;
+    }
+    return najbolje;
+}
+
+ll rijesiDP() {
+    // bit v-1 predstavlja vrh v (v&gt;=2); bit 0 (vrh 1) nikad nije u S
+    int k = n - 1;
+    vector&lt;ll&gt; f((size_t)1 &lt;&lt; k, LLONG_MAX);
+    vector&lt;unsigned&gt; maskaUlaza(n + 1, 0);
+    for (int v = 2; v &lt;= n; ++v) for (int u : ulaz[v]) maskaUlaza[v] |= 1u &lt;&lt; (u - 1);
+    f[0] = 0;
+    unsigned puni = (1u &lt;&lt; n) - 1;
+    for (unsigned S = 1; S &lt; (1u &lt;&lt; k); ++S) {
+        unsigned Sv = S &lt;&lt; 1;               // maska po vrhovima
+        ll naj = LLONG_MAX;
+        for (unsigned t = Sv; t; t &amp;= t - 1) {
+            int v = __builtin_ctz(t) + 1;
+            if ((maskaUlaza[v] &amp; ~Sv &amp; puni) == 0) continue;   // svi prethodnici još neporaženi
+            ll prije_ = f[S ^ (1u &lt;&lt; (v - 2))];
+            naj = min(naj, max(prije_ - b[v], 0LL) + a[v]);
+        }
+        f[S] = naj;
+    }
+    return f[(1u &lt;&lt; k) - 1];
+}
+
+int main() {
+    scanf("%d %d", &amp;n, &amp;m);
+    for (int v = 2; v &lt;= n; ++v) scanf("%lld %lld", &amp;a[v], &amp;b[v]);
+    for (int i = 0; i &lt; m; ++i) { int u, v; scanf("%d %d", &amp;u, &amp;v); ulaz[v].push_back(u); }
+    double stabala = 1;
+    for (int v = 2; v &lt;= n; ++v) stabala *= ulaz[v].size();
+    double cijenaStabla = stabala * n * n, cijenaDP = ldexp((double)n, n - 1);
+#ifdef FORSIRAJ_STABLA
+    cijenaDP = 1e300;
+#endif
+#ifdef FORSIRAJ_DP
+    cijenaStabla = 1e300;
+#endif
+    printf("%lld\n", cijenaStabla &lt;= cijenaDP ? rijesiStablima() : rijesiDP());
+    return 0;
+}
+</code></pre>
+                        </div>
+                    </details>
                 </div>
             </div>
         </div>
