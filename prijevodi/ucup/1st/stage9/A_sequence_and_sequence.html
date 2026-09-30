@@ -151,7 +151,7 @@
                     <li>Predznaci u Lagrangeu i u redukciji ($-g_{d+1}$) zahtijevaju velike brojeve s predznakom; završno dijeljenje s $D!$ mora biti egzaktno – dobra samoprovjera je ostatak $0$.</li>
                     <li>Granicu tablice ($N_0$) treba uskladiti s dubinom: uz $N_0 = 2000$ i $n \le 10^{40}$ dubina je $\le 4$; implementaciju vrijedi testirati i s umjetno malom granicom (npr. $12$) da se rekurzija dublje „istrese” na malim $n$ usporedivima s brute forceom.</li>
                     </ul>
-                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 1/1; 300 slučajnih malih testova ($n \le 2 \cdot 10^5$) protiv brute forcea koji izravno računa niz $Q$ (Python); 3 velika testa s $T = 10^4$ i $n$ do $10^{40}$ (najviše $0.39$ s); dodatno ista C++ implementacija prevedena s tablicom smanjenom na $12$ (pa lanac $P$ već za male $n$ ide u dubinu 3–4) uspoređena s brute forceom na odabranim $n \le 2 \cdot 10^5$.</p>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 1/1; 300 slučajnih malih testova ($n \le 2 \cdot 10^5$) protiv brute forcea koji izravno računa niz $Q$ (Python); 3 velika testa s $T = 10^4$ i $n$ do $10^{40}$ (najviše $0.39$ s); dodatno ista C++ implementacija prevedena s tablicom smanjenom na $12$ (lanac $P$ ide u dubinu do $5$, pa se koriste i polinomi $F^{(4)}$) uspoređena s brute forceom na $n \le 2 \cdot 10^5$ i s običnom verzijom na 300 slučajnih $n \le 10^{40}$.</p>
                     <details class="spoiler kod-spoiler">
                         <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
                         <div class="spoiler-sadrzaj">
@@ -162,12 +162,13 @@
 // Polinomi F^{(d)} zadani su vrijednostima u 0..deg i evaluiraju se Lagrangeovom interpolacijom
 // u točnoj cjelobrojnoj (velikoj) aritmetici.
 #include &lt;bits/stdc++.h&gt;
+#include &lt;cassert&gt;
 using namespace std;
 
 #ifndef MAXLEN
 #define MAXLEN 2000      // granica ispod koje g(d, n) čitamo iz tablice (za testiranje se može smanjiti)
 #endif
-const int MAXD = 6;      // dubine 0..5 (dovoljno i s vrlo malom tablicom)
+const int MAXD = 6;      // dubine 0..5 (za n &lt;= 10^40 lanac ima &lt;= 4 koraka; tablica pokriva n &lt;= TAB)
 const int TAB = MAXLEN &gt; 70 ? MAXLEN : 70;   // veličina tablica (&gt;= najveći stupanj F^{(d)})
 
 // ---------- jednostavni veliki cijeli brojevi s predznakom, baza 1e9 ----------
@@ -325,11 +326,13 @@ int main() {
     if (scanf("%d", &amp;T) != 1) return 0;
     char buf[128];
     while (T--) {
-        scanf("%s", buf);
+        if (scanf("%s", buf) != 1) break;
         // lanac n_0 = n, n_{l+1} = P(n_l) dok n_L &lt;= MAXLEN
         vector&lt;Big&gt; lanac = {Big::fromString(buf)};
-        while (!(lanac.back() &lt;= Big(MAXLEN))) lanac.push_back(Pbig(lanac.back()));
+        // (najviše MAXD - 1 koraka; nakon toga je n_L sigurno &lt;= TAB i čita se iz tablice)
+        while (!(lanac.back() &lt;= Big(MAXLEN)) &amp;&amp; (int)lanac.size() &lt; MAXD) lanac.push_back(Pbig(lanac.back()));
         int L = (int)lanac.size() - 1;
+        assert(L &lt; MAXD &amp;&amp; lanac[L] &lt;= Big(TAB));
         // G[d] = g(d, n_L) iz tablice, zatim g(d, n_l) = F^{(d)}(n_l) g(0, n_{l+1}) - g(d+1, n_{l+1})
         long long nL = lanac[L].isZero() ? 0 : lanac[L].d[0];
         vector&lt;Big&gt; G(L + 2);

@@ -5,12 +5,13 @@
 // Polinomi F^{(d)} zadani su vrijednostima u 0..deg i evaluiraju se Lagrangeovom interpolacijom
 // u točnoj cjelobrojnoj (velikoj) aritmetici.
 #include <bits/stdc++.h>
+#include <cassert>
 using namespace std;
 
 #ifndef MAXLEN
 #define MAXLEN 2000      // granica ispod koje g(d, n) čitamo iz tablice (za testiranje se može smanjiti)
 #endif
-const int MAXD = 6;      // dubine 0..5 (dovoljno i s vrlo malom tablicom)
+const int MAXD = 6;      // dubine 0..5 (za n <= 10^40 lanac ima <= 4 koraka; tablica pokriva n <= TAB)
 const int TAB = MAXLEN > 70 ? MAXLEN : 70;   // veličina tablica (>= najveći stupanj F^{(d)})
 
 // ---------- jednostavni veliki cijeli brojevi s predznakom, baza 1e9 ----------
@@ -168,11 +169,13 @@ int main() {
     if (scanf("%d", &T) != 1) return 0;
     char buf[128];
     while (T--) {
-        scanf("%s", buf);
+        if (scanf("%s", buf) != 1) break;
         // lanac n_0 = n, n_{l+1} = P(n_l) dok n_L <= MAXLEN
         vector<Big> lanac = {Big::fromString(buf)};
-        while (!(lanac.back() <= Big(MAXLEN))) lanac.push_back(Pbig(lanac.back()));
+        // (najviše MAXD - 1 koraka; nakon toga je n_L sigurno <= TAB i čita se iz tablice)
+        while (!(lanac.back() <= Big(MAXLEN)) && (int)lanac.size() < MAXD) lanac.push_back(Pbig(lanac.back()));
         int L = (int)lanac.size() - 1;
+        assert(L < MAXD && lanac[L] <= Big(TAB));
         // G[d] = g(d, n_L) iz tablice, zatim g(d, n_l) = F^{(d)}(n_l) g(0, n_{l+1}) - g(d+1, n_{l+1})
         long long nL = lanac[L].isZero() ? 0 : lanac[L].d[0];
         vector<Big> G(L + 2);

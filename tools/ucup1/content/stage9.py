@@ -99,7 +99,7 @@ PROBLEMS = [
 <li>Granicu tablice ($N_0$) treba uskladiti s dubinom: uz $N_0 = 2000$ i $n \le 10^{40}$ dubina je $\le 4$; implementaciju vrijedi testirati i s umjetno malom granicom (npr. $12$) da se rekurzija dublje „istrese” na malim $n$ usporedivima s brute forceom.</li>
 </ul>
 ''',
-    'verified': r'''uzorci 1/1; 300 slučajnih malih testova ($n \le 2 \cdot 10^5$) protiv brute forcea koji izravno računa niz $Q$ (Python); 3 velika testa s $T = 10^4$ i $n$ do $10^{40}$ (najviše $0.39$ s); dodatno ista C++ implementacija prevedena s tablicom smanjenom na $12$ (pa lanac $P$ već za male $n$ ide u dubinu 3–4) uspoređena s brute forceom na odabranim $n \le 2 \cdot 10^5$.''',
+    'verified': r'''uzorci 1/1; 300 slučajnih malih testova ($n \le 2 \cdot 10^5$) protiv brute forcea koji izravno računa niz $Q$ (Python); 3 velika testa s $T = 10^4$ i $n$ do $10^{40}$ (najviše $0.39$ s); dodatno ista C++ implementacija prevedena s tablicom smanjenom na $12$ (lanac $P$ ide u dubinu do $5$, pa se koriste i polinomi $F^{(4)}$) uspoređena s brute forceom na $n \le 2 \cdot 10^5$ i s običnom verzijom na 300 slučajnih $n \le 10^{40}$.''',
 },
 # ---------------------------------------------------------------- B
 {
