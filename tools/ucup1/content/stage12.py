@@ -447,37 +447,37 @@ PROBLEMS = [
 <p>Za stablo s bridovima $1\!-\!2, 2\!-\!4, 3\!-\!2$ i $A = (1, 2, 3, 4)$ odgovor je $44$.</p>
 ''',
     'hints': [
-        r'''<p>Preformuliraj: svaki brid neovisno reži s vjerojatnošću $1/2$; traži se očekivani rezultat pomnožen s $2^{N-1}$. Očekivanje je linearno po komponentama.</p>''',
-        r'''<p>Ukorijeni stablo. Za vrh $v$ definiraj $dp[v][x]$ = vjerojatnost da komponenta koja sadrži $v$ (unutar podstabla) ima minimum $x$. Vrijednosti $x$ koje imaju vjerojatnost $\ne 0$ su samo vrijednosti vrhova podstabla — pamti samo njih.</p>''',
-        r'''<p>Spajanje dvaju djece s prefiksnim zbrojevima traje $O(size(c_1) + size(c_2))$; s više djece spajaj u parovima ili koristi segment tree merge / small-to-large da bi ukupno bilo $O(N \log N)$.</p>''',
+        r'''<p>Preformuliraj: svaki brid neovisno reži s vjerojatnošću $1/2$; traži se očekivani rezultat pomnožen s $2^{N-1}$. Ukorijeni stablo – svaka komponenta ima jedinstven najplići vrh, pa je po linearnosti očekivanja $E[\text{rezultat}] = \sum_v P(v \text{ je najplići u svojoj komponenti}) \cdot E[\text{minimum komponente vrha } v \text{ unutar podstabla}]$, a prva vjerojatnost je $1/2$ (brid prema roditelju prerezan) odnosno $1$ za korijen.</p>''',
+        r'''<p>Za vrh $v$ definiraj $dp[v][x]$ = vjerojatnost da komponenta koja sadrži $v$ unutar podstabla $T_v$ ima minimum $x$. Vrijednosti $x$ s vjerojatnošću $\ne 0$ su samo vrijednosti vrhova podstabla – pamti samo njih. Minimum neovisnih varijabli: repovi $P(\cdot \ge x)$ se množe, pa se dvoje djece spaja formulom $P(\min = x) = p_1(x) P(Y_2 \ge x) + p_2(x) P(Y_1 > x)$; na kraju sve iznad $A_v$ „padne” na $A_v$.</p>''',
+        r'''<p>Držiš li $dp[v]$ u dinamičkom segmentnom stablu nad komprimiranim vrijednostima (zbroj vjerojatnosti, zbroj $x \cdot p$, lijeno množenje), spajanje djece je <em>segment tree merge</em>: kad jedna strana nema čvorova na intervalu, drugu samo pomnoži konstantnim repom. Ukupno $O(N \log N)$ čvorova i vremena.</p>''',
     ],
     'coach': [
-        ('Zbroj po $2^{N-1}$ podskupova bridova – po čemu možemo zbrajati umjesto po podskupovima?',
+        ('Zbroj po $2^{N-1}$ podskupova bridova – kako ga pretvoriti u nešto što se računa lokalno?',
          r'''
-<p>Po komponentama. Rezultat podskupa je zbroj minimuma po komponentama, pa je ukupni zbroj jednak $\sum_C \min(C) \cdot \#\{\text{podskupovi u kojima je } C \text{ komponenta}\}$, gdje $C$ prolazi sve <em>povezane</em> podskupove vrhova. Skup $C$ je komponenta točno kad su svi bridovi unutar $C$ zadržani, a svi bridovi koji izlaze iz $C$ prerezani; ostali bridovi su slobodni. To daje $2^{N-2} \prod_{u \in C} 2^{1 - \deg u}$ – umnožak po vrhovima, što je ključ za DP na stablu.</p>
+<p>Podijelimo li zbroj s $2^{N-1}$, dobivamo <em>očekivani</em> rezultat kad se svaki brid neovisno prereže s vjerojatnošću $1/2$ (svaki podskup je jednako vjerojatan). Rezultat je zbroj minimuma po komponentama, pa po linearnosti očekivanja možemo zbrajati očekivane doprinose komponenata – ali komponente su slučajni skupovi, treba ih „pripisati” nečemu fiksnom. Na kraju odgovor množimo s $2^{N-1}$.</p>
 '''),
-        ('Kako se riješiti faktora $\min(C)$, koji ovisi o cijelom skupu, a ne o pojedinom vrhu?',
+        ('Komponenta je skup – kojem vrhu je pripisati da bi zbroj išao po vrhovima?',
          r'''
-<p>Pragovima: za padajuće različite vrijednosti $v_1 > v_2 > \dots > v_k$ (i $v_{k+1} = 0$) vrijedi $\min(C) = \sum_j (v_j - v_{j+1}) \, [\min(C) \ge v_j]$ – teleskopski zbroj. Uvjet $\min(C) \ge v_j$ znači da $C$ leži u skupu „živih” vrhova $\{u : A_u \ge v_j\}$. Dakle $\sum_C \min(C) \prod w_u = \sum_j (v_j - v_{j+1}) \, G_j$, gdje je $G_j$ zbroj težina povezanih podskupova živih vrhova. Vrhove oživljavamo u padajućem redoslijedu po $A$ i trebamo $G$ nakon svake grupe.</p>
+<p>Ukorijenimo stablo. Svaka komponenta ima točno jedan najplići vrh $v$ (onaj kojemu je brid prema roditelju prerezan ili je korijen; dva najplića bila bi povezana putem koji ide iznad njih – nemoguće). Komponenta vrha $v$ tada leži cijela u podstablu $T_v$ i jednaka je komponenti vrha $v$ u $T_v$, koja ovisi samo o bridovima unutar $T_v$. Zato je događaj „$v$ je najplići” (brid prema roditelju prerezan, vjerojatnost $1/2$; za korijen $1$) <em>neovisan</em> o minimumu $Y_v$ te komponente, i $E[\text{rezultat}] = \sum_v P(v \text{ najplići}) \cdot E[Y_v]$.</p>
 '''),
-        ('Kako izračunati zbroj težina svih povezanih podskupova, i kako ga održavati kad se vrhovi dodaju?',
+        ('Kako izračunati razdiobu $Y_v$ – minimuma komponente vrha $v$ unutar $T_v$ – iz razdioba djece?',
          r'''
-<p>Ukorijenimo stablo. $D(u)$ = zbroj težina povezanih podskupova čiji je najplići vrh $u$: $D(u) = [u \text{ živ}] \cdot w_u \prod_{c \text{ dijete}} (1 + D(c))$ – svako dijete ili nije uključeno ($1$) ili doprinosi povezanim podskupom kojem je ono vrh ($D(c)$). $G = \sum_u D(u)$. Oživljavanje vrha mijenja $D$ svim precima – u lancu $O(N)$ po ažuriranju. Trebamo strukturu koja to radi u polilogaritamskom vremenu: „dinamički DP” preko HLD-a.</p>
+<p>$dp[v][x] := P(Y_v = x)$. Za dijete $c$ neka je $Z_c = Y_c$ ako je brid $(v, c)$ zadržan, inače $Z_c = \infty$: $P(Z_c = x) = dp[c][x] / 2$, $P(Z_c = \infty) = 1/2$. Varijable $Z_c$ različite djece su neovisne (disjunktni skupovi bridova), a $Y_v = \min(A_v, \min_c Z_c)$. Za minimum neovisnih varijabli množe se repovi: $P(\min_c Z_c \ge x) = \prod_c P(Z_c \ge x)$, odnosno za dvije varijable $P(\min = x) = p_1(x) P(Y_2 \ge x) + p_2(x) P(Y_1 > x)$ (točno jedna od njih je „prva” jednaka $x$). Na kraju $dp[v][A_v] = P(\min_c Z_c \ge A_v)$, vrijednosti $x > A_v$ se brišu, a $x < A_v$ ostaju. Nenulti $x$ su samo vrijednosti vrhova iz $T_v$, pa je tablica veličine $size(v)$.</p>
 '''),
-        ('Zašto je HLD sa segmentnim stablom prava struktura za ovaj DP?',
+        ('Spajanje s prefiksnim zbrojevima traje $O(size(c_1) + size(c_2))$ – zašto to nije dovoljno i kako to ubrzati?',
          r'''
-<p>Na teškom putu $D(v) = c_v \cdot (1 + D(\text{teško dijete}))$, gdje je $c_v = [v \text{ živ}] \, w_v \prod_{\text{laka djeca}} (1 + D(c))$. To je afino preslikavanje $x \mapsto c_v + c_v x$; kompozicija afinih preslikavanja je afina, pa segmentno stablo nad putem računa $D(\text{glave})$ u $O(\log N)$. Uz koeficijente afinog preslikavanja u čvoru čuvamo i zbroj svih $D$ na segmentu (kao afinu funkciju od ulaza) pa $G$ ažuriramo razlikom zbrojeva. Promjena $D(\text{glave})$ mijenja jedan faktor u umnošku lakih djece roditelja; put do korijena prelazi $O(\log N)$ teških puteva, pa je ažuriranje $O(\log^2 N)$.</p>
+<p>U lancu je $\sum_v size(v) = \Theta(N^2)$. Zato razdiobu držimo u dinamičkom segmentnom stablu nad sortiranim različitim vrijednostima: čvor čuva zbroj vjerojatnosti, zbroj $x \cdot p$ i lijeni množitelj. Spajanje dvaju stabala ide rekurzivno uz repove $t_a = P(Y_a > r)$, $t_b = P(Y_b > r)$ za trenutni interval $[l, r]$: ako $b$ nema čvorova na intervalu, formula se svodi na $p_a(x) \cdot t_b$ – cijelo podstablo $a$ pomnožimo konstantom (lijeno) i stanemo; simetrično za $a$; ako oba imaju čvorove, najprije spajamo desnu polovicu, a lijevoj proslijedimo repove uvećane za masu desnih polovica. Svaki rekurzivni poziv koji ide dublje „troši” jedan čvor stabla $b$, a čvorova nastaje najviše $N (\lceil \log_2 N \rceil + 1)$ – ukupno $O(N \log N)$. Očekivanje $E[Y_v]$ pročitamo iz korijena kao zbroj $x \cdot p$.</p>
 '''),
-        ('Koje zamke vrebaju u modularnoj aritmetici i implementaciji?',
+        ('Koje su zamke u implementaciji?',
          r'''
-<p>Faktor $1 + D(c)$ može biti $\equiv 0 \pmod p$, a tada ga ne možemo „podijeliti van” iz umnoška – zato umnožak lakih djece čuvamo kao (umnožak nenultih faktora, broj nula). Težina $w_u = 2^{1-\deg u}$ ima negativan eksponent, računamo je kao $(2^{-1})^{\deg u - 1}$. Vrhove jednake vrijednosti oživimo sve prije nego što pribrojimo $(v_j - v_{j+1}) G$. Sve obilaske pišemo iterativno (BFS redoslijed, eksplicitni stog) zbog $N = 3 \cdot 10^5$ i lančastih stabala.</p>
+<p>Vrijednosti $A_v \le 10^9$ su veće od modula – prije množenja s vjerojatnošću reduciramo ih modulo $p$. Faktor $1/2$ za dijete primjenjujemo lijeno na korijen njegova stabla, a njegov rep u $\infty$ (brid prerezan) je $1/2$; akumulirani rep vrha $v$ nakon $k$ spojene djece je $2^{-k}$. Mase desnih polovica moramo zapamtiti <em>prije</em> rekurzivnog spajanja desne strane (ona ih mijenja). Nakon obrade vlastite vrijednosti ukupna masa stabla je točno $1$, pa rep $\infty$ za vrh nije potrebno pamtiti. Stablo obilazimo BFS redoslijedom unatrag (bez rekurzije po stablu – lanac dubine $3 \cdot 10^5$); rekurzija po segmentnom stablu dubine je samo $\log_2 N$.</p>
 '''),
     ],
     'tips': [
-        r'''Zbroj po podskupovima bridova stabla često se pretvori u zbroj po <strong>povezanim podskupovima vrhova</strong> s multiplikativnom težinom – čim je težina umnožak po vrhovima, radi klasični DP $D(u) = w_u \prod (1 + D(c))$.''',
-        r'''Faktor oblika $\min$ ili $\max$ po skupu rastavi teleskopski po pragovima: $\min(C) = \sum_j (v_j - v_{j+1}) [\min C \ge v_j]$. Tako se „skupno” svojstvo pretvara u „koji su vrhovi živi”.''',
-        r'''Dinamički DP na stablu (promjene vrijednosti vrhova, upit nad cijelim stablom): HLD + segmentno stablo afinih (ili matričnih) preslikavanja daje $O(\log^2 N)$ po promjeni; laka djeca ulaze kao skalar u čvor teškog puta.''',
-        r'''Kad održavaš umnožak modulo prost broj uz dijeljenje, pamti posebno broj faktora jednakih nuli – inverz nule ne postoji, a nula se pojavi točno onda kad je test najveći.''',
+        r'''Zbroj po svim $2^k$ podskupovima odluka pretvori u $2^k \cdot E[\cdot]$ uz neovisne slučajne odluke – linearnost očekivanja rastavlja složenu veličinu na lokalne doprinose.''',
+        r'''Slučajnu komponentu u ukorijenjenom stablu pripiši njezinom najpličem vrhu: događaj „$v$ je najplići” ovisi samo o bridu prema roditelju i neovisan je o svemu unutar podstabla.''',
+        r'''Minimum neovisnih slučajnih varijabli: repovi $P(\cdot \ge x)$ se množe; iz toga se izvodi $P(\min = x) = p_1(x) P(Y_2 \ge x) + p_2(x) P(Y_1 > x)$ – spajanje razdioba prefiksnim zbrojevima ili segment tree mergeom.''',
+        r'''Razdiobe po vrijednostima s množenjem na intervalu i točkovnim izmjenama drži u dinamičkom segmentnom stablu i spajaj ih segment tree mergeom: ukupno $O(N \log N)$ čvorova – rezerviraj memoriju za $N \log_2 N$ čvorova unaprijed.''',
     ],
     'solution': r'''
 <p>Preformulirajmo zadatak kao traženje očekivanog rezultata kad se svaki brid neovisno reže s vjerojatnošću $1/2$ (na kraju pomnožimo s $2^{N-1}$).</p>
@@ -491,6 +491,60 @@ PROBLEMS = [
 <p>Koristimo tehniku kao u zadatku <a href="https://atcoder.jp/contests/abc269/tasks/abc269_h">ABC269 Ex</a>. Za povezani podgraf $C$ stabla $T$ koji je s okolinom povezan samo preko vrhova $u$ i $v$ održavamo: za svaki $x$ vjerojatnost da su $u$ i $v$ povezani i minimum njihove komponente je $x$; za svaki $x$ vjerojatnost da nisu povezani i minimum komponente vrha $u$ je $x$; isto za vrh $v$; te doprinos odgovoru komponenata koje ne sadrže ni $u$ ni $v$. Dva takva zapisa spajaju se u linearnom vremenu u zbroju broja vrhova, pa je ukupna složenost $O(N \log N)$.</p>
 ''',
     'detailed': r'''
+<h3>1. Od zbroja po podskupovima do očekivanja</h3>
+<p>Svaki od $2^{N-1}$ podskupova bridova jednako je vjerojatan ako svaki brid neovisno zadržimo ili prerežemo s vjerojatnošću $1/2$. Zato je traženi zbroj jednak $2^{N-1} \cdot E[R]$, gdje je $R$ rezultat (zbroj minimuma po komponentama) slučajno rezanog stabla. Dovoljno je izračunati $E[R]$ modulo $p = 998244353$ (uz $2^{-1} = (p+1)/2$) i pomnožiti s $2^{N-1}$.</p>
+<h3>2. Komponente pripisujemo najpličem vrhu</h3>
+<p>Ukorijenimo stablo u vrhu $1$. Svaka komponenta $C$ ima jedinstven najplići vrh: kad bi $u, v \in C$ oba bila najplića (na istoj, najmanjoj dubini), put između njih u stablu prolazi kroz njihova roditelja, dakle kroz vrh manje dubine koji bi morao biti u $C$ – proturječje. Vrh $v$ je najplići u svojoj komponenti točno kad je brid prema roditelju prerezan (za korijen uvijek). Tada je njegova komponenta jednaka komponenti vrha $v$ u podstablu $T_v$ s bridovima unutar $T_v$. Označimo s $Y_v$ minimum te komponente (slučajna varijabla koja ovisi samo o bridovima unutar $T_v$). Po linearnosti očekivanja</p>
+<p>$$E[R] = \sum_v E\bigl[[v \text{ najplići}] \cdot Y_v\bigr] = \sum_v P(v \text{ najplići}) \cdot E[Y_v] = E[Y_1] + \frac12 \sum_{v \ne 1} E[Y_v],$$</p>
+<p>gdje smo iskoristili neovisnost: događaj „brid $(v, \mathrm{par}(v))$ prerezan” i varijabla $Y_v$ ovise o disjunktnim skupovima bridova.</p>
+<h3>3. Razdioba minimuma: $dp[v][x]$</h3>
+<p>Definirajmo $dp[v][x] = P(Y_v = x)$. Za dijete $c$ vrha $v$ neka je $Z_c = Y_c$ ako je brid $(v, c)$ zadržan, a $Z_c = \infty$ inače; dakle $P(Z_c = x) = \tfrac12 dp[c][x]$ i $P(Z_c = \infty) = \tfrac12$. Varijable $Z_c$ za različitu djecu su neovisne (podstabla djece i bridovi prema njima čine disjunktne skupove bridova), a komponenta vrha $v$ u $T_v$ sastoji se od $v$ i komponenata one djece čiji je brid zadržan, pa je</p>
+<p>$$Y_v = \min\Bigl(A_v, \; M_v\Bigr), \qquad M_v = \min_{c \text{ dijete}} Z_c \quad (\min \emptyset = \infty).$$</p>
+<p>Za minimum neovisnih varijabli množe se repovi: $P(M_v \ge x) = \prod_c P(Z_c \ge x)$. Za dvije varijable $Y_a, Y_b$ to daje formulu po točkama</p>
+<p>$$P(\min(Y_a, Y_b) = x) = P(Y_a = x)\, P(Y_b \ge x) + P(Y_b = x)\, P(Y_a > x),$$</p>
+<p>jer je minimum jednak $x$ točno kad je $Y_a = x$ i $Y_b \ge x$, ili $Y_a > x$ i $Y_b = x$ (disjunktni događaji). Konačno, $\min$ s konstantom $A_v$: $dp[v][x] = P(M_v = x)$ za $x < A_v$, $dp[v][A_v] = P(M_v \ge A_v)$, $dp[v][x] = 0$ za $x > A_v$. Očito je $dp[v][x] \ne 0$ samo za vrijednosti $x$ koje se pojavljuju u $T_v$ – tablica ima najviše $size(v)$ nenultih unosa, a $E[Y_v] = \sum_x x \cdot dp[v][x]$.</p>
+<h3>4. Zašto naivno spajanje nije dovoljno</h3>
+<p>Držimo li $dp[v]$ kao sortirani niz parova $(x, p)$, dvoje djece spajamo formulom iz točke 3 u $O(size(c_1) + size(c_2))$ prolazom s dva pokazivača i sufiksnim zbrojevima. No trošak obrade vrha $v$ je tada $\Theta(size(v))$, a $\sum_v size(v)$ je u lancu $\Theta(N^2)$ – prevelik za $N = 3 \cdot 10^5$. Treba struktura u kojoj spajanje košta razmjerno <em>manjoj</em> strani (ili broju „dodirnutih” čvorova), što je upravo spajanje segmentnih stabala iz službenog rješenja.</p>
+<h3>5. Dinamičko segmentno stablo i segment tree merge</h3>
+<p>Sortiramo različite vrijednosti $A$ u niz $vals[0..K-1]$; $dp[v]$ držimo u dinamičkom segmentnom stablu nad indeksima $[0, K-1]$, u kojem postoje samo čvorovi na putevima do stvorenih listova. Čvor $t$ čuva $S_t = \sum p$, $X_t = \sum vals[x] \cdot p$ (oboje modulo $p$) i lijeni množitelj $\lambda_t$ (množenje cijelog podstabla konstantom množi i $S$ i $X$). Operacije:</p>
+<ul>
+    <li><strong>setPoint</strong>$(pos, val)$: postavi vjerojatnost lista $pos$ na $val$ – stvara $\le \lceil \log_2 K \rceil + 1$ čvorova.</li>
+    <li><strong>prefix</strong>$(pos)$: zbroj $S$ na $[0, pos)$ – $O(\log K)$.</li>
+    <li><strong>cut</strong>$(pos)$: odbaci sve pozicije $> pos$ (desna podstabla uz put do $pos$ postaju prazna) – $O(\log K)$.</li>
+    <li><strong>merge</strong>$(a, b, l, r, t_a, t_b)$: iz stabala razdioba $Y_a$ i $Y_b$ napravi stablo razdiobe $\min(Y_a, Y_b)$ na intervalu $[l, r]$, gdje su $t_a = P(Y_a > r)$ i $t_b = P(Y_b > r)$ „repovi” – masa desno od intervala, uključujući masu u $\infty$.</li>
+</ul>
+<p>Ključ spajanja je formula iz točke 3 zapisana po intervalu: za $x \in [l, r]$ je $P(Y_b \ge x) = t_b + \sum_{y \in [x, r]} p_b(y)$. Ako $b$ nema čvorova na $[l, r]$, taj je zbroj $0$, pa je nova razdioba na cijelom intervalu $p_a(x) \cdot t_b$ – podstablo $a$ lijeno pomnožimo s $t_b$ i vratimo ga, bez spuštanja. Simetrično, ako $a$ nema čvorova, vratimo $b$ pomnožen s $t_a$. Ako oba imaju čvorove i $l = r$, list dobiva $p_a (p_b + t_b) + p_b t_a$. Inače zapamtimo mase desnih polovica $S_{rc(a)}, S_{rc(b)}$ <em>prije</em> spajanja, spojimo desne polovice s istim repovima, a lijeve s repovima $t_a + S_{rc(a)}$, $t_b + S_{rc(b)}$ (sve desno od lijeve polovice), i osvježimo $S, X$ čvora $a$. Prije spuštanja gurnemo lijene množitelje oba čvora.</p>
+<p><strong>Složenost spajanja.</strong> Svaki poziv koji se spušta (oba čvora postoje) „troši” čvor stabla $b$ koji više nikad neće biti posjećen (ostaje samo čvor $a$), a pozivi koji stanu u $O(1)$ su djeca takvih poziva. Zato je ukupno vrijeme svih spajanja $O(\text{broj ikad stvorenih čvorova}) = O(N \log K)$, jer čvorovi nastaju samo u setPoint (jedan poziv po vrhu). Isti argument vrijedi i uz lijeno množenje – ono je $O(1)$ po posjećenom čvoru.</p>
+<h3>6. Obrada vrha</h3>
+<p>Vrhove obrađujemo obrnutim BFS redoslijedom (djeca prije roditelja, bez rekurzije po stablu). Za vrh $v$:</p>
+<ol>
+    <li>$root_v = \varnothing$, rep $inf_v = 1$ (bez djece je $M_v = \infty$ sigurno). Za svako dijete $c$: lijeno pomnožimo $root_c$ s $2^{-1}$ (to je razdioba $Z_c$ na konačnim vrijednostima; njegova masa u $\infty$ je $2^{-1}$), zatim $root_v = \text{merge}(root_v, root_c, 0, K-1, inf_v, 2^{-1})$ i $inf_v \leftarrow inf_v \cdot 2^{-1}$. Repovi u korijenu su točno mase u $\infty$, jer desno od $[0, K-1]$ nema konačnih vrijednosti.</li>
+    <li>$q = \text{prefix}(idx_v) = P(M_v < A_v)$; $\text{cut}(idx_v)$; $\text{setPoint}(idx_v, 1 - q)$. Time je $dp[v]$ točno razdioba $Y_v = \min(A_v, M_v)$ i njegova ukupna masa je $1$ (masa u $\infty$ nestala je – zato je za vrh, za razliku od djeteta, ne treba pamtiti).</li>
+    <li>$E[Y_v] = X_{root_v}$; pribrojimo $E[Y_v]$ (korijen) odnosno $2^{-1} E[Y_v]$.</li>
+</ol>
+<p>Na kraju ispišemo $E[R] \cdot 2^{N-1} \bmod p$.</p>
+<h3>7. Složenost i memorija</h3>
+<p>Kompresija vrijednosti $O(N \log N)$. Po vrhu: jedan setPoint, prefix i cut ($O(\log K)$) te spajanja koja su ukupno $O(N \log K)$. Ukupno $O(N \log N)$ vremena. Čvorova je najviše $N (\lceil \log_2 K \rceil + 1) \approx 6 \cdot 10^6$; s pet 32-bitnih polja po čvoru to je oko $120$ MB (izmjereno do $\approx 143$ MB na zvijezdi s $A_v = v$), unutar limita od $1024$ MB. Vrijeme na najvećim testovima oko $0.5$ s.</p>
+<h3>8. Primjer</h3>
+<p>Stablo $1\!-\!2$, $2\!-\!4$, $3\!-\!2$, $A = (1, 2, 3, 4)$, korijen $1$. Listovi: $dp[3] = \{3 \mapsto 1\}$, $dp[4] = \{4 \mapsto 1\}$. Vrh $2$: $Z_3 = \{3 \mapsto \tfrac12, \infty \mapsto \tfrac12\}$, $Z_4 = \{4 \mapsto \tfrac12, \infty \mapsto \tfrac12\}$, pa je $M_2 = \{3 \mapsto \tfrac12, 4 \mapsto \tfrac14, \infty \mapsto \tfrac14\}$; zbog $A_2 = 2$ sve pada na $2$: $dp[2] = \{2 \mapsto 1\}$, $E[Y_2] = 2$. Vrh $1$: $A_1 = 1$, $dp[1] = \{1 \mapsto 1\}$, $E[Y_1] = 1$. Dakle $E[R] = 1 + \tfrac12 (2 + 3 + 4) = 5.5$ i odgovor $5.5 \cdot 2^3 = 44$.</p>
+<h3>9. Zamke</h3>
+<ul>
+    <li>$A_v \le 10^9 > p$: u $X$ ulazi $vals[x] \bmod p$; usporedbe i kompresija rade s izvornim vrijednostima.</li>
+    <li>Mase desnih polovica zapamtiti prije rekurzije – spajanje desne strane ih mijenja.</li>
+    <li>Masa koja je već u listu $idx_v$ prije koraka 2 (događaj $M_v = A_v$) ne pribraja se posebno: setPoint je <em>prepisuje</em> vrijednošću $P(M_v \ge A_v) = 1 - q$, koja je već sadrži – pribrajanje bi je udvostručilo.</li>
+    <li>Lijeni množitelj $1$ znači „ništa”; prazan čvor $0$ nikad ne smije dobiti množitelj (apply provjerava $t \ne 0$).</li>
+    <li>Rezervirati memoriju za $20N$ čvorova unaprijed da vektori ne realociraju usred spajanja.</li>
+    <li>$N = 2$ kao provjera: korijen doprinosi $E[Y_1] = \tfrac12 A_1 + \tfrac12 \min(A_1, A_2)$, list $\tfrac12 A_2$; puta $2^{1}$ daje $A_1 + A_2 + \min(A_1, A_2)$ – točno zbroj rezultata za prerezan i zadržan brid.</li>
+</ul>
+''',
+    'verified': r'''uzorci 2/2; 300 slučajnih malih stabala ($N \le 10$, slučajno/lanac/zvijezda/„metla”/„gusjenica”, vrijednosti iz malog i punog raspona) protiv brute forcea koji prolazi sva $2^{N-1}$ podskupa bridova; 5 velikih testova s $N = 3 \cdot 10^5$ (lanac, zvijezda, „metla”, „gusjenica”, slučajno stablo; u dva od njih $A_v = v$ uz roditelja manjeg indeksa), najsporiji $0.52$ s, najviše $\approx 143$ MB.''',
+    'alternatives': [
+        {
+            'title': 'Pragovi po vrijednosti i dinamički DP (HLD)',
+            'code': 'stage12/F/sol_alt.cpp',
+            'verified': r'''uzorci 2/2; 300 slučajnih malih stabala ($N \le 10$, slučajno/lanac/zvijezda/„metla”/„gusjenica”, vrijednosti iz malog i punog raspona) protiv brute forcea koji prolazi sva $2^{N-1}$ podskupa bridova; 5 velikih testova s $N = 3 \cdot 10^5$ (lanac, zvijezda, „metla”, „gusjenica”, slučajno stablo), najsporiji $0.81$ s.''',
+            'detailed': r'''
+<p>Za razliku od službenog pristupa, koji za svaki vrh vodi razdiobu minimuma njegove komponente i spaja djecu, ovdje minimum rastavljamo teleskopski po pragovima vrijednosti i zbrajamo težine <em>povezanih podskupova vrhova</em> koji se sastoje samo od „živih” vrhova, održavajući taj zbroj dinamičkim DP-om na stablu (HLD + segmentno stablo afinih preslikavanja) dok vrhove oživljavamo u padajućem redoslijedu. Pristup je koristan kad umjesto minimuma imamo neku drugu „skupnu” veličinu ovisnu samo o pragu (npr. broj vrhova s vrijednošću iznad praga) ili kad je već potrebna struktura za promjene vrijednosti vrhova; košta $O(N \log^2 N)$, ali samo $O(N)$ memorije.</p>
 <h3>1. Od podskupova bridova do povezanih podskupova vrhova</h3>
 <p>Rezultat podskupa bridova je zbroj minimuma po komponentama. Zamijenimo poredak zbrajanja: za svaki povezan podskup vrhova $C$ pitamo se u koliko podskupova bridova je $C$ komponenta. To se događa točno kad su svih $|C| - 1$ bridova unutar $C$ zadržani, a svi bridovi s jednim krajem u $C$ i drugim izvan prerezani; takvih „izlaznih” bridova je $\sum_{u \in C} \deg u - 2(|C| - 1)$. Preostali bridovi su slobodni, a ima ih</p>
 <p>$$(N - 1) - (|C| - 1) - \Bigl(\sum_{u \in C} \deg u - 2(|C| - 1)\Bigr) = N - 2 + \sum_{u \in C} (1 - \deg u).$$</p>
@@ -528,9 +582,9 @@ PROBLEMS = [
 </ol>
 <h3>8. Složenost i rubni slučajevi</h3>
 <p>Vrijeme $O(N \log^2 N)$ (uz $O(\log p)$ za inverze pri prelasku lakih bridova), memorija $O(N)$. Za $N = 3 \cdot 10^5$ najsporiji test (lanac s rastućim vrijednostima, gdje svako oživljavanje mijenja dugačak put) traje ispod sekunde. $N = 2$: $2^{N-2} = 1$, sve radi. Sve vrijednosti su modulo $p$; razlika $v_j - v_{j+1}$ je pozitivna pa nema negativnih ostataka, ali razliku zbrojeva $s$ normaliziramo dodavanjem $p$. Nema rekurzije, pa lanac dubine $3 \cdot 10^5$ nije problem.</p>
-<p>Napomena: službeno rješenje (vidi sažetak) vodi distribuciju minimuma $dp[v][x]$ i spaja djecu; naš je pristup drugačiji put do iste sume – umjesto po vrhu-predstavniku komponente i njegovu minimumu, zbrajamo po pragovima i povezanim podskupovima.</p>
 ''',
-    'verified': r'''uzorci 2/2; 300 slučajnih malih stabala ($N \le 10$, slučajna/lančasta/zvjezdasta/„metla”, vrijednosti iz malog i punog raspona) protiv brute forcea koji prolazi sva $2^{N-1}$ podskupa bridova; 3 velika testa s $N = 3 \cdot 10^5$ (lanac s rastućim vrijednostima kao najgori slučaj propagacije, zvijezda, slučajno), najsporiji $0.82$ s.''',
+        },
+    ],
 },
 # ---------------------------------------------------------------- G
 {
