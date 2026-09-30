@@ -180,7 +180,37 @@ PROBLEMS = [
 <h3>7. Primjer</h3>
 <p>Tablica $\begin{smallmatrix}1 & 2 & 4\\ 3 & 0 & 5\end{smallmatrix}$: $P_3 = \{(1,1),(1,2),(2,2)\}$ – redak 1 ima stupce $[1,2]$, redak 2 stupac $2 \ge 2$, uvjet vrijedi, pa $\text{ok}(3)$. $P_4$ dodaje $(2,1)$: redak 2 sada ima $\text{lo}=1 < 2$, uvjet pada. Odgovor $3$.</p>
 ''',
-    'verified': r'''uzorci 2/2; 300 slučajnih testova ($nm \le 12$) protiv brute forcea koji nabraja sve monotone putove; 3 velika testa ($nm = 10^6$, uključujući $1 \times 10^6$ i $10^6 \times 1$), najsporiji $0.09$ s.''',
+    'verified': r'''uzorci 2/2; 300 slučajnih testova ($nm \le 14$) protiv brute forcea koji nabraja sve monotone putove; 3 velika testa ($nm = 10^6$, uključujući $1 \times 10^6$ i $10^6 \times 1$), najsporiji $0.09$ s.''',
+    'alternatives': [
+        {
+            'title': 'Inkrementalno dodavanje ćelija u uređeni skup',
+            'detailed': r'''
+<p>Za razliku od glavnog rješenja, ovdje nema binarnog pretraživanja: ćelije dodajemo redom vrijednosti $0, 1, 2, \dots$ i pri svakom dodavanju u $O(\log(nm))$ provjeravamo je li skup i dalje na jednom monotonom putu. Pristup je prirodan kad želimo „online” odgovor (prvi trenutak u kojem uvjet pada) i kad ne želimo razmišljati o granicama binarnog pretraživanja; glavno rješenje je pak jednostavnije po strukturama podataka i brže zbog linearnih provjera.</p>
+<h3>1. Isti kriterij, drugačiji redoslijed provjere</h3>
+<p>I ovdje koristimo tvrdnju iz glavnog rješenja: skup ćelija $Q$ leži na monotonom putu akko, poredan po (redak, stupac), ima nepadajuće stupce. Neka je $P_x$ skup ćelija s vrijednostima $0, \dots, x-1$. Odgovor je najveći $x$ za koji je $P_x$ „dobar”, a zbog monotonosti ($P_{x} \subseteq P_{x+1}$) to je točno broj ćelija koje uspijemo dodati prije prvog kršenja uvjeta.</p>
+<h3>2. Lokalnost uvjeta pri umetanju</h3>
+<p><strong>Tvrdnja.</strong> Ako je $Q$ dobar i u njega umetnemo ćeliju $q = (r, c)$, tada je $Q \cup \{q\}$ dobar akko je $c_{\text{pred}} \le c \le c_{\text{succ}}$, gdje su $\text{pred}$ i $\text{succ}$ neposredni prethodnik i sljedbenik ćelije $q$ u poretku (redak, stupac) unutar $Q$ (uvjet se preskače ako prethodnik/sljedbenik ne postoji).</p>
+<p><em>Dokaz.</em> Niz stupaca u poretku (redak, stupac) skupa $Q$ je nepadajući. Umetanjem $q$ između $\text{pred}$ i $\text{succ}$ niz ostaje nepadajući točno onda kada je $c_{\text{pred}} \le c \le c_{\text{succ}}$ – susjedni parovi koji ne uključuju $q$ nisu se promijenili. Ako je $\text{pred}$ u istom retku kao $q$, tada je $c_{\text{pred}} < c$ automatski (poredak po stupcu); isto vrijedi za sljedbenika u istom retku. Dakle provjera dva susjeda u uređenom skupu točno odgovara provjeri „po svim parovima” iz glavnog rješenja. $\square$</p>
+<h3>3. Algoritam</h3>
+<ol>
+<li>Pročitaj tablicu i zapamti poziciju $(\text{posR}[v], \text{posC}[v])$ svake vrijednosti $v$.</li>
+<li>Održavaj uređeni skup (npr. <code>std::set&lt;pair&lt;int,int&gt;&gt;</code>) dodanih ćelija.</li>
+<li>Za $v = 0, 1, \dots, nm-1$: nađi <code>lower_bound</code> ćelije $(\text{posR}[v], \text{posC}[v])$ – to je sljedbenik; prethodnik je element ispred njega. Ako sljedbenik ima stupac $< \text{posC}[v]$ ili prethodnik stupac $> \text{posC}[v]$, prekini. Inače umetni ćeliju i postavi odgovor na $v+1$.</li>
+<li>Ispiši odgovor (ako se petlja nije prekinula, odgovor je $nm$).</li>
+</ol>
+<h3>4. Složenost</h3>
+<p>Svako umetanje i traženje susjeda u balansiranom stablu je $O(\log(nm))$, pa je ukupno $O(nm\log(nm))$ – asimptotski jednako glavnom rješenju, ali s većom konstantom (pokazivači, alokacije čvorova). Memorija je $O(nm)$; za $nm = 10^6$ skup zauzima nekoliko desetaka MiB, što staje u 1024 MiB.</p>
+<h3>5. Zamke</h3>
+<ul>
+<li>Ćelije u istom retku ne smiju se odbaciti – poredak (redak, stupac) sam osigurava da susjed u istom retku zadovoljava uvjet; provjera $c_{\text{pred}} \le c \le c_{\text{succ}}$ to ispravno obuhvaća.</li>
+<li>Skup se mora isprazniti između testova; <code>std::set</code> za $10^6$ elemenata je zamjetno sporiji od linearnih nizova, pa ga ne treba puniti nepotrebno – prekini odmah pri prvom kršenju.</li>
+<li>Umetanje s „hintom” (<code>s.insert(it, cur)</code>) štedi jedno dodatno pretraživanje.</li>
+</ul>
+''',
+            'code': 'stage18/B/sol_alt.cpp',
+            'verified': r'''uzorci 2/2 (oba primjera iz teksta); 300 slučajnih testova ($nm \le 14$) protiv istog brute forcea koji nabraja sve monotone putove; 3 velika testa ($nm = 10^6$), najsporiji $0.71$ s.''',
+        },
+    ],
 },
 # ---------------------------------------------------------------- C
 {
