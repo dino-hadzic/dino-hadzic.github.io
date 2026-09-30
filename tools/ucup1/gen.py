@@ -11,6 +11,11 @@ Polja zadatka (uz obvezna letter/title/title_hr/slug/tl/ml/statement):
   detailed  – detaljno rješenje (HTML), vidljivo samo uz uključen prekidač "Detaljno rješenje"
   verified  – kratak opis lokalne provjere koda (uzorci, stress test protiv brute forcea)
   code      – (neobvezno) put do C++ rješenja; zadano solutions/stageN/<slovo>/sol.cpp
+  alternatives – (neobvezno) popis drugih pristupa, svaki dict s poljima:
+                 title (naslov pristupa), detailed (HTML), code (put unutar solutions/, npr.
+                 stageN/<slovo>/sol_alt.cpp), verified (opis lokalne provjere tog koda).
+               Glavno 'detailed' uvijek razrađuje SLUŽBENI pristup iz 'solution' (isti kao hints/coach);
+               drugačiji pristupi idu u 'alternatives' i prikazuju se iza njega.
 Polja stagea: no_editorial (nema službenog editoriala), community (rješenja izvedena iz AC predaja).
 """
 import html as htmllib
@@ -141,11 +146,11 @@ def code_path(stage, p):
     return os.path.join(SOLUTIONS, f'stage{stage["no"]}', p['letter'], 'sol.cpp')
 
 
-def render_code(path):
+def render_code(path, label='KOD (C++)'):
     with open(path) as f:
         src = f.read().rstrip('\n') + '\n'
     return ['                <details class="spoiler kod-spoiler">',
-            '                    <summary>KOD (C++)<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>',
+            f'                    <summary>{label}<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>',
             '                    <div class="spoiler-sadrzaj">',
             '<pre><code class="language-cpp">' + htmllib.escape(src, quote=False) + '</code></pre>',
             '                    </div>',
@@ -174,6 +179,16 @@ def render_solution(stage, p):
         if p.get('verified'):
             out.append(f'                    <p class="provjera"><strong>Provjera koda:</strong> {p["verified"].strip()}</p>')
         out += [line if line.startswith('<pre>') else '    ' + line for line in render_code(code_path(stage, p))]
+        for i, alt in enumerate(p.get('alternatives', []), 2):
+            out += ['                    <div class="rjesenje-alternativa">',
+                    f'                    <h2>{i}. RJEŠENJE: {alt["title"]}</h2>',
+                    indent(alt['detailed'], 20)]
+            if alt.get('verified'):
+                out.append(f'                    <p class="provjera"><strong>Provjera koda:</strong> {alt["verified"].strip()}</p>')
+            if alt.get('code'):
+                out += [line if line.startswith('<pre>') else '    ' + line
+                        for line in render_code(os.path.join(SOLUTIONS, alt['code']), f'KOD (C++) – {i}. rješenje')]
+            out.append('                    </div>')
         out.append('                </div>')
     else:
         out += ['                <div class="rjesenje-sazeto">',
@@ -269,6 +284,17 @@ def check_problem(stage, p):
             problems.append('missing tips')
         if len(p['detailed']) < 2 * len(p['solution']):
             problems.append('detailed is not substantially longer than solution')
+    for i, alt in enumerate(p.get('alternatives', []), 2):
+        if not p.get('detailed'):
+            problems.append('alternatives without detailed')
+        for key in ('title', 'detailed'):
+            if not alt.get(key):
+                problems.append(f'alternative {i}: missing {key}')
+        if alt.get('code'):
+            if not os.path.exists(os.path.join(SOLUTIONS, alt['code'])):
+                problems.append(f'alternative {i}: missing code file solutions/{alt["code"]}')
+            if not alt.get('verified'):
+                problems.append(f'alternative {i}: missing verified')
     if p.get('tips'):
         for t, b in p.get('coach', []):
             if not t.rstrip().endswith('?'):
@@ -277,6 +303,7 @@ def check_problem(stage, p):
             problems.append('fewer than 3 coach steps')
     for name, html in [('statement', p.get('statement', '')), ('solution', p.get('solution') or ''),
                        ('detailed', p.get('detailed') or '')] + \
+            [(f'alt{i}', alt.get('detailed', '')) for i, alt in enumerate(p.get('alternatives', []))] + \
             [(f'hint{i}', h) for i, h in enumerate(p.get('hints', []))] + \
             [(f'tip{i}', h) for i, h in enumerate(p.get('tips', []))] + \
             [(f'coach{i}', b) for i, (t, b) in enumerate(p.get('coach', []))]:
