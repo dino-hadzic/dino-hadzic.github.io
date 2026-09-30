@@ -1,11 +1,11 @@
-// UCup 1, Stage 17, D - Flower's Land 2
-// Brisanje susjednih jednakih znakova je poništavanje para g * g^{-1}.
-// Službena konstrukcija: tri slučajne invertibilne 2x2 matrice M_0, M_1, M_2
-// modulo 2^61-1; znak s_i na PARNOJ poziciji postaje A_i = M_{s_i}, a na
-// NEPARNOJ A_i = M_{s_i}^{-1}. Susjedni jednaki znakovi su uvijek različitog
-// pariteta, pa se brišu kao M M^{-1} = I ili M^{-1} M = I. Izbrisiv interval
-// zato uvijek daje produkt I; neizbrisiv daje I samo uz zanemarivu
-// vjerojatnost (hash u nekomutativnoj grupi).
+// UCup 1, Stage 17, D - Flower's Land 2 (2. rješenje: involutorne matrice, bez pariteta)
+// Brisanje susjednih jednakih znakova je redukcija riječi u grupi
+// Z2 * Z2 * Z2 (slobodni produkt): svaki znak je involucija (x^2 = 1), a
+// reducirana riječ je jedinstvena (sustav je konfluentan). Niz se može
+// izbrisati točno kad je produkt jednak jedinici grupe. Grupu "hashiramo"
+// slučajnim 2x2 matricama A_c s A_c^2 = I (npr. [[a,b],[c,-a]] s a^2+bc=1)
+// modulo 2^61-1: izbrisiv niz uvijek daje I, a neizbrisiv daje I samo uz
+// zanemarivu vjerojatnost.
 // Operacija +1 mod 3 rotira znakove 0->1->2->0, pa u čvoru segmentnog stabla
 // čuvamo produkt za sva tri pomaka; lijeni pomak samo rotira ta tri produkta.
 #include <bits/stdc++.h>
@@ -21,7 +21,6 @@ inline ull mulm(ull a, ull b) {
     return r;
 }
 inline ull addm(ull a, ull b) { ull r = a + b; return r >= MOD ? r - MOD : r; }
-inline ull subm(ull a, ull b) { return a >= b ? a - b : a + MOD - b; }
 
 struct Mat {
     ull a[4];  // [0 1; 2 3]
@@ -34,6 +33,7 @@ inline Mat mul(const Mat &x, const Mat &y) {
     r.a[3] = addm(mulm(x.a[2], y.a[1]), mulm(x.a[3], y.a[3]));
     return r;
 }
+const Mat ID = {{1, 0, 0, 1}};
 inline bool isId(const Mat &x) { return x.a[0] == 1 && x.a[1] == 0 && x.a[2] == 0 && x.a[3] == 1; }
 
 ull pw(ull a, ull e) {
@@ -41,17 +41,11 @@ ull pw(ull a, ull e) {
     while (e) { if (e & 1) r = mulm(r, a); a = mulm(a, a); e >>= 1; }
     return r;
 }
-// inverz 2x2 matrice: det^{-1} * [d -b; -c a]
-Mat inverse(const Mat &m) {
-    ull det = subm(mulm(m.a[0], m.a[3]), mulm(m.a[1], m.a[2]));
-    ull id = pw(det, MOD - 2);
-    return {{mulm(m.a[3], id), mulm(subm(0, m.a[1]), id), mulm(subm(0, m.a[2]), id), mulm(m.a[0], id)}};
-}
 
 const int MAXN = 500005;
 int n, q;
 char s[MAXN];
-Mat M[3], Minv[3];          // M_c i M_c^{-1} za znakove c = 0, 1, 2
+Mat gen[3];                 // matrice znakova 0,1,2
 Mat tr[1 << 20][3];         // tr[v][k] = produkt segmenta s pomakom k
 unsigned char lz[1 << 20];  // lijeni pomak (0,1,2)
 
@@ -59,8 +53,7 @@ void build(int v, int l, int r) {
     lz[v] = 0;
     if (l == r) {
         int c = s[l] - '0';
-        // parna pozicija -> M, neparna -> M^{-1}
-        for (int k = 0; k < 3; k++) tr[v][k] = (l % 2 == 0) ? M[(c + k) % 3] : Minv[(c + k) % 3];
+        for (int k = 0; k < 3; k++) tr[v][k] = gen[(c + k) % 3];
         return;
     }
     int m = (l + r) / 2;
@@ -100,11 +93,10 @@ Mat query(int v, int l, int r, int ql, int qr) {
 int main() {
     mt19937_64 rng(chrono::steady_clock::now().time_since_epoch().count());
     for (int c = 0; c < 3; c++) {
-        // slučajna invertibilna matrica (ponavljaj dok determinanta nije 0)
-        do {
-            for (int t = 0; t < 4; t++) M[c].a[t] = rng() % MOD;
-        } while (subm(mulm(M[c].a[0], M[c].a[3]), mulm(M[c].a[1], M[c].a[2])) == 0);
-        Minv[c] = inverse(M[c]);
+        // A = [[a, b], [cc, -a]] s a^2 + b*cc = 1  =>  A^2 = I
+        ull a = rng() % MOD, b = rng() % (MOD - 1) + 1;
+        ull cc = mulm((1 + MOD - mulm(a, a)) % MOD, pw(b, MOD - 2));
+        gen[c] = {{a, b, cc, (MOD - a) % MOD}};
     }
     scanf("%d %d", &n, &q);
     scanf("%s", s + 1);
