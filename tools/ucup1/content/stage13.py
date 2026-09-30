@@ -368,9 +368,84 @@ Egzaktna jednakost omjera bila bi teška i za velike slučajne brojeve gotovo uv
 <h3>Izlaz</h3>
 <p>$N - 1$ brojeva — odgovori za $n = 2, \dots, N$.</p>
 ''',
-    'hints': [],
-    'coach': [],
-    'solution': None,
+    'hints': [
+        r'''<p>Sve staze na $n$ označenih vrhova jednako su vjerojatne — ima ih $n!/2$. Dovoljno je izračunati vjerojatnost da postupak proizvede jednu <em>konkretnu</em> stazu $1-2-\dots-n$.</p>''',
+        r'''<p>Kruskal s bridovima u slučajnom poretku daje stablo $T$ točno onda kad svaki brid izvan $T$ dolazi <em>nakon</em> svih bridova staze u $T$ između njegovih krajeva. Zamijeni permutaciju nezavisnim uniformnim vremenima $t_e\in[0,1]$: uz fiksna vremena bridova staze, brid $(i,j)$ izvan staze zadovoljava uvjet s vjerojatnošću $1-\max(t_i,\dots,t_{j-1})$.</p>''',
+        r'''<p>Integral po vremenima bridova staze razbij po položaju $p$ najkasnijeg brida: dobiva se rekurzija $G_v(x)=\sum_p\int_0^x (1-t)^{p(v-p)-1}G_p(t)\,G_{v-p}(t)\,dt$ s polinomima stupnja $\binom v2\le 31\,125$. Uz supstituciju $u=1-t$ faktor $(1-t)^k$ postaje monom, pa sve polinome drži u <em>vrijednostima u korijenima jedinice</em> reda $2^{15}$ (zato $P\equiv1 \pmod{2^{16}}$) i po $v$ radi samo po jedan inverzni i jedan direktni NTT.</p>''',
+    ],
+    'coach': [
+        ('Zašto je dovoljno izračunati vjerojatnost da postupak proizvede jednu konkretnu stazu, npr. $1-2-\dots-n$?', r'''<p>Postupak je simetričan na preimenovanje vrhova: bilo koja permutacija vrhova preslikava uniformni poredak bridova u uniformni poredak bridova, a stazu u stazu. Zato sve staze na skupu $\{1,\dots,n\}$ imaju istu vjerojatnost $q_n$. Različitih staza (kao skupova bridova) ima $n!/2$ — svaka permutacija vrhova zadaje stazu, a svaka staza ima dva smjera obilaska. Odgovor je $\frac{n!}{2}\,q_n$, pa se problem svodi na jedno stablo.</p>'''),
+        ('Kada Kruskal s bridovima u zadanom poretku proizvede točno zadano stablo $T$?', r'''<p>Točno onda kad svaki brid $e\notin T$ dolazi nakon svih bridova jedinstvenog puta u $T$ između njegovih krajeva, tj. kad je $e$ najkasniji brid svog fundamentalnog ciklusa. <em>Dovoljnost:</em> indukcijom po vremenu, prihvaćeni su bridovi upravo bridovi stabla: brid stabla ne može zatvoriti ciklus od ranije prihvaćenih bridova (svi su iz $T$, a $T$ nema ciklusa), a brid izvan $T$ dolazi kad je cijeli njegov put već prihvaćen, pa spaja istu komponentu i biva odbačen. <em>Nužnost:</em> da je neki $e\notin T$ došao prije brida $f$ svog puta, u tom bi trenutku $e$ ili bio prihvaćen (pa rezultat nije $T$), ili bi mu krajevi već bili spojeni prihvaćenim bridovima iz $T$, a jedini put u $T$ između njih koristi još neprihvaćeni $f$ — kontradikcija.</p>'''),
+        ('Kako od kombinatornog uvjeta na permutaciju doći do nečega što se može integrirati?', r'''<p>Uniformna permutacija od $\binom n2$ bridova jednako je raspodijeljena kao poredak koji zadaju nezavisna uniformna vremena $t_e\in[0,1]$ (izjednačenja su vjerojatnosti $0$). Fiksirajmo vremena $t_1,\dots,t_{n-1}$ bridova staze ($t_i$ je vrijeme brida $(i,i+1)$). Za brid $(i,j)$ izvan staze uvjet „nakon cijelog puta” znači $t_{(i,j)}>\max(t_i,\dots,t_{j-1})$, što se uz nezavisnost događa s vjerojatnošću $1-\max(t_i,\dots,t_{j-1})$, i to nezavisno za različite bridove izvan staze. Dakle $q_n=\int_{[0,1]^{n-1}}\prod_{i<j-1}\bigl(1-\max(t_i,\dots,t_{j-1})\bigr)\,dt$.</p>'''),
+        ('Kako razbiti taj integral na manje dijelove?', r'''<p>Po položaju $p$ najvećeg od $t_1,\dots,t_{v-1}$ (za stazu na $v$ vrhova). Neka je $t_p=t$ maksimum. Svi bridovi izvan staze koji „prelaze” preko $p$ — ima ih $p(v-p)-1$ — imaju maksimum puta upravo $t$, pa daju faktor $(1-t)^{p(v-p)-1}$. Bridovi lijevo od $p$ vide samo $t_1,\dots,t_{p-1}\in[0,t]$, bridovi desno samo $t_{p+1},\dots,t_{v-1}\in[0,t]$, i te su dvije skupine nezavisne. Zato uvedemo $G_v(x)=\int_{[0,x]^{v-1}}\prod(\dots)\,dt$ i dobijemo $G_v(x)=\sum_{p=1}^{v-1}\int_0^x(1-t)^{p(v-p)-1}G_p(t)\,G_{v-p}(t)\,dt$, uz $G_1\equiv1$ i $q_n=G_n(1)$. Indukcijom je $G_v$ polinom stupnja $\binom v2$ (točno broj svih bridova $K_v$).</p>'''),
+        ('Zašto se polinomi ne računaju u koeficijentima i kamo tu ulazi NTT?', r'''<p>Za svaki $v$ trebamo $v-1$ produkata triju polinoma stupnja do $31\,000$; u koeficijentima je to $O(N^2)$ množenja polinoma, tj. $O(N^2\cdot N^2\log N)$ — previše. Supstitucijom $u=1-t$ faktor $(1-t)^k$ postaje monom $u^k$, a $H_v(u)=G_v(1-u)$ je i dalje polinom. Držimo li svaki $H_v$ kao vektor <em>vrijednosti</em> u $M=2^{15}$ korijena jedinice $\omega^j$ (postoje jer $2^{16}\mid P-1$), zbroj $\sum_p u^{p(v-p)-1}H_p(u)H_{v-p}(u)$ računa se <em>po točkama</em> u $O(v\cdot M)$. Integracija je jedina operacija koja treba koeficijente, pa po $v$ radimo jedan inverzni NTT, integriramo u $O(M)$ i vratimo se jednim direktnim NTT-om. Ukupno $O(N^2 M+N M\log M)\approx 2\cdot10^9$ množenja modulo $P$ — zato Barrettova redukcija, jer $P$ nije poznat pri prevođenju. Stupanj $\binom{250}{2}=31\,125<2^{15}$ jamči da vrijednosti u $M$ točaka jednoznačno određuju polinom.</p>'''),
+    ],
+    'tips': [
+        r'''Kad su svi objekti neke klase (ovdje staze na označenim vrhovima) simetrični, računaj vjerojatnost jednog konkretnog objekta i pomnoži brojem objekata.''',
+        r'''Uniformnu slučajnu permutaciju zamijeni nezavisnim uniformnim vremenima u $[0,1]$: uvjeti oblika „$e$ dolazi nakon skupa $A$” postaju $t_e>\max_A t$, a uz fiksirane $t_A$ nezavisni su i daju faktore $1-\max_A t$ — integral umjesto prebrojavanja.''',
+        r'''Integral po $k$ varijabli s faktorima koji ovise o maksimumima podintervala razbij po položaju globalnog maksimuma (kartezijevo stablo): dobiješ rekurziju polinoma.''',
+        r'''Ako trebaš mnogo produkata istih polinoma, a samo rijetko linearne operacije koje traže koeficijente (integracija, deriviranje), drži polinome u vrijednostima u korijenima jedinice i prebacuj se NTT-om samo kad moraš. Kad je modul zadan ulazom, koristi Barrettovu redukciju.''',
+    ],
+    'solution': r'''
+<p>Sve staze na $n$ označenih vrhova jednako su vjerojatne i ima ih $n!/2$, pa je odgovor $\frac{n!}{2}q_n$, gdje je $q_n$ vjerojatnost da postupak proizvede fiksnu stazu $1-2-\dots-n$. Kruskal u slučajnom poretku daje stablo $T$ točno kad svaki brid izvan $T$ dolazi nakon svih bridova svog puta u $T$. Zamijenimo permutaciju nezavisnim vremenima $t_e\in[0,1]$: uz fiksna vremena $t_1,\dots,t_{n-1}$ bridova staze, brid $(i,j)$ izvan staze zadovoljava uvjet s vjerojatnošću $1-\max(t_i,\dots,t_{j-1})$, pa je $q_n=\int_{[0,1]^{n-1}}\prod_{i<j-1}(1-\max(t_i,\dots,t_{j-1}))\,dt$.</p>
+<p>Razbijanjem po položaju $p$ najkasnijeg brida staze dobivamo rekurziju za $G_v(x)=\int_{[0,x]^{v-1}}\prod(\dots)$: $G_v(x)=\sum_{p}\int_0^x(1-t)^{p(v-p)-1}G_p(t)G_{v-p}(t)\,dt$, $G_1=1$, $q_n=G_n(1)$; $G_v$ je polinom stupnja $\binom v2\le 31\,125$. Uz $u=1-t$ faktor $(1-t)^k$ postaje monom, pa polinome $H_v(u)=G_v(1-u)$ držimo u vrijednostima u $2^{15}$ korijena jedinice (zato $P\equiv1\pmod{2^{16}}$): zbroj po $p$ računa se po točkama u $O(v\cdot2^{15})$, a po $v$ treba samo jedan inverzni NTT (integracija u koeficijentima) i jedan direktni. Ukupno $O(N^2\cdot 2^{15})$ množenja uz Barrettovu redukciju, oko $2$ s.</p>
+''',
+    'detailed': r'''
+<p><strong>Napomena:</strong> u službenom tutorialu ovaj je zadatak označen kao „TBD” (autorska rješenja: $O(n^4\log n)$ Um_nik, $O(n^4)$ bicsi), pa je ovdje izvedeno i provjereno vlastito rješenje složenosti $O(N^2\cdot 2^{15})$, u duhu naslova — da, ovo je (N)TT.</p>
+
+<h3>1. Od bambusa do jedne staze</h3>
+<p>Postupak iz zadatka je Kruskalov algoritam s bridovima potpunog grafa $K_n$ u uniformno slučajnom poretku; rezultat je uvijek razapinjuće stablo. Bambus je stablo sa svim stupnjevima $\le2$, tj. Hamiltonova staza. Postupak je simetričan na preimenovanje vrhova (permutacija vrhova preslikava uniformni poredak bridova u uniformni poredak), pa sve staze na $\{1,\dots,n\}$ imaju jednaku vjerojatnost $q_n$. Staza kao skup bridova određena je poretkom vrhova do na smjer, pa ih je $n!/2$. Dakle
+$$\text{odgovor}_n=\frac{n!}{2}\,q_n,\qquad q_n=\Pr[\text{rezultat je staza }1-2-\dots-n].$$</p>
+
+<h3>2. Kada Kruskal proizvede zadano stablo</h3>
+<p><strong>Tvrdnja.</strong> Kruskal s bridovima u poretku $\pi$ proizvede stablo $T$ ako i samo ako svaki brid $e\notin T$ dolazi u $\pi$ nakon svih bridova puta $T$-puta između njegovih krajeva (ekvivalentno: $e$ je najkasniji brid svog fundamentalnog ciklusa).</p>
+<p><em>Dovoljnost.</em> Indukcijom po vremenu pokazujemo da su prihvaćeni bridovi točno dosad viđeni bridovi iz $T$. Dođe li brid $f\in T$, njegovi krajevi nisu spojeni: sve prihvaćeno je iz $T$, a put od prihvaćenih bridova između krajeva $f$ zajedno s $f$ dao bi ciklus u $T$. Dođe li $e\notin T$, cijeli njegov $T$-put već je došao, dakle prihvaćen, pa su krajevi $e$ u istoj komponenti i $e$ se odbacuje. Na kraju su prihvaćeni točno bridovi $T$.</p>
+<p><em>Nužnost.</em> Neka je rezultat $T$ i pretpostavimo da je $e=(u,v)\notin T$ došao prije nekog brida $f$ svog $T$-puta. Budući da $e$ nije u rezultatu, odbačen je, pa su $u$ i $v$ tada bili spojeni prihvaćenim bridovima. Prihvaćeni bridovi su podskup rezultata $T$, a jedini put između $u$ i $v$ u $T$ sadrži $f$, koji još nije prihvaćen — kontradikcija.</p>
+
+<h3>3. Kontinuirani model i integralna formula</h3>
+<p>Dodijelimo svakom bridu nezavisno uniformno vrijeme $t_e\in[0,1]$; poredak po vremenima je uniformna permutacija (izjednačenja imaju vjerojatnost $0$). Za stazu $1-2-\dots-n$ označimo $t_i=t_{(i,i+1)}$. Uz <em>fiksirane</em> $t_1,\dots,t_{n-1}$, brid $(i,j)$ s $j>i+1$ zadovoljava uvjet iz tvrdnje točno kad je $t_{(i,j)}>m_{ij}:=\max(t_i,\dots,t_{j-1})$, što se događa s vjerojatnošću $1-m_{ij}$; ti su događaji za različite $(i,j)$ nezavisni jer ovise o različitim varijablama $t_{(i,j)}$. Integriranjem po vremenima bridova staze:
+$$q_n=\int_{[0,1]^{n-1}}\ \prod_{1\le i<j-1<n}\bigl(1-\max(t_i,\dots,t_{j-1})\bigr)\,dt_1\cdots dt_{n-1}.$$</p>
+
+<h3>4. Rekurzija po položaju maksimuma</h3>
+<p>Za stazu na $v$ vrhova definirajmo
+$$G_v(x)=\int_{[0,x]^{v-1}}\ \prod_{i<j-1}\bigl(1-\max(t_i,\dots,t_{j-1})\bigr)\,dt,\qquad G_1(x)\equiv1,$$
+tako da je $q_n=G_n(1)$. Razbijmo područje integracije po položaju $p\in\{1,\dots,v-1\}$ najvećeg među $t_1,\dots,t_{v-1}$ (izjednačenja imaju mjeru $0$) i označimo $t_p=t\in[0,x]$. Tada:</p>
+<ul>
+<li>Bridovi $(i,j)$ izvan staze s $i\le p<j$ „prelaze” preko brida $p$; maksimum njihova puta je $t$. Parova $(i,j)$ s $i\le p<j$ ima $p(v-p)$, od čega je jedan sam brid staze $(p,p+1)$, pa ti bridovi daju faktor $(1-t)^{p(v-p)-1}$.</li>
+<li>Bridovi s $j\le p$ vide samo $t_1,\dots,t_{p-1}\in[0,t]$ — to je točno integrand staze na $p$ vrhova, integriran po $[0,t]^{p-1}$: $G_p(t)$.</li>
+<li>Bridovi s $i\ge p+1$ analogno daju $G_{v-p}(t)$; obje skupine ovise o disjunktnim skupovima varijabli.</li>
+</ul>
+<p>Stoga
+$$G_v(x)=\sum_{p=1}^{v-1}\int_0^x(1-t)^{p(v-p)-1}\,G_p(t)\,G_{v-p}(t)\,dt.$$
+Indukcijom je $G_v$ polinom, a njegov stupanj zadovoljava $\deg G_v=1+\bigl(p(v-p)-1\bigr)+\deg G_p+\deg G_{v-p}$, što uz $\deg G_1=0$ daje $\deg G_v=\binom v2$ — ukupan broj bridova $K_v$, što ima smisla: svaki brid pridonosi po jednom faktoru $t$ ili $(1-t)$. Za $N=250$ stupanj je najviše $31\,125$.</p>
+<p>Provjera: $G_2(x)=\int_0^x 1\,dt=x$, $q_2=q_3=1$ (svako stablo na $\le3$ vrha je staza). Za $n=4$: $q_4=11/180$ i odgovor $12\cdot\frac{11}{180}=\frac{11}{15}\equiv 532396989$, kao u primjeru.</p>
+
+<h3>5. Kako to izračunati brzo: vrijednosti umjesto koeficijenata</h3>
+<p>Naivno, za svaki $v$ treba $v-1$ produkata triju polinoma stupnja $\Theta(v^2)$; čak i s NTT-om to je $\sum_v v\cdot v^2\log v=O(N^4\log N)$ s velikom konstantom. Ključna su dva zapažanja.</p>
+<p><em>(a) Supstitucija $u=1-t$.</em> Neka je $H_v(u)=G_v(1-u)$. Faktor $(1-t)^k$ postaje monom $u^k$, produkt $u^{p(v-p)-1}H_p(u)H_{v-p}(u)$ je običan produkt polinoma, a integracija se lako prepiše: ako je $S(u)=\sum_p u^{p(v-p)-1}H_p(u)H_{v-p}(u)$ i $\mathcal S$ njegova primitivna funkcija (bez slobodnog člana), onda je
+$$G_v(x)=\int_0^x S(1-t)\,dt=\int_{1-x}^{1}S(u)\,du=\mathcal S(1)-\mathcal S(1-x),\qquad\text{tj. } H_v(u)=\mathcal S(1)-\mathcal S(u).$$
+Tražena vrijednost $q_v=G_v(1)=H_v(0)$ je slobodni član $\mathcal S(1)=\sum_k \frac{s_k}{k+1}$, gdje su $s_k$ koeficijenti $S$.</p>
+<p><em>(b) Reprezentacija vrijednostima.</em> Neka je $M=2^{15}=32\,768>31\,125$. Kako je $2^{16}\mid P-1$, u $\mathbb Z_P$ postoji korijen jedinice $\omega$ reda $M$ ($\omega=g^{(P-1)/M}$ za primitivni korijen $g$), pa je NTT duljine $M$ dobro definiran i polinom stupnja $<M$ jednoznačno je određen svojim vrijednostima $H(\omega^j)$, $j=0,\dots,M-1$. Držimo svaki već izračunani $H_p$ kao vektor tih $M$ vrijednosti. Za novi $v$:</p>
+<ol>
+<li>Po točkama: $S(\omega^j)=\sum_{p=1}^{v-1}\omega^{\,j\,(p(v-p)-1)}H_p(\omega^j)H_{v-p}(\omega^j)$, pri čemu je $\omega^{jk}=\omega^{(jk)\bmod M}$ iz tablice potencija. Članovi za $p$ i $v-p$ jednaki su, pa računamo samo $p\le v/2$ i udvostručimo. Stupanj $S$ je $\binom v2-1<M$, pa vrijednosti nisu „presavijene” modulo $u^M-1$ i točno određuju $S$. Cijena: $O(v\cdot M)$ množenja.</li>
+<li>Jedan inverzni NTT daje koeficijente $s_0,\dots,s_{\binom v2-1}$.</li>
+<li>Integracija u $O(M)$: koeficijent uz $u^{k+1}$ u $\mathcal S$ je $s_k\cdot(k+1)^{-1}$; inverzi brojeva $1,\dots,M$ predračunaju se linearno (postoje jer je $P>2^{16}>M$ prost). Zatim $H_v=\mathcal S(1)-\mathcal S(u)$: slobodni član $\sum_k s_k(k+1)^{-1}$, ostali koeficijenti negirani.</li>
+<li>Ispišemo $\frac{v!}{2}H_v(0)$ ($2^{-1}$ i $v!$ postoje modulo $P$ jer je $P$ neparan prost i $P>250$), pa jednim direktnim NTT-om pretvorimo $H_v$ u vrijednosti za buduće korake.</li>
+</ol>
+
+<h3>6. Složenost i konstante</h3>
+<p>Korak 1 ukupno stoji $\sum_{v\le N}\frac v2\cdot M\approx\frac{N^2}{4}M\approx5\cdot10^8$ članova, svaki s dva množenja modulo $P$; koraci 2 i 4 su $2N$ NTT-ova duljine $M$, tj. $O(NM\log M)\approx 1.2\cdot10^8$. Memorija: $N\cdot M$ 32-bitnih vrijednosti, oko $32$ MB. Modul je zadan ulazom pa <code>%</code> nije konstanta pri prevođenju; Barrettova redukcija (kao u tekstu zadatka) svodi svako množenje na nekoliko 64-bitnih množenja bez dijeljenja. Referentna implementacija za $N=250$ radi oko $2.3$ s uz limit od $15$ s.</p>
+
+<h3>7. Zamke u implementaciji</h3>
+<ul>
+<li>Primitivni korijen treba <em>naći</em> (faktoriziraj $P-1$ probnim dijeljenjem do $\sqrt{P}$ i provjeri $g^{(P-1)/r}\ne1$ za svaki prosti faktor $r$); ne smije se pretpostaviti $g=3$ kao za $998244353$.</li>
+<li>Stupanj mora ostati strogo manji od $M$; $\binom{250}{2}=31\,125<32\,768$ je tijesno — s $M=2^{14}$ rezultat bi bio pogrešan za velike $N$, a $2^{16}$ udvostručuje vrijeme.</li>
+<li>Eksponent $j\cdot(p(v-p)-1)$ prelazi 32 bita; računaj u 64 bita pa uzmi <code>&amp; (M-1)</code>.</li>
+<li>Odgovor za $v$ je slobodni član polinoma $H_v$, ne $G_v(0)$; ne pobrkati $t$ i $u=1-t$ koordinate.</li>
+<li>Inverzi $1..M$ linearno: <code>inv[i] = (P - P/i) * inv[P % i] % P</code>; uz Barrett odgovarajuće.</li>
+</ul>
+''',
+    'verified': r'''uzorak 1/1; 300 slučajnih testova ($N\le 11$, slučajan prost $P\equiv1 \pmod{2^{16}}$ ispod $10^9$) protiv brute forcea koji egzaktno (razlomci) računa vjerojatnost preko DP-a po multiskupu veličina komponenata — svaki prihvaćeni brid je uniformni par vrhova iz različitih komponenata, a staza opstaje samo ako spaja krajeve — i za $n\le4$ dodatno nabraja sve permutacije bridova i pokreće Kruskala; 3 velika testa s $N=250$ (najviše $2.36$ s).''',
 },
 # ---------------------------------------------------------------- G
 {
@@ -738,8 +813,80 @@ Konačnom provjerom (skripta <code>provjera_leme.py</code> uz rješenje) utvrđe
 <h3>Primjer</h3>
 <p>Za $a = (0, 0, 0, 1, 1, 2, 5)$ odgovor je $42$.</p>
 ''',
-    'hints': [],
-    'coach': [],
-    'solution': None,
+    'hints': [
+        r'''<p>Podijeli elemente na nule ($z$ komada), jedinice ($o$ komada) i „velike” $a_i\ge2$ ($r$ komada) i zapiši velike kao $a_i=1+b_i$. Iz uvjeta $o\ge S/5$ slijedi $r\le 2o$. Umjesto para $(k,T)$ promatraj par $(T,\;D=T-k)$: podniz s $c$ velikih elemenata ukupnog $\sum b=d$, $j$ jedinica i $z'$ nula daje $T=d+c+j$ i $D=d-z'$, pa jedan dostiživ par $(c,d)$ pokriva cijeli pravokutnik $[d+c,\,d+c+o]\times[d-z,\,d]$.</p>''',
+        r'''<p>Za fiksni $d$ neka je $C(d)$ skup brojeva $c$ velikih elemenata koji daju $\sum b=d$. Pokriveni $T$-ovi su unija intervala duljine $o+1$ koji počinju u $d+c$, $c\in C(d)$. Rupa nastaje samo između dva susjedna dostiživa $c$ koja se razlikuju za $\ge o+2$; jer je $C(d)\subseteq[0,r]\subseteq[0,2o]$, takva rupa je najviše jedna, i to točno između $\max\{c\in C(d):c\le o\}$ i $\min\{c\in C(d):c\ge o+1\}$. Dakle po $d$ trebaš samo $\min C(d)$, $\max C(d)$ i ta dva „rubna” člana.</p>''',
+        r'''<p>Podskup s $(c,d)$ ima komplement s $(r-c,\,B-d)$, pa je dovoljno bitset-DP-om po velikim elementima (ograničeni ruksak, binarno cijepanje brojnosti) izračunati dostiživost parova $(d,c)$ samo za $c\le\lceil r/2\rceil$ — tablica ima najviše $\approx 0.08\,S^2$ bitova (ispod $400$ MiB, zato ML od $555$ MiB). Na kraju je odgovor zbroj po $D$ duljine unije intervala aktivnih za taj $D$; svaki interval iz retka $d$ aktivan je za $D\in[d-z,d]$, pa prođi $D$ silazno sa segmentnim stablom „dodaj na interval / broj pokrivenih pozicija”.</p>''',
+    ],
+    'coach': [
+        ('Zašto bi uvjet „barem $S/5$ jedinica” bio ključ zadatka, a ne slučajan detalj?', r'''<p>Podnizovi su određeni brojem nula $z'$, jedinica $j$ i skupom velikih elemenata. Nule mijenjaju samo $k$, jedinice mijenjaju $k$ i $T$ za isti iznos, a velike elemente $a_i=1+b_i$ možemo gledati kao „jedinicu plus višak $b_i\ge1$”. Ako podniz ima $c$ velikih elemenata s viškom $\sum b=d$, onda je $T=d+c+j$ i $k=c+j+z'$, tj. $T-k=d-z'$. U koordinatama $(T,\,D=T-k)$ jedan dostiživ par $(c,d)$ pokriva čitav pravokutnik $[d+c,d+c+o]\times[d-z,d]$ — širina mu je $o+1$, a to je velik broj upravo zbog uvjeta o jedinicama. Odgovor je površina unije tih pravokutnika po svim dostiživim $(c,d)$.</p>'''),
+        ('Koliko intervala po $T$ pokriva fiksni redak $d$ i zašto ih nije mnogo?', r'''<p>Neka je $C(d)$ skup brojeva velikih elemenata $c$ za koje postoji podskup velikih sa $\sum b=d$. Redak $d$ pokriva $\bigcup_{c\in C(d)}[d+c,\,d+c+o]$. Dva susjedna člana $c_1<c_2$ od $C(d)$ ostavljaju rupu samo ako je $c_2-c_1\ge o+2$. Iz $S=o+r+\sum b\ge o+2r$ i $S\le5o$ slijedi $r\le2o$, pa dvije takve rupe nisu moguće (trebalo bi $c_{\max}-c_{\min}\ge2o+4>r$). Ako rupa postoji, tada je $c_1\le o-2$ i $c_2\ge o+2$, dakle $c_1=\mathrm{lo}(d)=\max\{c\in C(d):c\le o\}$ i $c_2=\mathrm{hi}(d)=\min\{c\in C(d):c\ge o+1\}$. Zato je redak $d$ ili jedan interval $[d+c_{\min},d+c_{\max}+o]$ ili dva: $[d+c_{\min},d+\mathrm{lo}+o]$ i $[d+\mathrm{hi},d+c_{\max}+o]$ — ukupno najviše $2(B+1)$ intervala, $B=\sum b\le S$.</p>'''),
+        ('Kako izračunati $c_{\min},c_{\max},\mathrm{lo},\mathrm{hi}$ za svaki $d$ kad je puna tablica dostiživih $(d,c)$ prevelika?', r'''<p>Tablica $(B+1)\times(r+1)$ bitova može imati $0.16\,S^2\approx 6.4\cdot10^9$ bitova. No podskup s parom $(c,d)$ ima komplement s parom $(r-c,\,B-d)$: $C(d)=\{c\}\cup\{r-c':c'\in C(B-d)\}$. Zato je dovoljno pratiti samo $c\le\theta=\lceil r/2\rceil$ — svaki $c>\theta$ ima $r-c\le\theta$ i vidi se u komplementarnom retku. Tablica $(B+1)(\theta+1)$ bitova uz $B+r\le\frac45S$ ima najviše $\frac{1}{2}(0.4S)^2=0.08\,S^2\approx3.2\cdot10^9$ bitova, tj. ispod $400$ MiB — to objašnjava neobični limit memorije. Upiti $\mathrm{lo}(d)$ i $\mathrm{hi}(d)$ postaju „prvi postavljeni bit $\ge r-o$” i „zadnji postavljeni bit $\le r-o-1$” u retku $B-d$ (uz $r-o\le\theta$ jer $r\le2o$), a $c_{\min},c_{\max}$ su prvi/zadnji bit u retku $d$ ili komplement zadnjeg/prvog bita retka $B-d$.</p>'''),
+        ('Kako popuniti tablicu dovoljno brzo — velikih elemenata može biti desetke tisuća?', r'''<p>Tablica je ograničeni ruksak: element vrijednosti $b$ pomiče redak $d-b$ u redak $d$ uz pomak bita za $1$. Elementi jednake vrijednosti $b$ s brojnošću $m$ obrađuju se binarnim cijepanjem na komade $1,2,4,\dots$ i ostatak: komad od $t$ kopija je „element” s pomakom retka $t\,b$ i pomakom bita $t$, a svaki broj kopija $0..m$ zbroj je nekih komada. Ukupan broj prolaza je $\sum_v\log_2(m_v+1)$, a prolaz obiđe $(B+1)\cdot\lceil(\theta+1)/64\rceil$ riječi. Različitih vrijednosti $b$ ima najviše $\sqrt{2B}$, a najgori omjeri (npr. $10$ vrijednosti s brojnošću $\approx2500$, ili same dvojke) daju reda $5\cdot10^9$ operacija nad riječima — u praksi oko $3$–$4$ s, unutar limita od $5$ s.</p>'''),
+        ('Kako iz intervala po retcima dobiti konačan broj parova $(k,T)$?', r'''<p>Parovi $(k,T)$ bijektivno odgovaraju parovima $(T,D)$, pa brojimo pokrivene točke u ravnini $(T,D)$. Interval iz retka $d$ pokriva $T$-ove za sve $D\in[d-z,d]$ (biramo $z'=d-D$ nula). Prolazimo $D$ silazno: pri $D=d$ dodamo intervale retka $d$, nakon $D=d-z$ ih uklonimo, a za svaki $D$ dodamo u odgovor broj pozicija $T\in[0,S]$ s pozitivnom pokrivenošću. Segmentno stablo s dodavanjem na interval koje pamti minimum i broj minimuma daje taj broj u $O(\log S)$ po operaciji; operacija je $O(B)$, pa je ovaj dio $O(S\log S)$. Odgovor može biti reda $n\cdot S\approx4\cdot10^{10}$ — treba 64-bitni tip.</p>'''),
+    ],
+    'tips': [
+        r'''Neobičan uvjet u zadatku (ovdje „barem $S/5$ jedinica”) i neobičan limit memorije ($555$ MiB) obično točno kažu koju tablicu autor očekuje; procijeni veličinu bitset-tablice prije nego što odbaciš „grubi” DP.''',
+        r'''Kad element $a_i$ uz sebe nosi „jedan komad duljine i jedan komad zbroja”, zamijeni koordinate ($T$ i $k$) razlikom $T-k$: doprinosi jedinica i nula postaju pomaci duž osi, a dostiživi skup postaje unija pravokutnika.''',
+        r'''Ako je dostiživ skup unija intervala duljine $L$, rupe mogu nastati samo između susjednih „početaka” udaljenih više od $L$; ocijeni koliko ih najviše može biti prije nego što ih pokušaš sve nabrojati.''',
+        r'''U ruksaku po podskupovima komplement podskupa zadaje simetriju $(c,d)\mapsto(r-c,B-d)$: pola tablice je uvijek dovoljno.''',
+    ],
+    'solution': r'''
+<p>Zapišimo velike elemente $a_i\ge2$ kao $1+b_i$; nula je $z$, jedinica $o$, velikih $r$, $B=\sum b_i$. Iz $o\ge S/5$ slijedi $r\le2o$. Podniz s $c$ velikih elemenata ukupnog viška $d$, $j$ jedinica i $z'$ nula ima $T=d+c+j$ i $D=T-k=d-z'$, pa dostiživ par $(c,d)$ pokriva pravokutnik $[d+c,d+c+o]\times[d-z,d]$ u ravnini $(T,D)$; odgovor je površina unije. Za fiksni $d$ unija intervala $[d+c,d+c+o]$ po dostiživim $c$ ima zbog $r\le2o$ najviše jednu rupu, i to između $\mathrm{lo}(d)=\max\{c\le o\}$ i $\mathrm{hi}(d)=\min\{c\ge o+1\}$, pa je redak $d$ najviše dva intervala.</p>
+<p>Dostiživost parova $(d,c)$ računamo bitset-ruksakom po velikim elementima, ali samo za $c\le\lceil r/2\rceil$ — ostatak se čita iz komplementa $(r-c,B-d)$; tablica ima $\le0.08\,S^2$ bitova ($<400$ MiB). Jednake vrijednosti binarno cijepamo, ukupno $O\bigl(B\cdot\frac{r}{128}\sum_v\log m_v\bigr)$ operacija. Na kraju prolazimo $D$ silazno; interval retka $d$ aktivan je za $D\in[d-z,d]$, a segmentno stablo (dodavanje na interval, broj pokrivenih pozicija) zbraja pokrivene $T$-ove u $O(S\log S)$.</p>
+''',
+    'detailed': r'''
+<p><strong>Napomena:</strong> u službenom tutorialu ovaj je zadatak označen kao „TBD” (autorsko rješenje: $O(S^2/w)$), pa je ovdje izvedeno i provjereno vlastito rješenje iste složenosti $O(S^2/w)$, koje upravo iskorištava neobični limit memorije od $555$ MiB.</p>
+
+<h3>1. Preoblikovanje: nule, jedinice i višak velikih elemenata</h3>
+<p>Neka niz ima $z$ nula, $o$ jedinica i $r$ „velikih” elemenata $a_i\ge2$; velike zapišimo kao $a_i=1+b_i$ s $b_i\ge1$ i označimo $B=\sum b_i$. Tada je $S=o+r+B$.</p>
+<p>Podniz (kao podskup pozicija) određen je brojem odabranih nula $z'\in[0,z]$, brojem jedinica $j\in[0,o]$ i podskupom $X$ velikih elemenata; neka je $c=|X|$ i $d=\sum_{i\in X}b_i$. Tada je
+$$k=c+j+z',\qquad T=d+c+j,\qquad D:=T-k=d-z'.$$
+Preslikavanje $(k,T)\mapsto(T,D)$ je bijekcija, pa umjesto parova $(k,T)$ brojimo dostižive parove $(T,D)$. Za fiksni dostiživ par $(c,d)$ (tj. postoji $X$ s tim parametrima) dostiživi su točno parovi s $T\in[d+c,\,d+c+o]$ (izbor $j$) i $D\in[d-z,\,d]$ (izbor $z'$), i to nezavisno — <em>pravokutnik</em> $R(c,d)=[d+c,d+c+o]\times[d-z,d]$. Odgovor je površina (broj cjelobrojnih točaka) unije $\bigcup_{(c,d)\text{ dostiživ}}R(c,d)$.</p>
+
+<h3>2. Ključna posljedica uvjeta o jedinicama: $r\le 2o$</h3>
+<p>Svaki veliki element pridonosi barem $2$ zbroju, pa je $2r\le S-o$. Uvjet zadatka daje $S\le5o$, dakle $2r\le4o$, tj. $r\le2o$. Drugim riječima, broj velikih elemenata (a time i svaki $c$) nikad ne prelazi dvostruki broj jedinica, dok pravokutnici imaju širinu $o+1$ po osi $T$.</p>
+
+<h3>3. Redak $d$ je najviše dva intervala</h3>
+<p>Za fiksni $d$ označimo $C(d)=\{|X|: X\subseteq\text{veliki},\ \sum_X b=d\}$. Unija pravokutnika retka $d$ ima po osi $D$ uvijek isti raspon $[d-z,d]$, a po osi $T$ pokriva
+$$P(d)=\bigcup_{c\in C(d)}[d+c,\,d+c+o].$$
+To je unija intervala duljine $o+1$ s početcima u $d+c$. Dva susjedna člana $c_1<c_2$ skupa $C(d)$ ostavljaju rupu $(d+c_1+o,\,d+c_2)$ točno onda kad je $c_2-c_1\ge o+2$.</p>
+<p><strong>Lema.</strong> $P(d)$ ima najviše jednu rupu; ako je ima, ona je između $\mathrm{lo}(d)=\max\{c\in C(d):c\le o\}$ i $\mathrm{hi}(d)=\min\{c\in C(d):c\ge o+1\}$.</p>
+<p><em>Dokaz.</em> Dvije rupe zahtijevale bi četiri člana $c_1<c_2\le c_3<c_4$ s $c_2-c_1\ge o+2$ i $c_4-c_3\ge o+2$, pa $c_4-c_1\ge2o+4>2o\ge r$, što je nemoguće jer je $C(d)\subseteq[0,r]$. Ako rupa postoji između susjednih $c_1<c_2$, iz $c_2\le r\le 2o$ i $c_2-c_1\ge o+2$ slijedi $c_1\le o-2<o+1\le c_2$; budući da između $c_1$ i $c_2$ nema članova $C(d)$, $c_1$ je najveći član $\le o$, a $c_2$ najmanji član $\ge o+1$. $\blacksquare$</p>
+<p>Dakle, za redak $d$ dovoljno je znati $c_{\min}(d)=\min C(d)$, $c_{\max}(d)=\max C(d)$, $\mathrm{lo}(d)$ i $\mathrm{hi}(d)$: ako $\mathrm{lo}$ i $\mathrm{hi}$ postoje i $\mathrm{hi}-\mathrm{lo}>o+1$, redak je $[d+c_{\min},\,d+\mathrm{lo}+o]\cup[d+\mathrm{hi},\,d+c_{\max}+o]$; inače je redak jedan interval $[d+c_{\min},\,d+c_{\max}+o]$. Ukupno najviše $2(B+1)$ intervala.</p>
+
+<h3>4. Pola tablice dostiživosti je dovoljno</h3>
+<p>Prirodni bitset-DP pamti za svaki $d\in[0,B]$ skup $C(d)$ kao bitmasku po $c\in[0,r]$. Ta tablica ima $(B+1)(r+1)$ bitova; uz $B+r\le S-o\le\frac45S$ to je do $(0.4S)^2=0.16\,S^2\approx6.4\cdot10^9$ bitova — oko $760$ MiB, previše. Iskoristimo komplement: ako $X$ ima parametre $(c,d)$, komplement $X^{\mathsf c}$ (unutar velikih) ima $(r-c,\,B-d)$. Zato
+$$C(d)=\bigl(C(d)\cap[0,\theta]\bigr)\ \cup\ \bigl\{\,r-c':\ c'\in C(B-d)\cap[0,\theta]\,\bigr\},\qquad \theta=\lceil r/2\rceil,$$
+jer svaki $c>\theta$ ima $r-c<r-\theta\le\theta$. Dovoljno je stoga u tablici $T[d]$ pamtiti samo bitove $c\le\theta$: veličina je $(B+1)(\theta+1)\le\frac12(B+1)(r+2)\lesssim0.08\,S^2\approx3.2\cdot10^9$ bitova, tj. ispod $400$ MiB. Upravo to objašnjava ograničenje memorije od $555$ MiB.</p>
+<p>Upiti iz odjeljka 3 čitaju se ovako (uz $\alpha=r-o$, pri čemu je $\alpha\le\theta$ jer $r\le2o$):</p>
+<ul>
+<li>$c_{\min}(d)=\min\bigl(\text{prvi bit }T[d],\ r-\text{zadnji bit }T[B-d]\bigr)$, $c_{\max}(d)=\max\bigl(\text{zadnji bit }T[d],\ r-\text{prvi bit }T[B-d]\bigr)$;</li>
+<li>$\mathrm{lo}(d)=\max\bigl(\text{zadnji bit }T[d],\ r-\text{prvi bit }T[B-d]\text{ na poziciji}\ge\alpha\bigr)$ — bitovi $T[d]$ su svi $\le\theta\le o$, a $c'=r-c\ge\alpha$ znači $c\le o$;</li>
+<li>$\mathrm{hi}(d)=r-\text{zadnji bit }T[B-d]\text{ na poziciji}\le\alpha-1$ — jer $c'\le r-o-1$ znači $c\ge o+1$, a u $T[d]$ nema bitova iznad $\theta\le o$.</li>
+</ul>
+<p>Svaki upit je linearno skeniranje retka, ukupno $O\bigl((B+1)\lceil(\theta+1)/64\rceil\bigr)$ — isto koliko i jedan prolaz DP-a.</p>
+
+<h3>5. Popunjavanje tablice: ograničeni ruksak s binarnim cijepanjem</h3>
+<p>Počinjemo s $T[0]=\{0\}$. Element viška $b$ prevodi se u prijelaz $T[d]\mathrel{|}=T[d-b]\ll1$ za $d$ silazno (0/1-ruksak). Istih vrijednosti $b$ može biti mnogo (npr. $6.6\cdot10^4$ dvojki), pa brojnost $m$ cijepamo binarno na komade $1,2,4,\dots,2^{j-1}$ i ostatak $m-(2^j-1)$: komad od $t$ kopija je jedan „element” s pomakom retka $t\,b$ i pomakom bita $t$ (pomak bita $\ge64$ pomiče i indeks riječi). Svaki broj kopija iz $[0,m]$ zbroj je nekog podskupa komada, a nijedan podskup ne daje više od $m$, pa je skup dostiživih $(d,c)$ točan. Komadi s $t>\theta$ se preskaču: pomaknuli bi sve bitove izvan praćenog raspona, a odgovarajući podskupovi vide se kroz komplement. Nakon svakog OR-a zadnja se riječ retka maskira na $\theta+1$ bitova.</p>
+<p><em>Složenost.</em> Broj prolaza je $\sum_v\lceil\log_2(m_v+1)\rceil$ po različitim vrijednostima $v$, a prolaz obiđe $(B+1)\lceil(\theta+1)/64\rceil$ riječi. Različitih vrijednosti ima $\le\sqrt{2B}$, a produkt „broj prolaza $\times$ veličina tablice” najveći je u slučajevima poput $10$ vrijednosti brojnosti $\approx2500$ ili same dvojke — reda $5\cdot10^9$ jednostavnih operacija nad 64-bitnim riječima, u praksi $3$–$4$ s (limit je $5$ s). Za usporedbu, obični $O(nS)$ DP po $(k,T)$ ne dolazi u obzir.</p>
+
+<h3>6. Zbrajanje po $D$ segmentnim stablom</h3>
+<p>Interval $[L,R]$ iz retka $d$ pokriva $T\in[L,R]$ za svaki $D\in[d-z,d]$. Prolazimo $D$ silazno od $B$ do $-z$ (indeksiramo $D'=D+z\in[0,B+z]$): pri $D=d$ dodamo intervale retka $d$ (dogadaj „$+1$ na $[L,R]$”), pri $D=d-z-1$ ih uklonimo („$-1$”), a nakon obrade događaja za tekući $D$ dodamo u odgovor broj pozicija $T\in[0,S]$ s pozitivnom pokrivenošću. Segmentno stablo koje u čvoru čuva minimum i broj pozicija s tim minimumom (uz lijeno dodavanje) daje taj broj kao $S+1-(\text{broj nula})$, jer pokrivenost nikad nije negativna. Operacija je $O(B)$, ukupno $O(S\log S)$. Svi $T$ su u $[0,S]$ jer je $d+c_{\max}+o\le B+r+o=S-z$.</p>
+
+<h3>7. Provjera na primjeru</h3>
+<p>Za $a=(0,0,0,1,1,2,5)$: $z=3$, $o=2$, veliki su $2,5$ s $b=1,4$, $r=2$, $B=5$, $\theta=1$. $C(0)=\{0\}$, $C(1)=\{1\}$, $C(4)=\{1\}$, $C(5)=\{2\}$ (redak $5$ čita se iz komplementa retka $0$). Retci: $P(0)=[0,2]$, $P(1)=[2,4]$, $P(4)=[5,7]$, $P(5)=[7,9]$, svaki aktivan za $D\in[d-3,d]$. Po $D=-3,\dots,5$ pokriveno je $3,5,5,5,6,5,5,5,3$ pozicija, ukupno $42$.</p>
+
+<h3>8. Rubni slučajevi i zamke</h3>
+<ul>
+<li>$r=0$ (nema velikih): $\theta=0$, tablica je jedan stupac, $C(0)=\{0\}$, odgovor je $(o+1)(z+1)$ — kôd to pokriva bez posebnog slučaja.</li>
+<li>Kad $C(d)$ nema član $\le o$ (ili nema član $\ge o+1$), $\mathrm{lo}$ odnosno $\mathrm{hi}$ ne postoji i redak je jedan interval; treba paziti na „prazne” upite (nijedan bit u traženom rasponu).</li>
+<li>$\alpha=r-o$ može biti negativan; tada je upit „prvi bit $\ge\alpha$” jednostavno prvi bit, a upit „zadnji bit $\le\alpha-1$” prazan.</li>
+<li>Redak $d$ i redak $B-d$ mogu oba biti prazni u praćenom rasponu samo ako $d$ uopće nije dostiživ — tada redak preskačemo.</li>
+<li>Tablicu alociraj kao jedan blok od $(B+1)\cdot\lceil(\theta+1)/64\rceil$ 64-bitnih riječi; vektor vektora bi zbog zaglavlja i fragmentacije mogao prekoračiti memoriju.</li>
+<li>Odgovor je do $(n+1)(S+1)\approx4\cdot10^{10}$ — 64-bitni tip.</li>
+</ul>
+''',
+    'verified': r'''uzorci 4/4; 300 slučajnih testova ($n\le 95$, $S\le 320$: slučajni mali nizovi, nizovi s mnogo malih velikih elemenata te konstrukcija s velikom rupom u $C(d)$ — $M$ dvojki i jedan element $M+1$ — uvijek dopunjeni jedinicama do uvjeta $o\ge S/5$) protiv Python brute forcea koji bitmaskama računa dostižive zbrojeve za svaku duljinu u $O(n^2S)$; 3 velika testa ($n,S\approx2\cdot10^5$: $10$ vrijednosti s brojnošću $2460$, konstrukcija s rupom $M=40\,000$, slučajni veliki elementi), najviše $3.73$ s, oko $230$ MiB.''',
 },
 ]
