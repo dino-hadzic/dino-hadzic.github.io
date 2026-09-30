@@ -24,7 +24,8 @@ Kratice koje se pretvaraju u HTML (ne smiju biti ugniježđene jedna u drugu):
   <dokaz>...</dokaz>
   <napomena>...</napomena>                    trenerska napomena
   <primjer izvor="...">tekst<rjesenje>...</rjesenje></primjer>
-  <zadatak izvor="..." tezina="1|2|3|4">tekst[<naputak>...</naputak>]<rjesenje>...</rjesenje></zadatak>
+  <zadatak izvor="..." tezina="0|1|2|3|4">tekst[<naputak>...</naputak>]<rjesenje>...</rjesenje></zadatak>
+                                              (0 = zagrijavanje: uvodni laki zadaci, numerirani odvojeno)
 """
 import html
 import json
@@ -50,7 +51,7 @@ RAZINE = [
     (12, 'ISL 4–5', 'teži zadaci IMO shortliste (npr. A4–A5, C5, N4–N5)'),
 ]
 
-TEZINA_ZADATKA = {'1': 'lakši', '2': 'srednji', '3': 'teži', '4': 'najteži'}
+TEZINA_ZADATKA = {'0': 'uvodni', '1': 'lakši', '2': 'srednji', '3': 'teži', '4': 'najteži'}
 
 
 def razina(i):
@@ -203,17 +204,18 @@ def expand_examples(text, path, counter):
 def expand_problems(text, path, counter):
     def zadatak(m):
         a, body = attrs(m.group(1)), m.group(2)
-        n = counter.next('zadatak')
         izvor = a.get('izvor', '')
         tez = a.get('tezina', '')
+        vrsta = 'Zagrijavanje' if tez == '0' else 'Zadatak'
+        n = counter.next(vrsta.lower())
         hint = None
         hm = NAPUTAK_RE.search(body)
         if hm:
             hint = hm.group(1).strip()
             body = body[:hm.start()] + body[hm.end():]
-        statement, solution = split_solution(body, path, f'zadatak {n}')
+        statement, solution = split_solution(body, path, f'{vrsta.lower()} {n}')
         p = ['<section class="vjezba">']
-        head = f'<h3>Zadatak {n}'
+        head = f'<h3>{vrsta} {n}'
         if tez in TEZINA_ZADATKA:
             head += f' <span class="tezina-zadatka tezina-{tez}" title="Procijenjena težina unutar lekcije">{TEZINA_ZADATKA[tez]}</span>'
         if izvor:
@@ -449,7 +451,7 @@ def lesson_page(oblast, item, prev_item, next_item, n, blocks, path):
     p.append(primjeri)
     p.append('        <h2 id="zadaci">Zadaci za vježbu</h2>')
     p.append('        <p class="zadaci-napomena">Prvo pokušaj sam; rješenje otvori tek nakon ozbiljnog pokušaja. '
-             'Oznaka težine je relativna unutar lekcije.</p>')
+             'Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>')
     p.append(zadaci)
     if blocks.get('sazetak'):
         p.append('        <div class="rezime">')
