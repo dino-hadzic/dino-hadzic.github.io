@@ -76,10 +76,11 @@ def main():
     ap.add_argument('-n', type=int, default=300, help='broj slučajnih testova')
     ap.add_argument('--tl', type=float, default=2.0, help='vremensko ograničenje po testu (s)')
     ap.add_argument('--big', type=int, default=0, help='broj velikih testova (gen.py <seed> big) samo za mjerenje vremena')
+    ap.add_argument('--sol', default='sol.cpp', help='ime datoteke rješenja u mapi zadatka (npr. sol_alt.cpp za drugo rješenje)')
     a = ap.parse_args()
 
     d = os.path.join(SOLUTIONS, a.problem)
-    sol = os.path.join(d, 'sol.cpp')
+    sol = os.path.join(d, a.sol)
     if not os.path.exists(sol):
         sys.exit(f'nema {sol}')
     brute = next((os.path.join(d, b) for b in ('brute.cpp', 'brute.py') if os.path.exists(os.path.join(d, b))), None)

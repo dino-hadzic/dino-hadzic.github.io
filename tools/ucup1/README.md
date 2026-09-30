@@ -20,12 +20,16 @@ python3 stress/stress.py stage19/A -n 300 --big 3   # lokalna provjera rješenja
 | `detailed` | detaljno rješenje: svaki korak objašnjen, dokazi tvrdnji, rubni slučajevi, složenost; prikazuje se samo uz prekidač „Detaljno rješenje” |
 | `verified` | kratak opis lokalne provjere koda (ispis `stress.py` je dobar predložak) |
 | `code` | (neobvezno) put do koda; zadano `solutions/stageN/<slovo>/sol.cpp` |
+| `alternatives` | (neobvezno) drugi pristupi: popis dictova `{'title', 'detailed', 'code', 'verified'}`; `code` je put unutar `solutions/` (npr. `stage11/A/sol_alt.cpp`), provjerava se s `stress.py stage11/A --sol sol_alt.cpp` |
+
+**Jedan pristup po polju.** `hints`, `coach` i `detailed` uvijek razrađuju isti pristup kao `solution` (službeni editorial, odnosno sažeto rješenje). Ako postoji bitno drugačiji pristup (drugi algoritam, druga redukcija – ne samo drugačija implementacija), on ide u `alternatives` s vlastitim objašnjenjem i, kad je moguće, vlastitim testiranim kodom; na stranici se prikazuje iza glavnog detaljnog rješenja kao „2. RJEŠENJE”.
 
 Polja stagea: `no_editorial` (organizatori nisu objavili editorial), `community` (rješenja izvedena iz prihvaćenih predaja – na stranici se ispisuje napomena da nisu službena).
 
 ## Kod rješenja (`solutions/stageN/<slovo>/`)
 
-* `sol.cpp` – rješenje koje se prikazuje (C++17, čitljivo, komentari na hrvatskom)
+* `sol.cpp` – rješenje koje se prikazuje (C++17, čitljivo, komentari na hrvatskom); implementira pristup iz `solution`/`detailed`
+* `sol_alt.cpp` – (neobvezno) kod drugog pristupa iz `alternatives`
 * `brute.cpp` ili `brute.py` – očito točan spori algoritam za male ulaze
 * `gen.py <seed> small|big` – generator slučajnog testa
 * `check.py <ulaz> <očekivano|-> <dobiveno>` – samo za zadatke s više točnih odgovora
