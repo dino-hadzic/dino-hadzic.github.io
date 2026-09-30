@@ -1,159 +1,159 @@
-// F - Forestry
-// Komponenta C (povezan podskup) pojavljuje se u tocno 2^{N-2} * prod_{u in C} 2^{1-deg(u)}
-// odabira bridova. Zato je odgovor 2^{N-2} * sum_C min(C) * prod_{u in C} w_u, w_u = 2^{1-deg u}.
-// min(C) rastavimo po pragovima: min(C) = sum_t Delta_t [svi A u C >= t].
-// Dodajemo vrhove u padajucem redoslijedu po A i odrzavamo
-//   G = sum po povezanim podskupovima zivih vrhova od prod w
-// dinamickim DP-om na stablu (HLD + segmentno stablo afinih preslikavanja):
-//   D(u) = [u ziv] * w_u * prod_{djeca c} (1 + D(c)),  G = sum_u D(u).
+// F - Forestry (službeni pristup)
+// Svaki brid neovisno režemo s vjerojatnošću 1/2; tražimo očekivani zbroj
+// minimuma po komponentama, pomnožen s 2^(N-1).
+// Ukorijenimo stablo. Za vrh v neka je Y_v = minimum komponente koja sadrži v
+// unutar podstabla vrha v; dp[v][x] = P(Y_v = x). Nenulte vrijednosti x su samo
+// vrijednosti A u podstablu, pa dp[v] držimo u dinamičkom segmentnom stablu
+// nad komprimiranim vrijednostima (zbroj vjerojatnosti + zbroj x*p, lijeno
+// množenje). Djecu spajamo "segment tree mergeom": ako su Y_1, Y_2 neovisni,
+//   P(min = x) = P(Y_1 = x) P(Y_2 >= x) + P(Y_2 = x) P(Y_1 > x),
+// što se u spuštanju po stablu izvodi kao množenje podstabla skalarom.
+// Odgovor: E[zbroj minimuma] = sum_v P(v je najplići vrh svoje komponente) E[Y_v].
 #include <bits/stdc++.h>
 using namespace std;
 typedef long long ll;
 
-const ll MOD = 998244353;
+const int MOD = 998244353;
 
 ll power(ll b, ll e) {
-    ll r = 1; b %= MOD; if (b < 0) b += MOD;
-    while (e) { if (e & 1) r = r * b % MOD; b = b * b % MOD; e >>= 1; }
+    ll r = 1; b %= MOD;
+    for (; e; e >>= 1, b = b * b % MOD) if (e & 1) r = r * b % MOD;
     return r;
 }
 
-// Preslikavanje segmenta teskog puta: ulaz x = D(teskog djeteta dna),
-// D(vrha segmenta) = a + b x, zbroj D po segmentu = s + t x.
-struct Node {
-    ll a, b, s, t;
-};
-Node combine(const Node &top, const Node &bot) {
-    Node r;
-    r.a = (top.a + top.b * bot.a) % MOD;
-    r.b = top.b * bot.b % MOD;
-    r.s = (top.s + top.t * bot.a + bot.s) % MOD;
-    r.t = (top.t * bot.b + bot.t) % MOD;
-    return r;
-}
+int K;                 // broj različitih vrijednosti
+vector<int> vals;      // sortirane različite vrijednosti (mod p)
+// čvorovi dinamičkog segmentnog stabla; indeks 0 je prazan čvor
+vector<int> lc, rc, sm, sx, lz;  // sm = zbroj p, sx = zbroj x*p, lz = lijeni množitelj
 
-int n;
-vector<Node> seg;
-int SZ;
-void segSet(int pos, Node v) {
-    pos += SZ;
-    seg[pos] = v;
-    for (pos >>= 1; pos; pos >>= 1) seg[pos] = combine(seg[2 * pos], seg[2 * pos + 1]);
+int newNode() {
+    lc.push_back(0); rc.push_back(0); sm.push_back(0); sx.push_back(0); lz.push_back(1);
+    return (int)lc.size() - 1;
 }
-Node segQuery(int l, int r) {  // [l, r]
-    Node L = {0, 1, 0, 0}, R = {0, 1, 0, 0};  // identitet
-    for (l += SZ, r += SZ + 1; l < r; l >>= 1, r >>= 1) {
-        if (l & 1) L = combine(L, seg[l++]);
-        if (r & 1) R = combine(seg[--r], R);
+void apply(int t, int m) {
+    if (!t || m == 1) return;
+    sm[t] = (ll)sm[t] * m % MOD;
+    sx[t] = (ll)sx[t] * m % MOD;
+    lz[t] = (ll)lz[t] * m % MOD;
+}
+void push(int t) {
+    if (lz[t] != 1) { apply(lc[t], lz[t]); apply(rc[t], lz[t]); lz[t] = 1; }
+}
+void pull(int t) {
+    sm[t] = (sm[lc[t]] + sm[rc[t]]) % MOD;
+    sx[t] = (sx[lc[t]] + sx[rc[t]]) % MOD;
+}
+// postavi vjerojatnost u točki pos na val (stvara put do lista)
+int setPoint(int t, int l, int r, int pos, int val) {
+    if (!t) t = newNode();
+    if (l == r) {
+        sm[t] = val;
+        sx[t] = (ll)val * vals[pos] % MOD;
+        return t;
     }
-    return combine(L, R);
+    push(t);
+    int mid = (l + r) / 2;
+    if (pos <= mid) lc[t] = setPoint(lc[t], l, mid, pos, val);
+    else rc[t] = setPoint(rc[t], mid + 1, r, pos, val);
+    pull(t);
+    return t;
 }
-
-// umnozak (1 + D(lako dijete)) uz pracenje faktora jednakih nuli
-struct Prod {
-    ll val = 1;
-    int zeros = 0;
-    void mul(ll x) { if (x == 0) zeros++; else val = val * x % MOD; }
-    void div(ll x) { if (x == 0) zeros--; else val = val * power(x, MOD - 2) % MOD; }
-    ll get() const { return zeros ? 0 : val; }
-};
+// zbroj vjerojatnosti na pozicijama < pos
+int prefix(int t, int l, int r, int pos) {
+    if (!t || pos <= l) return 0;
+    if (r < pos) return sm[t];
+    push(t);
+    int mid = (l + r) / 2;
+    return (prefix(lc[t], l, mid, pos) + prefix(rc[t], mid + 1, r, pos)) % MOD;
+}
+// izbaci sve pozicije > pos
+int cut(int t, int l, int r, int pos) {
+    if (!t || r <= pos) return t;
+    if (l > pos) return 0;
+    push(t);
+    int mid = (l + r) / 2;
+    if (pos <= mid) { lc[t] = cut(lc[t], l, mid, pos); rc[t] = 0; }
+    else rc[t] = cut(rc[t], mid + 1, r, pos);
+    pull(t);
+    return t;
+}
+// spoji distribucije neovisnih Y_a i Y_b u distribuciju min(Y_a, Y_b);
+// ta = P(Y_a > r), tb = P(Y_b > r) (masa desno od trenutnog intervala,
+// uključivo "beskonačno" = prazna komponenta)
+int mergeTrees(int a, int b, int l, int r, int ta, int tb) {
+    if (!a && !b) return 0;
+    if (!b) { apply(a, tb); return a; }
+    if (!a) { apply(b, ta); return b; }
+    if (l == r) {
+        // P(min = x) = p_a(x) (p_b(x) + P(Y_b > x)) + p_b(x) P(Y_a > x)
+        ll p = ((ll)sm[a] * ((sm[b] + tb) % MOD) + (ll)sm[b] * ta) % MOD;
+        sm[a] = (int)p;
+        sx[a] = (ll)p * vals[l] % MOD;
+        return a;
+    }
+    push(a); push(b);
+    int mid = (l + r) / 2;
+    int ra = sm[rc[a]], rb = sm[rc[b]];  // masa desne polovice prije spajanja
+    rc[a] = mergeTrees(rc[a], rc[b], mid + 1, r, ta, tb);
+    lc[a] = mergeTrees(lc[a], lc[b], l, mid, (ta + ra) % MOD, (tb + rb) % MOD);
+    pull(a);
+    return a;
+}
 
 int main() {
-    scanf("%d", &n);
+    int n;
+    if (scanf("%d", &n) != 1) return 0;
     vector<ll> A(n + 1);
     for (int i = 1; i <= n; i++) scanf("%lld", &A[i]);
     vector<vector<int>> g(n + 1);
     for (int i = 0; i < n - 1; i++) {
-        int u, v;
-        scanf("%d %d", &u, &v);
-        g[u].push_back(v);
-        g[v].push_back(u);
+        int u, v; scanf("%d %d", &u, &v);
+        g[u].push_back(v); g[v].push_back(u);
     }
-    // HLD: BFS redoslijed, velicine, tesko dijete, pozicije
-    vector<int> par(n + 1, 0), order, sz(n + 1, 1), heavy(n + 1, 0), head(n + 1), pos(n + 1);
-    order.push_back(1);
-    par[1] = 0;
-    for (size_t i = 0; i < order.size(); i++)
-        for (int u : g[order[i]])
-            if (u != par[order[i]]) { par[u] = order[i]; order.push_back(u); }
-    for (int i = n - 1; i > 0; i--) {
+    // kompresija vrijednosti
+    vector<ll> srt(A.begin() + 1, A.end());
+    sort(srt.begin(), srt.end());
+    srt.erase(unique(srt.begin(), srt.end()), srt.end());
+    K = (int)srt.size();
+    vals.resize(K);
+    for (int i = 0; i < K; i++) vals[i] = (int)(srt[i] % MOD);
+    vector<int> idx(n + 1);
+    for (int v = 1; v <= n; v++) idx[v] = (int)(lower_bound(srt.begin(), srt.end(), A[v]) - srt.begin());
+
+    // BFS redoslijed (bez rekurzije po stablu)
+    vector<int> order, par(n + 1, 0);
+    order.reserve(n);
+    order.push_back(1); par[1] = -1;
+    for (size_t i = 0; i < order.size(); i++) {
         int v = order[i];
-        sz[par[v]] += sz[v];
-        if (heavy[par[v]] == 0 || sz[v] > sz[heavy[par[v]]]) heavy[par[v]] = v;
+        for (int w : g[v]) if (w != par[v]) { par[w] = v; order.push_back(w); }
     }
-    // pozicije: teski put je neprekinut segment (vrh puta ima manju poziciju)
-    int cur = 0;
-    vector<int> bottom(n + 1);  // dno teskog puta (po glavi)
-    {
-        vector<int> st = {1};
-        head[1] = 1;
-        while (!st.empty()) {
-            int h = st.back(); st.pop_back();
-            for (int v = h; v; v = heavy[v]) {
-                head[v] = h;
-                pos[v] = cur++;
-                bottom[h] = v;
-                for (int u : g[v])
-                    if (u != par[v] && u != heavy[v]) { head[u] = u; st.push_back(u); }
-            }
-        }
-    }
-    SZ = 1;
-    while (SZ < n) SZ <<= 1;
-    seg.assign(2 * SZ, {0, 1, 0, 0});
-    // mrtvi vrhovi: D = 0 bez obzira na ulaz -> (a,b,s,t) = (0,0,0,0)
-    Node dead = {0, 0, 0, 0};
-    for (int v = 1; v <= n; v++) segSet(pos[v], dead);
 
-    vector<ll> w(n + 1);
-    ll inv2 = power(2, MOD - 2);
-    for (int v = 1; v <= n; v++) w[v] = power(inv2, (int)g[v].size() - 1);  // 2^{1-deg}
-    vector<Prod> light(n + 1);
-    vector<char> alive(n + 1, 0);
+    lc.reserve(20 * n + 5); rc.reserve(20 * n + 5); sm.reserve(20 * n + 5);
+    sx.reserve(20 * n + 5); lz.reserve(20 * n + 5);
+    newNode();  // čvor 0 = prazno stablo
 
-    // D vrha v: vrijednost kompozicije segmenta [pos v, pos dna] uz x = 0
-    auto topValue = [&](int h) { return segQuery(pos[h], pos[bottom[h]]); };
-
-    ll G = 0;  // zbroj svih D
-    vector<int> byA(n);
-    iota(byA.begin(), byA.end(), 1);
-    sort(byA.begin(), byA.end(), [&](int x, int y) { return A[x] > A[y]; });
-
-    auto leafOf = [&](int u) -> Node {
-        if (!alive[u]) return dead;
-        ll c = w[u] * light[u].get() % MOD;
-        return {c, c, c, c};
-    };
-    // azuriraj list u i propagiraj promjenu do korijena po teskim putevima
-    auto update = [&](int u) {
-        while (true) {
-            int h = head[u];
-            Node before = topValue(h);
-            segSet(pos[u], leafOf(u));
-            Node after = topValue(h);
-            G = ((G - before.s + after.s) % MOD + MOD) % MOD;
-            int p = par[h];
-            if (p == 0) break;
-            // laki brid (p, h): promijeni faktor (1 + D(h)) u umnosku p
-            light[p].div((1 + before.a) % MOD);
-            light[p].mul((1 + after.a) % MOD);
-            u = p;
-        }
-    };
-
+    const int INV2 = (MOD + 1) / 2;
+    vector<int> root(n + 1, 0), inf(n + 1, 1);  // inf[v] = P(komponenta iz djece je prazna)
     ll ans = 0;
-    for (int i = 0; i < n;) {
-        int j = i;
-        while (j < n && A[byA[j]] == A[byA[i]]) {
-            alive[byA[j]] = 1;
-            update(byA[j]);
-            j++;
+    for (int i = n - 1; i >= 0; i--) {
+        int v = order[i];
+        // spoji djecu: dijete c ulazi s vjerojatnošću 1/2 (brid zadržan)
+        for (int c : g[v]) if (c != par[v]) {
+            apply(root[c], INV2);
+            int infc = INV2;  // masa "beskonačno" djeteta: brid prerezan
+            root[v] = mergeTrees(root[v], root[c], 0, K - 1, inf[v], infc);
+            inf[v] = (ll)inf[v] * INV2 % MOD;
         }
-        ll nextVal = (j < n) ? A[byA[j]] : 0;
-        ll delta = (A[byA[i]] - nextVal) % MOD;
-        ans = (ans + delta * G) % MOD;
-        i = j;
+        // minimum s vlastitom vrijednošću A_v: sve > A_v postaje A_v
+        int pLess = prefix(root[v], 0, K - 1, idx[v]);   // P(min djece < A_v)
+        root[v] = cut(root[v], 0, K - 1, idx[v]);
+        root[v] = setPoint(root[v], 0, K - 1, idx[v], (1 - pLess + MOD) % MOD);
+        // v je najplići vrh svoje komponente ako je brid prema roditelju prerezan
+        ll pTop = (par[v] == -1) ? 1 : INV2;
+        ans = (ans + pTop * sx[root[v]]) % MOD;
     }
-    ans = ans * power(2, n - 2) % MOD;
+    ans = ans * power(2, n - 1) % MOD;
     printf("%lld\n", ans);
+    return 0;
 }
