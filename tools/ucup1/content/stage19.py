@@ -49,7 +49,7 @@ PROBLEMS = [
          r'''
 <p>Provjeri argument iz prvog koraka: brojanje ishoda ne ovisi o tome kako biramo podskupove, pa je $(d+1)^k$ gornja granica i za adaptivne strategije. Za sigurnost, u brute forceu se može izračunati $F(k,d)$ = najveći broj spojeva koji se sigurno razlikuje: alergen jednog dana reagira na nekom podskupu $S$ mjesta koja potom otpadaju, pa $F(k,d) = \sum_{j} \binom{k}{j} F(k-j,\,d-1)$, $F(k,0)=1$. Binomni teorem daje upravo $F(k,d) = (d+1)^k$.</p>
 '''),
-        ('Kako sigurno izračunati najmanji $k$ kad su $n, d \le 10^{18}$?',
+        (r'Kako sigurno izračunati najmanji $k$ kad su $n, d \le 10^{18}$?',
          r'''
 <p>Tražimo najmanji $k$ s $(d+1)^k \ge n$. Množimo redom $1, (d+1), (d+1)^2, \dots$ dok ne dosegnemo $n$; koraka je najviše $\lceil \log_2 10^{18} \rceil = 60$. Jedina zamka: $(d+1)^2$ može premašiti $10^{36}$, a to ne stane u 64 bita. Ili množi u <code>__int128</code>, ili prije množenja provjeri <code>moc > n / (d+1)</code> (tada odmah znaš da je sljedeća potencija $\ge n$). Poseban slučaj $n=1$ daje $k=0$.</p>
 '''),
@@ -72,7 +72,7 @@ PROBLEMS = [
 <h3>3. Provjera preko rekurzije igre</h3>
 <p>Ako sumnjamo u zatvorenu formulu, izračunajmo $F(k,d)$ = najveći broj spojeva koji se s $k$ mjesta u $d$ dana sigurno razlikuje. Prvog dana alergen reagira na nekom podskupu $S$ mjesta ($|S|=j$); ta mjesta otpadaju, a preostaju $k-j$ mjesta i $d-1$ dana za sve spojeve koji su bili na točno tom podskupu. Različiti podskupovi vode u različite grane, pa je optimalno svaku granu napuniti do maksimuma: $$F(k,d)=\sum_{j=0}^{k}\binom{k}{j}F(k-j,\,d-1),\qquad F(k,0)=1.$$ Indukcijom po $d$: ako je $F(\cdot,d-1)=d^{\,\cdot}$, onda $F(k,d)=\sum_j\binom{k}{j}d^{\,k-j}=(d+1)^k$ po binomnom teoremu. Ova rekurzija je i naš brute force.</p>
 <h3>4. Računanje odgovora</h3>
-<p>Tražimo najmanji $k\ge 0$ s $(d+1)^k\ge n$. Za $n=1$ odgovor je $0$ (nema što razlikovati). Inače krenemo od $\text{moc}=1$ i množimo s $d+1$ dok $\text{moc} < n$; kako je $d+1\ge 2$, petlja ima najviše $\lceil\log_2 n\rceil \le 60$ koraka, a za $t\le 10^4$ testova to je trenutno.</p>
+<p>Tražimo najmanji $k\ge 0$ s $(d+1)^k\ge n$. Za $n=1$ odgovor je $0$ (nema što razlikovati). Inače krenemo od $\text{moc}=1$ i množimo s $d+1$ dok $\text{moc} \lt n$; kako je $d+1\ge 2$, petlja ima najviše $\lceil\log_2 n\rceil \le 60$ koraka, a za $t\le 10^4$ testova to je trenutno.</p>
 <p>Jedina tehnička opasnost je prelijevanje: već $(d+1)^2$ može biti reda $10^{36}$. U kodu množimo u <code>__int128</code> (raspon do $\approx 1.7\cdot 10^{38}$, a nikad ne množimo broj $\ge n$, pa je umnožak $< n\cdot(d+1) \le 10^{36}+10^{18}$). Alternativa bez <code>__int128</code>: prije množenja provjeriti <code>moc > n / (d + 1)</code> i tada odmah zaključiti da je sljedeća potencija $\ge n$. Ne koristimo <code>log</code> ni <code>pow</code> u pomičnom zarezu – pri $10^{18}$ greška zaokruživanja lako pomakne odgovor za $1$.</p>
 <h3>5. Složenost</h3>
 <p>$O(t\log n)$ vremena, $O(1)$ memorije.</p>
@@ -112,7 +112,7 @@ PROBLEMS = [
          r'''
 <p>Bez dodatnih bridova: $1$ (put u stablu). S jednim: $2$ brida $\times$ $2$ smjera $= 4$. S oba: $2$ redoslijeda $\times$ $2 \times 2$ smjera $= 8$. Ukupno najviše $13$. Različiti kandidati daju različite putove (put jednoznačno određuje koje dodatne bridove koristi, kojim redom i u kojem smjeru), pa nema dvostrukog brojanja. Kandidat $u \to p \xrightarrow{e} r \to v$ je jednostavan put točno kad su putovi u stablu $u\text{-}p$ i $r\text{-}v$ vršno disjunktni; za dva brida tri segmenta moraju biti disjunktni u parovima.</p>
 '''),
-        ('Kako u $O(\log n)$ provjeriti sijeku li se dva puta u stablu?',
+        (r'Kako u $O(\log n)$ provjeriti sijeku li se dva puta u stablu?',
          r'''
 <p>Neka su $\ell_1 = \mathrm{lca}(x_1, y_1)$ i $\ell_2 = \mathrm{lca}(x_2, y_2)$, i neka je $\ell_1$ dublji (ili jednako dubok). Tvrdnja: putovi se sijeku točno kad $\ell_1$ leži na putu $x_2\text{-}y_2$. Ako je $w$ zajednički vrh, i $\ell_1$ i $\ell_2$ su preci od $w$, dakle usporedivi, pa je $\ell_1$ potomak od $\ell_2$; $w$ je na jednoj od dviju uzlaznih grana puta 2, recimo između $x_2$ i $\ell_2$, a $\ell_1$ je predak od $w$ i potomak od $\ell_2$, dakle na istoj grani. Obrat je trivijalan. Provjera „je li $a$ predak od $b$” je $O(1)$ preko Eulerovih vremena $tin/tout$, pa cijela provjera košta dva LCA-a.</p>
 '''),
@@ -194,7 +194,7 @@ PROBLEMS = [
          r'''
 <p>Svi MST-ovi imaju isti multiskup težina i, za svaku težinu $w$, isti skup komponenti grafa bridova težine $\lt w$ (standardno svojstvo Kruskala). Bridovi težine $w$ u bilo kojem MST-u tvore razapinjuću šumu multigrafa $G_w$ dobivenog sažimanjem tih komponenti, i obratno: svaki izbor takvih razapinjućih šuma po težinama daje MST. Broj bridova iz $T$ težine $w$ u MST-u je dakle veličina neovisnog skupa u grafičkom matroidu $G_w$ presječenog s $T$; pohlepni algoritam koji prvo uzima bridove iz $T$ (težina $1$) pa ostale (težina $0$) nalazi bazu maksimalne težine – to je točno Kruskal s tim redoslijedom. Zbroj po $w$ daje $\max_F |T \cap F|$.</p>
 '''),
-        ('Kako dostići donju granicu $|T \setminus T^*|$?',
+        (r'Kako dostići donju granicu $|T \setminus T^*|$?',
          r'''
 <p>Uzmimo brid $f \in T^* \setminus T_{\text{tren}}$ i dodajmo ga: nastaje točno jedan ciklus, $f$ plus put u stablu između krajeva $f$. Da su svi bridovi tog puta u $T^*$, $T^*$ bi sadržavao ciklus – kontradikcija. Dakle na putu postoji brid $e \notin T^*$; izbacimo ga. Rezultat je opet razapinjuće stablo (uklonili smo brid s ciklusa), $|T_{\text{tren}} \cap T^*|$ je narastao za $1$. Nakon $|T \setminus T^*|$ zamjena stablo je $T^*$.</p>
 '''),
@@ -282,7 +282,7 @@ PROBLEMS = [
          r'''
 <p>$1 - p_A p_B = (1 - p_A) + p_A(1 - p_B)$, pa je $\rho_{AB} = \dfrac{c_A + p_A c_B}{(1-p_A) + p_A(1-p_B)}$ medijanta razlomaka $\dfrac{c_A}{1-p_A}$ i $\dfrac{p_A c_B}{p_A(1-p_B)}$, dakle $\min(\rho_A,\rho_B) \le \rho_{AB} \le \max(\rho_A,\rho_B)$. Posljedica: neka je $T$ jedinica s najmanjim $\rho$ među preostalima. U bilo kojem rasporedu blok $B$ između roditelja od $T$ i samog $T$ sastoji se od jedinica s $\rho \ge \rho_T$, pa je $\rho_B \ge \rho_T$; premještanje $T$ ispred $B$ je dopušteno (u $B$ nema potomaka od $T$, roditelj je već prije) i ne povećava trošak. Dakle postoji optimalan raspored u kojem $T$ ide <em>odmah</em> nakon svog roditelja (ili odmah, ako roditelja nema ili je izveden).</p>
 '''),
-        ('Kako iz te tvrdnje slijedi algoritam i kako ga izvesti u $O(n \log n)$?',
+        (r'Kako iz te tvrdnje slijedi algoritam i kako ga izvesti u $O(n \log n)$?',
          r'''
 <p>Uzmi jedinicu $T$ s najmanjim $\rho$. Ako je njezin roditelj izveden (ili ga nema), izvedi $T$ – ostatak je manji problem istog oblika. Inače spoji $T$ s roditeljskom jedinicom $P$ u jedinicu „$P$ pa $T$” s $c = c_P + p_P c_T$, $p = p_P p_T$; rasporedi nove instance točno odgovaraju rasporedima stare u kojima $T$ slijedi $P$, a među njima postoji optimalan. Implementacija: prioritetni red po $\rho$ s verzijama zapisa (lijeno brisanje), unija-pronađi koji za test vraća korijen jedinice (ovisnost testa $d_i$ prevodi se u jedinicu $\text{nadji}(d_i)$), povezane liste za redoslijed testova u jedinici (spajanje u $O(1)$). Svaki test se spoji najviše jednom, pa je ukupno $O(n \log n)$.</p>
 '''),
@@ -607,7 +607,7 @@ $$\rho_{AB} = \frac{c_A + p_A c_B}{(1 - p_A) + p_A(1 - p_B)},$$
          r'''
 <p>Neka su $M \gt j$ dva najviša preostala. Natjecatelj $p \le j - k$ sigurno gubi i od $M$ i od $j$, pa je najbolje treći – nikad ne ispada. Dakle ispada netko iz $(j-k, j] \cup \{M\}$. Kako $j$ (drugi najviši) tijekom igre samo pada, svatko tko je ikad ispao bio je $\gt j' - k \ge j - k$ za tadašnji $j'$. Zaključak: u svakom trenutku su <em>svi</em> natjecatelji $\le j-k$ prisutni, a stanje lanca je trojka $(j, \text{mask}, \text{above})$: maska prisutnosti $k-1$ ljudi $j-k+1..j-1$ i $\text{above} = M - j$.</p>
 '''),
-        ('Zašto se razmak $M - j \ge k$ ne mora pamtiti točno?',
+        (r'Zašto se razmak $M - j \ge k$ ne mora pamtiti točno?',
          r'''
 <p>Ako je $M \ge j + k$, $M$ sigurno pobjeđuje svaki tjedan, nikad ne ispada i na kraju dobiva rang $1$. Tko ispada određuje se isključivo među ostalima (pobjednik među njima), neovisno o točnom $M$. Zato u trenutku kad $\text{above}$ prvi put postane $\ge k$ pripišemo $M$-u rang $1$ s vjerojatnošću tog stanja i dalje pamtimo samo $\text{above} = k$. Broj stanja pada s $O(n^2 2^k)$ na $O(n k 2^{k-1})$, oko $5 \cdot 10^6$ za $n = 1000$, $k = 10$.</p>
 '''),
@@ -697,15 +697,15 @@ $$\rho_{AB} = \frac{c_A + p_A c_B}{(1 - p_A) + p_A(1 - p_B)},$$
          r'''
 <p>Eksponent. $n$ može biti do $10^9$, ali eksponent $\tau = f(n)$ je za $n \ge 2$ barem $2$, a $n^\tau \le 10^{18}$ daje $2^\tau \le 10^{18}$, dakle $\tau \le 59$. Zato fiksiramo $\tau$ (najviše $60$ kandidata) i iz njega izvedemo $n$.</p>
 '''),
-        ('Kad je $\tau$ fiksiran, koliko je kandidata za $n$?',
+        (r'Kad je $\tau$ fiksiran, koliko je kandidata za $n$?',
          r'''
 <p>Točno jedan: $n$ mora biti cjelobrojni $\tau$-ti korijen od $x$, tj. $n = \sqrt[\tau]{x}$, a to postoji samo ako je $x$ točna $\tau$-ta potencija. Korijen nađemo binarnim pretraživanjem po $n \in [1, 2\cdot 10^9]$ uz „zasićeno” množenje (ako međurezultat premaši $2\cdot 10^{18}$, prekinemo) – tako izbjegavamo prelijevanje i ne oslanjamo se na <code>pow</code> u pomičnom zarezu.</p>
 '''),
-        ('Je li dovoljno da je $x = n^\tau$?',
+        (r'Je li dovoljno da je $x = n^\tau$?',
          r'''
 <p>Nije – još treba $f(n) = \tau$, jer inače $n^{f(n)} \ne x$. Broj djelitelja računamo probnim dijeljenjem do $\sqrt{n}$; najgori slučaj je $\tau = 2$ s $n \approx 10^9$, dakle oko $3\cdot 10^4$ dijeljenja – trivijalno.</p>
 '''),
-        ('Kako među više valjanih $\tau$ odabrati najmanji $n$ i koji su rubni slučajevi?',
+        (r'Kako među više valjanih $\tau$ odabrati najmanji $n$ i koji su rubni slučajevi?',
          r'''
 <p>Različiti $\tau$ daju različite $n$ (veći $\tau$ daje manji korijen), pa jednostavno pamtimo minimum svih $n$ koji prolaze obje provjere. Rubni slučaj $x = 1$: $n = 1$ jer $f(1) = 1$ i $1^1 = 1$; za $x \ge 2$ kandidat $n = 1$ nikad ne prolazi, a $\tau = 1$ bi zahtijevao $n = x$ s $f(x) = 1$, što vrijedi samo za $x = 1$.</p>
 '''),
@@ -720,7 +720,7 @@ $$\rho_{AB} = \frac{c_A + p_A c_B}{(1 - p_A) + p_A(1 - p_B)},$$
 ''',
     'detailed': r'''
 <h3>1. Preokret: fiksiramo eksponent</h3>
-<p>Jednadžba $n^{f(n)} = x$ ima nepoznanicu i u bazi i u eksponentu, ali eksponent je „mali”. Neka je $\tau = f(n)$. Za $n = 1$ je $\tau = 1$ i $x = 1$. Za $n \ge 2$ broj $n$ ima barem djelitelje $1$ i $n$, pa je $\tau \ge 2$; tada je $x = n^\tau \ge 2^\tau$, a iz $x \le 10^{18} < 2^{60}$ slijedi $\tau \le 59$. Dakle postoji najviše $58$ mogućih eksponenata i možemo ih sve probati.</p>
+<p>Jednadžba $n^{f(n)} = x$ ima nepoznanicu i u bazi i u eksponentu, ali eksponent je „mali”. Neka je $\tau = f(n)$. Za $n = 1$ je $\tau = 1$ i $x = 1$. Za $n \ge 2$ broj $n$ ima barem djelitelje $1$ i $n$, pa je $\tau \ge 2$; tada je $x = n^\tau \ge 2^\tau$, a iz $x \le 10^{18} \lt 2^{60}$ slijedi $\tau \le 59$. Dakle postoji najviše $58$ mogućih eksponenata i možemo ih sve probati.</p>
 <h3>2. Za fiksni $\tau$ postoji najviše jedan $n$</h3>
 <p>Funkcija $n \mapsto n^\tau$ je strogo rastuća, pa je $n$ jedinstveno određen kao $\sqrt[\tau]{x}$ i mora biti cijeli broj. Računamo $r = \max\{n : n^\tau \le x\}$ binarnim pretraživanjem na $[1, 2\cdot 10^9]$ (za $\tau \ge 2$ korijen je $\le 10^9$) i provjerimo $r^\tau = x$. Potenciju računamo u petlji s <em>zasićenjem</em>: prije množenja provjerimo <code>r &gt; LIMIT / n</code> i tada vratimo „preveliko” – tako nikad ne prelijevamo 64-bitni broj. To je pouzdanije od <code>pow(x, 1.0/tau)</code>, koji za $x \approx 10^{18}$ ima grešku zaokruživanja i lako promaši za $1$.</p>
 <h3>3. Provjera broja djelitelja</h3>
@@ -898,6 +898,40 @@ $$\rho_{AB} = \frac{c_A + p_A c_B}{(1 - p_A) + p_A(1 - p_B)},$$
 <p>Vrijeme $O(K_{\max} \cdot n) = O(5 \cdot 10^6)$, memorija $O(n)$ uz čitanje redaka.</p>
 ''',
     'verified': r'''uzorak 1/1; 300 slučajnih malih testova ($n \le 10$, konstruirana dosljedna uvlačenja s nasumičnim $k, i$ i pokvarenim retcima te posve nasumični redci) protiv brute forcea koji za $k \le 60\,000$ doslovno zamjenjuje tabulatore i provjerava uvlačenje; 3 velika testa ($n = 100$, redci do $1000$ znakova, $k$ do $49\,000$) usporedena s brute forceom (<0.01 s); ručno provjeren test s odgovorom $1998 \gt 1000$.''',
+    'alternatives': [{
+        'title': 'Algebarsko rješenje bez isprobavanja $k$',
+        'detailed': r'''<p>Službeni slajdovi spominju da se zadatak može riješiti i <em>algebarski</em>, bez petlje po svim kandidatima $k$: umjesto da za svaki $k$ provjeravamo cijelu datoteku, iz jednadžbi redaka eliminiramo nepoznanicu $i$ i ili dobijemo $k$ eksplicitno, ili problem svedemo na jednu linearnu kongruenciju. Ovaj pristup ima složenost $O(n + \log n)$ i ne ovisi ni o kakvoj granici za $k$ (pa pitanje „je li $1000$ ili $50\,000$ dovoljno” nestaje), ali zahtijeva pažljiviju analizu slučajeva – zato ga vrijedi znati kad su ograničenja veća ili kad se želi dokaz ispravnosti neovisan o brute forceu.</p>
+<h3>1. Jednadžbe redaka</h3>
+<p>Kao i u glavnom rješenju, za svaki redak $j$ odredimo dubinu $p_j$, broj tabulatora $t_j$ i broj razmaka $s_j$ (zatvarajuća zagrada je na dubini bloka koji zatvara). Redci na dubini $0$ moraju imati $t_j = s_j = 0$, inače je odgovor $-1$ bez obzira na $k$. Ako uvučenih redaka nema, svaki $k$ odgovara i odgovor je $1$. Svaki uvučeni redak zadaje jednadžbu s dvije nepoznanice $k, i \in \mathbb{Z}_{\gt 0}$:</p>
+<p>$$t_j \, k + s_j = p_j \, i .$$</p>
+<h3>2. Eliminacija nepoznanice $i$</h3>
+<p>Uzmemo referentni uvučeni redak $r$. Za bilo koji drugi uvučeni redak $j$ pomnožimo jednadžbu retka $r$ s $p_j$, jednadžbu retka $j$ s $p_r$ i oduzmemo: član s $i$ nestaje i ostaje</p>
+<p>$$k \,(p_j t_r - p_r t_j) = p_r s_j - p_j s_r .$$</p>
+<p>Ako je zagrada $p_j t_r - p_r t_j \ne 0$, $k$ je <em>jednoznačno</em> određen kao kvocijent desne i lijeve zagrade. Mora biti cijeli broj i $k \ge 1$; ako nije, odgovor je $-1$. Ako jest, preostaje samo provjeriti taj jedan $k$ na cijeloj datoteci u $O(n)$ (isti test kao u glavnom rješenju: svi $u_j = t_j k + s_j$ djeljivi s $p_j$, kvocijenti jednaki i pozitivni) – jer eliminacija je nužan, ne i dovoljan uvjet.</p>
+<p><strong>Zašto je dovoljno uspoređivati samo s jednim referentnim retkom?</strong> Uvjet $p_j t_r - p_r t_j = 0$ znači da je vektor $(t_j, p_j)$ proporcionalan vektoru $(t_r, p_r)$. Proporcionalnost je tranzitivna: ako su svi $(t_j, p_j)$ proporcionalni $(t_r, p_r)$, onda su proporcionalni i međusobno. Dakle, ako ni jedan redak ne daje nenultu zagradu s $r$, ni jedan par redaka ne određuje $k$ i prelazimo na drugi slučaj.</p>
+<h3>3. Degenerirani slučaj: svi retci proporcionalni</h3>
+<p>Sada za sve uvučene retke vrijedi $\frac{t_j}{p_j} = \frac{a}{b}$ za isti skraćeni razlomak (dobijemo ga iz referentnog retka, $a \ge 0$, $b \ge 1$, $\gcd(a,b)=1$). Podijelimo jednadžbu retka $j$ s $p_j$: $\frac{t_j}{p_j} k + \frac{s_j}{p_j} = i$, tj. $\frac{s_j}{p_j} = i - \frac{a}{b} k$ je <em>ista</em> vrijednost za sve retke. Ako se razlomci $\frac{s_j}{p_j}$ razlikuju (provjera $s_j \cdot g \ne f \cdot p_j$ u cijelim brojevima), rješenja nema: $-1$. Inače je $\frac{s_j}{p_j} = \frac{f}{g}$ za sve $j$ ($f \ge 0$, $g \ge 1$, $\gcd(f,g)=1$) i sve se jednadžbe svode na jednu:</p>
+<p>$$i = \frac{a}{b} k + \frac{f}{g} = \frac{a g \, k + f b}{b g} .$$</p>
+<p>Tražimo najmanji $k \ge 1$ za koji je $i$ pozitivan cijeli broj. Ako je $a = 0$ (nitko nema tabulatore), $i = f/g$ ne ovisi o $k$: odgovor je $1$ ako je $g = 1$ i $f \gt 0$, inače $-1$. Ako je $a \gt 0$, pozitivnost je automatska ($k \ge 1$, $f \ge 0$), a cjelobrojnost je linearna kongruencija</p>
+<p>$$a g \, k \equiv -f b \pmod{b g}.$$</p>
+<h3>4. Rješavanje kongruencije</h3>
+<p>Kongruencija $A k \equiv B \pmod M$ ima rješenje točno kad $d = \gcd(A, M)$ dijeli $B$; tada su rješenja klasa ostataka modulo $M' = M/d$, i to $k \equiv (B/d) \cdot x \pmod{M'}$, gdje je $x$ koeficijent uz $A$ iz proširenog Euklidova algoritma ($A x + M y = d$), jer je $x$ inverz od $A/d$ modulo $M'$. Najmanji pozitivni predstavnik je $k_0$ ako je $k_0 \gt 0$, inače $M'$ (za $k_0 = 0$). Ako $d \nmid B$, odgovor je $-1$.</p>
+<p>Ovdje je $b, g \le 49$ (dubina je najviše $49$ jer je $n \le 100$ redaka), pa je $M = bg \le 2401$ – brojevi su sitni, ali umnožak $x \cdot (B/d)$ računamo u <code>__int128</code> da ne razmišljamo o predznacima i veličini $x$.</p>
+<p><strong>Zapažanje koje kongruenciju čini trivijalnom.</strong> U ovom zadatku prvi je redak <code>{</code> na dubini $0$, pa je drugi redak uvijek na dubini $1$. Kako je $\frac{t_2}{1}$ cijeli broj, skraćeni razlomak $\frac{a}{b}$ ima $b = 1$, i jednako $g = 1$. Stoga je u degeneriranom slučaju $i = a k + f$ cijeli broj za <em>svaki</em> $k$, i odgovor je $1$ (uz $a \gt 0$ ili $f \gt 0$; za $a = f = 0$ drugi redak ima $i = 0$, pa je odgovor $-1$). To je ujedno dokaz tvrdnje iz glavnog rješenja da u tom slučaju „radi neki $k \le 49$”. Opći postupak s kongruencijom zadržavamo jer radi i bez pretpostavke o retku na dubini $1$.</p>
+<h3>5. Ispravnost</h3>
+<p>U prvom slučaju smo pokazali da je $k$ jedini kandidat, a zatim ga izravno provjerili – nema lažnih pozitiva ni negativa. U drugom slučaju smo pokazali da je skup svih $(k, i)$ koji zadovoljavaju <em>sve</em> jednadžbe jednak skupu rješenja jedne jednadžbe $i = \frac{a}{b}k + \frac{f}{g}$ (jer je svaka jednadžba retka njezin $p_j$-struki umnožak), pa je najmanji $k$ s cjelobrojnim $i$ upravo najmanje rješenje kongruencije. Time je i formalno dokazano ono što glavno rješenje koristi kao granicu: u degeneriranom slučaju rješenje, ako postoji, ima $k \le bg \le 2401$, a u nedegeneriranom je $|k| \le 49 \cdot 999$.</p>
+<h3>6. Zamke</h3>
+<ul>
+<li>Kvocijent u prvom slučaju može biti negativan ili nula – oba znače $-1$, ali kvocijent treba računati tek nakon provjere djeljivosti (C++ <code>%</code> s negativnim brojevima daje negativan ostatak, no usporedba s $0$ i dalje radi).</li>
+<li>Kad je $k$ jednoznačno određen, provjera cijele datoteke je obvezna: eliminacija $i$ „zaboravlja” uvjet $i \gt 0$ i uvjet da su <em>svi</em> kvocijenti jednaki.</li>
+<li>Razlomke $\frac{s_j}{p_j}$ uspoređujemo križnim množenjem, ne dijeljenjem u pomičnom zarezu.</li>
+</ul>
+<h3>7. Složenost</h3>
+<p>$O(n)$ za čitanje i eliminaciju, $O(n)$ za završnu provjeru, $O(\log(bg))$ za prošireni Euklid – ukupno $O(n + \log n)$, neovisno o veličini $k$.</p>
+''',
+        'code': 'stage19/K/sol_alt.cpp',
+        'verified': r'''uzorak 1/1; 300 slučajnih malih testova (isti generator i brute force kao za glavno rješenje: konstruirana dosljedna uvlačenja s nasumičnim $k, i$, pokvareni retci, posve nasumični redci) usporedena s brute forceom koji za $k \le 60\,000$ doslovno zamjenjuje tabulatore; 3 velika testa ($n = 100$, redci do $1000$ znakova, $k$ do $49\,000$) usporedena s brute forceom (<0.01 s); dodatno ručno provjereni test s odgovorom $1998$ (koji petlja do $1000$ ne bi našla) te degenerirani slučajevi u kojima svi retci imaju isti omjer $t_j / p_j$ (odgovori $1$ i $-1$), uspoređeni s glavnim rješenjem i brute forceom.''',
+    }],
 },
 # ---------------------------------------------------------------- L
 {
