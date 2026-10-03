@@ -320,6 +320,104 @@ int main() {
 </code></pre>
                         </div>
                     </details>
+                    <div class="rjesenje-alternativa">
+                    <h2>2. RJEŠENJE: DP po razlici $D=T-k$ s listama intervala (bez bitseta, $O((n+S)\sqrt S)$, 25 MiB)</h2>
+                    <p>Ovo je pristup koji koristi većina javnih prihvaćenih rješenja na QOJ-u (npr. predaje DaiRuiChen007, candy0014, _Communist): tablica dostiživosti po $(d,c)$ uopće se ne gradi, nego se za svaku vrijednost razlike $D=T-k$ izravno održava <em>skup dostiživih duljina $k$</em> kao kratka lista disjunktnih intervala. Troši oko $25$ MiB umjesto $230$ MiB i ne treba ni polovičnu tablicu ni segmentno stablo.</p>
+
+                    <h3>1. Ista bijekcija, drugo stanje</h3>
+                    <p>Kao i u glavnom rješenju, par $(k,T)$ zamjenjujemo parom $(D,k)$ s $D=T-k$. Element $a_i$ u podnizu pridonosi $1$ duljini $k$ i $a_i-1$ razlici $D$: nula pomiče $D$ za $-1$, jedinica ne mijenja $D$, veliki element $a_i=1+b_i$ pomiče $D$ za $b_i$. Dakle $D\in[-z,\,B]$, a stanje DP-a je</p>
+                    <p>$$f(D)=\{\,k:\ \text{postoji podniz duljine }k\text{ s }T-k=D\,\}\subseteq[0,n],$$</p>
+                    <p>a odgovor je $\sum_D|f(D)|$. Indeksiramo $D'=D+z\in[0,z+B]$.</p>
+                    <p><strong>Početno stanje</strong> čine samo nule i jedinice: odaberemo li $z'$ nula i $j$ jedinica, dobijemo $D=-z'$ i $k=z'+j$, pa je $f(-z')=[z',\,z'+o]$ za $z'=0,\dots,z$ — svaki početni skup je jedan interval duljine $o+1$.</p>
+                    <p><strong>Prijelaz</strong> za jedan veliki element s viškom $b$ je 0/1-ruksak po $D$ silazno: $f(D)\leftarrow f(D)\cup\bigl(f(D-b)+1\bigr)$, gdje $+1$ pomiče sve $k$ za jedan. Brojnost $m$ iste vrijednosti cijepamo binarno na komade $1,2,4,\dots$ i ostatak; komad od $t$ kopija je prijelaz $f(D)\leftarrow f(D)\cup\bigl(f(D-tb)+t\bigr)$. Svaki broj kopija iz $[0,m]$ zbroj je nekog podskupa komada i nijedan podskup ne premašuje $m$, pa je rezultat točan.</p>
+
+                    <h3>2. Zašto je $f(D)$ uvijek unija najviše četiri intervala</h3>
+                    <p>Svaki $k\in f(D)$ potječe od nekog izbora $(z',X)$ — $z'$ nula i podskupa velikih $X$ s $|X|=c$, $\sum_Xb=d$, uz $d-z'=D$ — i s njim dolazi cijeli interval $[z'+c,\,z'+c+o]$ (izbor broja jedinica). Dakle $f(D)$ je unija intervala duljine $o+1$ s početcima $s=z'+c=d+c-D=\sum_{i\in X}a_i-D$. Svi početci leže u rasponu duljine najviše $\sum_{\text{veliki}}a_i=S-o-z\le4o$ (jer je $5o\ge S$). Rupa između dva susjedna početka nastaje samo ako su udaljeni barem $o+2$, a u rasponu duljine $4o$ stanu najviše tri takva razmaka ($4(o+2)>4o$). Zato $f(D)$ ima najviše $4$ intervala, neovisno o $n$ i $S$. (Na slučajnim testovima najviše $2$; konstrukcija $a=(1^{\,40000},\,79999,\,79999,\,0,\dots)$ daje $3$.)</p>
+                    <p>To je jedino mjesto na kojem se koristi uvjet o jedinicama, i to u obliku „ukupni zbroj velikih elemenata je najviše $4o$”; glavno rješenje koristi posljedicu $r\le2o$ za <em>broj</em> velikih elemenata. Ideja je ista: intervali su široki $o+1$, a sve što ih može razmaknuti stane u $O(1)$ širina.</p>
+
+                    <h3>3. Spajanje dviju lista</h3>
+                    <p>Prijelaz $f(D)\leftarrow f(D)\cup(f(D-tb)+t)$ je spajanje dviju sortiranih lista od najviše $4$ intervala: prolazimo ih istodobno kao kod merge-sorta (intervale druge liste uspoređujemo pomaknute za $+t$), a susjedne ili preklapajuće intervale ($l_2\le r_1+1$) lijepimo u jedan. Sve je $O(1)$ po indeksu $D$.</p>
+
+                    <h3>4. Složenost</h3>
+                    <p>Komada ima $P=\sum_v\lceil\log_2(m_v+1)\rceil$ po različitim vrijednostima $v\ge2$. Najviše ih je kad su sve vrijednosti različite i svaka se pojavi jednom: $2+3+\dots+v\le S$ daje $v\lesssim\sqrt{2S}\approx630$. Svaki komad obiđe sve indekse $D'\in[0,z+B]$ ($z+B\le n+S\le4\cdot10^5$) s $O(1)$ posla, ukupno $O\bigl((n+S)\sqrt S\bigr)\approx2.5\cdot10^8$ jednostavnih operacija — oko $1.6$ s na testu s $630$ različitih vrijednosti (glavno rješenje ondje treba $0.5$ s, ali na testu s deset vrijednosti brojnosti $2460$ odnos je obrnut: $0.1$ s naspram $3.7$ s). Memorija: $z+B+1$ kratkih vektora, oko $25$ MiB.</p>
+
+                    <h3>5. Provjera na primjeru</h3>
+                    <p>$a=(0,0,0,1,1,2,5)$: $z=3$, $o=2$, veliki daju $b=1,4$. Početno $f(0)=[0,2]$, $f(-1)=[1,3]$, $f(-2)=[2,4]$, $f(-3)=[3,5]$. Nakon $b=1$: $f(1)=[1,3]$, $f(0)=[0,2]\cup[2,4]=[0,4]$, $f(-1)=[1,5]$, $f(-2)=[2,6]$, $f(-3)=[3,5]$. Nakon $b=4$: $f(5)=[2,4]$, $f(4)=[1,5]$, $f(3)=[2,6]$, $f(2)=[3,7]$, $f(1)=[1,3]\cup[4,6]=[1,6]$. Zbroj duljina po $D=-3,\dots,5$: $3+5+5+6+5+5+5+5+3=42$.</p>
+
+                    <h3>6. Zamke</h3>
+                    <ul>
+                    <li>Prijelaz po $D$ mora ići <em>silazno</em> (0/1-ruksak); uzlazno bi isti komad bio iskorišten više puta.</li>
+                    <li>Lijepi i <em>susjedne</em> intervale ($l_2=r_1+1$), ne samo preklapajuće — inače lista raste i ocjena „najviše $4$” više ne vrijedi za broj zapisa.</li>
+                    <li>Komadi se smiju preskočiti samo ako je pomak $tb$ veći od $z+B$; ovdje to nikad nije slučaj, pa nema posebnih grana.</li>
+                    <li>Odgovor je do $(n+1)(S+1)\approx4\cdot10^{10}$ — 64-bitni tip.</li>
+                    </ul>
+                    <p class="provjera"><strong>Provjera koda:</strong> uzorci 4/4; 300 slučajnih testova (isti generator kao za glavno rješenje) protiv Python brute forcea; 3 velika testa iz generatora (najviše $0.09$ s) te ručni najgori slučajevi: $629$ različitih vrijednosti po jednom ($1.6$ s, $S\approx2\cdot10^5$), vrijednosti $2$–$400$ s brojnostima do $6$ ($0.6$ s) i konstrukcija s tri intervala po indeksu ($0.03$ s); sva tri daju isti odgovor kao glavno rješenje.</p>
+                    <details class="spoiler kod-spoiler">
+                        <summary>KOD (C++) – 2. rješenje<span class="spoiler-napomena">klikni za prikaz izvornog koda</span></summary>
+                        <div class="spoiler-sadrzaj">
+<pre><code class="language-cpp">#include &lt;bits/stdc++.h&gt;
+using namespace std;
+using ll = long long;
+using Int = pair&lt;int, int&gt;;   // zatvoreni interval [l, r] brojeva k
+
+// f[D'] = sortirani disjunktni intervali dostizivih k za razliku D = T - k, D' = D + z.
+// Svaki je interval duljine barem o + 1 (izbor jedinica), a svi pocetci leze u rasponu
+// duljine &lt;= min(z + r, S - o) &lt;= 4o, pa je intervala po indeksu najvise 4.
+static vector&lt;vector&lt;Int&gt;&gt; f;
+
+// f[i] |= (f[j] pomaknut za +w po k)
+static void spoji(int i, int j, int w) {
+    const vector&lt;Int&gt;&amp; src = f[j];
+    if (src.empty()) return;
+    vector&lt;Int&gt;&amp; dst = f[i];
+    vector&lt;Int&gt; g;
+    g.reserve(dst.size() + src.size());
+    size_t p = 0, q = 0;
+    auto gurni = [&amp;](Int x) {
+        if (!g.empty() &amp;&amp; g.back().second + 1 &gt;= x.first) g.back().second = max(g.back().second, x.second);
+        else g.push_back(x);
+    };
+    while (p &lt; dst.size() || q &lt; src.size()) {
+        if (q == src.size() || (p &lt; dst.size() &amp;&amp; dst[p].first &lt;= src[q].first + w)) gurni(dst[p++]);
+        else { gurni({src[q].first + w, src[q].second + w}); ++q; }
+    }
+    dst.swap(g);
+}
+
+int main() {
+    int n, S;
+    if (scanf("%d %d", &amp;n, &amp;S) != 2) return 0;
+    vector&lt;int&gt; cnt(S + 1, 0);
+    for (int i = 0; i &lt; n; ++i) {
+        int x; if (scanf("%d", &amp;x) != 1) return 0;
+        ++cnt[x];
+    }
+    int z = cnt[0], o = cnt[1];
+    ll B = 0;
+    for (int v = 2; v &lt;= S; ++v) B += (ll)(v - 1) * cnt[v];
+    int M = z + (int)B;            // D' = D + z in [0, z + B]
+    f.assign(M + 1, {});
+    // samo nule i jedinice: z' nula i j jedinica daje D = -z', k in [z', z' + o]
+    for (int zp = 0; zp &lt;= z; ++zp) f[z - zp].push_back({zp, zp + o});
+    // veliki elementi v &gt;= 2: jedan primjerak pomice D za v - 1 i k za 1; brojnost cijepamo binarno
+    for (int v = 2; v &lt;= S; ++v) {
+        int m = cnt[v];
+        for (int t = 1; m &gt; 0; t &lt;&lt;= 1) {
+            int k = min(t, m); m -= k;
+            int d = (v - 1) * k;                 // pomak po D
+            for (int i = M; i &gt;= d; --i) spoji(i, i - d, k);
+        }
+    }
+    ll ans = 0;
+    for (int i = 0; i &lt;= M; ++i)
+        for (auto [l, r] : f[i]) ans += r - l + 1;
+    printf("%lld\n", ans);
+    return 0;
+}
+</code></pre>
+                        </div>
+                    </details>
+                    </div>
                 </div>
             </div>
         </div>
