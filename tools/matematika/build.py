@@ -333,6 +333,7 @@ def head(title, depth, mapa=False):
         parts += [
             f'    <link rel="stylesheet" href="{rel}assets/css/mapa.css">',
             f'    <link rel="stylesheet" href="{rel}assets/css/pozadina.css">',
+            f'    <script defer src="{rel}assets/js/pozadina.js"></script>',
             f'    <link rel="stylesheet" href="{rel}assets/css/joisc.css">',
             f'    <link rel="stylesheet" href="{rel}assets/css/matematika.css">',
         ]
@@ -340,6 +341,7 @@ def head(title, depth, mapa=False):
         parts += [
             f'    <link rel="stylesheet" href="{rel}assets/css/zadatak.css">',
             f'    <link rel="stylesheet" href="{rel}assets/css/pozadina.css">',
+            f'    <script defer src="{rel}assets/js/pozadina.js"></script>',
             f'    <link rel="stylesheet" href="{rel}assets/css/trener.css">',
             f'    <link rel="stylesheet" href="{rel}assets/css/joisc.css">',
             f'    <link rel="stylesheet" href="{rel}assets/css/matematika.css">',

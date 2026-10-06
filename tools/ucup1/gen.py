@@ -43,6 +43,7 @@ MATHJAX = (
 HEAD_TAIL = (
     f'    <link rel="stylesheet" href="{ROOT}assets/css/zadatak.css">\n'
     f'    <link rel="stylesheet" href="{ROOT}assets/css/pozadina.css">\n'
+    f'    <script defer src="{ROOT}assets/js/pozadina.js"></script>\n'
     f'    <link rel="stylesheet" href="{ROOT}assets/css/trener.css">\n'
     f'    <script src="{ROOT}assets/js/coach-mode.js"></script>\n'
     f'    <script src="{ROOT}assets/js/detailed-mode.js"></script>\n'
@@ -251,6 +252,7 @@ def render_index(stage, problems):
         f'    <title>1st Universal Cup — {stage["name"]}</title>\n'
         f'    <link rel="stylesheet" href="{ROOT}assets/css/mapa.css">\n'
         f'    <link rel="stylesheet" href="{ROOT}assets/css/pozadina.css">\n'
+        f'    <script defer src="{ROOT}assets/js/pozadina.js"></script>\n'
         f'    <link rel="stylesheet" href="{ROOT}assets/css/trener.css">\n'
         f'    <script src="{ROOT}assets/js/coach-mode.js"></script>\n'
         f'    <script src="{ROOT}assets/js/detailed-mode.js"></script>\n'
