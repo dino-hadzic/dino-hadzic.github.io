@@ -68,7 +68,7 @@ During dynamic centroid decomposition we need the distances from a vertex to its
 
 During dynamic centroid decomposition the information of a vertex may be counted several times in its centroid-tree ancestors, so we need to cancel the effect of the duplicates. The usual approach is to keep two kinds of records for each component: the distances to the decomposition center, and the distances to the parent of that center in the centroid tree. This is shown in the examples.
 
-??? note "Example [\"ZJOI2007\" 捉迷藏](https://www.luogu.com.cn/problem/P2056)"
+??? note "Example [“ZJOI2007” 捉迷藏](https://www.luogu.com.cn/problem/P2056)"
     Given a tree with $n$ vertices, all initially black, support two operations:
     
     1.  flip the color of a vertex (white to black, black to white);

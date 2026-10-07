@@ -8,7 +8,7 @@ Prerequisites: [Dijkstra's algorithm](./shortest-path.md#dijkstras-algorithm), [
 
 Given a directed graph with $n$ vertices and $m$ edges, find the length of the $k$-th shortest among all distinct paths from $s$ to $t$.
 
-???+ info "'Path'"
+???+ info "“Path”"
     A "path" in this article may pass through the same edge or the same vertex several times, so strictly speaking the correct term is "[walk](./concept.md#路径)" rather than "path". Strictly speaking, the problem discussed here is the **$k$ shortest walk** problem. However, following convention, this article still uses the term "path", and calls a path that does not intersect itself a "simple path".
 
 ## A\* algorithm
