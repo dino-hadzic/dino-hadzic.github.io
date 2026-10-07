@@ -166,6 +166,7 @@ def head_map(title, depth):
         f'    <title>{esc(title)}</title>',
         f'    <link rel="stylesheet" href="{rel}assets/css/mapa.css">',
         f'    <link rel="stylesheet" href="{rel}assets/css/pozadina.css">',
+        f'    <script defer src="{rel}assets/js/pozadina.js"></script>',
         f'    <link rel="stylesheet" href="{rel}assets/css/trener.css">',
         f'    <link rel="stylesheet" href="{rel}assets/css/joisc.css">',
         f'    <script src="{rel}assets/js/coach-mode.js"></script>',
