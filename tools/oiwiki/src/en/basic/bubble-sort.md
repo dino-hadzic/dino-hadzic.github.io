@@ -1,0 +1,77 @@
+---
+title: Bubble sort
+---
+
+This page briefly introduces bubble sort.
+
+## Definition
+
+**Bubble sort** is a simple sorting algorithm. It is named after the way smaller elements slowly "float" to the top of the sequence like bubbles while the algorithm runs.
+
+## Procedure
+
+It works by checking two adjacent elements at a time; if the first and the second element violate the given ordering condition, the two adjacent elements are swapped. When there are no more adjacent elements that need to be swapped, the sort is finished.
+
+After $i$ passes, the last $i$ elements of the sequence are necessarily the $i$ largest, so $n-1$ passes are enough to sort the array.
+
+## Properties
+
+### Stability
+
+Bubble sort is a stable sorting algorithm.
+
+### Time complexity
+
+When the sequence is already completely sorted, bubble sort only needs one pass over the array without performing any swaps, so the time complexity is $O(n)$.
+
+In the worst case bubble sort performs $\dfrac{(n-1)n}{2}$ swaps, so the time complexity is $O(n^2)$.
+
+The average time complexity of bubble sort is $O(n^2)$.
+
+## Implementation
+
+### Pseudocode
+
+$$
+\begin{array}{ll}
+1 & \textbf{Input. } \text{An array } A \text{ consisting of }n\text{ elements.} \\
+2 & \textbf{Output. } A\text{ will be sorted in nondecreasing order stably.} \\
+3 & \textbf{Method. }  \\
+4 & \textit{flag}\gets \mathrm{True}\\
+5 & \textbf{while }\textit{flag}\\
+6 & \qquad \textit{flag}\gets \mathrm{False}\\
+7 & \qquad\textbf{for }i\gets1\textbf{ to }n-1\\
+8 & \qquad\qquad\textbf{if }A[i]>A[i + 1]\\
+9 & \qquad\qquad\qquad \textit{flag}\gets \mathrm{True}\\
+10 & \qquad\qquad\qquad \text{Swap } A[i]\text{ and }A[i + 1]
+\end{array}
+$$
+
+=== "C++"
+    ```cpp
+    --8<-- "docs/basic/code/bubble-sort/bubble-sort_1.cpp"
+    ```
+
+=== "Python"
+    ```python
+    --8<-- "docs/basic/code/bubble-sort/bubble-sort_1.py:core"
+    ```
+
+=== "Java"
+    ```java
+    // Assumes the array has size n + 1; bubble sort starts from index 1
+    static void bubble_sort(int[] a, int n) {
+        boolean flag = true;
+        while (flag) {
+            flag = false;
+            for (int i = 1; i < n; i++) {
+                if (a[i] > a[i + 1]) {
+                    flag = true;
+                    int t = a[i];
+                    a[i] = a[i + 1];
+                    a[i + 1] = t;
+                }
+            }
+        }
+    }
+    ```

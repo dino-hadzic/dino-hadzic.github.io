@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="hr" data-jezik="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI Wiki – Z-funkcija (prošireni KMP)</title>
+    <script>(function(){try{var j=localStorage.getItem('oiwiki-jezik');if(j==='en'||j==='hr'){document.documentElement.setAttribute('data-jezik',j);document.documentElement.lang=j;}}catch(e){}})();</script>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki.css">
+    <script defer src="../../assets/js/oiwiki.js"></script>
+</head>
+<body>
+    <p class="navigacija-analize"><a href="../../oiwiki/index.html">← <span class="jezik jezik-hr" lang="hr">OI Wiki (prijevod)</span><span class="jezik jezik-en" lang="en">OI Wiki (translation)</span></a> · <a href="../../index.html"><span class="jezik jezik-hr" lang="hr">Početna</span><span class="jezik jezik-en" lang="en">Home</span></a><span class="oiwiki-prebaci" role="group" aria-label="Jezik / Language"><button type="button" data-jezik="hr" lang="hr" aria-pressed="true">Hrvatski</button><button type="button" data-jezik="en" lang="en" aria-pressed="false">English</button></span></p>
+    <article class="analiza oiwiki">
+        <header>
+            <p class="nadnaslov"><span class="jezik jezik-hr" lang="hr">OI Wiki · prijevod · Stringovi</span><span class="jezik jezik-en" lang="en">OI Wiki · translation · Strings</span></p>
+            <h1><span class="jezik jezik-hr" lang="hr">Z-funkcija (prošireni KMP)</span><span class="jezik jezik-en" lang="en">Z-function (extended KMP)</span></h1>
+            <p class="meta oiwiki-izvor"><span class="jezik jezik-hr" lang="hr">Prijevod stranice <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/string/z-func.md" rel="noopener">docs/string/z-func.md</a> iz repozitorija <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> (izvornik je na kineskom, stanje od 2026-10-04). Tekst je pod licencom <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" rel="noopener">CC BY-SA 4.0</a>; kôd je nepromijenjen osim komentara.</span><span class="jezik jezik-en" lang="en">Translation of <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/string/z-func.md" rel="noopener">docs/string/z-func.md</a> from the <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> repository (the original is in Chinese, as of 2026-10-04). Text is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>; code is unchanged except for comments.</span></p>
+            <p class="oiwiki-github"><a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/string/z-func.md" rel="noopener"><span class="jezik jezik-hr" lang="hr">Izvornik na GitHubu</span><span class="jezik jezik-en" lang="en">Original on GitHub</span></a></p>
+        </header>
+        <div class="jezik jezik-hr oiwiki-tekst" lang="hr">
+<details class="oiwiki-sadrzaj"><summary>Sadržaj</summary><div class="toc">
+<ul>
+<li><a href="#definicija">Definicija</a></li>
+<li><a href="#objašnjenje">Objašnjenje</a></li>
+<li><a href="#naivni-algoritam">Naivni algoritam</a></li>
+<li><a href="#linearni-algoritam">Linearni algoritam</a><ul>
+<li><a href="#implementacija">Implementacija</a></li>
+</ul>
+</li>
+<li><a href="#analiza-složenosti">Analiza složenosti</a></li>
+<li><a href="#primjene">Primjene</a><ul>
+<li><a href="#traženje-svih-pojavljivanja-podstringa">Traženje svih pojavljivanja podstringa</a></li>
+<li><a href="#broj-različitih-podstringova">Broj različitih podstringova</a></li>
+<li><a href="#cijeli-period-stringa">Cijeli period stringa</a></li>
+</ul>
+</li>
+<li><a href="#zadaci-za-vježbu">Zadaci za vježbu</a></li>
+</ul>
+</div>
+</details>
+<p>Dogovor: indeksi stringa počinju od <span class="arithmatex">\(0\)</span>.</p>
+<h2 id="definicija">Definicija</h2>
+<p>Za string <span class="arithmatex">\(s\)</span> duljine <span class="arithmatex">\(n\)</span> definiramo funkciju <span class="arithmatex">\(z[i]\)</span> kao duljinu najduljeg zajedničkog prefiksa (LCP) stringova <span class="arithmatex">\(s\)</span> i <span class="arithmatex">\(s[i,n-1]\)</span> (tj. sufiksa koji počinje znakom <span class="arithmatex">\(s[i]\)</span>); niz <span class="arithmatex">\(z\)</span> zovemo <strong>Z-funkcija</strong> stringa <span class="arithmatex">\(s\)</span>. Posebno, <span class="arithmatex">\(z[0] = 0\)</span>.</p>
+<p>U inozemstvu se algoritam za računanje tog niza obično zove <strong>Z Algorithm</strong>, a u Kini se naziva <strong>prošireni KMP</strong> (exKMP).</p>
+<p>Ovaj članak opisuje algoritam za računanje Z-funkcije u vremenskoj složenosti <span class="arithmatex">\(O(n)\)</span> i njezine razne primjene.</p>
+<h2 id="objašnjenje">Objašnjenje</h2>
+<p>Sljedećih nekoliko primjera prikazuje Z-funkciju različitih stringova:</p>
+<ul>
+<li><span class="arithmatex">\(z(\mathtt{aaaaa}) = [0, 4, 3, 2, 1]\)</span></li>
+<li><span class="arithmatex">\(z(\mathtt{aaabaab}) = [0, 2, 1, 0, 2, 1, 0]\)</span></li>
+<li><span class="arithmatex">\(z(\mathtt{abacaba}) = [0, 0, 1, 0, 3, 0, 1]\)</span></li>
+</ul>
+<h2 id="naivni-algoritam">Naivni algoritam</h2>
+<p>Naivni algoritam za Z-funkciju ima složenost <span class="arithmatex">\(O(n^2)\)</span>:</p>
+<details class="note" open="open">
+<summary>Implementacija</summary>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">C++</label><label for="__tabbed_1_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z_function_trivial</span><span class="p">(</span><span class="n">string</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">s</span><span class="p">.</span><span class="n">length</span><span class="p">();</span>
+<span class="w">  </span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="o">++</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">z_function_trivial</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">z</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+</details>
+<h2 id="linearni-algoritam">Linearni algoritam</h2>
+<p>Kao i kod većine algoritama iz područja stringova, ključ je u tome da idejom automata pronađemo funkciju prijelaza stanja pod zadanim ograničenjima, tako da pomoću prethodnih stanja ubrzamo računanje novih.</p>
+<p>U ovom algoritmu vrijednosti <span class="arithmatex">\(z[i]\)</span> računamo redom od <span class="arithmatex">\(1\)</span> do <span class="arithmatex">\(n-1\)</span> (<span class="arithmatex">\(z[0]=0\)</span>). Pri računanju <span class="arithmatex">\(z[i]\)</span> koristimo već izračunate <span class="arithmatex">\(z[0],\ldots,z[i-1]\)</span>.</p>
+<p>Za <span class="arithmatex">\(i\)</span> interval <span class="arithmatex">\([i,i+z[i]-1]\)</span> zovemo <strong>segment podudaranja</strong> za <span class="arithmatex">\(i\)</span>, ili Z-box.</p>
+<p>Tijekom algoritma održavamo segment podudaranja s najdesnijim desnim krajem. Radi jednostavnosti označimo ga <span class="arithmatex">\([l,r]\)</span>. Po definiciji je <span class="arithmatex">\(s[l,r]\)</span> prefiks od <span class="arithmatex">\(s\)</span>. Pri računanju <span class="arithmatex">\(z[i]\)</span> jamčimo da je <span class="arithmatex">\(l\le i\)</span>. Na početku je <span class="arithmatex">\(l=r=0\)</span>.</p>
+<p>Pri računanju <span class="arithmatex">\(z[i]\)</span>:</p>
+<ul>
+<li>Ako je <span class="arithmatex">\(i\le r\)</span>, onda po definiciji <span class="arithmatex">\([l,r]\)</span> vrijedi <span class="arithmatex">\(s[i,r] = s[i-l,r-l]\)</span>, pa je <span class="arithmatex">\(z[i]\ge \min(z[i-l],r-i+1)\)</span>. Tada:<ul>
+<li>ako je <span class="arithmatex">\(z[i-l] &lt; r-i+1\)</span>, onda je <span class="arithmatex">\(z[i] = z[i-l]\)</span>;</li>
+<li>inače je <span class="arithmatex">\(z[i-l]\ge r-i+1\)</span>; tada postavimo <span class="arithmatex">\(z[i] = r-i+1\)</span> i zatim grubom silom uspoređujemo sljedeće znakove i proširujemo <span class="arithmatex">\(z[i]\)</span> dok god je to moguće.</li>
+</ul>
+</li>
+<li>Ako je <span class="arithmatex">\(i&gt;r\)</span>, onda izravno po naivnom algoritmu uspoređujemo od <span class="arithmatex">\(s[i]\)</span> i grubom silom odredimo <span class="arithmatex">\(z[i]\)</span>.</li>
+<li>Nakon što izračunamo <span class="arithmatex">\(z[i]\)</span>, ako je <span class="arithmatex">\(i+z[i]-1&gt;r\)</span>, moramo ažurirati <span class="arithmatex">\([l,r]\)</span>, tj. postaviti <span class="arithmatex">\(l=i, r=i+z[i]-1\)</span>.</li>
+</ul>
+<p>Simulaciju rada Z-funkcije možete pogledati na <a href="https://personal.utdallas.edu/~besp/demo/John2010/z-algorithm.htm">ovoj stranici</a>.</p>
+<h3 id="implementacija">Implementacija</h3>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">C++</label><label for="__tabbed_2_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z_function</span><span class="p">(</span><span class="n">string</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">s</span><span class="p">.</span><span class="n">length</span><span class="p">();</span>
+<span class="w">  </span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">l</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">l</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">      </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="o">++</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">z_function</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+    <span class="n">l</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">r</span> <span class="ow">and</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">l</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">l</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+                <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+            <span class="n">l</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">z</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="analiza-složenosti">Analiza složenosti</h2>
+<p>Svako izvršavanje unutarnje petlje <code>while</code> pomiče <span class="arithmatex">\(r\)</span> udesno za barem <span class="arithmatex">\(1\)</span>, a <span class="arithmatex">\(r&lt; n-1\)</span>, pa se ukupno izvrši najviše <span class="arithmatex">\(n\)</span> puta.</p>
+<p>Vanjska petlja samo je jedan linearni prolaz.</p>
+<p>Ukupna složenost je <span class="arithmatex">\(O(n)\)</span>.</p>
+<h2 id="primjene">Primjene</h2>
+<p>Razmotrimo sada primjene Z-funkcije u nekoliko konkretnih situacija.</p>
+<p>Te su primjene uvelike slične primjenama <a href="kmp.html">prefiksne funkcije</a>.</p>
+<h3 id="traženje-svih-pojavljivanja-podstringa">Traženje svih pojavljivanja podstringa</h3>
+<p>Da izbjegnemo zabunu, <span class="arithmatex">\(t\)</span> ćemo zvati <strong>tekst</strong>, a <span class="arithmatex">\(p\)</span> <strong>uzorak</strong>. Zadatak glasi: pronaći sva pojavljivanja (occurrence) uzorka <span class="arithmatex">\(p\)</span> u tekstu <span class="arithmatex">\(t\)</span>.</p>
+<p>Da bismo ga riješili, konstruiramo novi string <span class="arithmatex">\(s = p + \diamond + t\)</span>, tj. spojimo <span class="arithmatex">\(p\)</span> i <span class="arithmatex">\(t\)</span>, ali između njih stavimo razdjelni znak <span class="arithmatex">\(\diamond\)</span> (znak <span class="arithmatex">\(\diamond\)</span> biramo tako da se sigurno ne pojavljuje ni u <span class="arithmatex">\(p\)</span> ni u <span class="arithmatex">\(t\)</span>).</p>
+<p>Najprije izračunamo Z-funkciju od <span class="arithmatex">\(s\)</span>. Zatim za svaki <span class="arithmatex">\(i\)</span> u intervalu <span class="arithmatex">\([0,|t| - 1]\)</span> promotrimo vrijednost Z-funkcije <span class="arithmatex">\(k = z[i + |p| + 1]\)</span> sufiksa od <span class="arithmatex">\(s\)</span> koji počinje znakom <span class="arithmatex">\(t[i]\)</span>. Ako je <span class="arithmatex">\(k = |p|\)</span>, znamo da postoji pojavljivanje uzorka <span class="arithmatex">\(p\)</span> na <span class="arithmatex">\(i\)</span>-toj poziciji teksta <span class="arithmatex">\(t\)</span>; inače na <span class="arithmatex">\(i\)</span>-toj poziciji teksta <span class="arithmatex">\(t\)</span> nema pojavljivanja uzorka <span class="arithmatex">\(p\)</span>.</p>
+<p>Vremenska složenost (a ujedno i prostorna) iznosi <span class="arithmatex">\(O(|t| + |p|)\)</span>.</p>
+<h3 id="broj-različitih-podstringova">Broj različitih podstringova</h3>
+<p>Zadan je string <span class="arithmatex">\(s\)</span> duljine <span class="arithmatex">\(n\)</span>; treba izračunati broj različitih podstringova od <span class="arithmatex">\(s\)</span>.</p>
+<p>Razmotrimo računanje prirasta: znajući trenutni broj različitih podstringova od <span class="arithmatex">\(s\)</span>, izračunajmo broj različitih podstringova nakon dodavanja jednog znaka na kraj od <span class="arithmatex">\(s\)</span>.</p>
+<p>Neka je <span class="arithmatex">\(k\)</span> trenutni broj različitih podstringova od <span class="arithmatex">\(s\)</span>. Dodajmo novi znak <span class="arithmatex">\(c\)</span> na kraj od <span class="arithmatex">\(s\)</span>. Očito će se pojaviti neki novi podstringovi koji završavaju s <span class="arithmatex">\(c\)</span> (podstringovi koji završavaju s <span class="arithmatex">\(c\)</span> i prije se nisu pojavili).</p>
+<p>Neka je string <span class="arithmatex">\(t\)</span> obrat stringa <span class="arithmatex">\(s + c\)</span> (obrat je string dobiven obrnutim redoslijedom znakova izvornog stringa). Zadatak nam je izbrojiti koliko se prefiksa od <span class="arithmatex">\(t\)</span> ne pojavljuje nigdje drugdje u <span class="arithmatex">\(t\)</span>. Izračunajmo Z-funkciju od <span class="arithmatex">\(t\)</span> i pronađimo njezinu najveću vrijednost <span class="arithmatex">\(z_{\max}\)</span>. Tada su obrati prefiksa od <span class="arithmatex">\(t\)</span> duljine najviše <span class="arithmatex">\(z_{\max}\)</span> podstringovi koji završavaju s <span class="arithmatex">\(c\)</span> i već su se pojavili u <span class="arithmatex">\(s\)</span>.</p>
+<p>Dakle, broj novih podstringova nakon dodavanja znaka <span class="arithmatex">\(c\)</span> na kraj od <span class="arithmatex">\(s\)</span> iznosi <span class="arithmatex">\(|t| - z_{\max}\)</span>.</p>
+<p>Vremenska složenost algoritma je <span class="arithmatex">\(O(n^2)\)</span>.</p>
+<p>Vrijedi napomenuti da istom metodom u vremenu <span class="arithmatex">\(O(n)\)</span> možemo ponovno izračunati broj različitih podstringova nakon dodavanja ili uklanjanja jednog znaka na kraju (s kraja ili s početka).</p>
+<h3 id="cijeli-period-stringa">Cijeli period stringa</h3>
+<p>Zadan je string <span class="arithmatex">\(s\)</span> duljine <span class="arithmatex">\(n\)</span>; treba pronaći njegov najkraći cijeli period, tj. najkraći string <span class="arithmatex">\(t\)</span> takav da se <span class="arithmatex">\(s\)</span> može zapisati kao spoj nekoliko kopija stringa <span class="arithmatex">\(t\)</span>.</p>
+<p>Izračunajmo Z-funkciju od <span class="arithmatex">\(s\)</span>; duljina cijelog perioda tada je najmanji djelitelj <span class="arithmatex">\(i\)</span> broja <span class="arithmatex">\(n\)</span> za koji vrijedi <span class="arithmatex">\(i+z[i]=n\)</span>.</p>
+<p>Dokaz te činjenice jednak je dokazu u primjenama <a href="kmp.html">prefiksne funkcije</a>.</p>
+<h2 id="zadaci-za-vježbu">Zadaci za vježbu</h2>
+<ul>
+<li><a href="https://www.luogu.com.cn/problem/P5410">Luogu P5410 [predložak] prošireni KMP/exKMP (Z-funkcija)</a></li>
+<li><a href="https://www.luogu.com.cn/problem/P7114">Luogu P7114 [NOIP2020] Podudaranje stringova</a></li>
+<li><a href="http://codeforces.com/problemset/problem/126/B">CF126B Password</a></li>
+<li><a href="http://uva.onlinejudge.org/index.php?option=onlinejudge&amp;page=show_problem&amp;problem=396">UVa # 455 Periodic Strings</a></li>
+<li><a href="http://uva.onlinejudge.org/index.php?option=onlinejudge&amp;page=show_problem&amp;problem=1963">UVa # 11022 String Factoring</a></li>
+<li><a href="http://uva.onlinejudge.org/index.php?option=com_onlinejudge&amp;Itemid=8&amp;category=24&amp;page=show_problem&amp;problem=2470">UVa 11475 - Extend to Palindrome</a></li>
+<li><a href="https://www.codechef.com/problems/CHSTR">Codechef - Chef and Strings</a></li>
+<li><a href="http://codeforces.com/problemset/problem/432/D">Codeforces - Prefixes and Suffixes</a></li>
+<li><a href="https://leetcode.com/problems/sum-of-scores-of-built-strings/">Leetcode 2223 - Sum of Scores of Built Strings</a></li>
+</ul>
+<p><strong>Ova je stranica uglavnom prevedena iz članka <a href="http://e-maxx.ru/algo/z_function">Z-функция строки и её вычисление</a> i njegova engleskog prijevoda <a href="https://cp-algorithms.com/string/z-function.html">Z-function and its calculation</a>. Ruska je inačica objavljena pod licencijom Public Domain + Leave a Link, a engleska pod CC-BY-SA 4.0.</strong></p>
+        </div>
+        <div class="jezik jezik-en oiwiki-tekst" lang="en">
+<details class="oiwiki-sadrzaj"><summary>Contents</summary><div class="toc">
+<ul>
+<li><a href="#en-definition">Definition</a></li>
+<li><a href="#en-explanation">Explanation</a></li>
+<li><a href="#en-naive-algorithm">Naive algorithm</a></li>
+<li><a href="#en-linear-algorithm">Linear algorithm</a><ul>
+<li><a href="#en-implementation">Implementation</a></li>
+</ul>
+</li>
+<li><a href="#en-complexity-analysis">Complexity analysis</a></li>
+<li><a href="#en-applications">Applications</a><ul>
+<li><a href="#en-finding-all-occurrences-of-a-substring">Finding all occurrences of a substring</a></li>
+<li><a href="#en-number-of-distinct-substrings">Number of distinct substrings</a></li>
+<li><a href="#en-whole-period-of-a-string">Whole period of a string</a></li>
+</ul>
+</li>
+<li><a href="#en-practice-problems">Practice problems</a></li>
+</ul>
+</div>
+</details>
+<p>Convention: string indices start at <span class="arithmatex">\(0\)</span>.</p>
+<h2 id="en-definition">Definition</h2>
+<p>For a string <span class="arithmatex">\(s\)</span> of length <span class="arithmatex">\(n\)</span>, define the function <span class="arithmatex">\(z[i]\)</span> as the length of the longest common prefix (LCP) of <span class="arithmatex">\(s\)</span> and <span class="arithmatex">\(s[i,n-1]\)</span> (i.e. the suffix starting at <span class="arithmatex">\(s[i]\)</span>); the array <span class="arithmatex">\(z\)</span> is called the <strong>Z-function</strong> of <span class="arithmatex">\(s\)</span>. In particular, <span class="arithmatex">\(z[0] = 0\)</span>.</p>
+<p>Outside China the algorithm computing this array is usually called the <strong>Z Algorithm</strong>, while in China it is called <strong>extended KMP</strong> (exKMP).</p>
+<p>This article presents an algorithm that computes the Z-function in <span class="arithmatex">\(O(n)\)</span> time, together with its various applications.</p>
+<h2 id="en-explanation">Explanation</h2>
+<p>The following examples show the Z-function of several strings:</p>
+<ul>
+<li><span class="arithmatex">\(z(\mathtt{aaaaa}) = [0, 4, 3, 2, 1]\)</span></li>
+<li><span class="arithmatex">\(z(\mathtt{aaabaab}) = [0, 2, 1, 0, 2, 1, 0]\)</span></li>
+<li><span class="arithmatex">\(z(\mathtt{abacaba}) = [0, 0, 1, 0, 3, 0, 1]\)</span></li>
+</ul>
+<h2 id="en-naive-algorithm">Naive algorithm</h2>
+<p>The naive algorithm for the Z-function has complexity <span class="arithmatex">\(O(n^2)\)</span>:</p>
+<details class="note" open="open">
+<summary>Implementation</summary>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="en-__tabbed_1_1" name="en-__tabbed_1" type="radio" /><input id="en-__tabbed_1_2" name="en-__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="en-__tabbed_1_1">C++</label><label for="en-__tabbed_1_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z_function_trivial</span><span class="p">(</span><span class="n">string</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">s</span><span class="p">.</span><span class="n">length</span><span class="p">();</span>
+<span class="w">  </span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="o">++</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">z_function_trivial</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">z</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+</details>
+<h2 id="en-linear-algorithm">Linear algorithm</h2>
+<p>As with most algorithms in the string topics, the key is to use the idea of an automaton to find a state transition function under the given constraints, so that previously computed states can be used to speed up the computation of new ones.</p>
+<p>In this algorithm we compute the values <span class="arithmatex">\(z[i]\)</span> in order from <span class="arithmatex">\(1\)</span> to <span class="arithmatex">\(n-1\)</span> (<span class="arithmatex">\(z[0]=0\)</span>). While computing <span class="arithmatex">\(z[i]\)</span> we make use of the already computed <span class="arithmatex">\(z[0],\ldots,z[i-1]\)</span>.</p>
+<p>For <span class="arithmatex">\(i\)</span>, we call the interval <span class="arithmatex">\([i,i+z[i]-1]\)</span> the <strong>match segment</strong> of <span class="arithmatex">\(i\)</span>, also known as the Z-box.</p>
+<p>During the algorithm we maintain the match segment with the rightmost right endpoint. For convenience, denote it by <span class="arithmatex">\([l,r]\)</span>. By definition, <span class="arithmatex">\(s[l,r]\)</span> is a prefix of <span class="arithmatex">\(s\)</span>. While computing <span class="arithmatex">\(z[i]\)</span> we guarantee that <span class="arithmatex">\(l\le i\)</span>. Initially <span class="arithmatex">\(l=r=0\)</span>.</p>
+<p>While computing <span class="arithmatex">\(z[i]\)</span>:</p>
+<ul>
+<li>If <span class="arithmatex">\(i\le r\)</span>, then by the definition of <span class="arithmatex">\([l,r]\)</span> we have <span class="arithmatex">\(s[i,r] = s[i-l,r-l]\)</span>, hence <span class="arithmatex">\(z[i]\ge \min(z[i-l],r-i+1)\)</span>. Then:<ul>
+<li>if <span class="arithmatex">\(z[i-l] &lt; r-i+1\)</span>, then <span class="arithmatex">\(z[i] = z[i-l]\)</span>;</li>
+<li>otherwise <span class="arithmatex">\(z[i-l]\ge r-i+1\)</span>; in this case we set <span class="arithmatex">\(z[i] = r-i+1\)</span> and then extend <span class="arithmatex">\(z[i]\)</span> by brute-force comparing the following characters until it can no longer be extended.</li>
+</ul>
+</li>
+<li>If <span class="arithmatex">\(i&gt;r\)</span>, we simply follow the naive algorithm: start comparing from <span class="arithmatex">\(s[i]\)</span> and compute <span class="arithmatex">\(z[i]\)</span> by brute force.</li>
+<li>After computing <span class="arithmatex">\(z[i]\)</span>, if <span class="arithmatex">\(i+z[i]-1&gt;r\)</span>, we need to update <span class="arithmatex">\([l,r]\)</span>, i.e. set <span class="arithmatex">\(l=i, r=i+z[i]-1\)</span>.</li>
+</ul>
+<p>You can visit <a href="https://personal.utdallas.edu/~besp/demo/John2010/z-algorithm.htm">this website</a> to see a simulation of the Z-function.</p>
+<h3 id="en-implementation">Implementation</h3>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="en-__tabbed_2_1" name="en-__tabbed_2" type="radio" /><input id="en-__tabbed_2_2" name="en-__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="en-__tabbed_2_1">C++</label><label for="en-__tabbed_2_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z_function</span><span class="p">(</span><span class="n">string</span><span class="w"> </span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">s</span><span class="p">.</span><span class="n">length</span><span class="p">();</span>
+<span class="w">  </span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">z</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">l</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">l</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">      </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="o">++</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">z</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">z_function</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+    <span class="n">l</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">r</span> <span class="ow">and</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">l</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">l</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+                <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+            <span class="n">l</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">z</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<h2 id="en-complexity-analysis">Complexity analysis</h2>
+<p>Each execution of the inner <code>while</code> loop moves <span class="arithmatex">\(r\)</span> to the right by at least <span class="arithmatex">\(1\)</span>, and <span class="arithmatex">\(r&lt; n-1\)</span>, so it is executed at most <span class="arithmatex">\(n\)</span> times in total.</p>
+<p>The outer loop is just a single linear pass.</p>
+<p>The total complexity is <span class="arithmatex">\(O(n)\)</span>.</p>
+<h2 id="en-applications">Applications</h2>
+<p>We now consider applications of the Z-function in several concrete situations.</p>
+<p>These applications are largely similar to those of the <a href="kmp.html">prefix function</a>.</p>
+<h3 id="en-finding-all-occurrences-of-a-substring">Finding all occurrences of a substring</h3>
+<p>To avoid confusion, we call <span class="arithmatex">\(t\)</span> the <strong>text</strong> and <span class="arithmatex">\(p\)</span> the <strong>pattern</strong>. The problem is: find all occurrences of the pattern <span class="arithmatex">\(p\)</span> in the text <span class="arithmatex">\(t\)</span>.</p>
+<p>To solve it, we construct a new string <span class="arithmatex">\(s = p + \diamond + t\)</span>, i.e. we concatenate <span class="arithmatex">\(p\)</span> and <span class="arithmatex">\(t\)</span> but put a separator character <span class="arithmatex">\(\diamond\)</span> between them (we choose <span class="arithmatex">\(\diamond\)</span> so that it certainly does not occur in <span class="arithmatex">\(p\)</span> or <span class="arithmatex">\(t\)</span>).</p>
+<p>First we compute the Z-function of <span class="arithmatex">\(s\)</span>. Then, for every <span class="arithmatex">\(i\)</span> in the interval <span class="arithmatex">\([0,|t| - 1]\)</span>, we consider the Z-function value <span class="arithmatex">\(k = z[i + |p| + 1]\)</span> of the suffix of <span class="arithmatex">\(s\)</span> starting at <span class="arithmatex">\(t[i]\)</span>. If <span class="arithmatex">\(k = |p|\)</span>, we know that there is an occurrence of <span class="arithmatex">\(p\)</span> at position <span class="arithmatex">\(i\)</span> of <span class="arithmatex">\(t\)</span>; otherwise there is no occurrence of <span class="arithmatex">\(p\)</span> at position <span class="arithmatex">\(i\)</span> of <span class="arithmatex">\(t\)</span>.</p>
+<p>Its time complexity (and also its space complexity) is <span class="arithmatex">\(O(|t| + |p|)\)</span>.</p>
+<h3 id="en-number-of-distinct-substrings">Number of distinct substrings</h3>
+<p>Given a string <span class="arithmatex">\(s\)</span> of length <span class="arithmatex">\(n\)</span>, compute the number of distinct substrings of <span class="arithmatex">\(s\)</span>.</p>
+<p>Consider computing the increment: knowing the current number of distinct substrings of <span class="arithmatex">\(s\)</span>, compute the number of distinct substrings after appending one character to the end of <span class="arithmatex">\(s\)</span>.</p>
+<p>Let <span class="arithmatex">\(k\)</span> be the current number of distinct substrings of <span class="arithmatex">\(s\)</span>. We append a new character <span class="arithmatex">\(c\)</span> to the end of <span class="arithmatex">\(s\)</span>. Obviously some new substrings ending with <span class="arithmatex">\(c\)</span> will appear (substrings ending with <span class="arithmatex">\(c\)</span> that have not appeared before).</p>
+<p>Let the string <span class="arithmatex">\(t\)</span> be the reverse of <span class="arithmatex">\(s + c\)</span> (the reverse is the string formed by the characters of the original string in reverse order). Our task is to count how many prefixes of <span class="arithmatex">\(t\)</span> do not appear elsewhere in <span class="arithmatex">\(t\)</span>. Compute the Z-function of <span class="arithmatex">\(t\)</span> and find its maximum value <span class="arithmatex">\(z_{\max}\)</span>. Then the reverses of the prefixes of <span class="arithmatex">\(t\)</span> of length at most <span class="arithmatex">\(z_{\max}\)</span> are substrings ending with <span class="arithmatex">\(c\)</span> that have already appeared in <span class="arithmatex">\(s\)</span>.</p>
+<p>Therefore the number of new substrings after appending the character <span class="arithmatex">\(c\)</span> to <span class="arithmatex">\(s\)</span> is <span class="arithmatex">\(|t| - z_{\max}\)</span>.</p>
+<p>The time complexity of the algorithm is <span class="arithmatex">\(O(n^2)\)</span>.</p>
+<p>It is worth noting that with the same method we can, in <span class="arithmatex">\(O(n)\)</span> time, recompute the number of distinct substrings after adding or removing one character at an endpoint (at the end or at the front).</p>
+<h3 id="en-whole-period-of-a-string">Whole period of a string</h3>
+<p>Given a string <span class="arithmatex">\(s\)</span> of length <span class="arithmatex">\(n\)</span>, find its shortest whole period, i.e. find a shortest string <span class="arithmatex">\(t\)</span> such that <span class="arithmatex">\(s\)</span> can be represented as a concatenation of several copies of <span class="arithmatex">\(t\)</span>.</p>
+<p>Compute the Z-function of <span class="arithmatex">\(s\)</span>; the length of the whole period is then the smallest divisor <span class="arithmatex">\(i\)</span> of <span class="arithmatex">\(n\)</span> satisfying <span class="arithmatex">\(i+z[i]=n\)</span>.</p>
+<p>The proof of this fact is the same as the proof in the applications of the <a href="kmp.html">prefix function</a>.</p>
+<h2 id="en-practice-problems">Practice problems</h2>
+<ul>
+<li><a href="https://www.luogu.com.cn/problem/P5410">Luogu P5410 [template] Extended KMP/exKMP (Z-function)</a></li>
+<li><a href="https://www.luogu.com.cn/problem/P7114">Luogu P7114 [NOIP2020] String matching</a></li>
+<li><a href="http://codeforces.com/problemset/problem/126/B">CF126B Password</a></li>
+<li><a href="http://uva.onlinejudge.org/index.php?option=onlinejudge&amp;page=show_problem&amp;problem=396">UVa # 455 Periodic Strings</a></li>
+<li><a href="http://uva.onlinejudge.org/index.php?option=onlinejudge&amp;page=show_problem&amp;problem=1963">UVa # 11022 String Factoring</a></li>
+<li><a href="http://uva.onlinejudge.org/index.php?option=com_onlinejudge&amp;Itemid=8&amp;category=24&amp;page=show_problem&amp;problem=2470">UVa 11475 - Extend to Palindrome</a></li>
+<li><a href="https://www.codechef.com/problems/CHSTR">Codechef - Chef and Strings</a></li>
+<li><a href="http://codeforces.com/problemset/problem/432/D">Codeforces - Prefixes and Suffixes</a></li>
+<li><a href="https://leetcode.com/problems/sum-of-scores-of-built-strings/">Leetcode 2223 - Sum of Scores of Built Strings</a></li>
+</ul>
+<p><strong>This page is mainly translated from the blog post <a href="http://e-maxx.ru/algo/z_function">Z-функция строки и её вычисление</a> and its English translation <a href="https://cp-algorithms.com/string/z-function.html">Z-function and its calculation</a>. The Russian version is licensed under Public Domain + Leave a Link; the English version under CC-BY-SA 4.0.</strong></p>
+        </div>
+        <nav class="oiwiki-susjedi"><a class="prethodna" href="bm.html">← <span class="jezik jezik-hr" lang="hr">Boyer–Mooreov algoritam</span><span class="jezik jezik-en" lang="en">Boyer–Moore algorithm</span></a><span></span><a class="sljedeca" href="ac-automaton.html"><span class="jezik jezik-hr" lang="hr">AC automat</span><span class="jezik jezik-en" lang="en">Aho–Corasick automaton</span> →</a></nav>
+    </article>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="hr" data-jezik="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI Wiki – Optimizacije</title>
+    <script>(function(){try{var j=localStorage.getItem('oiwiki-jezik');if(j==='en'||j==='hr'){document.documentElement.setAttribute('data-jezik',j);document.documentElement.lang=j;}}catch(e){}})();</script>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki.css">
+    <script defer src="../../assets/js/oiwiki.js"></script>
+</head>
+<body>
+    <p class="navigacija-analize"><a href="../../oiwiki/index.html">← <span class="jezik jezik-hr" lang="hr">OI Wiki (prijevod)</span><span class="jezik jezik-en" lang="en">OI Wiki (translation)</span></a> · <a href="../../index.html"><span class="jezik jezik-hr" lang="hr">Početna</span><span class="jezik jezik-en" lang="en">Home</span></a><span class="oiwiki-prebaci" role="group" aria-label="Jezik / Language"><button type="button" data-jezik="hr" lang="hr" aria-pressed="true">Hrvatski</button><button type="button" data-jezik="en" lang="en" aria-pressed="false">English</button></span></p>
+    <article class="analiza oiwiki">
+        <header>
+            <p class="nadnaslov"><span class="jezik jezik-hr" lang="hr">OI Wiki · prijevod · Pretraživanje</span><span class="jezik jezik-en" lang="en">OI Wiki · translation · Search</span></p>
+            <h1><span class="jezik jezik-hr" lang="hr">Optimizacije</span><span class="jezik jezik-en" lang="en">Optimizations</span></h1>
+            <p class="meta oiwiki-izvor"><span class="jezik jezik-hr" lang="hr">Prijevod stranice <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/search/opt.md" rel="noopener">docs/search/opt.md</a> iz repozitorija <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> (izvornik je na kineskom, stanje od 2026-10-04). Tekst je pod licencom <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" rel="noopener">CC BY-SA 4.0</a>; kôd je nepromijenjen osim komentara.</span><span class="jezik jezik-en" lang="en">Translation of <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/search/opt.md" rel="noopener">docs/search/opt.md</a> from the <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> repository (the original is in Chinese, as of 2026-10-04). Text is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>; code is unchanged except for comments.</span></p>
+            <p class="oiwiki-github"><a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/search/opt.md" rel="noopener"><span class="jezik jezik-hr" lang="hr">Izvornik na GitHubu</span><span class="jezik jezik-en" lang="en">Original on GitHub</span></a></p>
+        </header>
+        <div class="jezik jezik-hr oiwiki-tekst" lang="hr">
+<details class="oiwiki-sadrzaj"><summary>Sadržaj</summary><div class="toc">
+<ul>
+<li><a href="#predgovor">Predgovor</a></li>
+<li><a href="#metode-odsijecanja">Metode odsijecanja</a><ul>
+<li><a href="#memoizirano-pretraživanje">Memoizirano pretraživanje</a></li>
+<li><a href="#odsijecanje-po-optimalnosti">Odsijecanje po optimalnosti</a></li>
+<li><a href="#odsijecanje-po-izvedivosti">Odsijecanje po izvedivosti</a></li>
+</ul>
+</li>
+<li><a href="#ideje-za-odsijecanje">Ideje za odsijecanje</a></li>
+<li><a href="#primjer">Primjer</a></li>
+</ul>
+</div>
+</details>
+<h2 id="predgovor">Predgovor</h2>
+<p>DFS (pretraživanje u dubinu) čest je algoritam i većina se zadataka može riješiti DFS-om, ali u većini slučajeva to je samo algoritam za „hvatanje djelomičnih bodova”; rijetko je čisto brute-force pretraživanje službeno rješenje, jer je vremenska složenost DFS-a vrlo velika. (Tko još nije učio DFS, neka to najprije nadoknadi.)</p>
+<p>Ako već ne može biti potpuno rješenje, pokušajmo barem osvojiti više bodova. Ovaj članak predstavlja nekoliko praktičnih optimizacijskih tehnika (poznatih kao „odsijecanje”, pruning).</p>
+<p>Najprije predložak za pretraživanje u dubinu; kasniji predlošci bit će njegove izmjene.</p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">najgori</span><span class="w"> </span><span class="n">slučaj</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">;</span><span class="w">  </span><span class="c1">// now je trenutno rješenje</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">dfs</span><span class="p">(</span><span class="n">ulazne</span><span class="w"> </span><span class="n">vrijednosti</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">stigli</span><span class="w"> </span><span class="n">smo</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="n">cilja</span><span class="p">)</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bolje</span><span class="w"> </span><span class="n">od</span><span class="w"> </span><span class="n">trenutnog</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="n">dosadašnjeg</span><span class="w"> </span><span class="n">rješenja</span><span class="p">;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">prođi</span><span class="w"> </span><span class="n">sve</span><span class="w"> </span><span class="n">mogućnosti</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">moguće</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">izvedi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">      </span><span class="n">dfs</span><span class="p">(</span><span class="n">smanjeni</span><span class="w"> </span><span class="n">problem</span><span class="p">);</span>
+<span class="w">      </span><span class="n">poništi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Pritom <code>ans</code> može biti i zapis rješenja; tada „bolje od trenutnog i dosadašnjeg rješenja” postaje ispis rješenja.</p>
+<h2 id="metode-odsijecanja">Metode odsijecanja</h2>
+<p>Tri su najčešće vrste odsijecanja: memoizirano pretraživanje, odsijecanje po optimalnosti i odsijecanje po izvedivosti.</p>
+<h3 id="memoizirano-pretraživanje">Memoizirano pretraživanje</h3>
+<p>Budući da pri pretraživanju iste ulazne vrijednosti često daju isto rješenje, možemo ih pamtiti u nizu; detalje vidi u <a href="../dp/memo.html">memoizirano pretraživanje</a>.</p>
+<p><strong>Predložak:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">g</span><span class="p">[</span><span class="n">MAXN</span><span class="p">];</span><span class="w">  </span><span class="c1">// niz za memoizaciju</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">najgori</span><span class="w"> </span><span class="n">slučaj</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="n">dfs</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">ulazne</span><span class="w"> </span><span class="n">vrijednosti</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="n">veličina</span><span class="p">]</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nevažeća</span><span class="w"> </span><span class="n">vrijednost</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span><span class="w">  </span><span class="c1">// ili zapamti rješenje, ovisno o situaciji</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">stigli</span><span class="w"> </span><span class="n">smo</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="n">cilja</span><span class="p">)</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bolje</span><span class="w"> </span><span class="n">od</span><span class="w"> </span><span class="n">trenutnog</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="n">dosadašnjeg</span><span class="w"> </span><span class="n">rješenja</span><span class="p">;</span><span class="w">  </span><span class="c1">// ispiši rješenje, ovisno o situaciji</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">prođi</span><span class="w"> </span><span class="n">sve</span><span class="w"> </span><span class="n">mogućnosti</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">moguće</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">izvedi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">      </span><span class="n">dfs</span><span class="p">(</span><span class="n">smanjeni</span><span class="w"> </span><span class="n">problem</span><span class="p">);</span>
+<span class="w">      </span><span class="n">poništi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="n">memset</span><span class="p">(</span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">nevažeća</span><span class="w"> </span><span class="n">vrijednost</span><span class="p">,</span><span class="w"> </span><span class="k">sizeof</span><span class="p">(</span><span class="n">g</span><span class="p">));</span><span class="w">  </span><span class="c1">// inicijaliziraj niz za memoizaciju</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="odsijecanje-po-optimalnosti">Odsijecanje po optimalnosti</h3>
+<p>Još jedan uzrok sporosti pretraživanja jest to što nastavljamo pretraživati i kad je trenutno rješenje već lošije od dosadašnjeg. Dovoljno je, dakle, provjeriti je li trenutno rješenje već lošije od dosadašnjeg.</p>
+<p><strong>Predložak:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">najgori</span><span class="w"> </span><span class="n">slučaj</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">dfs</span><span class="p">(</span><span class="n">ulazne</span><span class="w"> </span><span class="n">vrijednosti</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">now</span><span class="w"> </span><span class="n">je</span><span class="w"> </span><span class="n">lošije</span><span class="w"> </span><span class="n">od</span><span class="w"> </span><span class="n">ans</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">stigli</span><span class="w"> </span><span class="n">smo</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="n">cilja</span><span class="p">)</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bolje</span><span class="w"> </span><span class="n">od</span><span class="w"> </span><span class="n">trenutnog</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="n">dosadašnjeg</span><span class="w"> </span><span class="n">rješenja</span><span class="p">;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">prođi</span><span class="w"> </span><span class="n">sve</span><span class="w"> </span><span class="n">mogućnosti</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">moguće</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">izvedi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">      </span><span class="n">dfs</span><span class="p">(</span><span class="n">smanjeni</span><span class="w"> </span><span class="n">problem</span><span class="p">);</span>
+<span class="w">      </span><span class="n">poništi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="odsijecanje-po-izvedivosti">Odsijecanje po izvedivosti</h3>
+<p>I nastavljanje pretraživanja kad trenutno rješenje više nije upotrebljivo uzrok je sporosti.</p>
+<p><strong>Predložak:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">najgori</span><span class="w"> </span><span class="n">slučaj</span><span class="p">,</span><span class="w"> </span><span class="n">now</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">dfs</span><span class="p">(</span><span class="n">ulazne</span><span class="w"> </span><span class="n">vrijednosti</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">trenutno</span><span class="w"> </span><span class="n">rješenje</span><span class="w"> </span><span class="n">više</span><span class="w"> </span><span class="n">nije</span><span class="w"> </span><span class="n">upotrebljivo</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">stigli</span><span class="w"> </span><span class="n">smo</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="n">cilja</span><span class="p">)</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bolje</span><span class="w"> </span><span class="n">od</span><span class="w"> </span><span class="n">trenutnog</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="n">dosadašnjeg</span><span class="w"> </span><span class="n">rješenja</span><span class="p">;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">prođi</span><span class="w"> </span><span class="n">sve</span><span class="w"> </span><span class="n">mogućnosti</span><span class="p">)</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">moguće</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">izvedi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">      </span><span class="n">dfs</span><span class="p">(</span><span class="n">smanjeni</span><span class="w"> </span><span class="n">problem</span><span class="p">);</span>
+<span class="w">      </span><span class="n">poništi</span><span class="w"> </span><span class="n">operaciju</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="ideje-za-odsijecanje">Ideje za odsijecanje</h2>
+<p>Ideja za odsijecanje ima mnogo i većinu treba analizirati za konkretan problem; ovdje kratko predstavljamo nekoliko uobičajenih.</p>
+<ul>
+<li>
+<p>Metoda ekstrema: razmotri ekstremni slučaj; ako ni najekstremniji (najidealniji) slučaj ne zadovoljava uvjete, rezultat stvarnog pretraživanja sigurno neće biti bolji.</p>
+</li>
+<li>
+<p>Metoda prilagodbe: usporedbom podstabala odsijeci ponovljena podstabla i podstabla koja očito nisu najviše „perspektivna”.</p>
+</li>
+<li>
+<p>Matematičke metode: npr. u teoriji grafova pomoću komponenata povezanosti, u teoriji brojeva analizom modularnih jednadžbi, procjenom donje granice pomoću nejednakosti itd.</p>
+</li>
+</ul>
+<h2 id="primjer">Primjer</h2>
+<details class="note" open="open">
+<summary>Problem raspodjele poslova</summary>
+<p>Treba raspodijeliti <span class="arithmatex">\(n\)</span> (<span class="arithmatex">\(1 \leq n \leq  15\)</span>) poslova među <span class="arithmatex">\(n\)</span> osoba tako da svaka obavi po jedan. Vrijeme koje <span class="arithmatex">\(i\)</span>-ta osoba treba za <span class="arithmatex">\(k\)</span>-ti posao pozitivan je cijeli broj <span class="arithmatex">\(t_{i,k}\)</span> (<span class="arithmatex">\(1 \leq t_{i,k} \leq 10^4\)</span>), gdje je <span class="arithmatex">\(1 \leq i, k \leq n\)</span>. Odredite raspodjelu kojom je ukupno vrijeme obavljanja tih <span class="arithmatex">\(n\)</span> poslova najmanje.</p>
+</details>
+<p>Budući da svaka osoba mora dobiti posao, možemo napraviti dvodimenzionalni niz <code>time[i][j]</code> koji označava vrijeme koje osoba <span class="arithmatex">\(i\)</span> treba za posao <span class="arithmatex">\(j\)</span>. Petljom raspodjeljujemo poslove počevši od prve osobe dok ih sve ne dobiju. Pri dodjeljivanju posla <span class="arithmatex">\(i\)</span>-toj osobi u petlji provjeravamo je li svaki posao već dodijeljen; ako nije, dodijelimo ga osobi <span class="arithmatex">\(i\)</span>, a inače provjerimo sljedeći posao. Jednodimenzionalnim nizom <code>is_working[j]</code> označavamo je li posao <span class="arithmatex">\(j\)</span> već dodijeljen: ako nije, <code>is_working[j]=0</code>, inače <code>is_working[j]=1</code>. Po ideji backtrackinga, nakon završetka petlje po radnicima vraćamo se na prethodnog radnika, poništavamo dodijeljeni posao i dodjeljujemo sljedeći, dok dodjela ne uspije. Tako, vraćajući se sve do prvog radnika, dobivamo sva moguća rješenja.</p>
+<p>Provjera raspodjele poslova zapravo je provjera da pri dobivanju mogućeg rješenja indeksi prve dimenzije dvodimenzionalnog niza budu međusobno različiti i indeksi druge dimenzije međusobno različiti. Mi pak tražimo najmanji ukupni zbroj vremena za <span class="arithmatex">\(n\)</span> poslova, tj. moguće rješenje s najmanjim zbrojem vremena, pa definiramo još jednu globalnu varijablu <code>cost_time_total_min</code> koja označava najmanji dosad pronađeni zbroj vremena; početno je <code>cost_time_total_min</code> zbroj <code>time[i][i]</code>, tj. zbroj vremena na dijagonali. Kad su svima dodijeljeni poslovi, usporedimo <code>count</code> i <code>cost_time_total_min</code>: ako je <code>count</code> manji od <code>cost_time_total_min</code>, pronašli smo bolje rješenje i <code>count</code> dodijelimo u <code>cost_time_total_min</code>.</p>
+<p>Radi učinkovitosti algoritma ovdje se može napraviti još jedno odsijecanje. Pri svakom računanju djelomičnog troška <code>count</code>, ako utvrdimo da je <code>count</code> već veći od <code>cost_time_total_min</code>, nema smisla nastavljati raspodjelu, jer tako dobiveno rješenje sigurno nije optimalno.</p>
+<details class="note">
+<summary>Primjer rješenja</summary>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+<span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">is_working</span><span class="p">[</span><span class="n">N</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span><span class="w">  </span><span class="c1">// je li posao dodijeljen</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">N</span><span class="p">][</span><span class="n">N</span><span class="p">];</span><span class="w">             </span><span class="c1">// vrijeme potrebno za posao</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="p">;</span><span class="w">  </span><span class="c1">// najmanji ukupni zbroj vremena za n poslova</span>
+
+<span class="c1">// i je redni broj osobe, count je ukupni trošak poslova</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">work</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Ako je i premašio najveći broj poslova koji se mogu dodijeliti, raspodjela je gotova; ako je count</span>
+<span class="w">  </span><span class="c1">// manji od dosadašnjeg cost_time_total_min, ažuriraj cost_time_total_min</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">cost_time_total_min</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="c1">// ideja backtrackinga</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">count</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// j je redni broj posla</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// ako posao nije dodijeljen, is_working = 0</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">is_working</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// dodijeli posao, is_working = 1</span>
+<span class="w">        </span><span class="n">is_working</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">// prijeđi na osobu i + 1</span>
+<span class="w">        </span><span class="n">work</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">// nakon završene iteracije vrati se na prethodnu osobu i ponovno raspodijeli ovaj posao</span>
+<span class="w">        </span><span class="c1">// vrati is_working[j] na 0</span>
+<span class="w">        </span><span class="n">is_working</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">using</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="p">;</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">cin</span><span class="p">.</span><span class="n">tie</span><span class="p">(</span><span class="nb">nullptr</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">sync_with_stdio</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">;</span>
+<span class="w">  </span><span class="n">cin</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">cin</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">cost_time_total_min</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">i</span><span class="p">];</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">work</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="sc">'\n'</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+</details>
+        </div>
+        <div class="jezik jezik-en oiwiki-tekst" lang="en">
+<details class="oiwiki-sadrzaj"><summary>Contents</summary><div class="toc">
+<ul>
+<li><a href="#en-preface">Preface</a></li>
+<li><a href="#en-pruning-methods">Pruning methods</a><ul>
+<li><a href="#en-memoized-search">Memoized search</a></li>
+<li><a href="#en-optimality-pruning">Optimality pruning</a></li>
+<li><a href="#en-feasibility-pruning">Feasibility pruning</a></li>
+</ul>
+</li>
+<li><a href="#en-pruning-ideas">Pruning ideas</a></li>
+<li><a href="#en-example">Example</a></li>
+</ul>
+</div>
+</details>
+<h2 id="en-preface">Preface</h2>
+<p>DFS (depth-first search) is a common algorithm and most problems can be solved with DFS, but in most cases it is only a "partial-score" algorithm; brute-force search is rarely the intended solution, because the time complexity of DFS is very high. (If you have not learned DFS yet, please catch up on that lesson first.)</p>
+<p>If it cannot be the full solution, let us at least grab a few more points. This article introduces some practical optimization techniques (commonly called "pruning").</p>
+<p>First, a template for depth-first search; the later templates will be modifications of it.</p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worst</span><span class="w"> </span><span class="k">case</span><span class="p">,</span><span class="w"> </span><span class="no">now</span><span class="err">;</span><span class="w">  </span><span class="c1">// now is the current answer</span>
+
+<span class="no">void</span><span class="w"> </span><span class="no">dfs</span><span class="p">(</span><span class="no">input</span><span class="w"> </span><span class="no">values</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">target</span><span class="w"> </span><span class="no">reached</span><span class="p">)</span><span class="w"> </span><span class="no">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">better</span><span class="w"> </span><span class="no">of</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">current</span><span class="w"> </span><span class="no">and</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">existing</span><span class="w"> </span><span class="no">answer</span><span class="err">;</span>
+<span class="w">  </span><span class="no">for</span><span class="w"> </span><span class="p">(</span><span class="no">iterate</span><span class="w"> </span><span class="no">over</span><span class="w"> </span><span class="no">all</span><span class="w"> </span><span class="no">possibilities</span><span class="p">)</span>
+<span class="w">    </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">feasible</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="no">perform</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">      </span><span class="no">dfs</span><span class="p">(</span><span class="no">smaller</span><span class="w"> </span><span class="no">problem</span><span class="p">)</span><span class="err">;</span>
+<span class="w">      </span><span class="no">undo</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">    </span><span class="err">}</span>
+<span class="err">}</span>
+</code></pre></div>
+<p>Here <code>ans</code> may also be a record of the solution; then "the better of the current and the existing answer" becomes outputting the solution.</p>
+<h2 id="en-pruning-methods">Pruning methods</h2>
+<p>The three most common kinds of pruning are memoized search, optimality pruning, and feasibility pruning.</p>
+<h3 id="en-memoized-search">Memoized search</h3>
+<p>Since in a search the same input values often lead to the same answer, we can memorize them in an array; see <a href="../dp/memo.html">memoized search</a> for details.</p>
+<p><strong>Template:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">g</span><span class="p">[</span><span class="n">MAXN</span><span class="p">];</span><span class="w">  </span><span class="c1">// memoization array</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worst</span><span class="w"> </span><span class="k">case</span><span class="p">,</span><span class="w"> </span><span class="no">now</span><span class="err">;</span>
+
+<span class="no">void</span><span class="w"> </span><span class="no">dfs</span><span class="w"> </span><span class="no">f</span><span class="p">(</span><span class="no">input</span><span class="w"> </span><span class="no">values</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">g</span><span class="p">[</span><span class="no">size</span><span class="p">]</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="no">invalid</span><span class="w"> </span><span class="no">value</span><span class="p">)</span><span class="w"> </span><span class="no">return</span><span class="err">;</span><span class="w">  </span><span class="c1">// or record the answer, depending on the situation</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">target</span><span class="w"> </span><span class="no">reached</span><span class="p">)</span><span class="w"> </span><span class="no">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">better</span><span class="w"> </span><span class="no">of</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">current</span><span class="w"> </span><span class="no">and</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">existing</span><span class="w"> </span><span class="no">answer</span><span class="err">;</span><span class="w">  </span><span class="c1">// output the answer, depending on the situation</span>
+<span class="w">  </span><span class="no">for</span><span class="w"> </span><span class="p">(</span><span class="no">iterate</span><span class="w"> </span><span class="no">over</span><span class="w"> </span><span class="no">all</span><span class="w"> </span><span class="no">possibilities</span><span class="p">)</span>
+<span class="w">    </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">feasible</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="no">perform</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">      </span><span class="no">dfs</span><span class="p">(</span><span class="no">smaller</span><span class="w"> </span><span class="no">problem</span><span class="p">)</span><span class="err">;</span>
+<span class="w">      </span><span class="no">undo</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">    </span><span class="err">}</span>
+<span class="err">}</span>
+
+<span class="no">int</span><span class="w"> </span><span class="no">main</span><span class="p">()</span><span class="w"> </span><span class="err">{</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="w">  </span><span class="no">memset</span><span class="p">(</span><span class="no">g</span><span class="p">,</span><span class="w"> </span><span class="no">invalid</span><span class="w"> </span><span class="no">value</span><span class="p">,</span><span class="w"> </span><span class="no">sizeof</span><span class="p">(</span><span class="no">g</span><span class="p">))</span><span class="err">;</span><span class="w">  </span><span class="c1">// initialize the memoization array</span>
+<span class="w">  </span><span class="c1">// ...</span>
+<span class="err">}</span>
+</code></pre></div>
+<h3 id="en-optimality-pruning">Optimality pruning</h3>
+<p>Another cause of slow searches is continuing to search when the current answer is already worse than the existing one. So we just need to check whether the current answer is already worse than the existing one.</p>
+<p><strong>Template:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worst</span><span class="w"> </span><span class="k">case</span><span class="p">,</span><span class="w"> </span><span class="no">now</span><span class="err">;</span>
+
+<span class="no">void</span><span class="w"> </span><span class="no">dfs</span><span class="p">(</span><span class="no">input</span><span class="w"> </span><span class="no">values</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">now</span><span class="w"> </span><span class="no">is</span><span class="w"> </span><span class="no">worse</span><span class="w"> </span><span class="no">than</span><span class="w"> </span><span class="no">ans</span><span class="p">)</span><span class="w"> </span><span class="no">return</span><span class="err">;</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">target</span><span class="w"> </span><span class="no">reached</span><span class="p">)</span><span class="w"> </span><span class="no">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">better</span><span class="w"> </span><span class="no">of</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">current</span><span class="w"> </span><span class="no">and</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">existing</span><span class="w"> </span><span class="no">answer</span><span class="err">;</span>
+<span class="w">  </span><span class="no">for</span><span class="w"> </span><span class="p">(</span><span class="no">iterate</span><span class="w"> </span><span class="no">over</span><span class="w"> </span><span class="no">all</span><span class="w"> </span><span class="no">possibilities</span><span class="p">)</span>
+<span class="w">    </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">feasible</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="no">perform</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">      </span><span class="no">dfs</span><span class="p">(</span><span class="no">smaller</span><span class="w"> </span><span class="no">problem</span><span class="p">)</span><span class="err">;</span>
+<span class="w">      </span><span class="no">undo</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">    </span><span class="err">}</span>
+<span class="err">}</span>
+</code></pre></div>
+<h3 id="en-feasibility-pruning">Feasibility pruning</h3>
+<p>Continuing to search when the current solution is already unusable is also a cause of slowness.</p>
+<p><strong>Template:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="kt">int</span><span class="w"> </span><span class="n">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">worst</span><span class="w"> </span><span class="k">case</span><span class="p">,</span><span class="w"> </span><span class="no">now</span><span class="err">;</span>
+
+<span class="no">void</span><span class="w"> </span><span class="no">dfs</span><span class="p">(</span><span class="no">input</span><span class="w"> </span><span class="no">values</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">current</span><span class="w"> </span><span class="no">solution</span><span class="w"> </span><span class="no">is</span><span class="w"> </span><span class="no">already</span><span class="w"> </span><span class="no">unusable</span><span class="p">)</span><span class="w"> </span><span class="no">return</span><span class="err">;</span>
+<span class="w">  </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">target</span><span class="w"> </span><span class="no">reached</span><span class="p">)</span><span class="w"> </span><span class="no">ans</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">better</span><span class="w"> </span><span class="no">of</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">current</span><span class="w"> </span><span class="no">and</span><span class="w"> </span><span class="no">the</span><span class="w"> </span><span class="no">existing</span><span class="w"> </span><span class="no">answer</span><span class="err">;</span>
+<span class="w">  </span><span class="no">for</span><span class="w"> </span><span class="p">(</span><span class="no">iterate</span><span class="w"> </span><span class="no">over</span><span class="w"> </span><span class="no">all</span><span class="w"> </span><span class="no">possibilities</span><span class="p">)</span>
+<span class="w">    </span><span class="no">if</span><span class="w"> </span><span class="p">(</span><span class="no">feasible</span><span class="p">)</span><span class="w"> </span><span class="err">{</span>
+<span class="w">      </span><span class="no">perform</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">      </span><span class="no">dfs</span><span class="p">(</span><span class="no">smaller</span><span class="w"> </span><span class="no">problem</span><span class="p">)</span><span class="err">;</span>
+<span class="w">      </span><span class="no">undo</span><span class="w"> </span><span class="no">operation</span><span class="err">;</span>
+<span class="w">    </span><span class="err">}</span>
+<span class="err">}</span>
+</code></pre></div>
+<h2 id="en-pruning-ideas">Pruning ideas</h2>
+<p>There are many pruning ideas, and most have to be analyzed for the specific problem; here we briefly introduce a few common ones.</p>
+<ul>
+<li>
+<p>Extreme-case method: consider the extreme case; if even the most extreme (most ideal) case cannot satisfy the conditions, then the result of the actual search certainly will not be better.</p>
+</li>
+<li>
+<p>Adjustment method: by comparing subtrees, prune duplicate subtrees and subtrees that clearly are not the most "promising".</p>
+</li>
+<li>
+<p>Mathematical methods: for example, using connected components in graph theory, analyzing modular equations in number theory, estimating lower bounds with inequalities, and so on.</p>
+</li>
+</ul>
+<h2 id="en-example">Example</h2>
+<details class="note" open="open">
+<summary>Job assignment problem</summary>
+<p>There are <span class="arithmatex">\(n\)</span> (<span class="arithmatex">\(1 \leq n \leq  15\)</span>) jobs to be assigned to <span class="arithmatex">\(n\)</span> people, each of whom completes one job. The time person <span class="arithmatex">\(i\)</span> needs to complete job <span class="arithmatex">\(k\)</span> is a positive integer <span class="arithmatex">\(t_{i,k}\)</span> (<span class="arithmatex">\(1 \leq t_{i,k} \leq 10^4\)</span>), where <span class="arithmatex">\(1 \leq i, k \leq n\)</span>. Find an assignment that minimizes the total time needed to complete these <span class="arithmatex">\(n\)</span> jobs.</p>
+</details>
+<p>Since every person must be assigned a job, we can create a two-dimensional array <code>time[i][j]</code> representing the time person <span class="arithmatex">\(i\)</span> needs for job <span class="arithmatex">\(j\)</span>. Using a loop, we assign jobs starting from person 1 until everyone has one. When assigning a job to person <span class="arithmatex">\(i\)</span>, we loop over the jobs and check whether each has already been assigned; if not, we assign it to person <span class="arithmatex">\(i\)</span>, otherwise we check the next job. A one-dimensional array <code>is_working[j]</code> records whether job <span class="arithmatex">\(j\)</span> has been assigned: <code>is_working[j]=0</code> if not, <code>is_working[j]=1</code> otherwise. Using the idea of backtracking, after the loop over workers ends we return to the previous worker, cancel the job assigned this time, and assign the next job until an assignment succeeds. In this way, backtracking all the way to worker 1, we obtain all feasible solutions.</p>
+<p>Checking a job assignment really means checking that, when a feasible solution is obtained, the first-dimension indices of the two-dimensional array are pairwise distinct and so are the second-dimension indices. But we want the minimum total time for completing the <span class="arithmatex">\(n\)</span> jobs, i.e., the feasible solution with the smallest total time, so we define another global variable <code>cost_time_total_min</code> for the smallest total time found so far; initially <code>cost_time_total_min</code> is the sum of <code>time[i][i]</code>, i.e., the sum of the times on the diagonal. When everyone has been assigned a job, compare <code>count</code> with <code>cost_time_total_min</code>: if <code>count</code> is smaller than <code>cost_time_total_min</code>, a better solution has been found, and we assign <code>count</code> to <code>cost_time_total_min</code>.</p>
+<p>Considering the efficiency of the algorithm, there is one more pruning optimization to do here. Whenever the partial cost <code>count</code> is computed, if <code>count</code> is already larger than <code>cost_time_total_min</code>, there is no need to continue assigning, because the solution obtained this way certainly will not be optimal.</p>
+<details class="note">
+<summary>Sample code</summary>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+<span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">16</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">is_working</span><span class="p">[</span><span class="n">N</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">};</span><span class="w">  </span><span class="c1">// whether a job has been assigned</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">N</span><span class="p">][</span><span class="n">N</span><span class="p">];</span><span class="w">             </span><span class="c1">// time needed to complete a job</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="p">;</span><span class="w">  </span><span class="c1">// minimum total time for the n jobs</span>
+
+<span class="c1">// i is the index of the person, count is the total cost of the jobs</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">work</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">count</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// If i exceeds the maximum number of jobs that can be assigned, the assignment is complete; if count</span>
+<span class="w">  </span><span class="c1">// is smaller than the current cost_time_total_min, update cost_time_total_min</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">cost_time_total_min</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">count</span><span class="p">;</span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="c1">// backtracking idea</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">count</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// j is the index of the job</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// if the job is not assigned, is_working = 0</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">is_working</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// assign the job, is_working = 1</span>
+<span class="w">        </span><span class="n">is_working</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">        </span><span class="c1">// hand the work over to person i + 1</span>
+<span class="w">        </span><span class="n">work</span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">count</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">],</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">        </span><span class="c1">// after one round of iteration, return to the previous person and reassign this job</span>
+<span class="w">        </span><span class="c1">// reset is_working[j] to 0</span>
+<span class="w">        </span><span class="n">is_working</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">using</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="p">;</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">cin</span><span class="p">.</span><span class="n">tie</span><span class="p">(</span><span class="nb">nullptr</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">sync_with_stdio</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">;</span>
+<span class="w">  </span><span class="n">cin</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">cin</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">j</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">cost_time_total_min</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">tm</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">i</span><span class="p">];</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">work</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">cost_time_total_min</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="sc">'\n'</span><span class="p">;</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+</details>
+        </div>
+        <nav class="oiwiki-susjedi"><a class="prethodna" href="alpha-beta.html">← <span class="jezik jezik-hr" lang="hr">Alpha–beta odsijecanje</span><span class="jezik jezik-en" lang="en">Alpha–beta pruning</span></a><span></span></nav>
+    </article>
+</body>
+</html>

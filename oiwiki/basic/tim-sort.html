@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="hr" data-jezik="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI Wiki – Timsort</title>
+    <script>(function(){try{var j=localStorage.getItem('oiwiki-jezik');if(j==='en'||j==='hr'){document.documentElement.setAttribute('data-jezik',j);document.documentElement.lang=j;}}catch(e){}})();</script>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki.css">
+    <script defer src="../../assets/js/oiwiki.js"></script>
+</head>
+<body>
+    <p class="navigacija-analize"><a href="../../oiwiki/index.html">← <span class="jezik jezik-hr" lang="hr">OI Wiki (prijevod)</span><span class="jezik jezik-en" lang="en">OI Wiki (translation)</span></a> · <a href="../../index.html"><span class="jezik jezik-hr" lang="hr">Početna</span><span class="jezik jezik-en" lang="en">Home</span></a><span class="oiwiki-prebaci" role="group" aria-label="Jezik / Language"><button type="button" data-jezik="hr" lang="hr" aria-pressed="true">Hrvatski</button><button type="button" data-jezik="en" lang="en" aria-pressed="false">English</button></span></p>
+    <article class="analiza oiwiki">
+        <header>
+            <p class="nadnaslov"><span class="jezik jezik-hr" lang="hr">OI Wiki · prijevod · Osnove algoritama</span><span class="jezik jezik-en" lang="en">OI Wiki · translation · Algorithm basics</span></p>
+            <h1><span class="jezik jezik-hr" lang="hr">Timsort</span><span class="jezik jezik-en" lang="en">Timsort</span></h1>
+            <p class="meta oiwiki-izvor"><span class="jezik jezik-hr" lang="hr">Prijevod stranice <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/basic/tim-sort.md" rel="noopener">docs/basic/tim-sort.md</a> iz repozitorija <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> (izvornik je na kineskom, stanje od 2026-10-04). Tekst je pod licencom <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" rel="noopener">CC BY-SA 4.0</a>; kôd je nepromijenjen osim komentara.</span><span class="jezik jezik-en" lang="en">Translation of <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/basic/tim-sort.md" rel="noopener">docs/basic/tim-sort.md</a> from the <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> repository (the original is in Chinese, as of 2026-10-04). Text is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>; code is unchanged except for comments.</span></p>
+            <p class="oiwiki-github"><a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/basic/tim-sort.md" rel="noopener"><span class="jezik jezik-hr" lang="hr">Izvornik na GitHubu</span><span class="jezik jezik-en" lang="en">Original on GitHub</span></a></p>
+        </header>
+        <div class="jezik jezik-hr oiwiki-tekst" lang="hr">
+<details class="oiwiki-sadrzaj"><summary>Sadržaj</summary><div class="toc">
+<ul>
+<li><a href="#uvod">Uvod</a></li>
+<li><a href="#koraci">Koraci</a><ul>
+<li><a href="#prepoznavanje-runova">Prepoznavanje runova</a></li>
+<li><a href="#proširivanje-runova">Proširivanje runova</a></li>
+<li><a href="#spajanje-runova">Spajanje runova</a></li>
+</ul>
+</li>
+<li><a href="#složenost">Složenost</a></li>
+<li><a href="#implementacija">Implementacija</a></li>
+<li><a href="#literatura-i-bilješke">Literatura i bilješke</a></li>
+</ul>
+</div>
+</details>
+<p>Ova stranica predstavlja Timsort, hibridni i stabilni algoritam sortiranja.</p>
+<h2 id="uvod">Uvod</h2>
+<p>Timsort je 2002. osmislio Tim Peters, jedan od glavnih razvijatelja Pythona, i primijenio ga u jeziku Python. Vješto spaja prednosti insertion sorta i merge sorta te je precizno optimiran za postojeću uređenost u podacima, pa je osobito prikladan za skupove podataka s mnogo djelomično sortiranih podnizova. CPython koristi Timsort od inačice 2.3, a od inačice 3.11 njegovu strategiju redoslijeda spajanja zamjenjuje Powersortom<sup id="fnref:powersort"><a class="footnote-ref" href="#fn:powersort">1</a></sup>. Timsort se široko primjenjuje i u drugim programskim okruženjima; npr. u Javi SE 7 koristi se za sortiranje nizova objekata koji nisu primitivnog tipa.</p>
+<p>Ova stranica opisuje tradicionalni Timsort, pri čemu kao mjerodavna uzima pravila spajanja iz CPythona 3.6.5 u kojima je ispravljen problem održavanja invarijante stoga<sup id="fnref:merge-policy"><a class="footnote-ref" href="#fn:merge-policy">2</a></sup>.</p>
+<h2 id="koraci">Koraci</h2>
+<p>Osnovna je ideja Timsorta povećati učinkovitost sortiranja prepoznavanjem i iskorištavanjem uređenosti koja već postoji u podacima. Glavni koraci su:</p>
+<ol>
+<li><strong>Prepoznavanje runova</strong>: niz koji sortiramo pretražuje se i u njemu se prepoznaju sortirani uzastopni podnizovi (runovi, engl. run);</li>
+<li><strong>Proširivanje runova</strong>: ako je duljina prepoznatog runa manja od <code>MIN_RUN</code>, run se proširuje insertion sortom;</li>
+<li><strong>Spajanje runova</strong>: Timsort održava poseban stog i posebnom strategijom spajanja spaja runove na stogu u veće sortirane nizove.</li>
+</ol>
+<h3 id="prepoznavanje-runova">Prepoznavanje runova</h3>
+<p>Najprije Timsort pretražuje niz slijeva nadesno i prepoznaje uzastopne sortirane nizove, koje nazivamo runovima:</p>
+<ul>
+<li><strong>Uzlazni run</strong>: ako je sljedeći element veći ili jednak prethodnom, run se nastavlja širiti.</li>
+<li><strong>Silazni run</strong>: ako je sljedeći element manji od prethodnog, run se nastavlja širiti, a zatim se obrće u uzlazni.</li>
+</ul>
+<h3 id="proširivanje-runova">Proširivanje runova</h3>
+<p>Da bi sortiranje malih količina podataka bilo učinkovitije, Timsort uvodi najmanju duljinu runa <code>MIN_RUN</code>. Njezina se vrijednost obično računa dinamički prema duljini niza koji sortiramo i najčešće je između <span class="arithmatex">\(32\)</span> i <span class="arithmatex">\(64\)</span>.</p>
+<ul>
+<li>Ako je duljina prepoznatog runa veća ili jednaka <code>MIN_RUN</code>, nije potrebna dodatna radnja i run se izravno stavlja na stog.</li>
+<li>Ako je duljina prepoznatog runa manja od <code>MIN_RUN</code>, binarnim insertion sortom umeću se sljedeći elementi u run dok duljina runa ne dosegne <code>MIN_RUN</code>, a zatim se run stavlja na stog.</li>
+</ul>
+<h3 id="spajanje-runova">Spajanje runova</h3>
+<p>U Timsortu se spajanje (merge sort) upravlja i kontrolira pomoću <strong>stoga</strong>. Na stogu se čuvaju već prepoznati sortirani runovi, a posebna pravila spajanja određuju kako se runovi na stogu spajaju; cilj je pri spajanju održati uravnoteženost i stabilnost nizova.</p>
+<h4 id="pravila-spajanja">Pravila spajanja</h4>
+<p>Timsort je stabilan algoritam sortiranja, tj. jednaki elementi nakon sortiranja zadržavaju izvorni međusobni poredak. Da bi to osigurao, Timsort pri spajanju spaja samo susjedne, uzastopne runove, a nikad izravno nesusjedne. Nesusjedni runovi mogu sadržavati jednake elemente, pa bi njihovo izravno spajanje vrlo vjerojatno poremetilo njihov međusobni poredak.</p>
+<p>Istodobno, da bi kontrolirao uravnoteženost spajanja i broj runova koji čekaju na spajanje, Timsort zahtijeva da svaka tri susjedna runa na stogu zadovoljavaju sljedeće invarijante. Označimo tri runa od vrha stoga prema dnu redom X, Y i Z:</p>
+<ul>
+<li><strong>Uvjet 1</strong>: <code>len(Z) &gt; len(Y) + len(X)</code></li>
+<li><strong>Uvjet 2</strong>: <code>len(Y) &gt; len(X)</code></li>
+</ul>
+<p>Kad su na stogu samo dva runa, također se zahtijeva <code>len(Y) &gt; len(X)</code>. Nakon svakog stavljanja novog runa na stog, <code>mergeCollapse</code> provjerava najviše četiri runa s vrha stoga; označimo ih od vrha prema dolje X, Y, Z, W. Spajanje se odlučuje sljedećim redom<sup id="fnref2:merge-policy"><a class="footnote-ref" href="#fn:merge-policy">2</a></sup>:</p>
+<ol>
+<li>ako je <code>len(Z) &lt;= len(Y) + len(X)</code> ili <code>len(W) &lt;= len(Z) + len(Y)</code>, Y se spaja s kraćim od X i Z; ako su X i Z jednake duljine, bira se X;</li>
+<li>inače, ako je <code>len(Y) &lt;= len(X)</code>, spajaju se Y i X;</li>
+<li>inače se ova runda spajanja prekida i nastavlja se prepoznavanje sljedećeg runa.</li>
+</ol>
+<p>Provjeravaju se samo uvjeti za koje svi potrebni runovi postoje; nakon svakog spajanja ponovno se određuju X, Y, Z, W i postupak se ponavlja. Slika u nastavku prikazuje promjenu stoga pri spajanju X i Y.</p>
+<p><img alt="Pravila spajanja" src="./images/tim-sort-1.svg" /></p>
+<details class="note" open="open">
+<summary>Zašto treba provjeravati četvrti run?</summary>
+<p>Ako se provjeravaju samo tri runa s vrha stoga, nakon spajanja može se propustiti narušavanje invarijante dublje na stogu. Npr. stavimo li redom runove duljina <span class="arithmatex">\(240,160,50,40,60\)</span> (od dna prema vrhu stoga), staro bi pravilo spojilo <span class="arithmatex">\(50\)</span> i <span class="arithmatex">\(40\)</span> i dobilo <span class="arithmatex">\(240,160,90,60\)</span>. Vrh stoga tada zadovoljava <span class="arithmatex">\(160&gt;90+60\)</span> i <span class="arithmatex">\(90&gt;60\)</span>, ali dublje vrijedi <span class="arithmatex">\(240\le160+90\)</span>.</p>
+<p>Taj nedostatak poništava jamstvo fiksnog kapaciteta stoga izvedeno iz invarijante na cijelom stogu. CPython je 2015. ispravio uvjete provjere<sup id="fnref:merge-fix"><a class="footnote-ref" href="#fn:merge-fix">4</a></sup>.</p>
+</details>
+<h4 id="optimizacija-spajanja">Optimizacija spajanja</h4>
+<p>Da bi spajanje runova različitih duljina bilo učinkovitije i trošilo manje memorije, Timsort prije spajanja binarnim pretraživanjem precizno određuje raspon elemenata koje treba obraditi i spaja samo dio koji se zaista mora premjestiti. Konkretno:</p>
+<ol>
+<li>
+<p><strong>Određivanje točaka umetanja</strong>: binarnim pretraživanjem nađe se položaj na koji bi se prvi element drugog runa umetnuo u prvi run, te položaj na koji bi se posljednji element prvog runa umetnuo u drugi run. Time se sužava raspon koji treba spojiti i obrađuju se samo elementi koje treba premjestiti;</p>
+</li>
+<li>
+<p><strong>Privremeni međuspremnik</strong>: tradicionalni algoritmi spajanja na mjestu preslabo su učinkoviti i zahtijevaju mnogo premještanja elemenata. Da bi smanjio taj trošak, Timsort koristi privremeni međuspremnik: kraći run kopira u međuspremnik, a zatim elemente postupno kopira iz međuspremnika natrag u izvorni niz.</p>
+</li>
+</ol>
+<p>Npr. pretpostavimo da postoje dva runa, A i B:</p>
+<ul>
+<li>Run A: <span class="arithmatex">\([1, 2, 3, 6, 10]\)</span></li>
+<li>Run B: <span class="arithmatex">\([4, 5, 7, 9, 12, 14, 17]\)</span></li>
+</ul>
+<p>Binarnim pretraživanjem utvrđujemo:</p>
+<ul>
+<li>element <span class="arithmatex">\(4\)</span> treba umetnuti na četvrto mjesto runa A;</li>
+<li>element <span class="arithmatex">\(10\)</span> treba umetnuti na peto mjesto runa B.</li>
+</ul>
+<p>Stoga su prva <span class="arithmatex">\(3\)</span> elementa runa A i posljednja <span class="arithmatex">\(3\)</span> elementa runa B već na ispravnim mjestima i ne treba ih obrađivati. Treba spojiti samo <span class="arithmatex">\([6, 10]\)</span> iz runa A i <span class="arithmatex">\([4, 5, 7, 9]\)</span> iz runa B; postupak spajanja prikazan je na slici:</p>
+<p><img alt="Spajanje u Timsortu" src="./images/tim-sort-2.apng" /></p>
+<h4 id="galopirajući-način">Galopirajući način</h4>
+<p>Da bi spajanje bilo još učinkovitije, Timsort uvodi <strong>galopirajući način (galloping mode)</strong>. U standardnom spajanju algoritam uspoređuje elemente dvaju runova jedan po jedan i manji stavlja u rezultat. No ako jedan run sadrži dugačak niz uzastopnih elemenata manjih od trenutnog elementa drugog runa, usporedba jedan po jedan uzrokuje nepotreban trošak.</p>
+<p>Da bi to riješio, Timsort postavlja prag <code>Min_Gallop</code> (zadano <span class="arithmatex">\(7\)</span>). Kad broj uzastopnih „pobjeda” elemenata iz jednog runa dosegne <code>Min_Gallop</code>, algoritam prelazi u galopirajući način i brzo pronalazi položaj elementa. Koraci su:</p>
+<ol>
+<li><strong>Eksponencijalno pretraživanje</strong>: od trenutnog položaja algoritam pretražuje run koracima eksponencijalno rastuće duljine <span class="arithmatex">\((1, 2, 4, 8, \dots)\)</span> dok ne nađe interval u kojem se nalazi traženi element;</li>
+<li><strong>Binarno pretraživanje</strong>: kad je interval koji sadrži traženi element određen, algoritam u njemu binarnim pretraživanjem precizno pronalazi položaj elementa.</li>
+</ol>
+<p>Na taj način Timsort preskače mnogo nepotrebnih usporedbi, brzo obrađuje uzastopne manje (ili veće) elemente jednog runa i skupno ih premješta u rezultat spajanja.</p>
+<p>Galopirajući način ipak nije uvijek učinkovitiji. Pri nekim razdiobama podataka može dovesti do više usporedbi. Zato Timsort primjenjuje dinamičku prilagodbu:</p>
+<ul>
+<li><strong>Prilagodba praga</strong>: održava se promjenjivi parametar <code>Min_Gallop</code>. Kad se galopirajući način pokaže dobrim (tj. uzastopno se više puta biraju elementi iz istog runa), <code>Min_Gallop</code> se smanjuje za <span class="arithmatex">\(1\)</span> i tako potiče daljnje galopiranje; kad se pokaže lošim (često prebacivanje između dvaju runova), <code>Min_Gallop</code> se povećava za <span class="arithmatex">\(1\)</span> i galopiranje se koristi rjeđe.</li>
+</ul>
+<p>Dinamičkim podešavanjem vrijednosti <code>Min_Gallop</code> algoritam prema stvarnim podacima pronalazi ravnotežu između običnog spajanja i galopirajućeg načina. Za djelomično ili visoko sortirane podatke galopirajući način znatno povećava učinkovitost i performanse Timsorta približava <span class="arithmatex">\(O(n)\)</span>; za nasumične podatke algoritam postupno naginje običnom spajanju, čime jamči vremensku složenost <span class="arithmatex">\(O(n \log n)\)</span>.</p>
+<h2 id="složenost">Složenost</h2>
+<p>Vremenska složenost Timsorta ovisi o uređenosti podataka:</p>
+<ul>
+<li><strong>Najbolji slučaj</strong>: <span class="arithmatex">\(O(n)\)</span><ul>
+<li>Kad su podaci već sortirani ili gotovo sortirani, duljine prepoznatih runova bliske su <span class="arithmatex">\(n\)</span>, broj spajanja se smanjuje i složenost teži k <span class="arithmatex">\(O(n)\)</span>.</li>
+</ul>
+</li>
+<li><strong>Najgori slučaj</strong>: <span class="arithmatex">\(O(n \log n)\)</span><ul>
+<li>Ako ima <span class="arithmatex">\(r\)</span> runova, na kraju je potrebno <span class="arithmatex">\(r-1\)</span> dvosmjernih spajanja; broj spajanja ne može se zapisati kao <span class="arithmatex">\(O(\log n)\)</span>.</li>
+</ul>
+</li>
+</ul>
+<p>Prepoznavanje runova stoji <span class="arithmatex">\(O(n)\)</span>, a proširivanje kratkih runova uz ograničen <code>MIN_RUN</code> također ukupno <span class="arithmatex">\(O(n)\)</span>. Cijena spajanja jednaka je zbroju duljina dvaju runova koji se spajaju, što je isto što i zbroj, po svim elementima, broja spajanja u kojima element sudjeluje. Gornja granica tog zbroja ovisi o konkretnim pravilima spajanja; za pravila spajanja Pythona 3.6.5 analizirana u literaturi<sup id="fnref:complexity"><a class="footnote-ref" href="#fn:complexity">3</a></sup> amortizirana analiza daje <span class="arithmatex">\(O(n+n\log r)\)</span>, pa je najgori slučaj <span class="arithmatex">\(O(n\log n)\)</span>.</p>
+<p>Što se tiče prostorne složenosti, Timsort treba otprilike <span class="arithmatex">\(O(n)\)</span> dodatnog prostora za stog i privremeni međuspremnik, pa je ukupna prostorna složenost <span class="arithmatex">\(O(n)\)</span>.</p>
+<h2 id="implementacija">Implementacija</h2>
+<details class="note" open="open">
+<summary>Pseudokod</summary>
+<div class="arithmatex">\[
+\begin{array}{ll}
+1 &amp; \textit{nRemaining} \gets \text{duljina niza} \\
+2 &amp; \textit{minRun} \gets \text{odaberi prikladnu vrijednost MinRun}(\textit{nRemaining}) \\
+3 &amp; \textit{startIndex} \gets 0 \\
+4 &amp; \textbf{while } \textit{nRemaining} &gt; 0 \ \textbf{do} \\
+5 &amp; \qquad \textit{runLength} \gets \text{prepoznaj run }(\textit{array}, \textit{startIndex}, \textit{nRemaining}) \\
+6 &amp; \qquad \textbf{if } \textit{runLength} &lt; \textit{minRun} \ \textbf{then} \\
+7 &amp; \qquad \qquad \textit{extendLength} \gets \min(\textit{minRun}, \textit{nRemaining}) \\
+8 &amp; \qquad \qquad \text{insertion sortom proširi interval } [\textit{startIndex}, \textit{startIndex} + \textit{extendLength} - 1]\\
+9 &amp; \qquad \qquad \textit{runLength} \gets \textit{extendLength} \\
+10 &amp; \qquad \textbf{end if} \\
+11 &amp; \qquad \text{stavi run } (\textit{startIndex}, \textit{runLength}) \text{ na stog} \\
+12 &amp; \qquad \textbf{pozovi } \text{mergeCollapse(stog)} \ \text{provjeri i spoji runove na stogu} \\
+13 &amp; \qquad \textit{startIndex} \gets \textit{startIndex} + \textit{runLength} \ \text{ažuriraj početni položaj} \\
+14 &amp; \qquad \textit{nRemaining} \gets \textit{nRemaining} - \textit{runLength} \ \text{ažuriraj preostalu duljinu} \\
+15 &amp; \textbf{end while} \\
+16 &amp; \textbf{pozovi } \text{mergeForceCollapse(stog)} \ \text{konačno spoji sve runove na stogu} \\
+\end{array}
+\]</div>
+</details>
+<h2 id="literatura-i-bilješke">Literatura i bilješke</h2>
+<ol>
+<li><a href="https://en.wikipedia.org/wiki/Timsort">Timsort</a></li>
+<li><a href="https://github.com/python/cpython/blob/v3.6.5/Objects/listsort.txt">Bilješke Tima Petersa o dizajnu (CPython 3.6.5; uvjeti spajanja prema kodu te inačice)</a></li>
+<li><a href="https://cs.android.com/android/platform/superproject/main/+/main:libcore/ojluni/src/main/java/java/util/TimSort.java">Implementacija u Javi</a></li>
+<li><a href="https://github.com/python/cpython/blob/v3.6.5/Objects/listobject.c">Implementacija u C-u (CPython 3.6.5)</a></li>
+</ol>
+<div class="footnote">
+<hr />
+<ol>
+<li id="fn:powersort">
+<p><a href="https://github.com/python/cpython/commit/5cb4c672d855033592f0e05162f887def236c00a">CPython: commit koji uvodi Powersortovu strategiju redoslijeda spajanja</a>; <a href="https://github.com/python/cpython/blob/v3.11.0/Objects/listsort.txt#L329-L347">opis strategije spajanja u CPythonu 3.11</a>.&#160;<a class="footnote-backref" href="#fnref:powersort" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+<li id="fn:merge-policy">
+<p><a href="https://github.com/python/cpython/blob/v3.6.5/Objects/listobject.c#L1816-L1849">CPython 3.6.5: <code>merge_collapse</code></a>.&#160;<a class="footnote-backref" href="#fnref:merge-policy" title="Jump back to footnote 2 in the text">&#8617;</a><a class="footnote-backref" href="#fnref2:merge-policy" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+</li>
+<li id="fn:complexity">
+<p><a href="https://drops.dagstuhl.de/opus/volltexte/2018/9467/pdf/LIPIcs-ESA-2018-4.pdf">On the Worst-Case Complexity of TimSort</a>.&#160;<a class="footnote-backref" href="#fnref:complexity" title="Jump back to footnote 3 in the text">&#8617;</a></p>
+</li>
+<li id="fn:merge-fix">
+<p><a href="https://bugs.python.org/issue23515">CPython Issue 23515: Bad logic in timsort's merge_collapse</a>.&#160;<a class="footnote-backref" href="#fnref:merge-fix" title="Jump back to footnote 4 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div>
+        </div>
+        <div class="jezik jezik-en oiwiki-tekst" lang="en">
+<details class="oiwiki-sadrzaj"><summary>Contents</summary><div class="toc">
+<ul>
+<li><a href="#en-introduction">Introduction</a></li>
+<li><a href="#en-steps">Steps</a><ul>
+<li><a href="#en-identifying-runs">Identifying runs</a></li>
+<li><a href="#en-extending-runs">Extending runs</a></li>
+<li><a href="#en-merging-runs">Merging runs</a></li>
+</ul>
+</li>
+<li><a href="#en-complexity">Complexity</a></li>
+<li><a href="#en-implementation">Implementation</a></li>
+<li><a href="#en-references-and-notes">References and notes</a></li>
+</ul>
+</div>
+</details>
+<p>This page introduces Timsort, a hybrid, stable sorting algorithm.</p>
+<h2 id="en-introduction">Introduction</h2>
+<p>Timsort was designed in 2002 by Tim Peters, a Python core developer, and used in the Python language. It cleverly combines the advantages of insertion sort and merge sort and is precisely optimized for the order already present in the data, which makes it especially suitable for data sets containing many partially sorted subsequences. CPython has used Timsort since version 2.3, and since version 3.11 its merge-order strategy has been replaced by Powersort<sup id="en-fnref:powersort"><a class="footnote-ref" href="#en-fn:powersort">1</a></sup>. Timsort is also widely used in other programming environments; for example, in Java SE 7 it is used to sort arrays of non-primitive objects.</p>
+<p>This page describes traditional Timsort, taking as reference the merge rules of CPython 3.6.5, in which the problem with maintaining the stack invariant was fixed<sup id="en-fnref:merge-policy"><a class="footnote-ref" href="#en-fn:merge-policy">2</a></sup>.</p>
+<h2 id="en-steps">Steps</h2>
+<p>The core idea of Timsort is to improve sorting efficiency by recognizing and exploiting the order already present in the data. Its main steps are:</p>
+<ol>
+<li><strong>Identify runs</strong>: scan the array to be sorted and identify sorted contiguous subsequences (runs);</li>
+<li><strong>Extend runs</strong>: if an identified run is shorter than <code>MIN_RUN</code>, extend it with insertion sort;</li>
+<li><strong>Merge runs</strong>: Timsort maintains a special stack and uses a specific merge strategy to merge the runs on the stack into larger sorted sequences.</li>
+</ol>
+<h3 id="en-identifying-runs">Identifying runs</h3>
+<p>First, Timsort scans the array from left to right and identifies contiguous sorted sequences, which are called runs:</p>
+<ul>
+<li><strong>Ascending run</strong>: if the next element is greater than or equal to the previous one, keep extending the run.</li>
+<li><strong>Descending run</strong>: if the next element is smaller than the previous one, keep extending the run, then reverse the run into ascending order.</li>
+</ul>
+<h3 id="en-extending-runs">Extending runs</h3>
+<p>To sort small amounts of data more efficiently, Timsort introduces a minimum run length <code>MIN_RUN</code>. Its value is usually computed dynamically from the length of the array to be sorted and is typically between <span class="arithmatex">\(32\)</span> and <span class="arithmatex">\(64\)</span>.</p>
+<ul>
+<li>If the identified run is at least <code>MIN_RUN</code> long, no extra work is needed and the run is pushed directly onto the stack.</li>
+<li>If the identified run is shorter than <code>MIN_RUN</code>, binary insertion sort is used to insert the following elements into the run until its length reaches <code>MIN_RUN</code>, and then it is pushed onto the stack.</li>
+</ul>
+<h3 id="en-merging-runs">Merging runs</h3>
+<p>In Timsort the merging is managed and controlled through a <strong>stack</strong>. The stack holds the sorted runs identified so far, and specific merge rules control how the runs on the stack are merged, with the goal of keeping the sequences balanced and the sort stable while merging.</p>
+<h4 id="en-merge-rules">Merge rules</h4>
+<p>Timsort is a stable sorting algorithm, i.e. equal elements keep their original relative order after sorting. To guarantee this, Timsort only merges adjacent, contiguous runs and never directly merges non-adjacent runs. Non-adjacent runs may contain equal elements, and merging them directly would very likely disturb their relative order.</p>
+<p>At the same time, to control the balance of the merges and the number of runs waiting to be merged, Timsort requires every three adjacent runs on the stack to satisfy the following invariants. Denote the three runs from the top of the stack toward the bottom by X, Y and Z:</p>
+<ul>
+<li><strong>Condition 1</strong>: <code>len(Z) &gt; len(Y) + len(X)</code></li>
+<li><strong>Condition 2</strong>: <code>len(Y) &gt; len(X)</code></li>
+</ul>
+<p>When there are only two runs on the stack, <code>len(Y) &gt; len(X)</code> is also required. After each new run is pushed, <code>mergeCollapse</code> examines at most four runs at the top of the stack; denote them from the top downward by X, Y, Z, W. Merging is decided in the following order<sup id="en-fnref2:merge-policy"><a class="footnote-ref" href="#en-fn:merge-policy">2</a></sup>:</p>
+<ol>
+<li>if <code>len(Z) &lt;= len(Y) + len(X)</code> or <code>len(W) &lt;= len(Z) + len(Y)</code>, merge Y with the shorter of X and Z; if X and Z have equal length, choose X;</li>
+<li>otherwise, if <code>len(Y) &lt;= len(X)</code>, merge Y and X;</li>
+<li>otherwise, stop this round of merging and continue identifying the next run.</li>
+</ol>
+<p>Only the conditions whose required runs all exist are checked; after each merge, X, Y, Z, W are determined again and the process above is repeated. The figure below illustrates how the stack changes when X and Y are merged.</p>
+<p><img alt="Merge Rules" src="./images/tim-sort-1.svg" /></p>
+<details class="note" open="open">
+<summary>Why does the fourth run need to be checked?</summary>
+<p>Checking only the top three runs of the stack may, after a merge, miss a violated invariant deeper in the stack. For example, push runs of lengths <span class="arithmatex">\(240,160,50,40,60\)</span> in order (from bottom to top of the stack); the old rule would merge <span class="arithmatex">\(50\)</span> and <span class="arithmatex">\(40\)</span>, giving <span class="arithmatex">\(240,160,90,60\)</span>. The top of the stack now satisfies <span class="arithmatex">\(160&gt;90+60\)</span> and <span class="arithmatex">\(90&gt;60\)</span>, but deeper down <span class="arithmatex">\(240\le160+90\)</span>.</p>
+<p>This flaw invalidates the fixed stack capacity guarantee derived from the whole-stack invariant. CPython fixed the check conditions in 2015<sup id="en-fnref:merge-fix"><a class="footnote-ref" href="#en-fn:merge-fix">4</a></sup>.</p>
+</details>
+<h4 id="en-merge-optimization">Merge optimization</h4>
+<p>To merge runs of different lengths more efficiently and with less memory overhead, Timsort uses binary search before merging to pinpoint the range of elements that actually needs processing, and only merges the part that has to move. Specifically:</p>
+<ol>
+<li>
+<p><strong>Determine the insertion points</strong>: use binary search to find the position where the first element of the second run would be inserted into the first run, and the position where the last element of the first run would be inserted into the second run. This narrows the range to be merged so that only the elements that need to move are processed;</p>
+</li>
+<li>
+<p><strong>Temporary buffer</strong>: traditional in-place merge algorithms are too inefficient and require many element moves. To reduce this overhead, Timsort uses a temporary buffer: it copies the shorter run into the buffer and then gradually copies elements from the buffer back into the original array.</p>
+</li>
+</ol>
+<p>For example, suppose there are two runs A and B:</p>
+<ul>
+<li>Run A: <span class="arithmatex">\([1, 2, 3, 6, 10]\)</span></li>
+<li>Run B: <span class="arithmatex">\([4, 5, 7, 9, 12, 14, 17]\)</span></li>
+</ul>
+<p>Using binary search we determine:</p>
+<ul>
+<li>element <span class="arithmatex">\(4\)</span> should be inserted at the fourth position of run A;</li>
+<li>element <span class="arithmatex">\(10\)</span> should be inserted at the fifth position of run B.</li>
+</ul>
+<p>Therefore the first <span class="arithmatex">\(3\)</span> elements of run A and the last <span class="arithmatex">\(3\)</span> elements of run B are already in the correct positions and need no processing. Only <span class="arithmatex">\([6, 10]\)</span> from run A and <span class="arithmatex">\([4, 5, 7, 9]\)</span> from run B need to be merged; the merge process is shown in the figure below:</p>
+<p><img alt="Timsort Merge" src="./images/tim-sort-2.apng" /></p>
+<h4 id="en-galloping-mode">Galloping mode</h4>
+<p>To further improve merge efficiency, Timsort introduces <strong>galloping mode</strong>. In a standard merge, the algorithm compares the elements of the two runs one by one and places the smaller one into the result array. However, if one run contains a long stretch of consecutive elements smaller than the current element of the other run, comparing one by one causes unnecessary overhead.</p>
+<p>To solve this, Timsort sets a threshold <code>Min_Gallop</code> (default <span class="arithmatex">\(7\)</span>). When the number of consecutive "wins" by elements of one run reaches <code>Min_Gallop</code>, the algorithm enters galloping mode and quickly locates the position of the element. The steps are:</p>
+<ol>
+<li><strong>Exponential search</strong>: starting from the current position, the algorithm searches one run with exponentially growing steps <span class="arithmatex">\((1, 2, 4, 8, \dots)\)</span> until it finds an interval containing the target element;</li>
+<li><strong>Binary search</strong>: once the interval containing the target element is determined, the algorithm uses binary search within that interval to pinpoint the position of the target element.</li>
+</ol>
+<p>In this way Timsort skips many unnecessary comparisons, quickly handles the consecutive smaller (or larger) elements of one run and moves them into the merge result in bulk.</p>
+<p>Galloping mode is not more efficient in every case, however. For some data distributions it may lead to more comparisons. Therefore Timsort uses a dynamic adjustment strategy:</p>
+<ul>
+<li><strong>Threshold adjustment</strong>: a variable <code>Min_Gallop</code> parameter is maintained. When galloping mode performs well (i.e. elements are repeatedly taken from the same run), <code>Min_Gallop</code> is decreased by <span class="arithmatex">\(1\)</span> to encourage further galloping; when galloping mode performs poorly (frequent switching between the two runs), <code>Min_Gallop</code> is increased by <span class="arithmatex">\(1\)</span> to reduce how often galloping is used.</li>
+</ul>
+<p>By dynamically adjusting the value of <code>Min_Gallop</code>, the algorithm strikes a balance between normal merging and galloping mode based on the actual data. For partially or highly ordered data, galloping mode can significantly improve efficiency and bring the performance of Timsort close to <span class="arithmatex">\(O(n)\)</span>; for random data, the algorithm gradually leans toward normal merging, which guarantees the <span class="arithmatex">\(O(n \log n)\)</span> time complexity.</p>
+<h2 id="en-complexity">Complexity</h2>
+<p>The time complexity of Timsort depends on how ordered the data is:</p>
+<ul>
+<li><strong>Best case</strong>: <span class="arithmatex">\(O(n)\)</span><ul>
+<li>When the data is already sorted or nearly sorted, the runs identified by the algorithm have length close to <span class="arithmatex">\(n\)</span>, the number of merges decreases and the complexity approaches <span class="arithmatex">\(O(n)\)</span>.</li>
+</ul>
+</li>
+<li><strong>Worst case</strong>: <span class="arithmatex">\(O(n \log n)\)</span><ul>
+<li>If there are <span class="arithmatex">\(r\)</span> runs, <span class="arithmatex">\(r-1\)</span> two-way merges are needed in the end; the number of merges cannot be written as <span class="arithmatex">\(O(\log n)\)</span>.</li>
+</ul>
+</li>
+</ul>
+<p>Identifying runs costs <span class="arithmatex">\(O(n)\)</span>, and extending short runs with a bounded <code>MIN_RUN</code> also costs <span class="arithmatex">\(O(n)\)</span> in total. The merge cost is the sum of the lengths of the two runs merged each time, which equals the sum over all elements of the number of merges each element takes part in. The upper bound on this sum depends on the specific merge rules; for the Python 3.6.5 TimSort merge rules analyzed in the literature<sup id="en-fnref:complexity"><a class="footnote-ref" href="#en-fn:complexity">3</a></sup>, amortized analysis gives <span class="arithmatex">\(O(n+n\log r)\)</span>, hence the worst case is <span class="arithmatex">\(O(n\log n)\)</span>.</p>
+<p>As for space complexity, since Timsort needs roughly <span class="arithmatex">\(O(n)\)</span> extra space for the stack and the temporary buffer, the total space complexity is <span class="arithmatex">\(O(n)\)</span>.</p>
+<h2 id="en-implementation">Implementation</h2>
+<details class="note" open="open">
+<summary>Pseudocode</summary>
+<div class="arithmatex">\[
+\begin{array}{ll}
+1 &amp; \textit{nRemaining} \gets \text{length of the array} \\
+2 &amp; \textit{minRun} \gets \text{choose a suitable value of MinRun}(\textit{nRemaining}) \\
+3 &amp; \textit{startIndex} \gets 0 \\
+4 &amp; \textbf{while } \textit{nRemaining} &gt; 0 \ \textbf{do} \\
+5 &amp; \qquad \textit{runLength} \gets \text{identify run }(\textit{array}, \textit{startIndex}, \textit{nRemaining}) \\
+6 &amp; \qquad \textbf{if } \textit{runLength} &lt; \textit{minRun} \ \textbf{then} \\
+7 &amp; \qquad \qquad \textit{extendLength} \gets \min(\textit{minRun}, \textit{nRemaining}) \\
+8 &amp; \qquad \qquad \text{extend the interval } [\textit{startIndex}, \textit{startIndex} + \textit{extendLength} - 1] \text{ with insertion sort}\\
+9 &amp; \qquad \qquad \textit{runLength} \gets \textit{extendLength} \\
+10 &amp; \qquad \textbf{end if} \\
+11 &amp; \qquad \text{push run } (\textit{startIndex}, \textit{runLength}) \text{ onto the stack} \\
+12 &amp; \qquad \textbf{call } \text{mergeCollapse(stack)} \ \text{to check and merge the runs on the stack} \\
+13 &amp; \qquad \textit{startIndex} \gets \textit{startIndex} + \textit{runLength} \ \text{update the start position} \\
+14 &amp; \qquad \textit{nRemaining} \gets \textit{nRemaining} - \textit{runLength} \ \text{update the remaining length} \\
+15 &amp; \textbf{end while} \\
+16 &amp; \textbf{call } \text{mergeForceCollapse(stack)} \ \text{to finally merge all runs on the stack} \\
+\end{array}
+\]</div>
+</details>
+<h2 id="en-references-and-notes">References and notes</h2>
+<ol>
+<li><a href="https://en.wikipedia.org/wiki/Timsort">Timsort</a></li>
+<li><a href="https://github.com/python/cpython/blob/v3.6.5/Objects/listsort.txt">Tim Peters' design notes (CPython 3.6.5; merge conditions follow the code of that version)</a></li>
+<li><a href="https://cs.android.com/android/platform/superproject/main/+/main:libcore/ojluni/src/main/java/java/util/TimSort.java">Java implementation</a></li>
+<li><a href="https://github.com/python/cpython/blob/v3.6.5/Objects/listobject.c">C implementation (CPython 3.6.5)</a></li>
+</ol>
+<div class="footnote">
+<hr />
+<ol>
+<li id="en-fn:powersort">
+<p><a href="https://github.com/python/cpython/commit/5cb4c672d855033592f0e05162f887def236c00a">CPython: the commit adopting the Powersort merge-order strategy</a>; <a href="https://github.com/python/cpython/blob/v3.11.0/Objects/listsort.txt#L329-L347">description of the merge strategy in CPython 3.11</a>.&#160;<a class="footnote-backref" href="#en-fnref:powersort" title="Jump back to footnote 1 in the text">&#8617;</a></p>
+</li>
+<li id="en-fn:merge-policy">
+<p><a href="https://github.com/python/cpython/blob/v3.6.5/Objects/listobject.c#L1816-L1849">CPython 3.6.5: <code>merge_collapse</code></a>.&#160;<a class="footnote-backref" href="#en-fnref:merge-policy" title="Jump back to footnote 2 in the text">&#8617;</a><a class="footnote-backref" href="#en-fnref2:merge-policy" title="Jump back to footnote 2 in the text">&#8617;</a></p>
+</li>
+<li id="en-fn:complexity">
+<p><a href="https://drops.dagstuhl.de/opus/volltexte/2018/9467/pdf/LIPIcs-ESA-2018-4.pdf">On the Worst-Case Complexity of TimSort</a>.&#160;<a class="footnote-backref" href="#en-fnref:complexity" title="Jump back to footnote 3 in the text">&#8617;</a></p>
+</li>
+<li id="en-fn:merge-fix">
+<p><a href="https://bugs.python.org/issue23515">CPython Issue 23515: Bad logic in timsort's merge_collapse</a>.&#160;<a class="footnote-backref" href="#en-fnref:merge-fix" title="Jump back to footnote 4 in the text">&#8617;</a></p>
+</li>
+</ol>
+</div>
+        </div>
+        <nav class="oiwiki-susjedi"><a class="prethodna" href="tournament-sort.html">← <span class="jezik jezik-hr" lang="hr">Tournament sort</span><span class="jezik jezik-en" lang="en">Tournament sort</span></a><span></span><a class="sljedeca" href="stl-sort.html"><span class="jezik jezik-hr" lang="hr">Sortiranje u standardnoj biblioteci</span><span class="jezik jezik-en" lang="en">Sorting in the standard library</span> →</a></nav>
+    </article>
+</body>
+</html>
