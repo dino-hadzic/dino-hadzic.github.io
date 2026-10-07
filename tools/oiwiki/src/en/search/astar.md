@@ -18,7 +18,7 @@ During the search, the A\* algorithm each time pops the node with the smallest $
 
 ## Properties
 
-Since the actual value of $h^*(x)$ is unknown during the search, an easily computable $h(x)$ is used as its estimate. The actual complexity of A\* search depends on the properties of this estimate function $h(x)$. It is easy to imagine that if $h\equiv h^*$, i.e. the estimate is exact, the search proceeds strictly along the shortest path. If instead $h\equiv 0$, the A\* algorithm degenerates into [Dijkstra's algorithm](./../graph/shortest-path.md#dijkstra-算法); when $h\equiv 0$ and all edge weights are $1$, it is exactly [BFS](./bfs.md).
+Since the actual value of $h^*(x)$ is unknown during the search, an easily computable $h(x)$ is used as its estimate. The actual complexity of A\* search depends on the properties of this estimate function $h(x)$. It is easy to imagine that if $h\equiv h^*$, i.e. the estimate is exact, the search proceeds strictly along the shortest path. If instead $h\equiv 0$, the A\* algorithm degenerates into [Dijkstra's algorithm](./../graph/shortest-path.md#dijkstras-algorithm); when $h\equiv 0$ and all edge weights are $1$, it is exactly [BFS](./bfs.md).
 
 Suppose the graph has no negative-weight edges. If the estimate $h(x)$ never exceeds the actual distance $h^*(x)$, i.e. $0\le h\le h^*$, then the A\* algorithm is guaranteed to find the optimal solution. An estimate function $h(x)$ satisfying this condition is called **admissible**. By the discussion above, the closer $h$ is to $h^*$, the more efficient the corresponding A\* algorithm is. In general, in the worst case the algorithm visits all nodes satisfying
 

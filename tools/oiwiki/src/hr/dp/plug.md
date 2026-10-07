@@ -207,7 +207,7 @@ U gornjem kodu:
 -   `push()` je funkcija prijelaza stanja, pri čemu je `d` globalna varijabla (iz lijenosti) koja označava prirast koji donosi svaki prijelaz stanja. Ako je stanje pronađeno, radimo `+=`, a inače stvaramo novi čvor sa stanjem `s` i ključem `d`.
 -   `roll()` kotrlja konturu nakon završene iteracije po cijelom retku.
 
-O analizi složenosti hash tablica te o razlici između otvorenog i zatvorenog hashiranja vidi odgovarajuća poglavlja o hash tablicama u [„Introduction to Algorithms”](../contest/resources.md#书籍).
+O analizi složenosti hash tablica te o razlici između otvorenog i zatvorenog hashiranja vidi odgovarajuća poglavlja o hash tablicama u [„Introduction to Algorithms”](../contest/resources.md#knjige).
 
 #### Prijelaz stanja
 
@@ -799,7 +799,7 @@ Problemi plug DP-a obično su zahtjevni za kodiranje i složeni za analizu, pa p
 
 ### Popločavanje dominama
 
-[„HDU 1400” Mondriaan’s Dream](https://acm.hdu.edu.cn/showproblem.php?pid=1400) pojavljuje se i u knjizi [„Training Guide for Algorithm Contests”](../contest/resources.md#书籍) kao primjer u odjeljku „Dinamičko programiranje po konturi”. [Popločavanje dominama (Domino tiling)](https://en.wikipedia.org/wiki/Domino_tiling) klasična je skupina matematičkih problema; malom promjenom ograničenja dobivaju se potproblemi različite težine koji zahtijevaju različite algoritme.
+[„HDU 1400” Mondriaan’s Dream](https://acm.hdu.edu.cn/showproblem.php?pid=1400) pojavljuje se i u knjizi [„Training Guide for Algorithm Contests”](../contest/resources.md#knjige) kao primjer u odjeljku „Dinamičko programiranje po konturi”. [Popločavanje dominama (Domino tiling)](https://en.wikipedia.org/wiki/Domino_tiling) klasična je skupina matematičkih problema; malom promjenom ograničenja dobivaju se potproblemi različite težine koji zahtijevaju različite algoritme.
 
 Za $m=2$ popločavanje dominama ekvivalentno je Fibonaccijevu nizu. Knjiga [„Concrete Mathematics”](https://www.csie.ntu.edu.tw/~r97002/temp/Concrete%20Mathematics%202e.pdf) tim problemom uvodi Fibonaccijev niz i na više načina izvodi njegovo rješenje u zatvorenom obliku.
 

@@ -30,9 +30,9 @@ Here every $f(i,\cdot)$ is an array or some other more complex object. So althou
 
 ### Prefix sum optimization of DP
 
-Related page: [prefix sums](../../basic/prefix-sum.md#前缀和)
+Related page: [prefix sums](../../basic/prefix-sum.md#prefix-sums)
 
-If the computation of the current state depends on the sum of a subsegment of previous states, the computation can be sped up by maintaining prefix sums. One class of problems involving high-dimensional prefix sums is also called [SOS DP](../../basic/prefix-sum.md#特例子集和-dp).
+If the computation of the current state depends on the sum of a subsegment of previous states, the computation can be sped up by maintaining prefix sums. One class of problems involving high-dimensional prefix sums is also called [SOS DP](../../basic/prefix-sum.md#special-case-sum-over-subsets-dp).
 
 Exercises:
 

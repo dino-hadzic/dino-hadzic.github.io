@@ -81,7 +81,7 @@ U posljednjem se primjeru vidi da bi, kad bismo izravno izgradili trie svih sufi
 
 ## Algoritam izgradnje linearne složenosti
 
-Prije nego što opišemo algoritam izgradnje SAM-a u linearnom vremenu, moramo uvesti dva pojma iznimno važna za razumijevanje postupka izgradnje i ukratko dokazati njihova svojstva. Završne pozicije $\operatorname{endpos}$ definiraju čvorove SAM-a (tj. daju nužan i dovoljan uvjet za spajanje čvorova), a sufiksna poveznica $\operatorname{link}$ samo je prirodna inačica [pokazivača neuspjeha](./ac-automaton.md#失配指针) iz Aho–Corasick automata u SAM-u.
+Prije nego što opišemo algoritam izgradnje SAM-a u linearnom vremenu, moramo uvesti dva pojma iznimno važna za razumijevanje postupka izgradnje i ukratko dokazati njihova svojstva. Završne pozicije $\operatorname{endpos}$ definiraju čvorove SAM-a (tj. daju nužan i dovoljan uvjet za spajanje čvorova), a sufiksna poveznica $\operatorname{link}$ samo je prirodna inačica [pokazivača neuspjeha](./ac-automaton.md#fail-pokazivači) iz Aho–Corasick automata u SAM-u.
 
 ### Završne pozicije `endpos`
 

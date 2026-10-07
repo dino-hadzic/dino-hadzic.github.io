@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="hr" data-jezik="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI Wiki – Manacher</title>
+    <script>(function(){try{var j=localStorage.getItem('oiwiki-jezik');if(j==='en'||j==='hr'){document.documentElement.setAttribute('data-jezik',j);document.documentElement.lang=j;}}catch(e){}})();</script>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki.css">
+    <script defer src="../../assets/js/oiwiki.js"></script>
+</head>
+<body>
+    <p class="navigacija-analize"><a href="../../oiwiki/index.html">← <span class="jezik jezik-hr" lang="hr">OI Wiki (prijevod)</span><span class="jezik jezik-en" lang="en">OI Wiki (translation)</span></a> · <a href="../../index.html"><span class="jezik jezik-hr" lang="hr">Početna</span><span class="jezik jezik-en" lang="en">Home</span></a><span class="oiwiki-prebaci" role="group" aria-label="Jezik / Language"><button type="button" data-jezik="hr" lang="hr" aria-pressed="true">Hrvatski</button><button type="button" data-jezik="en" lang="en" aria-pressed="false">English</button></span></p>
+    <article class="analiza oiwiki">
+        <header>
+            <p class="nadnaslov"><span class="jezik jezik-hr" lang="hr">OI Wiki · prijevod · Stringovi</span><span class="jezik jezik-en" lang="en">OI Wiki · translation · Strings</span></p>
+            <h1><span class="jezik jezik-hr" lang="hr">Manacher</span><span class="jezik jezik-en" lang="en">Manacher</span></h1>
+            <p class="meta oiwiki-izvor"><span class="jezik jezik-hr" lang="hr">Prijevod stranice <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/string/manacher.md" rel="noopener">docs/string/manacher.md</a> iz repozitorija <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> (izvornik je na kineskom, stanje od 2026-10-04). Tekst je pod licencom <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" rel="noopener">CC BY-SA 4.0</a>; kôd je nepromijenjen osim komentara.</span><span class="jezik jezik-en" lang="en">Translation of <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/string/manacher.md" rel="noopener">docs/string/manacher.md</a> from the <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> repository (the original is in Chinese, as of 2026-10-04). Text is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>; code is unchanged except for comments.</span></p>
+            <p class="oiwiki-github"><a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/string/manacher.md" rel="noopener"><span class="jezik jezik-hr" lang="hr">Izvornik na GitHubu</span><span class="jezik jezik-en" lang="en">Original on GitHub</span></a></p>
+        </header>
+        <div class="jezik jezik-hr oiwiki-tekst" lang="hr">
+<details class="oiwiki-sadrzaj"><summary>Sadržaj</summary><div class="toc">
+<ul>
+<li><a href="#opis">Opis</a></li>
+<li><a href="#objašnjenje">Objašnjenje</a></li>
+<li><a href="#pristupi-rješavanju">Pristupi rješavanju</a></li>
+<li><a href="#naivni-algoritam">Naivni algoritam</a></li>
+<li><a href="#manacherov-algoritam">Manacherov algoritam</a><ul>
+<li><a href="#postupak">Postupak</a></li>
+</ul>
+</li>
+<li><a href="#složenost-manacherova-algoritma">Složenost Manacherova algoritma</a></li>
+<li><a href="#implementacija-manacherova-algoritma">Implementacija Manacherova algoritma</a><ul>
+<li><a href="#zasebna-obrada-slučajeva">Zasebna obrada slučajeva</a></li>
+<li><a href="#objedinjena-obrada">Objedinjena obrada</a></li>
+</ul>
+</li>
+<li><a href="#zadaci-za-vježbu">Zadaci za vježbu</a></li>
+</ul>
+</div>
+</details>
+<h2 id="opis">Opis</h2>
+<p>Zadana je duljina <span class="arithmatex">\(n\)</span> i string <span class="arithmatex">\(s\)</span> te duljine. Pronađite sve parove <span class="arithmatex">\((i, j)\)</span> za koje je podstring <span class="arithmatex">\(s[i \dots j]\)</span> palindrom. Ako vrijedi <span class="arithmatex">\(t = t_{\text{rev}}\)</span>, onda je <span class="arithmatex">\(t\)</span> palindrom (<span class="arithmatex">\(t_{\text{rev}}\)</span> je obrnuti string <span class="arithmatex">\(t\)</span>).</p>
+<h2 id="objašnjenje">Objašnjenje</h2>
+<p>Očito u najgorem slučaju može biti <span class="arithmatex">\(O(n^2)\)</span> palindroma, pa se na prvi pogled čini da za ovaj problem ne postoji linearan algoritam.</p>
+<p>Međutim, informacije o palindromima možemo zapisati <strong>sažetije</strong>: za svaku poziciju <span class="arithmatex">\(i = 0 \dots n - 1\)</span> pronađemo vrijednosti <span class="arithmatex">\(d_1[i]\)</span> i <span class="arithmatex">\(d_2[i]\)</span>. One redom predstavljaju broj palindroma neparne i parne duljine sa središtem na poziciji <span class="arithmatex">\(i\)</span>. Ekvivalentno, to su polumjeri najduljih palindroma sa središtem na <span class="arithmatex">\(i\)</span> (oba polumjera <span class="arithmatex">\(d_1[i]\)</span>, <span class="arithmatex">\(d_2[i]\)</span> broje znakove od pozicije <span class="arithmatex">\(i\)</span> do krajnje desne pozicije palindroma, uključivo).</p>
+<p>Primjerice, string <span class="arithmatex">\(s = \mathtt{abababc}\)</span> ima tri palindroma neparne duljine sa središtem na <span class="arithmatex">\(s[3] = b\)</span>. Polumjer najduljeg jest <span class="arithmatex">\(3\)</span>, odnosno <span class="arithmatex">\(d_1[3] = 3\)</span>:</p>
+<div class="arithmatex">\[
+a\ \overbrace{b\ a\ \underset{s_3}{b}\ a\ b}^{d_1[3]=3}\ c
+\]</div>
+<p>String <span class="arithmatex">\(s = \mathtt{cbaabd}\)</span> ima dva palindroma parne duljine sa središtem na <span class="arithmatex">\(s[3] = a\)</span>. Polumjer najduljeg jest <span class="arithmatex">\(2\)</span>, odnosno <span class="arithmatex">\(d_2[3] = 2\)</span>:</p>
+<div class="arithmatex">\[
+c\ \overbrace{b\ a\ \underset{s_3}{a}\ b}^{d_2[3]=2}\ d
+\]</div>
+<p>Ključna je ideja da, ako na nekoj poziciji <span class="arithmatex">\(i\)</span> imamo središte palindroma duljine <span class="arithmatex">\(l\)</span>, tada na <span class="arithmatex">\(i\)</span> imamo i središta palindroma duljina <span class="arithmatex">\(l - 2\)</span>, <span class="arithmatex">\(l - 4\)</span> i tako dalje. Zato su dva polja <span class="arithmatex">\(d_1[i]\)</span> i <span class="arithmatex">\(d_2[i]\)</span> dovoljna za opis svih palindromskih podstringova stringa.</p>
+<p>Iznenađujuće, postoji prilično jednostavan linearan algoritam za izračun tih dvaju „polja palindroma” <span class="arithmatex">\(d_1[]\)</span> i <span class="arithmatex">\(d_2[]\)</span>. U ovom ga članku detaljno opisujemo.</p>
+<h2 id="pristupi-rješavanju">Pristupi rješavanju</h2>
+<p>Problem se može riješiti na više načina: hashiranje stringova daje rješenje u vremenu <span class="arithmatex">\(O(n \log n)\)</span>, a sufiksno polje i brzi LCA daju rješenje u vremenu <span class="arithmatex">\(O(n)\)</span>.</p>
+<p>No ovdje opisani algoritam <strong>znatno</strong> je jednostavniji i ima manje konstante i u vremenskoj i u prostornoj složenosti. Predložio ga je <strong>Glenn K. Manacher</strong> 1975. godine.</p>
+<h2 id="naivni-algoritam">Naivni algoritam</h2>
+<p>Kako bismo izbjegli kasnije nejasnoće, objasnimo što podrazumijevamo pod „naivnim algoritmom”.</p>
+<p>Za svako središte <span class="arithmatex">\(i\)</span> algoritam uspoređuje par odgovarajućih znakova i pokušava povećati odgovor za <span class="arithmatex">\(1\)</span> dokle god je to moguće.</p>
+<p>Ovaj je algoritam spor: za izračun odgovora potrebno mu je <span class="arithmatex">\(O(n^2)\)</span> vremena.</p>
+<p>Slijedi implementacija naivnog algoritma:</p>
+<details class="note" open="open">
+<summary>Implementacija</summary>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">C++</label><label for="__tabbed_1_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">d1</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="w"> </span><span class="n">d2</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">         </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">d1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+        <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+        <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+</details>
+<h2 id="manacherov-algoritam">Manacherov algoritam</h2>
+<p>Ovdje opisujemo samo pronalaženje svih palindromskih podstringova neparne duljine, odnosno računanje <span class="arithmatex">\(d_1[]\)</span>. Za pronalaženje svih palindromskih podstringova parne duljine (računanje polja <span class="arithmatex">\(d_2[]\)</span>) potrebne su samo male izmjene algoritma za neparne duljine.</p>
+<p>Za učinkovit izračun održavamo <strong>granice <span class="arithmatex">\([l, r]\)</span></strong> dosad pronađenog palindromskog podstringa koji doseže najdalje udesno (palindroma s najvećim <span class="arithmatex">\(r\)</span>, gdje su <span class="arithmatex">\(l\)</span> i <span class="arithmatex">\(r\)</span> pozicije njegove lijeve i desne granice). Na početku postavimo <span class="arithmatex">\(l = 0\)</span> i <span class="arithmatex">\(r = -1\)</span> (<em>-1</em> ovdje nije indeks koji se broji od kraja; može biti bilo koji negativan broj i služi samo jednostavnijoj inicijalizaciji petlje).</p>
+<h3 id="postupak">Postupak</h3>
+<p>Pretpostavimo da sada želimo za sljedeći <span class="arithmatex">\(i\)</span> izračunati <span class="arithmatex">\(d_1[i]\)</span>, a sve prethodne vrijednosti polja <span class="arithmatex">\(d_1[]\)</span> već su izračunate. Postupamo ovako:</p>
+<ul>
+<li>
+<p>Ako je <span class="arithmatex">\(i\)</span> izvan trenutačnog palindromskog podstringa, odnosno <span class="arithmatex">\(i &gt; r\)</span>, primijenimo naivni algoritam.</p>
+<p>Nastavljamo povećavati <span class="arithmatex">\(d_1[i]\)</span> i u svakom koraku provjeravamo je li trenutačni podstring <span class="arithmatex">\([i - d_1[i] \dots i + d_1[i]]\)</span> palindrom (<span class="arithmatex">\(d_1[i]\)</span> ovdje i dalje označava polumjer). Zaustavljamo se na prvom paru različitih znakova ili na granici stringa <span class="arithmatex">\(s\)</span>. U oba je slučaja <span class="arithmatex">\(d_1[i]\)</span> izračunat. Nakon toga ne zaboravimo ažurirati <span class="arithmatex">\((l, r)\)</span>.</p>
+</li>
+<li>
+<p>Sada razmotrimo <span class="arithmatex">\(i \le r\)</span>. Pokušavamo iskoristiti već izračunate vrijednosti polja <span class="arithmatex">\(d_1[]\)</span>. Najprije unutar palindroma <span class="arithmatex">\((l, r)\)</span> zrcalimo poziciju <span class="arithmatex">\(i\)</span> i dobijemo <span class="arithmatex">\(j = l + (r - i)\)</span>. Promotrimo <span class="arithmatex">\(d_1[j]\)</span>. Budući da je <span class="arithmatex">\(j\)</span> simetričan poziciji <span class="arithmatex">\(i\)</span>, <strong>gotovo uvijek</strong> možemo postaviti <span class="arithmatex">\(d_1[i] = d_1[j]\)</span>. Ideja je prikazana u nastavku (zamislimo da palindrom sa središtem na <span class="arithmatex">\(j\)</span> „kopiramo” na poziciju sa središtem na <span class="arithmatex">\(i\)</span>):</p>
+<div class="arithmatex">\[
+\ldots\
+\overbrace{
+    s_l\ \ldots\
+    \underbrace{
+        s_{j-d_1[j]+1}\ \ldots\ s_j\ \ldots\ s_{j+d_1[j]-1}
+    }_\text{palindrome}\
+    \ldots\
+    \underbrace{
+        s_{i-d_1[j]+1}\ \ldots\ s_i\ \ldots\ s_{i+d_1[j]-1}
+    }_\text{palindrome}\
+    \ldots\ s_r
+}^\text{palindrome}\
+\ldots
+\]</div>
+<p>Međutim, postoji <strong>nezgodan slučaj</strong> koji moramo ispravno obraditi: „unutarnji” palindrom doseže granicu „vanjskog”, odnosno <span class="arithmatex">\(j - d_1[j] + 1 \le l\)</span> (ekvivalentno, <span class="arithmatex">\(i + d_1[j] - 1 \ge r\)</span>). Izvan „vanjskog” palindroma simetrija nije zajamčena, pa ne bi bilo ispravno jednostavno postaviti <span class="arithmatex">\(d_1[i] = d_1[j]\)</span>: nemamo dovoljno informacija da bismo tvrdili da palindrom na <span class="arithmatex">\(i\)</span> ima jednaku duljinu.</p>
+<p>Kako bismo taj slučaj ispravno obradili, „skratimo” palindrom postavljanjem <span class="arithmatex">\(d_1[i] = r - i + 1\)</span>. Zatim pokrenemo naivni algoritam i povećamo <span class="arithmatex">\(d_1[i]\)</span> koliko god možemo.</p>
+<p>Taj je slučaj prikazan u nastavku (palindrom sa središtem na <span class="arithmatex">\(j\)</span> skraćen je kako bi stao unutar „vanjskog” palindroma):</p>
+<div class="arithmatex">\[
+\ldots\
+\overbrace{
+    \underbrace{
+        s_l\ \ldots\ s_j\ \ldots\ s_{j+(j-l)}
+    }_\text{palindrome}\
+    \ldots\
+    \underbrace{
+        s_{i-(r-i)}\ \ldots\ s_i\ \ldots\ s_r
+    }_\text{palindrome}
+}^\text{palindrome}\
+\underbrace{
+    \ldots \ldots \ldots \ldots \ldots
+}_\text{try moving here}
+\]</div>
+<p>Prikaz pokazuje da, iako palindrom sa središtem na <span class="arithmatex">\(j\)</span> može biti dulji i izlaziti izvan „vanjskog” palindroma, na poziciji <span class="arithmatex">\(i\)</span> možemo iskoristiti samo dio potpuno sadržan u „vanjskom” palindromu. Ipak, odgovor na <span class="arithmatex">\(i\)</span> može biti veći, pa zatim pokrenemo naivni algoritam i pokušamo proširiti palindrom izvan „vanjskog”, u područje označeno s „try moving here”.</p>
+</li>
+</ul>
+<p>Na kraju još jednom podsjećamo da nakon izračuna svakog <span class="arithmatex">\(d_1[i]\)</span> treba ažurirati vrijednosti <span class="arithmatex">\((l, r)\)</span>.</p>
+<p>Ponovimo: algoritam za računanje polja palindroma parne duljine <span class="arithmatex">\(d_2[]\)</span> vrlo je sličan prethodnom algoritmu za polje palindroma neparne duljine <span class="arithmatex">\(d_1[]\)</span>.</p>
+<h2 id="složenost-manacherova-algoritma">Složenost Manacherova algoritma</h2>
+<p>Budući da pri računanju odgovora za pojedinu poziciju koristimo naivni algoritam, na prvi pogled nije očito da je vremenska složenost linearna.</p>
+<p>No pažljivija analiza pokazuje da je složenost linearna. Napomenimo da je <a href="z-func.html">algoritam za računanje Z-funkcije</a> sličan i također ima linearnu vremensku složenost.</p>
+<p>Naime, svaka iteracija naivnog algoritma povećava <span class="arithmatex">\(r\)</span> za <span class="arithmatex">\(1\)</span>, a <span class="arithmatex">\(r\)</span> se tijekom algoritma nikad ne smanjuje. Iz tih opažanja slijedi da naivni algoritam ukupno ima <span class="arithmatex">\(O(n)\)</span> iteracija.</p>
+<p>Ostatak Manacherova algoritma očito je također linearan, pa ukupna složenost iznosi <span class="arithmatex">\(O(n)\)</span>.</p>
+<h2 id="implementacija-manacherova-algoritma">Implementacija Manacherova algoritma</h2>
+<h3 id="zasebna-obrada-slučajeva">Zasebna obrada slučajeva</h3>
+<p>Za računanje <span class="arithmatex">\(d_1[]\)</span> koristimo sljedeći kôd:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">C++</label><label for="__tabbed_2_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">d1</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">d1</span><span class="p">[</span><span class="n">l</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="p">],</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">k</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">k</span><span class="o">--</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="p">;</span>
+<span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">d1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="n">l</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">r</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">d1</span><span class="p">[</span><span class="n">l</span> <span class="o">+</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span><span class="p">],</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">k</span><span class="p">]:</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+    <span class="n">k</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>Kôd za računanje <span class="arithmatex">\(d_2[]\)</span> vrlo je sličan, uz male razlike u aritmetičkim izrazima:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">C++</label><label for="__tabbed_3_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">d2</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">d2</span><span class="p">[</span><span class="n">l</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">k</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">k</span><span class="o">--</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">d2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="n">l</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">r</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">d2</span><span class="p">[</span><span class="n">l</span> <span class="o">+</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">k</span><span class="p">]:</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+    <span class="n">k</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<h3 id="objedinjena-obrada">Objedinjena obrada</h3>
+<p>Iako smo u objašnjenju i prethodnim implementacijama zasebno računali <span class="arithmatex">\(d_1[]\)</span> i <span class="arithmatex">\(d_2[]\)</span>, jednim trikom oba izračuna možemo svesti na računanje <span class="arithmatex">\(d_1[]\)</span>.</p>
+<p>Za zadanu duljinu <span class="arithmatex">\(n\)</span> i string <span class="arithmatex">\(s\)</span> te duljine, u svaku od <span class="arithmatex">\(n + 1\)</span> praznina umetnemo separator <span class="arithmatex">\(\#\)</span> te dobijemo duljinu <span class="arithmatex">\(2n + 1\)</span> za novi string <span class="arithmatex">\(s'\)</span>. Primjerice, za <span class="arithmatex">\(s = \mathtt{abababc}\)</span> dobivamo <span class="arithmatex">\(s' = \mathtt{\#a\#b\#a\#b\#a\#b\#c\#}\)</span>.</p>
+<p>Svaki <span class="arithmatex">\(\#\)</span> između slova predstavlja odgovarajuću „prazninu” u <span class="arithmatex">\(s\)</span>. Znakovi <span class="arithmatex">\(\#\)</span> na oba kraja služe jednostavnijoj implementaciji.</p>
+<p>Nakon obrade stringa <span class="arithmatex">\(s'\)</span> i računanja polja <span class="arithmatex">\(d_1[]\)</span>, na bilo kojoj poziciji <span class="arithmatex">\(i\)</span> najdulji palindromski podstring opisan s <span class="arithmatex">\(d_1[i]\)</span> mora završavati znakom <span class="arithmatex">\(\#\)</span> (kad bi završavao slovom, znakovi <span class="arithmatex">\(\#\)</span> s obje strane omogućili bi još jedno proširenje). Zato maksimalnom palindromu u <span class="arithmatex">\(s\)</span> sa središtem na slovu i duljinom <span class="arithmatex">\(m + 1\)</span> u <span class="arithmatex">\(s'\)</span> odgovara maksimalni palindrom sa središtem na istom slovu i duljinom <span class="arithmatex">\(2m + 3\)</span>. Maksimalnom palindromu u <span class="arithmatex">\(s\)</span> sa središtem u praznini i duljinom <span class="arithmatex">\(m\)</span> u <span class="arithmatex">\(s'\)</span> odgovara maksimalni palindrom sa središtem na odgovarajućem <span class="arithmatex">\(\#\)</span> i duljinom <span class="arithmatex">\(2m + 1\)</span> (u oba je slučaja <span class="arithmatex">\(m\)</span> paran, ali to ne utječe na zaključak). Iz tih opažanja i malo računanja slijedi da u <span class="arithmatex">\(s'\)</span> vrijednost <span class="arithmatex">\(d_1[i]\)</span> predstavlja <strong>ukupnu duljinu uvećanu za jedan</strong> maksimalnog palindromskog podstringa sa središtem na odgovarajućoj poziciji u <span class="arithmatex">\(s\)</span>.</p>
+<p>Time je uspostavljena veza između stringa <span class="arithmatex">\(s'\)</span> i njegova polja <span class="arithmatex">\(d_1[]\)</span> te stringa <span class="arithmatex">\(s\)</span> i njegovih polja <span class="arithmatex">\(d_1[]\)</span> i <span class="arithmatex">\(d_2[]\)</span>.</p>
+<p>Budući da se objedinjenom obradom za <span class="arithmatex">\(s'\)</span> zapravo računa <span class="arithmatex">\(d_1[]\)</span>, nakon konstrukcije stringa <span class="arithmatex">\(s'\)</span> kôd je jednak onome za računanje <span class="arithmatex">\(d_1[]\)</span> iz prethodnog odjeljka.</p>
+<h2 id="zadaci-za-vježbu">Zadaci za vježbu</h2>
+<ul>
+<li><a href="https://uva.onlinejudge.org/index.php?option=com_onlinejudge&amp;Itemid=8&amp;page=show_problem&amp;problem=2470">UVa #11475 "Extend to Palindrome"</a></li>
+<li><a href="https://www.luogu.com.cn/problem/P4555">Nacionalni pripremni tim: Najdulji dvostruki palindrom</a></li>
+<li><a href="https://codeforces.com/contest/1326/problem/D2">CF1326D2. Labyrinth</a></li>
+</ul>
+<p><strong>Ova je stranica uglavnom prevedena iz objave <a href="http://e-maxx.ru/algo/palindromes_count">Нахождение всех подпалиндромов</a> i njezina engleskog prijevoda <a href="https://cp-algorithms.com/string/manacher.html">Finding all sub-palindromes in <span class="arithmatex">\(O(N)\)</span></a>. Ruska inačica ima licencu Public Domain + Leave a Link, a engleska CC-BY-SA 4.0.</strong></p>
+        </div>
+        <div class="jezik jezik-en oiwiki-tekst" lang="en">
+<details class="oiwiki-sadrzaj"><summary>Contents</summary><div class="toc">
+<ul>
+<li><a href="#en-description">Description</a></li>
+<li><a href="#en-explanation">Explanation</a></li>
+<li><a href="#en-solutions">Solutions</a></li>
+<li><a href="#en-naive-algorithm">Naive algorithm</a></li>
+<li><a href="#en-manachers-algorithm">Manacher's algorithm</a><ul>
+<li><a href="#en-procedure">Procedure</a></li>
+</ul>
+</li>
+<li><a href="#en-complexity-of-manachers-algorithm">Complexity of Manacher's algorithm</a></li>
+<li><a href="#en-implementation-of-manachers-algorithm">Implementation of Manacher's algorithm</a><ul>
+<li><a href="#en-handling-the-cases-separately">Handling the cases separately</a></li>
+<li><a href="#en-unified-handling">Unified handling</a></li>
+</ul>
+</li>
+<li><a href="#en-practice-problems">Practice problems</a></li>
+</ul>
+</div>
+</details>
+<h2 id="en-description">Description</h2>
+<p>Given a length-<span class="arithmatex">\(n\)</span> string <span class="arithmatex">\(s\)</span>, find all pairs <span class="arithmatex">\((i, j)\)</span> such that the substring <span class="arithmatex">\(s[i \dots j]\)</span> is a palindrome. If <span class="arithmatex">\(t = t_{\text{rev}}\)</span>, then <span class="arithmatex">\(t\)</span> is a palindrome (<span class="arithmatex">\(t_{\text{rev}}\)</span> is the reverse of <span class="arithmatex">\(t\)</span>).</p>
+<h2 id="en-explanation">Explanation</h2>
+<p>Clearly, there can be <span class="arithmatex">\(O(n^2)\)</span> palindromes in the worst case, so at first glance there seems to be no linear-time algorithm for this problem.</p>
+<p>However, information about palindromes can be expressed <strong>more compactly</strong>: for every position <span class="arithmatex">\(i = 0 \dots n - 1\)</span>, find the values <span class="arithmatex">\(d_1[i]\)</span> and <span class="arithmatex">\(d_2[i]\)</span>. They represent the numbers of odd-length and even-length palindromes centered at position <span class="arithmatex">\(i\)</span>, respectively. Equivalently, they are the radii of the longest palindromes centered at <span class="arithmatex">\(i\)</span> (both radii <span class="arithmatex">\(d_1[i]\)</span>, <span class="arithmatex">\(d_2[i]\)</span> count the characters from position <span class="arithmatex">\(i\)</span> through the palindrome's rightmost position, inclusive).</p>
+<p>For example, the string <span class="arithmatex">\(s = \mathtt{abababc}\)</span> has three odd-length palindromes centered at <span class="arithmatex">\(s[3] = b\)</span>. The longest has radius <span class="arithmatex">\(3\)</span>, so <span class="arithmatex">\(d_1[3] = 3\)</span>:</p>
+<div class="arithmatex">\[
+a\ \overbrace{b\ a\ \underset{s_3}{b}\ a\ b}^{d_1[3]=3}\ c
+\]</div>
+<p>The string <span class="arithmatex">\(s = \mathtt{cbaabd}\)</span> has two even-length palindromes centered at <span class="arithmatex">\(s[3] = a\)</span>. The longest has radius <span class="arithmatex">\(2\)</span>, so <span class="arithmatex">\(d_2[3] = 2\)</span>:</p>
+<div class="arithmatex">\[
+c\ \overbrace{b\ a\ \underset{s_3}{a}\ b}^{d_2[3]=2}\ d
+\]</div>
+<p>The key idea is that if position <span class="arithmatex">\(i\)</span> is the center of a palindrome of length <span class="arithmatex">\(l\)</span>, then <span class="arithmatex">\(i\)</span> is also the center of palindromes of lengths <span class="arithmatex">\(l - 2\)</span>, <span class="arithmatex">\(l - 4\)</span>, and so on. Therefore, the two arrays <span class="arithmatex">\(d_1[i]\)</span> and <span class="arithmatex">\(d_2[i]\)</span> suffice to describe all palindromic substrings of the string.</p>
+<p>Surprisingly, there is a fairly simple linear-time algorithm for computing these two "palindrome arrays", <span class="arithmatex">\(d_1[]\)</span> and <span class="arithmatex">\(d_2[]\)</span>. This article describes it in detail.</p>
+<h2 id="en-solutions">Solutions</h2>
+<p>There are several ways to solve this problem: string hashing gives an <span class="arithmatex">\(O(n \log n)\)</span> solution, while suffix arrays and fast LCA give an <span class="arithmatex">\(O(n)\)</span> solution.</p>
+<p>However, the algorithm described here is <strong>much</strong> simpler and has smaller constants in both time and space complexity. It was proposed by <strong>Glenn K. Manacher</strong> in 1975.</p>
+<h2 id="en-naive-algorithm">Naive algorithm</h2>
+<p>To avoid ambiguity later, let us specify what we mean by the "naive algorithm".</p>
+<p>For each center <span class="arithmatex">\(i\)</span>, the algorithm compares a pair of corresponding characters and tries to increase the answer by <span class="arithmatex">\(1\)</span> for as long as possible.</p>
+<p>This algorithm is slow: it takes <span class="arithmatex">\(O(n^2)\)</span> time to compute the answer.</p>
+<p>Here is an implementation of the naive algorithm:</p>
+<details class="note" open="open">
+<summary>Implementation</summary>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="en-__tabbed_1_1" name="en-__tabbed_1" type="radio" /><input id="en-__tabbed_1_2" name="en-__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="en-__tabbed_1_1">C++</label><label for="en-__tabbed_1_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">d1</span><span class="p">(</span><span class="n">n</span><span class="p">),</span><span class="w"> </span><span class="n">d2</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">         </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">d1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="n">d2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+        <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]]:</span>
+        <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+</details>
+<h2 id="en-manachers-algorithm">Manacher's algorithm</h2>
+<p>Here we only describe how to find all odd-length palindromic substrings, that is, how to compute <span class="arithmatex">\(d_1[]\)</span>. Finding all even-length palindromic substrings (computing <span class="arithmatex">\(d_2[]\)</span>) only requires minor modifications to the odd-length algorithm.</p>
+<p>To compute the answer efficiently, maintain the <strong>boundaries <span class="arithmatex">\([l, r]\)</span></strong> of the rightmost palindromic substring found so far (the palindrome with the greatest <span class="arithmatex">\(r\)</span>, where <span class="arithmatex">\(l\)</span> and <span class="arithmatex">\(r\)</span> are its left and right boundary positions). Initially set <span class="arithmatex">\(l = 0\)</span> and <span class="arithmatex">\(r = -1\)</span> (<em>-1</em> is not a reverse index here; any negative number works, and it is used only to simplify loop initialization).</p>
+<h3 id="en-procedure">Procedure</h3>
+<p>Suppose we now want to process the next <span class="arithmatex">\(i\)</span> and compute <span class="arithmatex">\(d_1[i]\)</span>, and all previous values in <span class="arithmatex">\(d_1[]\)</span> have already been computed. Proceed as follows:</p>
+<ul>
+<li>
+<p>If <span class="arithmatex">\(i\)</span> lies outside the current palindromic substring, that is, <span class="arithmatex">\(i &gt; r\)</span>, use the naive algorithm.</p>
+<p>Keep increasing <span class="arithmatex">\(d_1[i]\)</span>, checking at each step whether the current substring <span class="arithmatex">\([i - d_1[i] \dots i + d_1[i]]\)</span> is a palindrome (<span class="arithmatex">\(d_1[i]\)</span> denotes the radius, here and below). Stop at the first pair of unequal characters or at a boundary of <span class="arithmatex">\(s\)</span>. In either case, <span class="arithmatex">\(d_1[i]\)</span> has been computed. Remember to update <span class="arithmatex">\((l, r)\)</span> afterward.</p>
+</li>
+<li>
+<p>Now consider <span class="arithmatex">\(i \le r\)</span>. We try to obtain information from the previously computed values of <span class="arithmatex">\(d_1[]\)</span>. Within the palindrome <span class="arithmatex">\((l, r)\)</span>, first reflect position <span class="arithmatex">\(i\)</span>, obtaining <span class="arithmatex">\(j = l + (r - i)\)</span>. Consider <span class="arithmatex">\(d_1[j]\)</span>. Since <span class="arithmatex">\(j\)</span> is symmetric to <span class="arithmatex">\(i\)</span>, we can <strong>almost always</strong> set <span class="arithmatex">\(d_1[i] = d_1[j]\)</span>. The idea is illustrated below (think of "copying" the palindrome centered at <span class="arithmatex">\(j\)</span> to the position centered at <span class="arithmatex">\(i\)</span>):</p>
+<div class="arithmatex">\[
+\ldots\
+\overbrace{
+    s_l\ \ldots\
+    \underbrace{
+        s_{j-d_1[j]+1}\ \ldots\ s_j\ \ldots\ s_{j+d_1[j]-1}
+    }_\text{palindrome}\
+    \ldots\
+    \underbrace{
+        s_{i-d_1[j]+1}\ \ldots\ s_i\ \ldots\ s_{i+d_1[j]-1}
+    }_\text{palindrome}\
+    \ldots\ s_r
+}^\text{palindrome}\
+\ldots
+\]</div>
+<p>However, there is a <strong>tricky case</strong> that must be handled correctly: the "inner" palindrome reaches the boundary of the "outer" palindrome, that is, <span class="arithmatex">\(j - d_1[j] + 1 \le l\)</span> (equivalently, <span class="arithmatex">\(i + d_1[j] - 1 \ge r\)</span>). Symmetry is not guaranteed outside the "outer" palindrome, so simply setting <span class="arithmatex">\(d_1[i] = d_1[j]\)</span> would be incorrect: we do not have enough information to assert that the palindrome at <span class="arithmatex">\(i\)</span> has the same length.</p>
+<p>To handle this case correctly, "truncate" the palindrome by setting <span class="arithmatex">\(d_1[i] = r - i + 1\)</span>. Then run the naive algorithm to increase <span class="arithmatex">\(d_1[i]\)</span> as much as possible.</p>
+<p>This case is illustrated below (the palindrome centered at <span class="arithmatex">\(j\)</span> has been truncated to fit inside the "outer" palindrome):</p>
+<div class="arithmatex">\[
+\ldots\
+\overbrace{
+    \underbrace{
+        s_l\ \ldots\ s_j\ \ldots\ s_{j+(j-l)}
+    }_\text{palindrome}\
+    \ldots\
+    \underbrace{
+        s_{i-(r-i)}\ \ldots\ s_i\ \ldots\ s_r
+    }_\text{palindrome}
+}^\text{palindrome}\
+\underbrace{
+    \ldots \ldots \ldots \ldots \ldots
+}_\text{try moving here}
+\]</div>
+<p>The illustration shows that although the palindrome centered at <span class="arithmatex">\(j\)</span> may be longer and extend beyond the "outer" palindrome, at position <span class="arithmatex">\(i\)</span> we can only use the part fully contained inside the "outer" palindrome. The answer at <span class="arithmatex">\(i\)</span> may nevertheless be larger, so we next run the naive algorithm to try extending it beyond the "outer" palindrome, into the region labeled "try moving here".</p>
+</li>
+</ul>
+<p>Finally, after computing each <span class="arithmatex">\(d_1[i]\)</span>, remember to update <span class="arithmatex">\((l, r)\)</span>.</p>
+<p>To reiterate, the algorithm for computing the even-length palindrome array <span class="arithmatex">\(d_2[]\)</span> is very similar to the one above for the odd-length palindrome array <span class="arithmatex">\(d_1[]\)</span>.</p>
+<h2 id="en-complexity-of-manachers-algorithm">Complexity of Manacher's algorithm</h2>
+<p>Since the naive algorithm is used when computing the answer for a particular position, the linear time complexity may not be obvious at first glance.</p>
+<p>A closer analysis, however, shows that the complexity is linear. Note that the <a href="z-func.html">algorithm for computing the Z-function</a> is similar and also runs in linear time.</p>
+<p>Indeed, each iteration of the naive algorithm increases <span class="arithmatex">\(r\)</span> by <span class="arithmatex">\(1\)</span>, and <span class="arithmatex">\(r\)</span> never decreases throughout the algorithm. These observations imply that the naive algorithm performs <span class="arithmatex">\(O(n)\)</span> iterations in total.</p>
+<p>The rest of Manacher's algorithm is clearly linear as well, so the total complexity is <span class="arithmatex">\(O(n)\)</span>.</p>
+<h2 id="en-implementation-of-manachers-algorithm">Implementation of Manacher's algorithm</h2>
+<h3 id="en-handling-the-cases-separately">Handling the cases separately</h3>
+<p>To compute <span class="arithmatex">\(d_1[]\)</span>, use the following code:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="en-__tabbed_2_1" name="en-__tabbed_2" type="radio" /><input id="en-__tabbed_2_2" name="en-__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="en-__tabbed_2_1">C++</label><label for="en-__tabbed_2_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">d1</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">d1</span><span class="p">[</span><span class="n">l</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="p">],</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">k</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">k</span><span class="o">--</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="p">;</span>
+<span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">d1</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="n">l</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">r</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">d1</span><span class="p">[</span><span class="n">l</span> <span class="o">+</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span><span class="p">],</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">k</span><span class="p">]:</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">d1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+    <span class="n">k</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>The code for computing <span class="arithmatex">\(d_2[]\)</span> is very similar, with slight differences in the arithmetic expressions:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="en-__tabbed_3_1" name="en-__tabbed_3" type="radio" /><input id="en-__tabbed_3_2" name="en-__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="en-__tabbed_3_1">C++</label><label for="en-__tabbed_3_2">Python</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">vector</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span><span class="w"> </span><span class="n">d2</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">min</span><span class="p">(</span><span class="n">d2</span><span class="p">[</span><span class="n">l</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="mi">0</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">k</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">k</span><span class="o">--</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">l</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">k</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">d2</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">n</span>
+<span class="n">l</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">r</span> <span class="k">else</span> <span class="nb">min</span><span class="p">(</span><span class="n">d2</span><span class="p">[</span><span class="n">l</span> <span class="o">+</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">r</span> <span class="o">-</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">while</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="n">n</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">k</span><span class="p">]:</span>
+        <span class="n">k</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">d2</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
+    <span class="n">k</span> <span class="o">-=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">&gt;</span> <span class="n">r</span><span class="p">:</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<h3 id="en-unified-handling">Unified handling</h3>
+<p>Although the explanation and implementations above handle <span class="arithmatex">\(d_1[]\)</span> and <span class="arithmatex">\(d_2[]\)</span> separately, a trick lets us reduce both computations to that of <span class="arithmatex">\(d_1[]\)</span>.</p>
+<p>Given a length-<span class="arithmatex">\(n\)</span> string <span class="arithmatex">\(s\)</span>, into each of its <span class="arithmatex">\(n + 1\)</span> gaps insert a separator <span class="arithmatex">\(\#\)</span>, producing a length-<span class="arithmatex">\(2n + 1\)</span> string <span class="arithmatex">\(s'\)</span>. For example, <span class="arithmatex">\(s = \mathtt{abababc}\)</span> becomes <span class="arithmatex">\(s' = \mathtt{\#a\#b\#a\#b\#a\#b\#c\#}\)</span>.</p>
+<p>Each <span class="arithmatex">\(\#\)</span> between letters represents the corresponding "gap" in <span class="arithmatex">\(s\)</span>. The two end separators <span class="arithmatex">\(\#\)</span> are added for implementation convenience.</p>
+<p>After processing <span class="arithmatex">\(s'\)</span> to compute <span class="arithmatex">\(d_1[]\)</span>, at any position <span class="arithmatex">\(i\)</span>, the longest palindromic substring described by <span class="arithmatex">\(d_1[i]\)</span> must end with <span class="arithmatex">\(\#\)</span> (if it ended with a letter, the <span class="arithmatex">\(\#\)</span> on each side would allow one more outward extension). Thus, a maximal palindrome in <span class="arithmatex">\(s\)</span> centered on a letter, of length <span class="arithmatex">\(m + 1\)</span>, corresponds in <span class="arithmatex">\(s'\)</span> to a maximal palindrome centered on the same letter, of length <span class="arithmatex">\(2m + 3\)</span>. A maximal palindrome in <span class="arithmatex">\(s\)</span> centered on a gap, of length <span class="arithmatex">\(m\)</span>, corresponds in <span class="arithmatex">\(s'\)</span> to a maximal palindrome centered on the corresponding <span class="arithmatex">\(\#\)</span>, of length <span class="arithmatex">\(2m + 1\)</span> (in both cases <span class="arithmatex">\(m\)</span> is even, but this does not affect the conclusion). Combining these observations with a little calculation, we find that in <span class="arithmatex">\(s'\)</span>, <span class="arithmatex">\(d_1[i]\)</span> equals <strong>the total length plus one</strong> of the maximal palindromic substring centered at the corresponding position in <span class="arithmatex">\(s\)</span>.</p>
+<p>This establishes the relationship between the arrays for <span class="arithmatex">\(s'\)</span>, namely <span class="arithmatex">\(d_1[]\)</span>, and those for <span class="arithmatex">\(s\)</span>, namely <span class="arithmatex">\(d_1[]\)</span> and <span class="arithmatex">\(d_2[]\)</span>.</p>
+<p>Since this unified approach processes <span class="arithmatex">\(s'\)</span> to compute <span class="arithmatex">\(d_1[]\)</span>, once <span class="arithmatex">\(s'\)</span> has been constructed, the code is the same as the code for <span class="arithmatex">\(d_1[]\)</span> in the previous section.</p>
+<h2 id="en-practice-problems">Practice problems</h2>
+<ul>
+<li><a href="https://uva.onlinejudge.org/index.php?option=com_onlinejudge&amp;Itemid=8&amp;page=show_problem&amp;problem=2470">UVa #11475 "Extend to Palindrome"</a></li>
+<li><a href="https://www.luogu.com.cn/problem/P4555">National training team: Longest double palindrome</a></li>
+<li><a href="https://codeforces.com/contest/1326/problem/D2">CF1326D2. Labyrinth</a></li>
+</ul>
+<p><strong>This page is mainly translated from the blog post <a href="http://e-maxx.ru/algo/palindromes_count">Нахождение всех подпалиндромов</a> and its English translation <a href="https://cp-algorithms.com/string/manacher.html">Finding all sub-palindromes in <span class="arithmatex">\(O(N)\)</span></a>. The Russian version is licensed under Public Domain + Leave a Link; the English version is licensed under CC-BY-SA 4.0.</strong></p>
+        </div>
+        <nav class="oiwiki-susjedi"><a class="prethodna" href="suffix-tree.html">← <span class="jezik jezik-hr" lang="hr">Sufiksno stablo</span><span class="jezik jezik-en" lang="en">Suffix tree</span></a><span></span><a class="sljedeca" href="pam.html"><span class="jezik jezik-hr" lang="hr">Palindromsko stablo</span><span class="jezik jezik-en" lang="en">Palindromic tree</span> →</a></nav>
+    </article>
+</body>
+</html>

@@ -81,7 +81,7 @@ In the last example one can see that if we built the trie of all its suffixes di
 
 ## Linear-time construction algorithm
 
-Before describing the algorithm that constructs the SAM in linear time, we need to introduce two concepts that are very important for understanding the construction and briefly prove their properties. The end positions $\operatorname{endpos}$ define the nodes of the SAM (i.e. they give the necessary and sufficient condition for merging nodes), while the suffix link $\operatorname{link}$ is simply the natural counterpart in the SAM of the [failure pointer](./ac-automaton.md#失配指针) of the Aho–Corasick automaton.
+Before describing the algorithm that constructs the SAM in linear time, we need to introduce two concepts that are very important for understanding the construction and briefly prove their properties. The end positions $\operatorname{endpos}$ define the nodes of the SAM (i.e. they give the necessary and sufficient condition for merging nodes), while the suffix link $\operatorname{link}$ is simply the natural counterpart in the SAM of the [failure pointer](./ac-automaton.md#fail-pointers) of the Aho–Corasick automaton.
 
 ### End positions `endpos`
 

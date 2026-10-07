@@ -6,7 +6,7 @@ title: Perzistentni trie
 
 Perzistentni trie (persistent trie) gradi se na isti način kao i perzistentni segment tree: pri svakoj promjeni mijenjaju se samo čvorovi koji su dodani ili čija se vrijednost promijenila, dok se nepromijenjeni čvorovi zadržavaju i na njih se povezujemo iz prethodne verzije, tako da je trie do kojeg se dolazi iz korijena svake verzije potpun i sadrži sve informacije.
 
-U većini zadataka s perzistentnim triejem trie se pojavljuje u obliku [01-trieja](../string/trie.md#维护异或极值).
+U većini zadataka s perzistentnim triejem trie se pojavljuje u obliku [01-trieja](../string/trie.md#održavanje-ekstrema-xor-a).
 
 ??? note "Primjer zadatka [Najveći XOR](https://www.luogu.com.cn/problem/P4735)"
     Za niz $a$ duljine $n$ treba podržati sljedeće operacije:

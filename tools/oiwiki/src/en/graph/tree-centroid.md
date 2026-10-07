@@ -15,7 +15,7 @@ If, after deleting some node $v$ from a tree $T$, the size of every connected co
     
     When actually computing the centroid or dealing with certain problems, there is usually a default root. Then, among the connected components obtained by deleting a non-root node $v$, besides the subtrees corresponding to the children of that node there is also an "upward" subtree. If the parent of node $v$ is $u$, this "upward" subtree is $T_u^{(v)}$. When this article refers to such a subgraph, it will explicitly call it the "upward" subtree. Unless otherwise stated, the subtrees mentioned in this article do not include such "upward" subtrees.
 
-Note that the resulting connected components are again unrooted trees. By deleting the centroid, a tree becomes several trees of size at most half of the original. This property of the centroid makes it possible to apply the divide-and-conquer idea on trees. This is [centroid decomposition](./tree-divide.md#点分治), also called centroid decomposition of a tree.
+Note that the resulting connected components are again unrooted trees. By deleting the centroid, a tree becomes several trees of size at most half of the original. This property of the centroid makes it possible to apply the divide-and-conquer idea on trees. This is [centroid decomposition](./tree-divide.md#centroid-decomposition), also called centroid decomposition of a tree.
 
 ## Properties
 

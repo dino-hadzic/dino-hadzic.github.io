@@ -13,7 +13,7 @@ As the name suggests, a DSU supports two operations:
 -   Unite: merge the sets containing two elements (merge the corresponding trees).
 -   Find: determine which set an element belongs to (find the root of the corresponding tree); this can be used to check whether two elements belong to the same set.
 
-With suitable modifications a DSU can support deleting or moving a single element, or maintaining edge weights in the tree. Using a dynamically allocated segment tree one can also implement a [persistent DSU](./persistent-seg.md#拓展基于主席树的可持久化并查集).
+With suitable modifications a DSU can support deleting or moving a single element, or maintaining edge weights in the tree. Using a dynamically allocated segment tree one can also implement a [persistent DSU](./persistent-seg.md#extension-persistent-dsu-using-a-chairman-tree).
 
 ???+ warning "Warning"
     A DSU cannot split sets apart with low complexity.

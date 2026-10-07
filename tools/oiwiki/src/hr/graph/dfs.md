@@ -91,7 +91,7 @@ DFS se može implementirati tako da se [stog (stack)](../ds/stack.md) koristi ka
 
 Izvršavanje funkcija pri rekurzivnim pozivima slijedi redoslijed dodavanja i uklanjanja elemenata sa stoga, pa se virtualni adresni prostor koji zauzimaju pozivi funkcija naziva stog poziva (call stack); DFS se stoga može implementirati rekurzivno.
 
-S [listom susjedstva (adjacency list)](./save.md#邻接表) kao načinom pohrane grafa:
+S [listom susjedstva (adjacency list)](./save.md#lista-susjedstva) kao načinom pohrane grafa:
 
 === "C++"
     ```cpp
@@ -118,7 +118,7 @@ S [listom susjedstva (adjacency list)](./save.md#邻接表) kao načinom pohrane
                 dfs(v)
     ```
 
-Na primjeru [ulančanog forward star zapisa](./save.md#链式前向星):
+Na primjeru [ulančanog forward star zapisa](./save.md#ulančana-lista-susjedstva-forward-star):
 
 === "C++"
     ```cpp
@@ -177,4 +177,4 @@ Napomena: ni DFS poredak stabla nije jedinstven.
 
 Ako tijekom DFS-a za svaki vrh zabilježimo iz kojeg smo vrha u njega došli, dobivamo strukturu stabla koja se zove DFS stablo. DFS stablo je razapinjuće stablo polaznog grafa.
 
-[DFS stablo](./scc.md#dfs-生成树) ima mnoga svojstva; primjerice, pomoću njega se mogu naći [jako povezane komponente](./scc.md).
+[DFS stablo](./scc.md#dfs-razapinjuće-stablo) ima mnoga svojstva; primjerice, pomoću njega se mogu naći [jako povezane komponente](./scc.md).

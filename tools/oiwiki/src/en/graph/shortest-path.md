@@ -595,8 +595,8 @@ For example, Floyd records `pre[i][j] = k;`, while Bellman–Ford and Dijkstra u
 
 ## Some special cases
 
--   Shortest paths in graphs whose edge weights are only $0$ and $1$: [0-1 BFS](./bfs.md#双端队列-bfs);
--   Shortest path problems that allow changing the path cost at most $k$ times and the like: [Shortest paths in layered graphs](./node.md#分层图最短路).
+-   Shortest paths in graphs whose edge weights are only $0$ and $1$: [0-1 BFS](./bfs.md#double-ended-queue-bfs);
+-   Shortest path problems that allow changing the path cost at most $k$ times and the like: [Shortest paths in layered graphs](./node.md#shortest-path-in-a-layered-graph).
 
 ## References and notes
 

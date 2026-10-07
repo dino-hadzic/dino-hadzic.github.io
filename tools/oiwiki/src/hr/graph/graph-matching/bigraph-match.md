@@ -11,11 +11,11 @@ Ovaj članak obrađuje problem najvećeg sparivanja (maximum matching) u biparti
 Tipičan primjer sparivanja u bipartitnom grafu iz svakodnevnog života jest sparivanje muškaraca i žena. Neka je dano nekoliko muškaraca ($X$) i žena ($Y$); svaka se osoba može spariti najviše jednom, a dopušteni parovi zadani su nekim popisom ($E$). Zadatak algoritma za najveće sparivanje u bipartitnom grafu jest da uz ta ograničenja pronađe najveći broj parova, tako da što više osoba bude uspješno spareno.
 
 ???+ info "Napomena"
-    U ovom članku pretpostavljamo da je poznata jedna podjela (bojanje) skupa vrhova $V$ bipartitnog grafa: $V=X\cup Y$. Ako podjela skupa vrhova $V$ nije unaprijed poznata, može se naći [algoritmom bojanja bipartitnog grafa](../bi-graph.md#判定) u vremenu $O(|V|+|E|)$.
+    U ovom članku pretpostavljamo da je poznata jedna podjela (bojanje) skupa vrhova $V$ bipartitnog grafa: $V=X\cup Y$. Ako podjela skupa vrhova $V$ nije unaprijed poznata, može se naći [algoritmom bojanja bipartitnog grafa](../bi-graph.md#provjera) u vremenu $O(|V|+|E|)$.
 
 ## Kuhnov algoritam
 
-Kuhnov algoritam izravna je primjena [Bergeove leme](./graph-match.md#berge-引理). On je ujedno i dio [mađarskog algoritma](./bigraph-weight-match.md#mađarski-algoritam-kuhnmunkresov-algoritam).
+Kuhnov algoritam izravna je primjena [Bergeove leme](./graph-match.md#bergeova-lema). On je ujedno i dio [mađarskog algoritma](./bigraph-weight-match.md#mađarski-algoritam-kuhnmunkresov-algoritam).
 
 ### Postupak
 
@@ -29,7 +29,7 @@ Za traženje uvećavajućeg puta bipartitni graf možemo orijentirati prema tren
 
 Na početku algoritma svi bridovi pokazuju prema desnim vrhovima. Nakon svakog pronađenog uvećavajućeg puta treba sve bridove na njemu okrenuti, čime se označava da im je stanje sparenosti promijenjeno. Na kraju algoritma svi bridovi koji pokazuju prema lijevim vrhovima su spareni bridovi.
 
-Budući da je dovoljno proći $O(|V|)$ lijevih vrhova, [svaki po jednom](./graph-match.md#berge-引理), ukupna vremenska složenost algoritma je $O(|V||E|)$.
+Budući da je dovoljno proći $O(|V|)$ lijevih vrhova, [svaki po jednom](./graph-match.md#bergeova-lema), ukupna vremenska složenost algoritma je $O(|V||E|)$.
 
 ### Optimizacije
 
@@ -54,7 +54,7 @@ U implementaciji nije potrebno zaista održavati orijentaciju; dovoljno je za sv
 
 ## Hopcroft–Karpov algoritam
 
-Hopcroft–Karpov algoritam dodatno optimizira način na koji Kuhnov algoritam traži uvećavajuće putove: ukupan broj krugova smanjuje na $O(|V|^{1/2})$ i tako postiže vremensku složenost $O(|V|^{1/2}|E|)$. Taj je algoritam zapravo poseban slučaj [Dinicova algoritma](../flow/max-flow.md#dinic-算法).
+Hopcroft–Karpov algoritam dodatno optimizira način na koji Kuhnov algoritam traži uvećavajuće putove: ukupan broj krugova smanjuje na $O(|V|^{1/2})$ i tako postiže vremensku složenost $O(|V|^{1/2}|E|)$. Taj je algoritam zapravo poseban slučaj [Dinicova algoritma](../flow/max-flow.md#dinicov-algoritam).
 
 ### Postupak
 
@@ -73,7 +73,7 @@ U odnosu na prethodno opisani Kuhnov algoritam, ključna je promjena Hopcroft–
     
     Pretpostavimo da se BFS u trenutnom krugu proširio $\ell$ slojeva. Budući da se svi nespareni desni vrhovi pronađeni BFS-om nalaze u istom sloju, svi uvećavajući putovi koje DFS u ovom krugu može naći imaju duljinu $\ell$. Treba dokazati da nakon uvećavanja duž skupa uvećavajućih putova $\{P_i\}$ pronađenih u ovom krugu u ponovno orijentiranom usmjerenom grafu više ne postoji uvećavajući put duljine najviše $\ell$.
     
-    Zapravo, ako je $P$ najkraći uvećavajući put u odnosu na $M$, a $P'$ uvećavajući put u odnosu na $M\oplus P$, vrijedi $|P'|\ge |P| + 2|P\cap P'|$. Naime, $N=(M\oplus P)\oplus P'$ je u odnosu na $M$ uvećano dvaput, pa se slično kao u [dokazu Bergeove leme](./graph-match.md#berge-引理) može pokazati da simetrična razlika $M\oplus N=P\oplus P'$ sadrži barem dva disjunktna uvećavajuća puta $P_1$ i $P_2$ u odnosu na $M$. Zbog minimalnosti $P$ vrijedi
+    Zapravo, ako je $P$ najkraći uvećavajući put u odnosu na $M$, a $P'$ uvećavajući put u odnosu na $M\oplus P$, vrijedi $|P'|\ge |P| + 2|P\cap P'|$. Naime, $N=(M\oplus P)\oplus P'$ je u odnosu na $M$ uvećano dvaput, pa se slično kao u [dokazu Bergeove leme](./graph-match.md#bergeova-lema) može pokazati da simetrična razlika $M\oplus N=P\oplus P'$ sadrži barem dva disjunktna uvećavajuća puta $P_1$ i $P_2$ u odnosu na $M$. Zbog minimalnosti $P$ vrijedi
     
     $$
     2|P|\le |P_1|+|P_2|\le |P\oplus P'| = |P| + |P'| - 2|P\cap P'|.
@@ -111,7 +111,7 @@ Problem najvećeg sparivanja u bipartitnom grafu može se svesti na problem najv
 
 Kao na slici, dodamo dva vrha: izvor i ponor. Iz izvora povučemo brid do svakog lijevog vrha; iz svakog desnog vrha povučemo brid do ponora; za svaki neusmjereni brid bipartitnog grafa povučemo usmjereni brid od lijevog vrha prema desnom. Kapacitet svih bridova je $1$. Svaki cjelobrojni tok u tako dobivenom usmjerenom grafu odgovara točno jednom sparivanju u bipartitnom grafu, a vrijednost toka jednaka je veličini odgovarajućeg sparivanja. Stoga je nalaženje najvećeg sparivanja u bipartitnom grafu isto što i nalaženje najvećeg toka u odgovarajućem usmjerenom grafu.
 
-Svaki algoritam za najveći tok može se upotrijebiti za najveće sparivanje u bipartitnom grafu. Lako se vidi da su Kuhnov i Hopcroft–Karpov algoritam posebni slučajevi odgovarajućih algoritama za najveći tok. Jednako tako, za najveće sparivanje u bipartitnom grafu može se upotrijebiti i [push-relabel algoritam](../flow/max-flow.md#push-relabel-预流推进算法) i drugi. Treba, međutim, imati na umu da svaki algoritam za najveći tok, kad se primjenjuje na najveće sparivanje u bipartitnom grafu, treba ciljano optimizirati kako bi se izbjegla prevelika konstanta.
+Svaki algoritam za najveći tok može se upotrijebiti za najveće sparivanje u bipartitnom grafu. Lako se vidi da su Kuhnov i Hopcroft–Karpov algoritam posebni slučajevi odgovarajućih algoritama za najveći tok. Jednako tako, za najveće sparivanje u bipartitnom grafu može se upotrijebiti i [push-relabel algoritam](../flow/max-flow.md#push-relabel-algoritmi-predtok) i drugi. Treba, međutim, imati na umu da svaki algoritam za najveći tok, kad se primjenjuje na najveće sparivanje u bipartitnom grafu, treba ciljano optimizirati kako bi se izbjegla prevelika konstanta.
 
 ### Oblik linearnog programa
 
@@ -167,7 +167,7 @@ Može se dokazati da tako dobivena tri skupa vrhova $\mathcal E,\mathcal O,\math
 ??? note "Dokaz"
     1.  Po definiciji su $\mathcal U$ i $\mathcal E\cup\mathcal O$ disjunktni. Treba još pokazati da su $\mathcal E$ i $\mathcal O$ disjunktni. Pretpostavimo suprotno: za vrh $v\in\mathcal E\cap\mathcal O$ postoji alternirajući put parne duljine od nesparenog vrha $a$ do $v$ i alternirajući put neparne duljine od nesparenog vrha $b$ do $v$. Budući da je $G$ bipartitan, $a\neq b$, a bridovi kojima ta dva puta ulaze u $v$ su redom spareni i nespareni. Spajanjem tih dvaju putova dobivamo alternirajući put od $a$ preko $v$ do $b$. To je uvećavajući put, što proturječi tome da je $M$ najveće sparivanje. Dakle $\mathcal E\cap\mathcal O=\varnothing$.
     
-        Neka je $M'$ najveće sparivanje različito od $M$. Ponavljanjem [dokaza Bergeove leme](./graph-match.md#berge-引理) može se pokazati da se $M'\oplus M$ sastoji samo od putova parne duljine i parnih ciklusa. Počevši od najvećeg sparivanja $M$, bridove u tim komponentama (putovima i ciklusima) možemo jednu po jednoj okrenuti (zamijeniti sparene i nesparene bridove) i tako dobiti najveće sparivanje $M'$. Pri okretanju parnog ciklusa nespareni vrhovi ostaju nespareni, a parnost duljine alternirajućih putova iz njih se ne mijenja; pri okretanju puta parne duljine krajevi puta zamjenjuju stanje sparenosti, ali parnost duljine puta od njih do bilo kojeg vrha na putu je jednaka. Stoga skupovi $\mathcal E,\mathcal O,\mathcal U$ tijekom okretanja ostaju nepromijenjeni. To pokazuje da dekompozicija ne ovisi o izboru najvećeg sparivanja $M$.
+        Neka je $M'$ najveće sparivanje različito od $M$. Ponavljanjem [dokaza Bergeove leme](./graph-match.md#bergeova-lema) može se pokazati da se $M'\oplus M$ sastoji samo od putova parne duljine i parnih ciklusa. Počevši od najvećeg sparivanja $M$, bridove u tim komponentama (putovima i ciklusima) možemo jednu po jednoj okrenuti (zamijeniti sparene i nesparene bridove) i tako dobiti najveće sparivanje $M'$. Pri okretanju parnog ciklusa nespareni vrhovi ostaju nespareni, a parnost duljine alternirajućih putova iz njih se ne mijenja; pri okretanju puta parne duljine krajevi puta zamjenjuju stanje sparenosti, ali parnost duljine puta od njih do bilo kojeg vrha na putu je jednaka. Stoga skupovi $\mathcal E,\mathcal O,\mathcal U$ tijekom okretanja ostaju nepromijenjeni. To pokazuje da dekompozicija ne ovisi o izboru najvećeg sparivanja $M$.
     2.  Ako se spareni brid pojavljuje na nekom alternirajućem putu iz nesparenog vrha $v$, parnosti udaljenosti njegovih krajeva od $v$ nužno su različite, pa oni pripadaju redom skupovima $\mathcal E$ i $\mathcal O$; inače su oba kraja nužno u $\mathcal U$. To znači da su spareni bridovi najvećeg sparivanja nužno $\mathcal E\mathcal O$ bridovi ili $\mathcal U\mathcal U$ bridovi. Obratno, nespareni vrh dostižan je iz samog sebe alternirajućim putem duljine nula, pa se pojavljuje samo u skupu $\mathcal E$; dakle u skupovima $\mathcal O$ i $\mathcal U$ svi su vrhovi spareni. Jednostavnim prebrojavanjem dobivamo da je veličina najvećeg sparivanja $|\mathcal O|+|\mathcal U|/2$.
     3.  Po definiciji je svaki vrh $a\in\mathcal E$ dostižan iz nesparenog vrha $v$ alternirajućim putem parne duljine; drugim riječima, vrh iz $\mathcal E$ ili je nesparen ili alternirajući put $P$ do njega završava sparenim bridom. Kad bi u grafu $G$ postojao brid koji spaja $a$ s nekim vrhom $b\in\mathcal E\cup\mathcal U$, prema prethodnom bi taj brid nužno bio nesparen, pa bismo njime mogli produžiti alternirajući put $P$. To bi značilo da vrh $b$ pripada i skupu $\mathcal O$, što proturječi prvom svojstvu. Dakle u grafu $G$ ne postoji brid koji spaja vrh iz $\mathcal E$ s vrhom iz $\mathcal E\cup\mathcal U$.
 
@@ -193,14 +193,14 @@ Slično, ako je brid $e$ sparen u svakom najvećem sparivanju bipartitnog grafa 
     Neka je $V=\mathcal E\cup\mathcal O\cup\mathcal U$ Dulmage–Mendelsohnova dekompozicija bipartitnog grafa $G=(X,Y,E)$ i neka je $M$ jedno njegovo najveće sparivanje. Tada je brid $e\in E$ ključan ako i samo ako su oba kraja brida $e$ u $\mathcal U$, brid $e$ je sparen u $M$ i u odnosu na $M$ ne postoji alternirajući ciklus koji sadrži brid $e$.
 
 ??? note "Dokaz"
-    Krajevi ključnog brida moraju biti ključni vrhovi. Prema svojstvima Dulmage–Mendelsohnove dekompozicije, bridovi najvećeg sparivanja mogu biti samo $\mathcal E\mathcal O$ bridovi ili $\mathcal U\mathcal U$ bridovi. No u $\mathcal E$ nema ključnih vrhova, pa ključni brid može biti samo $\mathcal U\mathcal U$ brid. Naravno, ključni brid mora biti i sparen u $M$. Neka je $e\in M$ neki $\mathcal U\mathcal U$ brid. On nije ključan ako i samo ako postoji drugo najveće sparivanje $M'\neq M$ takvo da je $e\in M\oplus M'$. Ponavljanjem [dokaza Bergeove leme](./graph-match.md#berge-引理) može se pokazati da se $M'\oplus M$ sastoji samo od putova parne duljine i parnih ciklusa. Jedan od krajeva svakog takvog puta je vrh nesparen u $M$, pa nijedan vrh na tom putu nije u $\mathcal U$, što proturječi izboru brida $e$. Dakle brid $e$ može se pojaviti samo u parnom ciklusu. Stoga $\mathcal U\mathcal U$ brid $e\in M$ nije ključan ako i samo ako u odnosu na $M$ postoji alternirajući ciklus koji sadrži brid $e$. To je i trebalo dokazati.
+    Krajevi ključnog brida moraju biti ključni vrhovi. Prema svojstvima Dulmage–Mendelsohnove dekompozicije, bridovi najvećeg sparivanja mogu biti samo $\mathcal E\mathcal O$ bridovi ili $\mathcal U\mathcal U$ bridovi. No u $\mathcal E$ nema ključnih vrhova, pa ključni brid može biti samo $\mathcal U\mathcal U$ brid. Naravno, ključni brid mora biti i sparen u $M$. Neka je $e\in M$ neki $\mathcal U\mathcal U$ brid. On nije ključan ako i samo ako postoji drugo najveće sparivanje $M'\neq M$ takvo da je $e\in M\oplus M'$. Ponavljanjem [dokaza Bergeove leme](./graph-match.md#bergeova-lema) može se pokazati da se $M'\oplus M$ sastoji samo od putova parne duljine i parnih ciklusa. Jedan od krajeva svakog takvog puta je vrh nesparen u $M$, pa nijedan vrh na tom putu nije u $\mathcal U$, što proturječi izboru brida $e$. Dakle brid $e$ može se pojaviti samo u parnom ciklusu. Stoga $\mathcal U\mathcal U$ brid $e\in M$ nije ključan ako i samo ako u odnosu na $M$ postoji alternirajući ciklus koji sadrži brid $e$. To je i trebalo dokazati.
 
 Dakle, ključne bridove najvećeg sparivanja nalazimo ovako:
 
 1.  nađemo najveće sparivanje $M$ grafa $G$;
 2.  orijentiramo bridove grafa $G$ prema $M$ i dobijemo usmjereni graf $G_M$;
 3.  BFS-om nađemo skup $\mathcal U$ Dulmage–Mendelsohnove dekompozicije, tj. skup vrhova do kojih se iz nesparenih vrhova ne može doći alternirajućim putem;
-4.  [Tarjanovim algoritmom](../scc.md#tarjan-算法) nađemo sve jako povezane komponente usmjerenog grafa $G_M$;
+4.  [Tarjanovim algoritmom](../scc.md#tarjanov-algoritam) nađemo sve jako povezane komponente usmjerenog grafa $G_M$;
 5.  prođemo bridove sparivanja $M$: ako su oba kraja brida u $\mathcal U$, ali nisu u istoj jako povezanoj komponenti, brid je ključan.
 
 Nakon što imamo najveće sparivanje, vremenska složenost preostalih koraka je $O(|V|+|E|)$.
@@ -227,7 +227,7 @@ Za opće grafove problem najmanjeg vršnog pokrivača je NP-težak, ali za bipar
     
     Zatim treba pokazati da je $C$ najmanji vršni pokrivač. Da bi pokrio sve bridove najvećeg sparivanja $M$, svaki vršni pokrivač treba barem $|M|$ vrhova. Dovoljno je stoga dokazati $|C|=|M|$, iz čega slijedi da je $C$ najmanji vršni pokrivač. To je ekvivalentno tvrdnji da $C$, osim po jednog kraja svakog sparenog brida, ne sadrži druge vrhove; drugim riječima, $C$ ne sadrži nesparene vrhove. Pretpostavimo suprotno: postoji nespareni vrh $v\in C$. Ako je $v\in X$, nužno je $v\in U\subseteq Z$, što proturječi konstrukciji skupa $C$; ako je $v\in Y$, alternirajući put koji dolazi do $v$ je uvećavajući put u odnosu na $M$, što po Bergeovoj lemi proturječi tome da je $M$ najveće sparivanje. Te kontradikcije pokazuju da takav nespareni vrh ne postoji, pa je $C$ najmanji vršni pokrivač.
 
-Gledano iz perspektive mrežnih tokova, problem najmanjeg vršnog pokrivača je problem najmanjeg reza: odabir lijevog vrha odgovara rezanju brida između njega i izvora, a odabir desnog vrha rezanju brida između njega i ponora. Gledano iz perspektive linearnog programiranja, problem najmanjeg vršnog pokrivača dualan je problemu najvećeg sparivanja. Stoga se Kőnigov teorem može shvatiti kao poseban slučaj [teorema o najvećem toku i najmanjem rezu](../flow/max-flow.md#最大流最小割定理) ili, općenitije, kao poseban slučaj teorema o jakoj dualnosti u linearnom programiranju.
+Gledano iz perspektive mrežnih tokova, problem najmanjeg vršnog pokrivača je problem najmanjeg reza: odabir lijevog vrha odgovara rezanju brida između njega i izvora, a odabir desnog vrha rezanju brida između njega i ponora. Gledano iz perspektive linearnog programiranja, problem najmanjeg vršnog pokrivača dualan je problemu najvećeg sparivanja. Stoga se Kőnigov teorem može shvatiti kao poseban slučaj [teorema o najvećem toku i najmanjem rezu](../flow/max-flow.md#teorem-o-maksimalnom-toku-i-minimalnom-rezu) ili, općenitije, kao poseban slučaj teorema o jakoj dualnosti u linearnom programiranju.
 
 ### Najveći nezavisni skup bipartitnog grafa
 

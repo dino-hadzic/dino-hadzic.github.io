@@ -40,7 +40,7 @@ The absolute center of the graph may also be at a vertex; then we update using t
 
 ### Procedure
 
-1.  Use a multi-source shortest path algorithm ([Floyd](./shortest-path.md#floyd-算法), [Johnson](./shortest-path.md#johnson-全源最短路径算法), etc.) to compute the array $d$;
+1.  Use a multi-source shortest path algorithm ([Floyd](./shortest-path.md#floyds-algorithm), [Johnson](./shortest-path.md#johnsons-all-pairs-shortest-path-algorithm), etc.) to compute the array $d$;
 
 2.  Compute $\textit{rk}(i,j)$ and sort it in ascending order;
 

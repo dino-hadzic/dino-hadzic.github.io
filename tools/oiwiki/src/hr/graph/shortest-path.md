@@ -595,8 +595,8 @@ Primjerice, Floyd bilježi `pre[i][j] = k;`, a Bellman–Ford i Dijkstra obično
 
 ## Neki posebni slučajevi
 
--   Najkraći put u grafu s težinama samo $0$ i $1$: [0-1 BFS](./bfs.md#双端队列-bfs);
--   Najkraći put kad je dopušteno najviše $k$ puta promijeniti cijenu puta i slično: [Najkraći put u slojevitom grafu](./node.md#分层图最短路).
+-   Najkraći put u grafu s težinama samo $0$ i $1$: [0-1 BFS](./bfs.md#bfs-s-dvostranim-redom);
+-   Najkraći put kad je dopušteno najviše $k$ puta promijeniti cijenu puta i slično: [Najkraći put u slojevitom grafu](./node.md#najkraći-put-u-slojevitom-grafu).
 
 ## Literatura i napomene
 

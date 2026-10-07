@@ -128,7 +128,7 @@ Ako veličinom podataka smatramo vrijednosti $n$ i $m$ iz ulaza, vremenska slož
 
 ### DFS
 
-Pri [DFS-u](../graph/dfs.md) na [povezanom grafu](../graph/concept.md#连通) s $n$ vrhova i $m$ bridova pohranjenom listama susjedstva svaki se vrh i brid posjećuje konstantan broj puta, pa je složenost $\Theta(n+m)$.
+Pri [DFS-u](../graph/dfs.md) na [povezanom grafu](../graph/concept.md#povezanost) s $n$ vrhova i $m$ bridova pohranjenom listama susjedstva svaki se vrh i brid posjećuje konstantan broj puta, pa je složenost $\Theta(n+m)$.
 
 ## Što je konstanta
 

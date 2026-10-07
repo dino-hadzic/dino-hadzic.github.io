@@ -36,7 +36,7 @@ In summary, the SSP algorithm correctly computes the minimum-cost maximum flow o
 
 ### Time complexity
 
-If the [Bellman–Ford algorithm](../shortest-path.md#bellmanford-算法) is used for shortest paths, each search for an augmenting path takes $O(nm)$. Let the maximum flow of the network be $f$; then the worst-case time complexity is $O(nmf)$. In fact, the SSP algorithm runs in [pseudo-polynomial time](../../misc/cc-basic.md#pseudo-polynomial-time-伪多项式时间).
+If the [Bellman–Ford algorithm](../shortest-path.md#bellmanford-algorithm) is used for shortest paths, each search for an augmenting path takes $O(nm)$. Let the maximum flow of the network be $f$; then the worst-case time complexity is $O(nmf)$. In fact, the SSP algorithm runs in [pseudo-polynomial time](../../misc/cc-basic.md#pseudo-polynomial-time-伪多项式时间).
 
 ???+ note "Why is the SSP algorithm pseudo-polynomial?"
     The time complexity of the SSP algorithm has an upper bound of $O(nmf)$, which is a polynomial in the value range, so it is pseudo-polynomial.
@@ -178,7 +178,7 @@ Simply replace the augmenting-path search in the EK algorithm or Dinic's algorit
 
 Finding shortest paths with Bellman–Ford takes $O(nm)$, which is worse than Dijkstra's algorithm on both sparse and dense graphs[^note2]. However, the network contains edges with negative unit cost, so Dijkstra's algorithm cannot be applied directly.
 
-The idea of the primal-dual algorithm is similar to [Johnson's all-pairs shortest path algorithm](../shortest-path.md#johnson-全源最短路径算法): by assigning a potential to each vertex, the costs of all edges in the network (hereafter simply edge weights) become non-negative, so Dijkstra's algorithm can be used to find the augmenting path with the smallest unit cost.
+The idea of the primal-dual algorithm is similar to [Johnson's all-pairs shortest path algorithm](../shortest-path.md#johnsons-all-pairs-shortest-path-algorithm): by assigning a potential to each vertex, the costs of all edges in the network (hereafter simply edge weights) become non-negative, so Dijkstra's algorithm can be used to find the augmenting path with the smallest unit cost.
 
 First run a shortest-path algorithm once to compute the shortest distance from the source to each vertex (which is also the vertex's initial potential) $h_i$. Then, as in Johnson's algorithm, for an edge from $u$ to $v$ with unit cost $w$, reset its weight to $w+h_u-h_v$.
 

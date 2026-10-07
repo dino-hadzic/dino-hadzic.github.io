@@ -144,7 +144,7 @@ Slijedi primjer koda s binarnim grupiranjem.
     Vremenska složenost jednog upita za najbližu točku k-D Treeom u najgorem je slučaju i dalje $O(n)$, ali je to ipak izvrstan heuristički algoritam za skupljanje bodova; koristite ga s oprezom. Objašnjenje upita o susjedstvu ovdje služi samo boljem razumijevanju strukture k-D Treea.
 
 ???+ note "Primjer [Luogu P1429 平面最近点对（加强版）](https://www.luogu.com.cn/problem/P1429)"
-    Zadano je $n$ točaka $(x_i,y_i)$ u ravnini; pronađite [euklidsku udaljenost](../geometry/distance.md#欧氏距离) između dviju najbližih točaka ravnine.
+    Zadano je $n$ točaka $(x_i,y_i)$ u ravnini; pronađite [euklidsku udaljenost](../geometry/distance.md#euklidska-udaljenost) između dviju najbližih točaka ravnine.
     
     $2\le n\le 200000 , 0\le x_i,y_i\le 10^9$
 

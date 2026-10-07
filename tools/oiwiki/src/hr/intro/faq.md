@@ -83,7 +83,7 @@ P: Kako dodati novu temu?
 O: Postoje dvije mogućnosti:
 
 -   Možete otvoriti Issue i navesti sadržaj koji želite dodati.
--   Možete otvoriti Pull Request: u kazalo [(mkdocs.yml)](https://github.com/OI-wiki/OI-wiki/blob/master/mkdocs.yml) dodajte novu temu i na odgovarajućem mjestu u mapi [docs](https://github.com/OI-wiki/OI-wiki/tree/master/docs) stvorite praznu `.md` datoteku. Pojedinosti o obliku dokumenata potražite u [priručniku za oblikovanje](./format.md#贡献文档要求).
+-   Možete otvoriti Pull Request: u kazalo [(mkdocs.yml)](https://github.com/OI-wiki/OI-wiki/blob/master/mkdocs.yml) dodajte novu temu i na odgovarajućem mjestu u mapi [docs](https://github.com/OI-wiki/OI-wiki/tree/master/docs) stvorite praznu `.md` datoteku. Pojedinosti o obliku dokumenata potražite u [priručniku za oblikovanje](./format.md#zahtjevi-za-doprinos-dokumentaciji).
 
 ***
 
@@ -284,7 +284,7 @@ Napomena: zadano je CC BY-SA 4.0 i SATA.
 
 P: Zašto mog imena nema u statistici autora?
 
-O: Ako ste napisali dio sadržaja neke stranice, a niste zabilježeni na popisu autora, dodajte svoj GitHub ID u [polje author](./htc.md#author-字段) u zaglavlju datoteke.
+O: Ako ste napisali dio sadržaja neke stranice, a niste zabilježeni na popisu autora, dodajte svoj GitHub ID u [polje author](./htc.md#polje-author) u zaglavlju datoteke.
 
 ***
 

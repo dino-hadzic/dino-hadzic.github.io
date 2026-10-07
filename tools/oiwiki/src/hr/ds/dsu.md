@@ -13,7 +13,7 @@ Kako i ime kaže, union-find podržava dvije operacije:
 -   spajanje (Unite): spaja skupove kojima pripadaju dva elementa (spaja odgovarajuća stabla);
 -   upit (Find): određuje kojem skupu pripada element (nalazi korijen odgovarajućeg stabla), čime se može provjeriti pripadaju li dva elementa istom skupu.
 
-Uz odgovarajuće izmjene union-find može podržati brisanje ili premještanje pojedinog elementa te održavanje težina bridova u stablu. Pomoću segment treea s dinamičkim stvaranjem čvorova može se implementirati i [perzistentni union-find](./persistent-seg.md#拓展基于主席树的可持久化并查集).
+Uz odgovarajuće izmjene union-find može podržati brisanje ili premještanje pojedinog elementa te održavanje težina bridova u stablu. Pomoću segment treea s dinamičkim stvaranjem čvorova može se implementirati i [perzistentni union-find](./persistent-seg.md#proširenje-perzistentni-dsu-pomoću-chairman-treeja).
 
 ???+ warning "Upozorenje"
     Union-find ne može uz nisku složenost podržati razdvajanje skupova.

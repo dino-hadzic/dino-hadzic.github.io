@@ -187,7 +187,7 @@ In a weighted general graph, the problem can be solved with Edmonds' blossom alg
 
 ## Related problems
 
-Maximum (weight) matching is closely connected to other graph-theoretic problems. This section only discusses general graphs; for results on bipartite graphs see the page [Maximum bipartite matching](./bigraph-match.md#相关问题).
+Maximum (weight) matching is closely connected to other graph-theoretic problems. This section only discusses general graphs; for results on bipartite graphs see the page [Maximum bipartite matching](./bigraph-match.md#related-problems).
 
 ### Maximum weight maximum cardinality matching
 

@@ -128,7 +128,7 @@ If we take the input values $n$ and $m$ as the data size, the time complexity of
 
 ### DFS
 
-When running [DFS](../graph/dfs.md) on a [connected graph](../graph/concept.md#连通) with $n$ vertices and $m$ edges stored as adjacency lists, each vertex and each edge is visited only a constant number of times, so the complexity is $\Theta(n+m)$.
+When running [DFS](../graph/dfs.md) on a [connected graph](../graph/concept.md#connectivity) with $n$ vertices and $m$ edges stored as adjacency lists, each vertex and each edge is visited only a constant number of times, so the complexity is $\Theta(n+m)$.
 
 ## Which quantities are constants
 

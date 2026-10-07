@@ -83,7 +83,7 @@ Q: How do I add a topic?
 A: There are two options:
 
 -   You can open an Issue stating the content you would like to add.
--   You can open a Pull Request: add the new topic to the table of contents [(mkdocs.yml)](https://github.com/OI-wiki/OI-wiki/blob/master/mkdocs.yml) and create an empty `.md` file at the corresponding location in the [docs](https://github.com/OI-wiki/OI-wiki/tree/master/docs) folder. For details on the document format, see the [format manual](./format.md#贡献文档要求).
+-   You can open a Pull Request: add the new topic to the table of contents [(mkdocs.yml)](https://github.com/OI-wiki/OI-wiki/blob/master/mkdocs.yml) and create an empty `.md` file at the corresponding location in the [docs](https://github.com/OI-wiki/OI-wiki/tree/master/docs) folder. For details on the document format, see the [format manual](./format.md#requirements-for-documentation-contributions).
 
 ***
 
@@ -284,7 +284,7 @@ Note: the default is CC BY-SA 4.0 and SATA.
 
 Q: Why isn't my name in the author statistics?
 
-A: If you find that you wrote part of a page but you are not recorded in the author list, add your GitHub ID to the [author field](./htc.md#author-字段) in the file header.
+A: If you find that you wrote part of a page but you are not recorded in the author list, add your GitHub ID to the [author field](./htc.md#the-author-field) in the file header.
 
 ***
 

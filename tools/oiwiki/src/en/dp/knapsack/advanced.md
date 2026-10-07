@@ -193,7 +193,7 @@ Note here that opening yet another dimension for the item index is no longer app
     
     The goal is to maximize the sum of $v_i \times p_i$ over all purchased items.
 
-Simply treat it as a [tree knapsack](../tree.md#树上背包). Note that all knapsacks must be merged together at the end.
+Simply treat it as a [tree knapsack](../tree.md#tree-knapsack). Note that all knapsacks must be merged together at the end.
 
 ## References and notes
 

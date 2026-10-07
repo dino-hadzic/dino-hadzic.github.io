@@ -207,7 +207,7 @@ In the code above:
 -   `push()` is the state transition function, where `d` is a global variable (out of laziness) representing the increment brought by each state transition. If the state is found we `+=`, otherwise we create a new node with state `s` and key `d`.
 -   `roll()` rolls the contour line after a whole row has been iterated.
 
-For the complexity analysis of hash tables, and the difference between open and closed hashing, see the relevant chapters on hash tables in [Introduction to Algorithms](../contest/resources.md#书籍).
+For the complexity analysis of hash tables, and the difference between open and closed hashing, see the relevant chapters on hash tables in [Introduction to Algorithms](../contest/resources.md#books).
 
 #### State transition
 
@@ -799,7 +799,7 @@ Plug DP problems are usually hard to code and complex to analyze, so they belong
 
 ### Domino tiling
 
-[\"HDU 1400\" Mondriaan’s Dream](https://acm.hdu.edu.cn/showproblem.php?pid=1400) also appears in the [Training Guide for Algorithm Contests](../contest/resources.md#书籍) as the example of the section "Dynamic programming on the contour line". [Domino tiling](https://en.wikipedia.org/wiki/Domino_tiling) is a very classic family of mathematical problems; slightly changing its constraints yields subproblems of different difficulty that require different algorithms.
+[\"HDU 1400\" Mondriaan’s Dream](https://acm.hdu.edu.cn/showproblem.php?pid=1400) also appears in the [Training Guide for Algorithm Contests](../contest/resources.md#books) as the example of the section "Dynamic programming on the contour line". [Domino tiling](https://en.wikipedia.org/wiki/Domino_tiling) is a very classic family of mathematical problems; slightly changing its constraints yields subproblems of different difficulty that require different algorithms.
 
 When $m=2$ is fixed, domino tiling is equivalent to the Fibonacci sequence. [Concrete Mathematics](https://www.csie.ntu.edu.tw/~r97002/temp/Concrete%20Mathematics%202e.pdf) uses this problem to introduce the Fibonacci sequence and derives its closed form in several ways.
 

@@ -6,7 +6,7 @@ title: Persistent trie
 
 A persistent trie is built in the same way as a persistent segment tree: on every modification only the nodes that are added or whose values change are modified, while the unchanged nodes are kept and linked to from the previous version, so that the trie reachable from the root of every version is complete and contains all the information.
 
-In most persistent-trie problems, the trie appears in the form of a [01-trie](../string/trie.md#维护异或极值).
+In most persistent-trie problems, the trie appears in the form of a [01-trie](../string/trie.md#maintaining-xor-extremes).
 
 ??? note "Example problem [Maximum XOR Sum](https://www.luogu.com.cn/problem/P4735)"
     Maintain the following operations on an array $a$ of length $n$:

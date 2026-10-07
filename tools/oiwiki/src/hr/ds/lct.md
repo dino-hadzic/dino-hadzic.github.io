@@ -368,11 +368,11 @@ Složenost `Access`-a potječe uglavnom od višestrukih splay operacija i od obi
 
     -   Definiramo funkciju potencijala $\Phi = \sum_{x \in T} w(x)$, gdje je $T$ skup svih čvorova.
 
-    Iz analize [vremenske složenosti Splaya](./splay.md#时间复杂度) lako slijedi da je amortizirana složenost splay operacije $O(\log n)$.
+    Iz analize [vremenske složenosti Splaya](./splay.md#vremenska-složenost) lako slijedi da je amortizirana složenost splay operacije $O(\log n)$.
 
 2.  obilazak virtualnih bridova
 
-    Prema [heavy-light dekompoziciji](../graph/hld.md#重链剖分) definiramo dvije vrste virtualnih bridova:
+    Prema [heavy-light dekompoziciji](../graph/hld.md#heavy-light-dekompozicija) definiramo dvije vrste virtualnih bridova:
 
     -   **teški virtualni brid**: virtualni brid od čvora $v$ do njegova roditelja za koji je $size(v) > \frac{1}{2} size(parent(v))$;
 

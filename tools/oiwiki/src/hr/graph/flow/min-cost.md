@@ -36,7 +36,7 @@ Zaključno, algoritam SSP ispravno računa maksimalni tok minimalne cijene za mr
 
 ### Vremenska složenost
 
-Ako za najkraće putove koristimo [Bellman–Fordov algoritam](../shortest-path.md#bellmanford-算法), svako traženje povećavajućeg puta ima složenost $O(nm)$. Neka je maksimalni tok mreže $f$; tada je najgora složenost $O(nmf)$. Zapravo, algoritam SSP radi u [pseudopolinomnom vremenu](../../misc/cc-basic.md#pseudo-polynomial-time-伪多项式时间).
+Ako za najkraće putove koristimo [Bellman–Fordov algoritam](../shortest-path.md#bellmanfordov-algoritam), svako traženje povećavajućeg puta ima složenost $O(nm)$. Neka je maksimalni tok mreže $f$; tada je najgora složenost $O(nmf)$. Zapravo, algoritam SSP radi u [pseudopolinomnom vremenu](../../misc/cc-basic.md#pseudo-polynomial-time-伪多项式时间).
 
 ???+ note "Zašto je algoritam SSP pseudopolinoman?"
     Vremenska složenost algoritma SSP ima gornju granicu $O(nmf)$, što je polinom u veličini vrijednosti, pa je riječ o pseudopolinomnom vremenu.
@@ -178,7 +178,7 @@ Dovoljno je u algoritmu EK ili Dinicovu algoritmu postupak traženja povećavaju
 
 Složenost traženja najkraćeg puta Bellman–Fordom je $O(nm)$, što je i na rijetkim i na gustim grafovima lošije od Dijkstrina algoritma[^note2]. No u mreži postoje bridovi negativne jedinične cijene, pa se Dijkstrin algoritam ne može izravno primijeniti.
 
-Ideja primal-dual algoritma slična je [Johnsonovu algoritmu za najkraće putove među svim parovima](../shortest-path.md#johnson-全源最短路径算法): svakom vrhu dodijelimo potencijal tako da cijene svih bridova u mreži (dalje kratko: težine bridova) postanu nenegativne, pa se Dijkstrinim algoritmom može naći povećavajući put s najmanjom jediničnom cijenom.
+Ideja primal-dual algoritma slična je [Johnsonovu algoritmu za najkraće putove među svim parovima](../shortest-path.md#johnsonov-algoritam-za-najkraće-putove-između-svih-parova-vrhova): svakom vrhu dodijelimo potencijal tako da cijene svih bridova u mreži (dalje kratko: težine bridova) postanu nenegativne, pa se Dijkstrinim algoritmom može naći povećavajući put s najmanjom jediničnom cijenom.
 
 Najprije jednom pokrenemo algoritam za najkraći put i izračunamo najkraću udaljenost od izvora do svakog vrha (ujedno početni potencijal tog vrha) $h_i$. Zatim, kao u Johnsonovu algoritmu, bridu od $u$ do $v$ s jediničnom cijenom $w$ težinu postavimo na $w+h_u-h_v$.
 

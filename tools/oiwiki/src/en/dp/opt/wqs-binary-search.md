@@ -61,7 +61,7 @@ Suppose that for all $\lambda$ in a reasonable range the function $h(\lambda)$ a
 1.  whether there exists a slope $\lambda$ such that the minimum intercept is attained exactly at the point $(y,v(y))$, and
 2.  if so, how to find such a slope $\lambda$.
 
-The first question is relatively easy. As the slope $\lambda$ changes, the set cut out by all these lines (i.e. the intersection of the corresponding upper half-planes) is necessarily a convex set. Therefore, these lines can pass through a point if and only if the point lies on the lower convex hull of this convex set. This is equivalent to saying that the function $v(y)$ is [convex](./slope-trick.md#离散点集上的凸函数).
+The first question is relatively easy. As the slope $\lambda$ changes, the set cut out by all these lines (i.e. the intersection of the corresponding upper half-planes) is necessarily a convex set. Therefore, these lines can pass through a point if and only if the point lies on the lower convex hull of this convex set. This is equivalent to saying that the function $v(y)$ is [convex](./slope-trick.md#convex-functions-on-discrete-point-sets).
 
 The second question is more delicate. Since the abscissa of the desired point is already known to be $y$, a natural idea is to compute, along with $h(\lambda)$, the value of the constraint function $g(x)$ at the current optimal solution $x_\lambda$. For example, in the example mentioned above, when solving the penalized problem we can record the number of items chosen when the penalized objective attains its optimum. Then we compare $g(x_\lambda)$ with the desired $y$ and adjust the value of $\lambda$ for the next computation accordingly. This is the most traditional WQS binary search method.
 
@@ -101,7 +101,7 @@ $$
 v^\star(y) = \sup_{\lambda\in\mathbf R^d} h(\lambda)+\lambda\cdot y,
 $$
 
-and the objective of the dual problem is a concave function of $\lambda\in\mathbf R^d$, hence unimodal, so it can be solved efficiently by [ternary search](../../basic/binary.md#三分法) or the [golden-section search](../../basic/binary.md#优化黄金分割法), with complexity still $O(T(n)\log^d L)$. This completely resolves the problems that may arise from recording the value of $g(x_\lambda)$ in the traditional WQS binary search method, and at the same time allows the idea of WQS binary search to be applied in higher dimensions.
+and the objective of the dual problem is a concave function of $\lambda\in\mathbf R^d$, hence unimodal, so it can be solved efficiently by [ternary search](../../basic/binary.md#ternary-search) or the [golden-section search](../../basic/binary.md#optimization-golden-section-search), with complexity still $O(T(n)\log^d L)$. This completely resolves the problems that may arise from recording the value of $g(x_\lambda)$ in the traditional WQS binary search method, and at the same time allows the idea of WQS binary search to be applied in higher dimensions.
 
 In addition, this section also shows that the range of $g(x_\lambda)$ can be obtained from $h(\lambda)$ without extra bookkeeping while solving $h(\lambda)$. For example, for $d=1$ and problems involving only integers, it can be shown that the range of $g(x_\lambda)$ is exactly
 
@@ -442,7 +442,7 @@ The prerequisite for applying WQS binary search is the convexity of the value fu
 These methods can be roughly divided into four categories:
 
 -   reduction to the convexity of the value function of a convex optimization problem (including [linear programming](../../math/linear-programming.md) etc.) with respect to its parameters, which includes building [minimum-cost flow](../../graph/flow/min-cost.md) models and the like;
--   using the state transition equation, convexity can also be proved inductively, possibly using some [convexity-preserving transformations](./slope-trick.md#凸函数的变换);
+-   using the state transition equation, convexity can also be proved inductively, possibly using some [convexity-preserving transformations](./slope-trick.md#transformations-of-convex-functions);
 -   for interval partition problems, one can verify that the cost function of each interval satisfies the [quadrangle inequality](./quadrangle.md);
 -   finally, for special problems, convexity can also be shown directly by an exchange argument.
 
@@ -630,7 +630,7 @@ This method can also be used to prove the convexity of the tree planting problem
 
 ### Quadrangle inequality
 
-Another common class of problems with convexity in competitive programming is [interval partition problems](./quadrangle.md#区间分拆问题). That page proves that if the cost function of a single interval satisfies the quadrangle inequality, then the minimum cost of the interval partition problem with a constrained number of intervals is a convex function of the number of intervals. That page also provides some ways to decide whether a function $w(l,r)$ satisfies the quadrangle inequality. The most direct way is to compute its second-order mixed difference:
+Another common class of problems with convexity in competitive programming is [interval partition problems](./quadrangle.md#interval-partition-problem). That page proves that if the cost function of a single interval satisfies the quadrangle inequality, then the minimum cost of the interval partition problem with a constrained number of intervals is a convex function of the number of intervals. That page also provides some ways to decide whether a function $w(l,r)$ satisfies the quadrangle inequality. The most direct way is to compute its second-order mixed difference:
 
 $$
 \begin{aligned}
@@ -772,7 +772,7 @@ This section presents several example problems applying WQS binary search in dif
     
     This proves that $v(m)$ is a convex function of $m$.
     
-    Having established the convexity of $v(m)$, the problem can be solved with WQS binary search. Remove the cardinality constraint, subtract $k$ from the weight of every white edge, and solve the minimum spanning tree problem. For this we can apply [Kruskal's algorithm](../../graph/mst.md#kruskal-算法). Maintaining connectivity with a disjoint-set union, the complexity of the algorithm is $O(E\log E+E\alpha(V))$, where $E$ and $V$ are the numbers of edges and vertices and $\alpha(\cdot)$ is the inverse Ackermann function. The main part of the complexity, $O(E\log E)$, is for sorting the edges, which can be further optimized in this problem. Although the minimum spanning tree has to be computed many times during the WQS binary search, each time only the weights of the white edges are shifted by the same amount. So we can sort the white and black edges separately in preprocessing, and then, each time we compute the minimum spanning tree, simply merge the white edges with adjusted weights and the black edges. This reduces the overall complexity to $O(E\log E+E\alpha(V)\log L)$, where $L$ is the length of the range of edge weights.
+    Having established the convexity of $v(m)$, the problem can be solved with WQS binary search. Remove the cardinality constraint, subtract $k$ from the weight of every white edge, and solve the minimum spanning tree problem. For this we can apply [Kruskal's algorithm](../../graph/mst.md#kruskals-algorithm). Maintaining connectivity with a disjoint-set union, the complexity of the algorithm is $O(E\log E+E\alpha(V))$, where $E$ and $V$ are the numbers of edges and vertices and $\alpha(\cdot)$ is the inverse Ackermann function. The main part of the complexity, $O(E\log E)$, is for sorting the edges, which can be further optimized in this problem. Although the minimum spanning tree has to be computed many times during the WQS binary search, each time only the weights of the white edges are shifted by the same amount. So we can sort the white and black edges separately in preprocessing, and then, each time we compute the minimum spanning tree, simply merge the white edges with adjusted weights and the black edges. This reduces the overall complexity to $O(E\log E+E\alpha(V)\log L)$, where $L$ is the length of the range of edge weights.
     
     Reference implementation:
     
@@ -792,7 +792,7 @@ This section presents several example problems applying WQS binary search in dif
     Given an increasing sequence of positive integers $\{a_i\}$ of length $n$ representing the positions of $n$ villages along a highway, $m$ post offices must be built. The positions of the post offices must minimize the sum of the distances from every village to its nearest post office. Find this minimum.
 
 ??? note "Solution"
-    This is a typical [interval partition problem](./quadrangle.md#区间分拆问题). Please refer to that page for the implementation details of the binary-search queue.
+    This is a typical [interval partition problem](./quadrangle.md#interval-partition-problem). Please refer to that page for the implementation details of the binary-search queue.
     
     Each post office serves the villages nearest to it, and these villages must be consecutive villages along the highway. So building $m$ post offices amounts to partitioning all villages into $m$ consecutive segments and building the cheapest post office for each segment. It is well known that the post office should be built at the median of the village positions. Thus the cost function of the interval $[l,r]$ is
     
@@ -906,7 +906,7 @@ This section presents several example problems applying WQS binary search in dif
     v(m) = \min_{\{m_i\}}\sum_i f(a_i,m_i)\text{ subject to }\sum_i m_i=m,~m_i\in\mathbf N.
     $$
     
-    This is the [infimal convolution](./slope-trick.md#卷积下确界minkowski-和) of several convex functions, so it is also convex. If the problem asked for $v(m)$, it could be solved with the same method as the previous examples in $O(n\log^2L)$ time; but this problem asks for the smallest $m$ with $v(m)\le V$. Computing $v(m)$ by WQS binary search and then binary searching on $m$ does not work, since its complexity reaches $O(n\log^3L)$. For this problem, there are the following two approaches.
+    This is the [infimal convolution](./slope-trick.md#infimal-convolution-minkowski-sum) of several convex functions, so it is also convex. If the problem asked for $v(m)$, it could be solved with the same method as the previous examples in $O(n\log^2L)$ time; but this problem asks for the smallest $m$ with $v(m)\le V$. Computing $v(m)$ by WQS binary search and then binary searching on $m$ does not work, since its complexity reaches $O(n\log^3L)$. For this problem, there are the following two approaches.
     
     **Method 1**: still binary search on the slope $k$, but base the search on estimates of lower and upper bounds for $v(m)$.
     
@@ -994,7 +994,7 @@ Finally, here are some problems that can be solved with WQS binary search, for p
 -   Conforti, Michele, Gérard Cornuéjols, and Giacomo Zambelli. Integer programming. Springer International Publishing, 2014.
 -   Schrijver, Alexander. Combinatorial optimization: polyhedra and efficiency. Vol. 24, no. 2. Berlin: Springer, 2003.
 
-[^high-d-convex]: In practical problems, $y$ may only take finitely many lattice points in $\mathbf R^d$. The condition actually needed here is that the solution $v(y)$ of the original problem can be extended to a convex function $\tilde v:\mathbf R^d\rightarrow \mathbf R\cup\{\pm\infty\}$ on $\mathbf R^d$, i.e. $v(y)$ is **convex-extensible**. For convenience, the main text still uses $v(y)$ to denote the extended function. Geometrically, this amounts to saying that all the points of the set $\{(y,v(y))\}$ lie on the lower convex hull of their convex hull. In the one-dimensional case, this condition is [easy to characterize](./slope-trick.md#离散点集上的凸函数) in algebraic terms; in higher dimensions it is slightly more complicated, and [these lecture notes](https://kzmurota.fpark.tmu.ac.jp/paper/HIMSummerSchool15Murota.pdf) provide some simple sufficient conditions.
+[^high-d-convex]: In practical problems, $y$ may only take finitely many lattice points in $\mathbf R^d$. The condition actually needed here is that the solution $v(y)$ of the original problem can be extended to a convex function $\tilde v:\mathbf R^d\rightarrow \mathbf R\cup\{\pm\infty\}$ on $\mathbf R^d$, i.e. $v(y)$ is **convex-extensible**. For convenience, the main text still uses $v(y)$ to denote the extended function. Geometrically, this amounts to saying that all the points of the set $\{(y,v(y))\}$ lie on the lower convex hull of their convex hull. In the one-dimensional case, this condition is [easy to characterize](./slope-trick.md#convex-functions-on-discrete-point-sets) in algebraic terms; in higher dimensions it is slightly more complicated, and [these lecture notes](https://kzmurota.fpark.tmu.ac.jp/paper/HIMSummerSchool15Murota.pdf) provide some simple sufficient conditions.
 
 [^other-conditions]: The conditions given in the theorem may look stronger than mere convexity, but for the situations encountered in competitive programming, especially when $X$ is a finite set, requiring only convexity is already enough. The function $\tilde v$ obtained by extending a proper convex function $v$ on a discrete set is necessarily a lower semi-continuous convex function, because the convex hull of finitely many points is a closed convex set, and a lower semi-continuous convex function is exactly one whose epigraph is a closed convex set. As for the word "proper" in "proper convex function", it is guaranteed as long as $v(y)$ is convex and takes a finite value at at least one point.
 

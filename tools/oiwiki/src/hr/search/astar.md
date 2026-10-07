@@ -18,7 +18,7 @@ Tijekom pretrage algoritam A\* svaki put iz prioritetnog reda uzima vrh s najman
 
 ## Svojstva
 
-Budući da stvarna vrijednost $h^*(x)$ tijekom pretrage nije poznata, kao njezina procjena koristi se lako izračunljiv $h(x)$. Stvarna složenost pretrage A\* ovisi o svojstvima te funkcije procjene $h(x)$. Lako je zamisliti da će, ako je $h\equiv h^*$, tj. ako je procjena točna, pretraga napredovati strogo duž najkraćeg puta. Ako je pak $h\equiv 0$, algoritam A\* degenerira u [Dijkstrin algoritam](./../graph/shortest-path.md#dijkstra-算法); kad je $h\equiv 0$ i sve težine bridova su $1$, to je upravo [BFS](./bfs.md).
+Budući da stvarna vrijednost $h^*(x)$ tijekom pretrage nije poznata, kao njezina procjena koristi se lako izračunljiv $h(x)$. Stvarna složenost pretrage A\* ovisi o svojstvima te funkcije procjene $h(x)$. Lako je zamisliti da će, ako je $h\equiv h^*$, tj. ako je procjena točna, pretraga napredovati strogo duž najkraćeg puta. Ako je pak $h\equiv 0$, algoritam A\* degenerira u [Dijkstrin algoritam](./../graph/shortest-path.md#dijkstrin-algoritam); kad je $h\equiv 0$ i sve težine bridova su $1$, to je upravo [BFS](./bfs.md).
 
 Pretpostavimo da graf nema bridova negativne težine. Ako procjena $h(x)$ nikad ne premašuje stvarnu udaljenost $h^*(x)$, tj. $0\le h\le h^*$, algoritam A\* sigurno pronalazi optimalno rješenje. Funkcija procjene $h(x)$ koja zadovoljava taj uvjet zove se **dopustiva** (admissible). Prema prethodnoj raspravi, što je $h$ bliži $h^*$, to je odgovarajući algoritam A\* učinkovitiji. Općenito, u najgorem slučaju algoritam prolazi sve vrhove koji zadovoljavaju
 

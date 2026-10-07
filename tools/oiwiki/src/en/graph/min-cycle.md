@@ -23,7 +23,7 @@ The total time complexity is $O(n^2m)$.
 
 ### Dijkstra
 
-Related: [Shortest paths/Dijkstra](./shortest-path.md#dijkstra-算法)
+Related: [Shortest paths/Dijkstra](./shortest-path.md#dijkstras-algorithm)
 
 #### Procedure
 
@@ -35,7 +35,7 @@ Time complexity $O(m(n+m)\log n)$.
 
 ### Floyd
 
-Related: [Shortest paths/Floyd](./shortest-path.md#floyd-算法)
+Related: [Shortest paths/Floyd](./shortest-path.md#floyds-algorithm)
 
 #### Procedure
 

@@ -23,7 +23,7 @@ Ukupna vremenska složenost $O(n^2m)$.
 
 ### Dijkstra
 
-Povezano: [Najkraći put/Dijkstra](./shortest-path.md#dijkstra-算法)
+Povezano: [Najkraći put/Dijkstra](./shortest-path.md#dijkstrin-algoritam)
 
 #### Postupak
 
@@ -35,7 +35,7 @@ Vremenska složenost $O(m(n+m)\log n)$.
 
 ### Floyd
 
-Povezano: [Najkraći put/Floyd](./shortest-path.md#floyd-算法)
+Povezano: [Najkraći put/Floyd](./shortest-path.md#floydov-algoritam)
 
 #### Postupak
 

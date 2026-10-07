@@ -40,7 +40,7 @@ Apsolutni centar grafa može biti i u nekom vrhu; tada ažuriramo pomoću vrha n
 
 ### Postupak
 
-1.  Algoritmom za najkraće putove iz više izvora ([Floyd](./shortest-path.md#floyd-算法), [Johnson](./shortest-path.md#johnson-全源最短路径算法) i sl.) izračunaj niz $d$;
+1.  Algoritmom za najkraće putove iz više izvora ([Floyd](./shortest-path.md#floydov-algoritam), [Johnson](./shortest-path.md#johnsonov-algoritam-za-najkraće-putove-između-svih-parova-vrhova) i sl.) izračunaj niz $d$;
 
 2.  Izračunaj $\textit{rk}(i,j)$ i sortiraj ga uzlazno;
 

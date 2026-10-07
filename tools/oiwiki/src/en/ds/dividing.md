@@ -6,7 +6,7 @@ title: Partition tree
 
 The partition tree (dividing tree) is a data structure for solving the range $K$-th largest problem; its constant factor and difficulty of understanding are both much lower than those of the persistent segment tree (the so-called "chairman tree"). At the same time, the partition tree is closely tied to the "$K$-th largest", so it is a data structure based on sorting.
 
-Prerequisites: [persistent segment tree](persistent-seg.md#主席树)
+Prerequisites: [persistent segment tree](persistent-seg.md#chairman-tree)
 
 ## Procedure
 

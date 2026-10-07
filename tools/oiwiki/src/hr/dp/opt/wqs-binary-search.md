@@ -61,7 +61,7 @@ Pretpostavimo da je za sve $\lambda$ u razumnom rasponu gornju funkciju $h(\lamb
 1.  postoji li nagib pravca $\lambda$ takav da se minimum odsječka postiže upravo u točki $(y,v(y))$, i
 2.  ako postoji, kako naći takav nagib $\lambda$.
 
-Prvo je pitanje razmjerno lako. Kad se nagib $\lambda$ mijenja, skup koji svi ti pravci „izrezuju” (tj. presjek odgovarajućih gornjih poluravnina) nužno je konveksan skup. Stoga ti pravci mogu proći nekom točkom ako i samo ako ta točka leži na donjoj konveksnoj ljusci tog skupa. To je ekvivalentno tome da je funkcija $v(y)$ [konveksna](./slope-trick.md#离散点集上的凸函数).
+Prvo je pitanje razmjerno lako. Kad se nagib $\lambda$ mijenja, skup koji svi ti pravci „izrezuju” (tj. presjek odgovarajućih gornjih poluravnina) nužno je konveksan skup. Stoga ti pravci mogu proći nekom točkom ako i samo ako ta točka leži na donjoj konveksnoj ljusci tog skupa. To je ekvivalentno tome da je funkcija $v(y)$ [konveksna](./slope-trick.md#konveksne-funkcije-na-diskretnim-skupovima-točaka).
 
 Drugo je pitanje suptilnije. Budući da već znamo da je apscisa tražene točke $y$, prirodna je ideja pri računanju $h(\lambda)$ usput izračunati vrijednost funkcije ograničenja $g(x)$ u trenutnom optimalnom rješenju $x_\lambda$. Na primjer, u gore spomenutom primjeru, pri rješavanju problema s kaznom možemo zabilježiti broj odabranih predmeta u optimalnom rješenju funkcije cilja s kaznom. Zatim usporedimo $g(x_\lambda)$ sa željenim $y$ i u skladu s tim prilagodimo vrijednost $\lambda$ za sljedeći izračun. To je najtradicionalnija metoda WQS binarnog pretraživanja.
 
@@ -101,7 +101,7 @@ $$
 v^\star(y) = \sup_{\lambda\in\mathbf R^d} h(\lambda)+\lambda\cdot y,
 $$
 
-a funkcija cilja dualnog problema konkavna je funkcija od $\lambda\in\mathbf R^d$, dakle unimodalna, pa se može učinkovito riješiti [ternarnim pretraživanjem](../../basic/binary.md#三分法) ili [metodom zlatnog reza](../../basic/binary.md#优化黄金分割法), uz složenost i dalje $O(T(n)\log^d L)$. Time su potpuno riješeni problemi koji se mogu pojaviti pri bilježenju vrijednosti $g(x_\lambda)$ u tradicionalnoj metodi WQS binarnog pretraživanja, a ujedno se ideja WQS binarnog pretraživanja može primijeniti na višedimenzionalni slučaj.
+a funkcija cilja dualnog problema konkavna je funkcija od $\lambda\in\mathbf R^d$, dakle unimodalna, pa se može učinkovito riješiti [ternarnim pretraživanjem](../../basic/binary.md#ternarno-pretraživanje) ili [metodom zlatnog reza](../../basic/binary.md#optimizacija-metoda-zlatnog-reza), uz složenost i dalje $O(T(n)\log^d L)$. Time su potpuno riješeni problemi koji se mogu pojaviti pri bilježenju vrijednosti $g(x_\lambda)$ u tradicionalnoj metodi WQS binarnog pretraživanja, a ujedno se ideja WQS binarnog pretraživanja može primijeniti na višedimenzionalni slučaj.
 
 Osim toga, u ovom se odjeljku pokazuje da se raspon $g(x_\lambda)$ može dobiti iz $h(\lambda)$, bez dodatnog bilježenja pri rješavanju $h(\lambda)$. Na primjer, za $d=1$ i problem koji uključuje samo cijele brojeve može se dokazati da je raspon vrijednosti $g(x_\lambda)$ upravo
 
@@ -442,7 +442,7 @@ Preduvjet primjene WQS binarnog pretraživanja jest konveksnost funkcije vrijedn
 Te se metode grubo mogu podijeliti u četiri skupine:
 
 -   svođenje na konveksnost funkcije vrijednosti nekog problema konveksne optimizacije (uključujući [linearno programiranje](../../math/linear-programming.md) i sl.) u ovisnosti o parametru, što uključuje izgradnju modela [toka najmanje cijene](../../graph/flow/min-cost.md) i sl.;
--   pomoću jednadžbe prijelaza stanja konveksnost se može dokazati i induktivno, pri čemu se mogu koristiti neke [transformacije koje čuvaju konveksnost](./slope-trick.md#凸函数的变换);
+-   pomoću jednadžbe prijelaza stanja konveksnost se može dokazati i induktivno, pri čemu se mogu koristiti neke [transformacije koje čuvaju konveksnost](./slope-trick.md#transformacije-konveksnih-funkcija);
 -   za probleme particije intervala može se provjeriti da funkcija cijene svakog intervala zadovoljava [četverokutnu nejednakost](./quadrangle.md);
 -   na kraju, za posebne probleme konveksnost se može izravno pokazati argumentom zamjene.
 
@@ -630,7 +630,7 @@ Ovom se metodom također može dokazati konveksnost problema sadnje stabala:
 
 ### Četverokutna nejednakost
 
-Druga česta klasa problema s konveksnošću na natjecanjima jesu [problemi particije intervala](./quadrangle.md#区间分拆问题). Na toj je stranici dokazano da, ako funkcija cijene pojedinog intervala zadovoljava četverokutnu nejednakost, najmanja cijena problema particije intervala s ograničenim brojem intervala konveksna je funkcija broja intervala. Ta stranica također daje načine provjere zadovoljava li neka funkcija $w(l,r)$ četverokutnu nejednakost. Najizravniji je način izračunati njezinu mješovitu diferenciju drugog reda:
+Druga česta klasa problema s konveksnošću na natjecanjima jesu [problemi particije intervala](./quadrangle.md#problem-rastavljanja-intervala). Na toj je stranici dokazano da, ako funkcija cijene pojedinog intervala zadovoljava četverokutnu nejednakost, najmanja cijena problema particije intervala s ograničenim brojem intervala konveksna je funkcija broja intervala. Ta stranica također daje načine provjere zadovoljava li neka funkcija $w(l,r)$ četverokutnu nejednakost. Najizravniji je način izračunati njezinu mješovitu diferenciju drugog reda:
 
 $$
 \begin{aligned}
@@ -772,7 +772,7 @@ U ovom odjeljku predstavljamo nekoliko primjera primjene WQS binarnog pretraživ
     
     Time je dokazano da je $v(m)$ konveksna funkcija od $m$.
     
-    Nakon što je uspostavljena konveksnost funkcije $v(m)$, problem se može riješiti WQS binarnim pretraživanjem. Uklonimo ograničenje na broj, težinu svakog bijelog brida umanjimo za $k$ i riješimo problem minimalnog razapinjućeg stabla. Za to možemo primijeniti [Kruskalov algoritam](../../graph/mst.md#kruskal-算法). Uz održavanje povezanosti disjunktnim skupovima (DSU), složenost algoritma je $O(E\log E+E\alpha(V))$, gdje su $E$ i $V$ redom broj bridova i vrhova, a $\alpha(\cdot)$ inverzna Ackermannova funkcija. Glavni dio složenosti, $O(E\log E)$, odnosi se na sortiranje bridova, što se u ovom zadatku može dodatno optimizirati. Iako se tijekom WQS binarnog pretraživanja minimalno razapinjuće stablo računa više puta, svaki se put samo težine bijelih bridova mijenjaju za isti iznos. Zato pri predobradi možemo zasebno sortirati bijele i crne bridove, a zatim pri svakom računanju minimalnog razapinjućeg stabla samo spojiti (merge) bijele bridove s prilagođenim težinama i crne bridove. Tako se ukupna složenost smanjuje na $O(E\log E+E\alpha(V)\log L)$, gdje je $L$ duljina raspona težina bridova.
+    Nakon što je uspostavljena konveksnost funkcije $v(m)$, problem se može riješiti WQS binarnim pretraživanjem. Uklonimo ograničenje na broj, težinu svakog bijelog brida umanjimo za $k$ i riješimo problem minimalnog razapinjućeg stabla. Za to možemo primijeniti [Kruskalov algoritam](../../graph/mst.md#kruskalov-algoritam). Uz održavanje povezanosti disjunktnim skupovima (DSU), složenost algoritma je $O(E\log E+E\alpha(V))$, gdje su $E$ i $V$ redom broj bridova i vrhova, a $\alpha(\cdot)$ inverzna Ackermannova funkcija. Glavni dio složenosti, $O(E\log E)$, odnosi se na sortiranje bridova, što se u ovom zadatku može dodatno optimizirati. Iako se tijekom WQS binarnog pretraživanja minimalno razapinjuće stablo računa više puta, svaki se put samo težine bijelih bridova mijenjaju za isti iznos. Zato pri predobradi možemo zasebno sortirati bijele i crne bridove, a zatim pri svakom računanju minimalnog razapinjućeg stabla samo spojiti (merge) bijele bridove s prilagođenim težinama i crne bridove. Tako se ukupna složenost smanjuje na $O(E\log E+E\alpha(V)\log L)$, gdje je $L$ duljina raspona težina bridova.
     
     Referentna implementacija:
     
@@ -792,7 +792,7 @@ U ovom odjeljku predstavljamo nekoliko primjera primjene WQS binarnog pretraživ
     Zadan je rastući niz pozitivnih cijelih brojeva $\{a_i\}$ duljine $n$ koji označava položaje $n$ sela uz autocestu; treba izgraditi $m$ poštanskih ureda. Položaje ureda treba odabrati tako da se minimizira zbroj udaljenosti svih sela do njima najbližeg ureda. Odredi taj minimum.
 
 ??? note "Rješenje"
-    Ovo je tipičan [problem particije intervala](./quadrangle.md#区间分拆问题). Detalje implementacije s binarnim redom (queue) potražite na toj stranici.
+    Ovo je tipičan [problem particije intervala](./quadrangle.md#problem-rastavljanja-intervala). Detalje implementacije s binarnim redom (queue) potražite na toj stranici.
     
     Svaki ured poslužuje sela koja su mu najbliža, a ta su sela nužno uzastopna sela uz autocestu. Stoga je izgradnja $m$ ureda ekvivalentna podjeli svih sela na $m$ uzastopnih segmenata i izgradnji ureda najmanje cijene za svaki segment. Poznato je da ured treba izgraditi na položaju medijana položaja sela. Tako funkcija cijene intervala $[l,r]$ glasi
     
@@ -906,7 +906,7 @@ U ovom odjeljku predstavljamo nekoliko primjera primjene WQS binarnog pretraživ
     v(m) = \min_{\{m_i\}}\sum_i f(a_i,m_i)\text{ subject to }\sum_i m_i=m,~m_i\in\mathbf N.
     $$
     
-    To je [infimalna konvolucija](./slope-trick.md#卷积下确界minkowski-和) nekoliko konveksnih funkcija, pa je i sama konveksna. Da zadatak traži $v(m)$, mogli bismo ga riješiti istom metodom kao prethodne primjere u vremenskoj složenosti $O(n\log^2L)$; no ovaj zadatak traži najmanji $m$ za koji je $v(m)\le V$. Pristup u kojem se $v(m)$ računa WQS binarnim pretraživanjem, a zatim se binarno pretražuje po $m$, ne prolazi, jer mu složenost doseže $O(n\log^3L)$. Za ovaj zadatak postoje sljedeća dva pristupa.
+    To je [infimalna konvolucija](./slope-trick.md#infimalna-konvolucija-suma-minkowskog) nekoliko konveksnih funkcija, pa je i sama konveksna. Da zadatak traži $v(m)$, mogli bismo ga riješiti istom metodom kao prethodne primjere u vremenskoj složenosti $O(n\log^2L)$; no ovaj zadatak traži najmanji $m$ za koji je $v(m)\le V$. Pristup u kojem se $v(m)$ računa WQS binarnim pretraživanjem, a zatim se binarno pretražuje po $m$, ne prolazi, jer mu složenost doseže $O(n\log^3L)$. Za ovaj zadatak postoje sljedeća dva pristupa.
     
     **Metoda 1**: i dalje binarno pretražujemo nagib $k$, ali je kriterij pretraživanja procjena donje i gornje ograde za $v(m)$.
     
@@ -994,7 +994,7 @@ Na kraju navodimo neke zadatke koji se mogu riješiti WQS binarnim pretraživanj
 -   Conforti, Michele, Gérard Cornuéjols, and Giacomo Zambelli. Integer programming. Springer International Publishing, 2014.
 -   Schrijver, Alexander. Combinatorial optimization: polyhedra and efficiency. Vol. 24, no. 2. Berlin: Springer, 2003.
 
-[^high-d-convex]: U stvarnim problemima $y$ može poprimati samo konačno mnogo točaka rešetke u $\mathbf R^d$. Uvjet koji je ovdje zapravo potreban jest da se rješenje izvornog problema $v(y)$ može proširiti do konveksne funkcije $\tilde v:\mathbf R^d\rightarrow \mathbf R\cup\{\pm\infty\}$ na $\mathbf R^d$, tj. da je $v(y)$ **konveksno proširiva** (convex-extensible). Radi jednostavnosti, u tekstu se proširena funkcija i dalje označava s $v(y)$. Geometrijski to znači da sve točke skupa $\{(y,v(y))\}$ leže na donjoj konveksnoj ljusci svoje konveksne ljuske. U jednodimenzionalnom slučaju taj se uvjet algebarski [lako opisuje](./slope-trick.md#离散点集上的凸函数); u višedimenzionalnom je slučaju nešto složeniji, a [ova skripta](https://kzmurota.fpark.tmu.ac.jp/paper/HIMSummerSchool15Murota.pdf) daje neke jednostavne dovoljne uvjete.
+[^high-d-convex]: U stvarnim problemima $y$ može poprimati samo konačno mnogo točaka rešetke u $\mathbf R^d$. Uvjet koji je ovdje zapravo potreban jest da se rješenje izvornog problema $v(y)$ može proširiti do konveksne funkcije $\tilde v:\mathbf R^d\rightarrow \mathbf R\cup\{\pm\infty\}$ na $\mathbf R^d$, tj. da je $v(y)$ **konveksno proširiva** (convex-extensible). Radi jednostavnosti, u tekstu se proširena funkcija i dalje označava s $v(y)$. Geometrijski to znači da sve točke skupa $\{(y,v(y))\}$ leže na donjoj konveksnoj ljusci svoje konveksne ljuske. U jednodimenzionalnom slučaju taj se uvjet algebarski [lako opisuje](./slope-trick.md#konveksne-funkcije-na-diskretnim-skupovima-točaka); u višedimenzionalnom je slučaju nešto složeniji, a [ova skripta](https://kzmurota.fpark.tmu.ac.jp/paper/HIMSummerSchool15Murota.pdf) daje neke jednostavne dovoljne uvjete.
 
 [^other-conditions]: Uvjeti iz teorema na prvi pogled izgledaju jači od same konveksnosti, ali za situacije koje se susreću na natjecanjima, posebno kad je $X$ konačan skup, dovoljno je zahtijevati samo konveksnost. Funkcija $\tilde v$ dobivena proširenjem prave konveksne funkcije $v$ na diskretnom skupu nužno je odozdo poluneprekidna konveksna funkcija, jer je konveksna ljuska konačno mnogo točaka zatvoren konveksan skup, a odozdo poluneprekidna konveksna funkcija upravo je ona čiji je epigraf zatvoren konveksan skup. Što se tiče riječi „prava” u „prava konveksna funkcija”, dovoljno je da $v(y)$ bude konveksna i da u barem jednoj točki poprima konačnu vrijednost.
 

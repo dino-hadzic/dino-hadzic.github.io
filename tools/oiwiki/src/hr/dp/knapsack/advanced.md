@@ -193,7 +193,7 @@ Ovdje treba pripaziti da više nije prikladno otvarati još jednu dimenziju za i
     
     Cilj je maksimizirati zbroj $v_i \times p_i$ svih kupljenih predmeta.
 
-Dovoljno je to obraditi kao [ruksak na stablu](../tree.md#树上背包). Pripazite da na kraju spojite sve ruksake.
+Dovoljno je to obraditi kao [ruksak na stablu](../tree.md#ruksak-na-stablu). Pripazite da na kraju spojite sve ruksake.
 
 ## Literatura i bilješke
 

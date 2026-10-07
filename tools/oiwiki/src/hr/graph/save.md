@@ -110,7 +110,7 @@ Prostorna složenost: $O(m)$.
 
 Budući da je obilazak pri izravnoj pohrani bridova neučinkovit, ovaj se način u pravilu ne koristi za obilazak grafa.
 
-U [Kruskalovom algoritmu](./mst.md#kruskal-算法) bridove treba sortirati po težini, pa ih je potrebno pohraniti izravno.
+U [Kruskalovom algoritmu](./mst.md#kruskalov-algoritam) bridove treba sortirati po težini, pa ih je potrebno pohraniti izravno.
 
 U nekim zadacima graf treba izgraditi više puta (npr. jednom izvorni graf, jednom obrnuti graf); tada možemo ili koristiti više drugih struktura podataka za istodobnu pohranu više grafova, ili izravno pohraniti bridove i iz njih ponovno izgraditi graf kad je to potrebno.
 

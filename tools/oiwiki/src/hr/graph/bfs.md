@@ -208,7 +208,7 @@ Naravno, isti vrh može ući u red više puta, svaki put s različitom cijenom. 
 
 U odnosu na BFS s običnim redom vremenska je složenost veća za faktor $\log n$, jer ipak treba održavati prioritetni red. No obični BFS može svaki vrh više puta staviti u red i izvaditi iz njega, pa vremenska složenost može doseći $O(n^2)$, a ne $O(n)$. Zato je BFS s prioritetnim redom u pravilu ipak brži.
 
-Hm? Ne zvuči li to vrlo slično [Dijkstrinu](./shortest-path.md#dijkstra-算法) algoritmu s hrpom? Zapravo, Dijkstra optimiziran hrpom upravo jest BFS s prioritetnim redom.
+Hm? Ne zvuči li to vrlo slično [Dijkstrinu](./shortest-path.md#dijkstrin-algoritam) algoritmu s hrpom? Zapravo, Dijkstra optimiziran hrpom upravo jest BFS s prioritetnim redom.
 
 ## Zadaci za vježbu
 

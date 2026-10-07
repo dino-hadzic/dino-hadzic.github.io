@@ -110,7 +110,7 @@ Space complexity: $O(m)$.
 
 Since traversal with directly stored edges is inefficient, this representation is generally not used for traversing a graph.
 
-In [Kruskal's algorithm](./mst.md#kruskal-算法) the edges have to be sorted by weight, so they must be stored directly.
+In [Kruskal's algorithm](./mst.md#kruskals-algorithm) the edges have to be sorted by weight, so they must be stored directly.
 
 In some problems the graph has to be built several times (e.g. once the original graph and once the reversed graph); then we can either use several other data structures to store several graphs at once, or store the edges directly and rebuild the graph from them whenever needed.
 

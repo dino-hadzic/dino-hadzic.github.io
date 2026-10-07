@@ -15,7 +15,7 @@ Ako nakon uklanjanja nekog čvora $v$ iz stabla $T$ svaka komponenta povezanosti
     
     Pri stvarnom računanju centroida ili rješavanju nekih zadataka obično postoji zadani korijen. Tada među komponentama povezanosti dobivenima uklanjanjem nekorijenskog čvora $v$, osim podstabala koja odgovaraju djeci tog čvora, postoji i jedno podstablo „prema gore”. Ako je roditelj čvora $v$ čvor $u$, to je podstablo „prema gore” upravo $T_u^{(v)}$. Kad u ovom članku spominjemo takav podgraf, izričito ćemo ga zvati podstablom „prema gore”. Ako nije drukčije naznačeno, podstabla koja spominjemo ne uključuju takva podstabla „prema gore”.
 
-Uočimo da su dobivene komponente povezanosti također nekorijenska stabla. Uklanjanjem centroida stablo se raspada na više stabala veličine najviše polovine izvornog. To svojstvo centroida omogućuje primjenu ideje „podijeli pa vladaj” na stablima. To je [centroid decomposition](./tree-divide.md#点分治), koja se naziva i dekompozicijom stabla po centroidima.
+Uočimo da su dobivene komponente povezanosti također nekorijenska stabla. Uklanjanjem centroida stablo se raspada na više stabala veličine najviše polovine izvornog. To svojstvo centroida omogućuje primjenu ideje „podijeli pa vladaj” na stablima. To je [centroid decomposition](./tree-divide.md#centroidna-dekompozicija), koja se naziva i dekompozicijom stabla po centroidima.
 
 ## Svojstva
 

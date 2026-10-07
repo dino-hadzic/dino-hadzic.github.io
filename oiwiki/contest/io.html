@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="hr" data-jezik="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI Wiki – Optimizacija učitavanja i ispisa</title>
+    <script>(function(){try{var j=localStorage.getItem('oiwiki-jezik');if(j==='en'||j==='hr'){document.documentElement.setAttribute('data-jezik',j);document.documentElement.lang=j;}}catch(e){}})();</script>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki.css">
+    <script defer src="../../assets/js/oiwiki.js"></script>
+</head>
+<body>
+    <p class="navigacija-analize"><a href="../../oiwiki/index.html">← <span class="jezik jezik-hr" lang="hr">OI Wiki (prijevod)</span><span class="jezik jezik-en" lang="en">OI Wiki (translation)</span></a> · <a href="../../index.html"><span class="jezik jezik-hr" lang="hr">Početna</span><span class="jezik jezik-en" lang="en">Home</span></a><span class="oiwiki-prebaci" role="group" aria-label="Jezik / Language"><button type="button" data-jezik="hr" lang="hr" aria-pressed="true">Hrvatski</button><button type="button" data-jezik="en" lang="en" aria-pressed="false">English</button></span></p>
+    <article class="analiza oiwiki">
+        <header>
+            <p class="nadnaslov"><span class="jezik jezik-hr" lang="hr">OI Wiki · prijevod · Natjecanja</span><span class="jezik jezik-en" lang="en">OI Wiki · translation · Contests</span></p>
+            <h1><span class="jezik jezik-hr" lang="hr">Optimizacija učitavanja i ispisa</span><span class="jezik jezik-en" lang="en">Input and output optimization</span></h1>
+            <p class="meta oiwiki-izvor"><span class="jezik jezik-hr" lang="hr">Prijevod stranice <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/contest/io.md" rel="noopener">docs/contest/io.md</a> iz repozitorija <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> (izvornik je na kineskom, stanje od 2026-10-04). Tekst je pod licencom <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" rel="noopener">CC BY-SA 4.0</a>; kôd je nepromijenjen osim komentara.</span><span class="jezik jezik-en" lang="en">Translation of <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/contest/io.md" rel="noopener">docs/contest/io.md</a> from the <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> repository (the original is in Chinese, as of 2026-10-04). Text is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>; code is unchanged except for comments.</span></p>
+            <p class="oiwiki-github"><a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/contest/io.md" rel="noopener"><span class="jezik jezik-hr" lang="hr">Izvornik na GitHubu</span><span class="jezik jezik-en" lang="en">Original on GitHub</span></a></p>
+        </header>
+        <div class="jezik jezik-hr oiwiki-tekst" lang="hr">
+<details class="oiwiki-sadrzaj"><summary>Sadržaj</summary><div class="toc">
+<ul>
+<li><a href="#io-temeljen-na-tokovima">I/O temeljen na tokovima</a><ul>
+<li><a href="#isključivanje-sinkronizacije">Isključivanje sinkronizacije</a></li>
+<li><a href="#razdvajanje-tokova">Razdvajanje tokova</a></li>
+<li><a href="#implementacija">Implementacija</a></li>
+</ul>
+</li>
+<li><a href="#io-u-stilu-c-a">I/O u stilu C-a</a><ul>
+<li><a href="#oblikovanje-implementacije">Oblikovanje implementacije</a></li>
+<li><a href="#pojedinosti-implementacije">Pojedinosti implementacije</a></li>
+<li><a href="#implementacija_1">Implementacija</a></li>
+</ul>
+</li>
+<li><a href="#literatura">Literatura</a></li>
+</ul>
+</div>
+</details>
+<p>Ovaj članak opisuje kako optimizirati I/O temeljen na tokovima (streams) i I/O u stilu C-a.</p>
+<details class="note" open="open">
+<summary>Napomena</summary>
+<p>Stvarna brzina I/O-a temeljenog na tokovima i I/O-a u stilu C-a donekle se mijenja ovisno o okruženju (npr. prevoditelju, operacijskom sustavu i hardverskim specifikacijama). Želite li dublju analizu, oslonite se na rezultate eksperimenata. Pritom pazite na kontrolu varijabli u eksperimentu, kako utjecaj više varijabli ne bi doveo do pogrešnih zaključaka.</p>
+</details>
+<h2 id="io-temeljen-na-tokovima">I/O temeljen na tokovima</h2>
+<p>Za I/O temeljen na tokovima (kao što su <code>std::cin</code> i <code>std::cout</code>) najčešće su optimizacije isključivanje sinkronizacije s C-ovim tokovima i razdvajanje ulaznog i izlaznog toka.</p>
+<h3 id="isključivanje-sinkronizacije">Isključivanje sinkronizacije</h3>
+<p>Funkcijom <a href="https://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio"><code>std::ios::sync_with_stdio(false)</code></a> isključuje se sinkronizacija s C-ovim tokovima. Radi kompatibilnosti s C-om, to jest da bi program koji istodobno koristi <code>printf</code> i <code>std::cout</code> radio bez zbrke, C++ te dvije vrste tokova sinkronizira. Sinkronizirani C++ tokovi zajamčeno su sigurni za rad s dretvama (thread-safe).</p>
+<p>To je zapravo konzervativna mjera koju C++ poduzima radi kompatibilnosti. Kad je sinkronizacija uključena, C++ tok pri svakoj I/O operaciji tu operaciju odmah primjenjuje na odgovarajući C-ov međuspremnik, a ako kôd uopće ne koristi I/O u stilu C-a, ta je operacija suvišna. Zato se prije I/O operacija sinkronizacija s C-ovim tokovima može isključiti, ali nakon toga treba paziti da se u ostatku koda ne koriste istodobno <code>std::cin</code> i <code>scanf</code> niti istodobno <code>std::cout</code> i <code>printf</code>; smiju se, međutim, istodobno koristiti <code>std::cin</code> i <code>printf</code>, kao i <code>scanf</code> i <code>std::cout</code>.</p>
+<h3 id="razdvajanje-tokova">Razdvajanje tokova</h3>
+<p>Funkcijom <a href="https://en.cppreference.com/w/cpp/io/basic_ios/tie"><code>tie()</code></a> razdvaja se ulazni tok od izlaznog.</p>
+<p>Prema zadanim postavkama <code>std::cin</code> je vezan uz <code>&amp;std::cout</code>, pa se pri svakom formatiranom unosu poziva <code>std::cout.flush()</code> koji prazni izlazni međuspremnik, što povećava opterećenje I/O-a. Pozivom <code>std::cin.tie(nullptr)</code> ta se veza može ukloniti i tako dodatno ubrzati izvođenje.</p>
+<details class="warning" open="open">
+<summary>Napomena</summary>
+<p>Pritom se argument ne smije izostaviti i napisati <code>std::cin.tie()</code>; to ne razdvaja tokove, nego vraća izlazni tok vezan uz <code>std::cin</code>. Također nije potrebno pozvati <code>std::cout.tie(nullptr)</code>, jer prema zadanim postavkama nijedan drugi izlazni tok nije vezan uz <code>std::cout</code>.</p>
+</details>
+<h3 id="implementacija">Implementacija</h3>
+<div class="highlight"><pre><span></span><code><span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">sync_with_stdio</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="p">.</span><span class="n">tie</span><span class="p">(</span><span class="nb">nullptr</span><span class="p">);</span>
+</code></pre></div>
+<details class="note" open="open">
+<summary>Napomena</summary>
+<p>Nakon što se obave obje gornje operacije, program mora ručno pozvati <code>flush</code> kako bi sadržaj koji <code>std::cout</code> ispisuje zajamčeno bio prikazan prije <code>std::cin</code>. Razlog je to što se u tom slučaju pri pozivu <code>std::cin</code> međuspremnik <code>std::cout</code> ne prazni automatski. Na primjer:</p>
+<div class="highlight"><pre><span></span><code><span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">sync_with_stdio</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="p">.</span><span class="n">tie</span><span class="p">(</span><span class="nb">nullptr</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Please input your name: "</span>
+<span class="w">          </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">flush</span><span class="p">;</span><span class="w">  </span><span class="c1">// ili: std::endl;</span>
+<span class="w">                          </span><span class="c1">// jer svaki poziv std::endl prazni (flush) izlazni međuspremnik, a \n</span>
+<span class="w">                          </span><span class="c1">// ne.</span>
+<span class="c1">// Ako se std::flush izostavi, poruka se neće prikazati prije unosa imena</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">name</span><span class="p">;</span>
+</code></pre></div>
+</details>
+<h2 id="io-u-stilu-c-a">I/O u stilu C-a</h2>
+<p>I <code>scanf</code> i <code>printf</code> još se mogu ubrzati; sve se metode ubrzanja temelje na pretvorbi između cijelih brojeva i stringova.</p>
+<details class="note" open="open">
+<summary>Napomena</summary>
+<p>Optimizacije učitavanja i ispisa opisane na ovoj stranici odnose se na cjelobrojne podatke. Optimizacija učitavanja i ispisa brojeva s pomičnim zarezom vrlo je složena; za učitavanje vidi <a href="https://dl.acm.org/doi/10.1145/93542.93557">algoritam Bellerophon</a>, a za ispis <a href="https://dl.acm.org/doi/10.1145/3192366.3192369">algoritam Ryū</a>.</p>
+</details>
+<h3 id="oblikovanje-implementacije">Oblikovanje implementacije</h3>
+<details class="note" open="open">
+<summary>Napomena</summary>
+<p>Ovdje opisane optimizacije usmjerene su na brži I/O, dok se pri pretvorbi podataka koriste naivne metode koje ne iskorištavaju u potpunosti mogućnosti hardvera. Danas velika većina procesora arhitekture x86 podržava skup instrukcija AVX2, pa se SIMD-om može ubrzati pretvorba između cijelih brojeva i stringova. Funkcije standardne biblioteke ne koriste SIMD optimizacije; npr. <a href="https://github.com/gcc-mirror/gcc/blob/releases/gcc-14.3.0/libstdc%2B%2B-v3/include/bits/charconv.h#L81">implementacija</a> u libstdc++-u pretvara po dvije uzastopne znamenke odjednom, i to tablicom pretvara u znakove, pa optimizacija samog postupka pretvorbe također može donijeti dobit. U natjecateljskom okviru, međutim, optimizacije spomenute u ovom članku dostatne su za veliku većinu situacija.</p>
+</details>
+<h4 id="optimizacija-učitavanja">Optimizacija učitavanja</h4>
+<p>Svaki cijeli broj sastoji se od predznaka i znamenaka, a predznak uvijek prethodi znamenkama, pa se prvo učitava predznak. Kod predznaka se <code>+</code> za pozitivne brojeve obično izostavlja i ne utječe na vrijednost koju predstavljaju znamenke iza njega, dok se <code>-</code> ne smije izostaviti, pa ga treba provjeriti. Ako ulaz ne sadrži negativne brojeve, ta se provjera može izostaviti. Dio sa znamenkama sadrži samo znamenke od 0 do 9, pa kad se učita znak koji ne može biti dio cijelog broja (obično razmak), može se zaključiti da je učitavanje tog broja završilo.</p>
+<p>Budući da se pri učitavanju znamenke čitaju slijeva nadesno, za pretvorbu u cijeli broj može se iskoristiti upravo Hornerov algoritam. Zato se cijeli postupak pretvorbe može spojiti s učitavanjem.</p>
+<p>Pri učitavanju znamenaka treba provjeriti je li učitani znak dekadska znamenka. Može se jednostavno upotrijebiti uvjet <code>ch &gt;= '0' &amp;&amp; ch &lt;= '9'</code> ili funkcija <a href="https://en.cppreference.com/w/cpp/string/byte/isdigit"><code>isdigit()</code></a>.</p>
+<h4 id="optimizacija-ispisa">Optimizacija ispisa</h4>
+<p>Pri ispisu cijeli broj treba pretvoriti u string; obično se koristi naivni algoritam, tj. znamenke broja računaju se izravno od najniže prema najvišoj, pretvore u znakove i ispišu obrnutim redoslijedom.</p>
+<h3 id="pojedinosti-implementacije">Pojedinosti implementacije</h3>
+<h4 id="problem-cjelobrojnog-prekoračenja">Problem cjelobrojnog prekoračenja</h4>
+<p>U implementaciji treba paziti na cjelobrojno prekoračenje (overflow). Na primjer, nespretno uzimanje suprotnog broja u optimizaciji ispisa dovodi do toga da najmanja vrijednost tipa nakon promjene predznaka premaši najveću vrijednost koju taj tip može prikazati, što može uzrokovati pogrešan ispis. Slično prekoračenje može nastati i pri učitavanju najmanje vrijednosti tipa, ali u tom slučaju učitani podatak možda neće biti pogrešan, jer vrijednost dobivena prekoračenjem može biti jednaka stvarnoj unesenoj vrijednosti.</p>
+<p>Prekoračenje predznačenih cijelih brojeva nedefinirano je ponašanje; u implementaciji se gornji problem može izbjeći pomoću svojstva da se u C-u dijeljenje negativnih cijelih brojeva zaokružuje prema nuli. Ako, međutim, ne treba učitavati ni ispisivati negativne brojeve, ili se najmanja vrijednost tipa ne može pojaviti na ulazu ni izlazu, taj se problem neće pojaviti.</p>
+<h4 id="povećanje-općenitosti-implementacije">Povećanje općenitosti implementacije</h4>
+<p>Ako program koristi cjelobrojne varijable više tipova, možda će trebati implementirati više ulazno-izlaznih funkcija iste logike, a različitih tipova. Tada se u C++-u pomoću <a href="https://en.cppreference.com/w/cpp/language/templates.html"><code>template</code></a> može ostvariti optimizacija ulaza i izlaza za sve cjelobrojne tipove. Na primjer, prema standardu C++11 može se upotrijebiti</p>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">typename</span><span class="w"> </span><span class="nc">std</span><span class="o">::</span><span class="n">enable_if</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">is_integral</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">value</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                        </span><span class="n">std</span><span class="o">::</span><span class="n">is_signed</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">value</span><span class="o">&gt;::</span><span class="n">type</span>
+<span class="n">read</span><span class="p">(</span><span class="n">T</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">);</span>
+</code></pre></div>
+<p>ili prema standardu C++20</p>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">signed_integral</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="n">T</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">);</span>
+</code></pre></div>
+<p>za definiranje funkcije.</p>
+<p>Radi lakšeg čitanja, implementacije u nastavku pretpostavljaju da treba učitavati samo cijele brojeve tipa <code>int</code>; one su dostatne za potrebe većine zadataka.</p>
+<h3 id="implementacija_1">Implementacija</h3>
+<p>Uobičajene implementacije razlikuju se samo u funkcijama za učitavanje i ispis koje koriste, dok je logika pretvorbe cijelih brojeva ista. U nastavku su predstavljene prema funkcijama za učitavanje i ispis koje koriste.</p>
+<h4 id="implementacija-pomoću-getchar-i-putchar">Implementacija pomoću <code>getchar</code> i <code>putchar</code></h4>
+<p>Ključni dio koda je sljedeći.</p>
+<div class="highlight"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'-'</span><span class="p">)</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ch</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">'0'</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">putchar</span><span class="p">(</span><span class="sc">'-'</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="mi">40</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">top</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">sta</span><span class="p">[</span><span class="n">top</span><span class="o">++</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">putchar</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="w">  </span><span class="k">else</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">putchar</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="implementacija-pomoću-fread-i-fwrite">Implementacija pomoću <code>fread</code> i <code>fwrite</code></h4>
+<p>Pomoću <code>fread</code> i <code>fwrite</code> može se ostvariti još brže učitavanje i ispis. Njihovi su potpisi sljedeći.</p>
+<div class="highlight"><pre><span></span><code><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="nf">fread</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span>
+<span class="w">                  </span><span class="n">std</span><span class="o">::</span><span class="kt">FILE</span><span class="o">*</span><span class="w"> </span><span class="n">stream</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="nf">fwrite</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">std</span><span class="o">::</span><span class="kt">FILE</span><span class="o">*</span><span class="w"> </span><span class="n">stream</span><span class="p">);</span>
+</code></pre></div>
+<p>Na primjer, <code>fread(Buf, 1, SIZE, stdin)</code> znači: sa standardnog ulaza učitaj <code>SIZE</code> blokova veličine 1 bajt u <code>Buf</code>. Povratna vrijednost označava koliko je bajtova uspješno učitano.</p>
+<p>Budući da <code>fread</code> i <code>fwrite</code> čitaju i pišu u cijelim blokovima, brži su od <code>getchar()</code> i <code>putchar()</code>. Ako je međuspremnik dovoljno velik, cijela se datoteka može učitati odjednom. Ako međuspremnik nije dovoljno velik, treba čitati više puta kako bi se učitao cijeli ulaz. Da bi se to ostvarilo, dovoljno je ponovno definirati <code>getchar</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">p2</span><span class="p">;</span>
+<span class="cp">#define gc()                                                               \</span>
+<span class="cp">  (p1 == p2 &amp;&amp; (p2 = (p1 = buf) + fread(buf, 1, 1 &lt;&lt; 20, stdin), p1 == p2) \</span>
+<span class="cp">       ? EOF                                                               \</span>
+<span class="cp">       : *p1++)</span>
+</code></pre></div>
+<p>Ispis je sličan učitavanju: sadržaj za ispis prvo se stavi u međuspremnik, a na kraju se pomoću <code>fwrite</code> sadržaj međuspremnika ispiše odjednom.</p>
+<p>Ključni dio koda je sljedeći.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// #define DEBUG 1  // prekidač za ispravljanje (debug)</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">IO</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#define MAXSIZE (1 &lt;&lt; 20)</span>
+<span class="cp">#define isdigit(x) (x &gt;= '0' &amp;&amp; x &lt;= '9')</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="n">MAXSIZE</span><span class="p">],</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">p2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">pbuf</span><span class="p">[</span><span class="n">MAXSIZE</span><span class="p">],</span><span class="w"> </span><span class="o">*</span><span class="n">pp</span><span class="p">;</span>
+<span class="cp">#if DEBUG</span>
+<span class="cp">#else</span>
+<span class="w">  </span><span class="n">IO</span><span class="p">()</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">p1</span><span class="p">(</span><span class="n">buf</span><span class="p">),</span><span class="w"> </span><span class="n">p2</span><span class="p">(</span><span class="n">buf</span><span class="p">),</span><span class="w"> </span><span class="n">pp</span><span class="p">(</span><span class="n">pbuf</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+
+<span class="w">  </span><span class="o">~</span><span class="n">IO</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fwrite</span><span class="p">(</span><span class="n">pbuf</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">pp</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pbuf</span><span class="p">,</span><span class="w"> </span><span class="n">stdout</span><span class="p">);</span><span class="w"> </span><span class="p">}</span>
+<span class="cp">#endif</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">gc</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if DEBUG  </span><span class="c1">// ispravljanje: znakovi se mogu prikazati</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">p2</span><span class="p">)</span><span class="w"> </span><span class="n">p2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">fread</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">MAXSIZE</span><span class="p">,</span><span class="w"> </span><span class="n">stdin</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">p1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">p2</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="sc">' '</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="o">!</span><span class="n">isdigit</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'-'</span><span class="p">)</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">isdigit</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ch</span><span class="p">);</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">isdigit</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">'0'</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">isspace</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">());</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="o">!</span><span class="n">isspace</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="o">++</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ch</span><span class="p">;</span>
+<span class="w">    </span><span class="o">*</span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">();</span><span class="w"> </span><span class="n">isspace</span><span class="p">(</span><span class="n">c</span><span class="p">);</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">());</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if DEBUG  </span><span class="c1">// ispravljanje: znakovi se mogu prikazati</span>
+<span class="w">    </span><span class="n">putchar</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pp</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pbuf</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">MAXSIZE</span><span class="p">)</span><span class="w"> </span><span class="n">fwrite</span><span class="p">(</span><span class="n">pbuf</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">MAXSIZE</span><span class="p">,</span><span class="w"> </span><span class="n">stdout</span><span class="p">),</span><span class="w"> </span><span class="n">pp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pbuf</span><span class="p">;</span>
+<span class="w">    </span><span class="o">*</span><span class="n">pp</span><span class="o">++</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">c</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">      </span><span class="n">push</span><span class="p">(</span><span class="sc">'-'</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="mi">40</span><span class="p">];</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">top</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">sta</span><span class="p">[</span><span class="n">top</span><span class="o">++</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>
+<span class="w">      </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">      </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">lastChar</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="n">lastChar</span><span class="p">);</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span><span class="w"> </span><span class="n">io</span><span class="p">;</span>
+</code></pre></div>
+<p>Pri upotrebi ove metode treba paziti:</p>
+<ul>
+<li>Kad je prekidač za ispravljanje (debug) isključen, koriste se <code>fread()</code> i <code>fwrite()</code>, a pri izlasku se automatski u destruktoru izvršava <code>fwrite()</code>. Kad je prekidač uključen, koriste se <code>getchar()</code> i <code>putchar()</code>, što olakšava ispravljanje.</li>
+<li>Želite li čitati i pisati u datoteke, prije svih čitanja i pisanja treba dodati <code>freopen()</code>.</li>
+</ul>
+<h4 id="implementacija-pomoću-mmap">Implementacija pomoću <code>mmap</code></h4>
+<p><code>mmap</code> je sistemski poziv Linuxa koji datoteku odjednom preslikava u memoriju, slično memorijskom području na koje se može pokazivati pokazivačem, i u nekim je situacijama brži. Njegov je potpis sljedeći:</p>
+<div class="highlight"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="nf">mmap</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="n">addr</span><span class="p">[.</span><span class="n">length</span><span class="p">],</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">prot</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">fd</span><span class="p">,</span>
+<span class="w">           </span><span class="kt">off_t</span><span class="w"> </span><span class="n">offset</span><span class="p">);</span>
+</code></pre></div>
+<details class="warning" open="open">
+<summary>Napomena</summary>
+<p><code>mmap</code> se ne može koristiti u okruženju Windows (npr. na sustavima za ocjenjivanje Codeforcesa i HDU-a), a ne preporučuje se ni na službenim natjecanjima. Zapravo je <code>fread</code> već dovoljno brz, a ako se <code>mmap</code>-om opetovano čita mali dio datoteke, trošak jednog preslikavanja u memoriju i obrade promašaja stranica (page faults) u jezgri daleko je veći od troška <code>fread</code>-a.</p>
+</details>
+<p>Prvo treba dobiti opisnik datoteke <code>fd</code>, zatim <code>fstat</code>-om dobiti veličinu datoteke, a potom <code>mmap</code>-om dobiti pokazivač <code>*pc</code> na datoteku preslikanu u memoriju. Nakon toga se za čitanje datoteke umjesto <code>getchar()</code> može izravno koristiti <code>*pc++</code>.</p>
+<p>Ako treba čitati sa standardnog ulaza, <code>fd</code> se može postaviti na <code>0</code>. <strong>Međutim, upotreba mmap-a na standardnom ulazu krajnje je opasna, a usto se ne može unositi s terminala; može se datoteku preusmjeriti na standardni ulaz.</strong></p>
+<details class="note" open="open">
+<summary>Primjer: <a href="https://www.luogu.com.cn/problem/P10815">Luogu P10815 „Predložak” Brzo učitavanje</a></summary>
+<p>Učitajte <span class="arithmatex">\(n\)</span> cijelih brojeva iz raspona <span class="arithmatex">\([-n, n]\)</span>, zbrojite ih i ispišite zbroj. Pritom je <span class="arithmatex">\(n \leq 10^8\)</span>. Podaci jamče da za svaki prefiks niza zbroj tog prefiksa stane u <span class="arithmatex">\(32\)</span>-bitni predznačeni cijeli broj.</p>
+</details>
+<p>Referentni kôd je sljedeći.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fcntl.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/mman.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/stat.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;unistd.h&gt;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cstdio&gt;</span>
+
+<span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">rd</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'-'</span><span class="p">)</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ch</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">'0'</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">  </span><span class="c1">// čitanje sa stdin</span>
+<span class="w">  </span><span class="c1">// int fd = open("xxx.in", O_RDONLY); // čitanje iz datoteke</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">stat</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+<span class="w">  </span><span class="n">fstat</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">state</span><span class="p">);</span><span class="w">  </span><span class="c1">// dohvat veličine datoteke</span>
+<span class="w">  </span><span class="n">pc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">st_size</span><span class="p">,</span><span class="w"> </span><span class="n">PROT_READ</span><span class="p">,</span><span class="w"> </span><span class="n">MAP_PRIVATE</span><span class="p">,</span><span class="w"> </span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="n">rd</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="o">--</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">rd</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">x</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">printf</span><span class="p">(</span><span class="s">"%d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="literatura">Literatura</h2>
+<p><a href="https://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">cin.tie 与 sync_with_stdio 加速输入输出 - 码农场 (kineski)</a></p>
+<p><a href="https://heavywatal.github.io/cxx/speed.html">C++ 高速化 - Heavy Watal (japanski)</a></p>
+<p><a href="https://marc.info/?l=linux-kernel&amp;m=95496636207616&amp;w=2">'Re: mmap/mlock performance versus read' - MARC</a></p>
+        </div>
+        <div class="jezik jezik-en oiwiki-tekst" lang="en">
+<details class="oiwiki-sadrzaj"><summary>Contents</summary><div class="toc">
+<ul>
+<li><a href="#en-stream-based-io">Stream-based I/O</a><ul>
+<li><a href="#en-turning-off-synchronization">Turning off synchronization</a></li>
+<li><a href="#en-untying-the-streams">Untying the streams</a></li>
+<li><a href="#en-implementation">Implementation</a></li>
+</ul>
+</li>
+<li><a href="#en-c-style-io">C-style I/O</a><ul>
+<li><a href="#en-implementation-design">Implementation design</a></li>
+<li><a href="#en-implementation-details">Implementation details</a></li>
+<li><a href="#en-implementations">Implementations</a></li>
+</ul>
+</li>
+<li><a href="#en-references">References</a></li>
+</ul>
+</div>
+</details>
+<p>This article describes how to optimize stream-based I/O and C-style I/O.</p>
+<details class="note" open="open">
+<summary>Note</summary>
+<p>The actual speed of stream-based I/O and C-style I/O varies somewhat with the environment (such as the compiler, operating system and hardware specification). If you want a deeper analysis, rely on experimental results. Be careful, however, to control the variables in the experiment, so that the influence of several variables does not lead to wrong conclusions.</p>
+</details>
+<h2 id="en-stream-based-io">Stream-based I/O</h2>
+<p>For stream-based I/O (such as <code>std::cin</code> and <code>std::cout</code>), the most common optimizations are turning off synchronization with the C streams and untying the input and output streams.</p>
+<h3 id="en-turning-off-synchronization">Turning off synchronization</h3>
+<p>Use the <a href="https://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio"><code>std::ios::sync_with_stdio(false)</code></a> function to turn off synchronization with the C streams. For compatibility with C, that is, to make sure a program that uses both <code>printf</code> and <code>std::cout</code> does not get garbled, C++ synchronizes these two kinds of streams. Synchronized C++ streams are guaranteed to be thread-safe.</p>
+<p>This is really a conservative measure that C++ takes for the sake of compatibility. With synchronization enabled, on every I/O operation the C++ stream immediately applies the operation to the corresponding C buffer; if the code does not involve C-style I/O at all, this operation is redundant. Therefore synchronization with the C streams can be turned off before doing I/O, but after doing so you must be careful not to use <code>std::cin</code> together with <code>scanf</code>, nor <code>std::cout</code> together with <code>printf</code>, in the rest of the code; you may, however, use <code>std::cin</code> together with <code>printf</code>, and <code>scanf</code> together with <code>std::cout</code>.</p>
+<h3 id="en-untying-the-streams">Untying the streams</h3>
+<p>Use the <a href="https://en.cppreference.com/w/cpp/io/basic_ios/tie"><code>tie()</code></a> function to untie the input stream from the output stream.</p>
+<p>By default <code>std::cin</code> is tied to <code>&amp;std::cout</code>, so every formatted input calls <code>std::cout.flush()</code> to empty the output buffer, which increases the I/O load. You can untie them with <code>std::cin.tie(nullptr)</code> to speed up execution further.</p>
+<details class="warning" open="open">
+<summary>Note</summary>
+<p>You must not omit the argument and write <code>std::cin.tie()</code>; this does not untie the streams but returns the output stream tied to <code>std::cin</code>. There is also no need to call <code>std::cout.tie(nullptr)</code>, because by default no other output stream is tied to <code>std::cout</code>.</p>
+</details>
+<h3 id="en-implementation">Implementation</h3>
+<div class="highlight"><pre><span></span><code><span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">sync_with_stdio</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="p">.</span><span class="n">tie</span><span class="p">(</span><span class="nb">nullptr</span><span class="p">);</span>
+</code></pre></div>
+<details class="note" open="open">
+<summary>Note</summary>
+<p>After performing both operations above, the program must <code>flush</code> manually to make sure that what <code>std::cout</code> prints appears before <code>std::cin</code>. This is because in this situation <code>std::cout</code> does not flush its buffer automatically when <code>std::cin</code> is called. For example:</p>
+<div class="highlight"><pre><span></span><code><span class="n">std</span><span class="o">::</span><span class="n">ios</span><span class="o">::</span><span class="n">sync_with_stdio</span><span class="p">(</span><span class="nb">false</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="p">.</span><span class="n">tie</span><span class="p">(</span><span class="nb">nullptr</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">"Please input your name: "</span>
+<span class="w">          </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">flush</span><span class="p">;</span><span class="w">  </span><span class="c1">// or: std::endl;</span>
+<span class="w">                          </span><span class="c1">// because every call to std::endl flushes the output buffer, while \n</span>
+<span class="w">                          </span><span class="c1">// does not.</span>
+<span class="c1">// If std::flush is removed, the prompt will not be shown before the name is entered</span>
+<span class="n">std</span><span class="o">::</span><span class="n">cin</span><span class="w"> </span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">name</span><span class="p">;</span>
+</code></pre></div>
+</details>
+<h2 id="en-c-style-io">C-style I/O</h2>
+<p><code>scanf</code> and <code>printf</code> still have room for speedup; all speedup methods are based on the conversion between integers and strings.</p>
+<details class="note" open="open">
+<summary>Note</summary>
+<p>The input and output optimizations described on this page all target integer data. Input and output optimization for floating-point numbers is very complex; for input see the <a href="https://dl.acm.org/doi/10.1145/93542.93557">Bellerophon algorithm</a>, and for output see the <a href="https://dl.acm.org/doi/10.1145/3192366.3192369">Ryū algorithm</a>.</p>
+</details>
+<h3 id="en-implementation-design">Implementation design</h3>
+<details class="note" open="open">
+<summary>Note</summary>
+<p>The optimizations here focus on faster I/O, while the data conversion uses naive methods that do not fully exploit hardware features. Nowadays the vast majority of x86 CPUs support the AVX2 instruction set, and SIMD can be used to speed up the conversion between integers and strings. The standard library functions do not use SIMD optimizations; for example, the libstdc++ <a href="https://github.com/gcc-mirror/gcc/blob/releases/gcc-14.3.0/libstdc%2B%2B-v3/include/bits/charconv.h#L81">implementation</a> converts two consecutive digits at a time and turns them into characters via a lookup table, so optimizing the conversion process may also pay off. Within the scope of competitions, however, the optimizations mentioned in this article are sufficient for the vast majority of situations.</p>
+</details>
+<h4 id="en-input-optimization">Input optimization</h4>
+<p>Every integer consists of a sign part and a digit part, and the sign always comes before the digits, so the sign part is read first. For the sign part, the <code>+</code> of positive integers is usually omitted and does not affect the value represented by the following digits, while <code>-</code> cannot be omitted, so it must be checked for. If the input contains no negative integers, this check can be omitted. The digit part contains only the digits 0 to 9, so when a character that cannot be part of an integer (usually a space) is read, we can conclude that the integer has been read completely.</p>
+<p>Since the digits are read from left to right, Horner's method can be used for the integer conversion. The whole conversion can therefore be combined with the input.</p>
+<p>While reading the digit part, we need to check whether the character read is a decimal digit. We can simply use the condition <code>ch &gt;= '0' &amp;&amp; ch &lt;= '9'</code>, or the <a href="https://en.cppreference.com/w/cpp/string/byte/isdigit"><code>isdigit()</code></a> function.</p>
+<h4 id="en-output-optimization">Output optimization</h4>
+<p>For output, the integer must be converted into a string; usually the naive algorithm is used, that is, the digits of the integer are computed directly from the lowest to the highest, converted into characters and printed in reverse order.</p>
+<h3 id="en-implementation-details">Implementation details</h3>
+<h4 id="en-integer-overflow">Integer overflow</h4>
+<p>The implementation must take care of integer overflow. For example, carelessly negating the number in the output optimization causes the minimum value of the integer type, after negation, to exceed the maximum value the type can represent, which may lead to wrong output. A similar overflow may occur when reading the minimum value of the type, but in that case the data read may not actually be wrong, because the value obtained by overflow may equal the actual input value.</p>
+<p>Signed integer overflow is undefined behavior; the implementation can avoid the problem above by using the fact that in C integer division of negative numbers rounds toward zero. If, however, no negative numbers need to be read or written, or the minimum value of the type cannot appear in the input or output, this problem does not arise.</p>
+<h4 id="en-making-the-implementation-more-generic">Making the implementation more generic</h4>
+<p>If a program uses integer variables of several types, you may need to implement several input/output functions with different types but the same logic. In that case you can use a C++ <a href="https://en.cppreference.com/w/cpp/language/templates.html"><code>template</code></a> to implement input/output optimization for all integer types. For example, under the C++11 standard you can use</p>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">typename</span><span class="w"> </span><span class="nc">std</span><span class="o">::</span><span class="n">enable_if</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">is_integral</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">value</span><span class="w"> </span><span class="o">&amp;&amp;</span>
+<span class="w">                        </span><span class="n">std</span><span class="o">::</span><span class="n">is_signed</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">value</span><span class="o">&gt;::</span><span class="n">type</span>
+<span class="n">read</span><span class="p">(</span><span class="n">T</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">);</span>
+</code></pre></div>
+<p>or under the C++20 standard</p>
+<div class="highlight"><pre><span></span><code><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">signed_integral</span><span class="w"> </span><span class="n">T</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="n">T</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">);</span>
+</code></pre></div>
+<p>to define the function.</p>
+<p>For readability, the implementations below assume that only integers of type <code>int</code> need to be read; they are sufficient for the needs of most problems.</p>
+<h3 id="en-implementations">Implementations</h3>
+<p>The mainstream implementations differ only in the input/output functions they use; the integer conversion logic is the same. They are introduced below according to the input/output functions they use.</p>
+<h4 id="en-implementation-with-getchar-and-putchar">Implementation with <code>getchar</code> and <code>putchar</code></h4>
+<p>The core code is as follows.</p>
+<div class="highlight"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'-'</span><span class="p">)</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ch</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">'0'</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">write</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">putchar</span><span class="p">(</span><span class="sc">'-'</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="mi">40</span><span class="p">];</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">top</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">sta</span><span class="p">[</span><span class="n">top</span><span class="o">++</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">putchar</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="w">  </span><span class="k">else</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">putchar</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h4 id="en-implementation-with-fread-and-fwrite">Implementation with <code>fread</code> and <code>fwrite</code></h4>
+<p>Faster input and output can be achieved with <code>fread</code> and <code>fwrite</code>. Their signatures are as follows.</p>
+<div class="highlight"><pre><span></span><code><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="nf">fread</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span>
+<span class="w">                  </span><span class="n">std</span><span class="o">::</span><span class="kt">FILE</span><span class="o">*</span><span class="w"> </span><span class="n">stream</span><span class="p">);</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="nf">fwrite</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">void</span><span class="o">*</span><span class="w"> </span><span class="n">buffer</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">size</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">count</span><span class="p">,</span>
+<span class="w">                   </span><span class="n">std</span><span class="o">::</span><span class="kt">FILE</span><span class="o">*</span><span class="w"> </span><span class="n">stream</span><span class="p">);</span>
+</code></pre></div>
+<p>For example, <code>fread(Buf, 1, SIZE, stdin)</code> means: read <code>SIZE</code> blocks of size 1 byte from standard input into <code>Buf</code>. The return value is the number of bytes successfully read.</p>
+<p>Since <code>fread</code> and <code>fwrite</code> read and write whole blocks, they have a speed advantage over <code>getchar()</code> and <code>putchar()</code>. If the buffer is large enough, the whole file can be read at once. If the buffer is not large enough, several reads are needed to make sure all of the input is read. To implement this, we only need to redefine <code>getchar</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="mi">1</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="mi">20</span><span class="p">],</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">p2</span><span class="p">;</span>
+<span class="cp">#define gc()                                                               \</span>
+<span class="cp">  (p1 == p2 &amp;&amp; (p2 = (p1 = buf) + fread(buf, 1, 1 &lt;&lt; 20, stdin), p1 == p2) \</span>
+<span class="cp">       ? EOF                                                               \</span>
+<span class="cp">       : *p1++)</span>
+</code></pre></div>
+<p>Output is similar to input: the content to be printed is first put into a buffer, and at the end the contents of the buffer are written out at once with <code>fwrite</code>.</p>
+<p>The core code is as follows.</p>
+<div class="highlight"><pre><span></span><code><span class="c1">// #define DEBUG 1  // debug switch</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">IO</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#define MAXSIZE (1 &lt;&lt; 20)</span>
+<span class="cp">#define isdigit(x) (x &gt;= '0' &amp;&amp; x &lt;= '9')</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">buf</span><span class="p">[</span><span class="n">MAXSIZE</span><span class="p">],</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">p2</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">pbuf</span><span class="p">[</span><span class="n">MAXSIZE</span><span class="p">],</span><span class="w"> </span><span class="o">*</span><span class="n">pp</span><span class="p">;</span>
+<span class="cp">#if DEBUG</span>
+<span class="cp">#else</span>
+<span class="w">  </span><span class="n">IO</span><span class="p">()</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">p1</span><span class="p">(</span><span class="n">buf</span><span class="p">),</span><span class="w"> </span><span class="n">p2</span><span class="p">(</span><span class="n">buf</span><span class="p">),</span><span class="w"> </span><span class="n">pp</span><span class="p">(</span><span class="n">pbuf</span><span class="p">)</span><span class="w"> </span><span class="p">{}</span>
+
+<span class="w">  </span><span class="o">~</span><span class="n">IO</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">fwrite</span><span class="p">(</span><span class="n">pbuf</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">pp</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pbuf</span><span class="p">,</span><span class="w"> </span><span class="n">stdout</span><span class="p">);</span><span class="w"> </span><span class="p">}</span>
+<span class="cp">#endif</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">gc</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if DEBUG  </span><span class="c1">// debugging: characters can be displayed</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">getchar</span><span class="p">();</span>
+<span class="cp">#endif</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">p2</span><span class="p">)</span><span class="w"> </span><span class="n">p2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">p1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buf</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">fread</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">MAXSIZE</span><span class="p">,</span><span class="w"> </span><span class="n">stdin</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">p1</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">p2</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="sc">' '</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="o">*</span><span class="n">p1</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="o">!</span><span class="n">isdigit</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'-'</span><span class="p">)</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">isdigit</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ch</span><span class="p">);</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">isdigit</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">'0'</span><span class="p">);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="n">isspace</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">());</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(;</span><span class="w"> </span><span class="o">!</span><span class="n">isspace</span><span class="p">(</span><span class="n">ch</span><span class="p">);</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">())</span><span class="w"> </span><span class="o">*</span><span class="n">s</span><span class="o">++</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ch</span><span class="p">;</span>
+<span class="w">    </span><span class="o">*</span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">read</span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">();</span><span class="w"> </span><span class="n">isspace</span><span class="p">(</span><span class="n">c</span><span class="p">);</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gc</span><span class="p">());</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">&amp;</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if DEBUG  </span><span class="c1">// debugging: characters can be displayed</span>
+<span class="w">    </span><span class="n">putchar</span><span class="p">(</span><span class="n">c</span><span class="p">);</span>
+<span class="cp">#else</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pp</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">pbuf</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">MAXSIZE</span><span class="p">)</span><span class="w"> </span><span class="n">fwrite</span><span class="p">(</span><span class="n">pbuf</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">MAXSIZE</span><span class="p">,</span><span class="w"> </span><span class="n">stdout</span><span class="p">),</span><span class="w"> </span><span class="n">pp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pbuf</span><span class="p">;</span>
+<span class="w">    </span><span class="o">*</span><span class="n">pp</span><span class="o">++</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">c</span><span class="p">;</span>
+<span class="cp">#endif</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">      </span><span class="n">push</span><span class="p">(</span><span class="sc">'-'</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="mi">40</span><span class="p">];</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">top</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">do</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">sta</span><span class="p">[</span><span class="n">top</span><span class="o">++</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">/=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>
+<span class="w">      </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="w">    </span><span class="k">else</span>
+<span class="w">      </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">top</span><span class="p">)</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">sta</span><span class="p">[</span><span class="o">--</span><span class="n">top</span><span class="p">]);</span>
+<span class="w">  </span><span class="p">}</span>
+
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="n">lastChar</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">write</span><span class="p">(</span><span class="n">x</span><span class="p">),</span><span class="w"> </span><span class="n">push</span><span class="p">(</span><span class="n">lastChar</span><span class="p">);</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span><span class="w"> </span><span class="n">io</span><span class="p">;</span>
+</code></pre></div>
+<p>When using this method, note:</p>
+<ul>
+<li>With the debug switch off, <code>fread()</code> and <code>fwrite()</code> are used, and <code>fwrite()</code> is executed automatically by the destructor on exit. With the debug switch on, <code>getchar()</code> and <code>putchar()</code> are used, which makes debugging easier.</li>
+<li>If you want to read from and write to files, add <code>freopen()</code> before all reading and writing.</li>
+</ul>
+<h4 id="en-implementation-with-mmap">Implementation with <code>mmap</code></h4>
+<p><code>mmap</code> is a Linux system call that maps a file into memory at once, similar to a memory region that can be referenced by a pointer, and is faster in some situations. Its signature is as follows:</p>
+<div class="highlight"><pre><span></span><code><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="nf">mmap</span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="n">addr</span><span class="p">[.</span><span class="n">length</span><span class="p">],</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">length</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">prot</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">flags</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">fd</span><span class="p">,</span>
+<span class="w">           </span><span class="kt">off_t</span><span class="w"> </span><span class="n">offset</span><span class="p">);</span>
+</code></pre></div>
+<details class="warning" open="open">
+<summary>Note</summary>
+<p><code>mmap</code> cannot be used in a Windows environment (for example, the judging systems of Codeforces and HDU), and it is also not recommended in official contests. In fact <code>fread</code> is already fast enough, and if <code>mmap</code> is used to repeatedly read a small chunk of a file, the overhead of a memory mapping and of the kernel handling page faults is far greater than the overhead of <code>fread</code>.</p>
+</details>
+<p>First obtain the file descriptor <code>fd</code>, then get the file size with <code>fstat</code>, and then obtain the pointer <code>*pc</code> to the file mapped into memory with <code>mmap</code>. After that, <code>*pc++</code> can be used directly instead of <code>getchar()</code> to read the file.</p>
+<p>If you need to read from standard input, <code>fd</code> can be set to <code>0</code>. <strong>However, using mmap on standard input is extremely dangerous, and you cannot type input in a terminal; you can redirect a file to standard input instead.</strong></p>
+<details class="note" open="open">
+<summary>Example: <a href="https://www.luogu.com.cn/problem/P10815">Luogu P10815 \"Template\" Fast input</a></summary>
+<p>Read <span class="arithmatex">\(n\)</span> integers in the range <span class="arithmatex">\([-n, n]\)</span>, sum them and print the sum, where <span class="arithmatex">\(n \leq 10^8\)</span>. The data guarantee that for every prefix of the sequence, the sum of that prefix fits in a <span class="arithmatex">\(32\)</span>-bit signed integer.</p>
+</details>
+<p>The reference code is as follows.</p>
+<div class="highlight"><pre><span></span><code><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;fcntl.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/mman.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/stat.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;unistd.h&gt;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cstdio&gt;</span>
+
+<span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">rd</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">bool</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">  </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="kt">char</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">'-'</span><span class="p">)</span><span class="w"> </span><span class="n">neg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="o">++</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">neg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="sc">'0'</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">ch</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">'0'</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">ch</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">'9'</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="n">ch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">'0'</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">*</span><span class="n">pc</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">fd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w">  </span><span class="c1">// read from stdin</span>
+<span class="w">  </span><span class="c1">// int fd = open("xxx.in", O_RDONLY); // read from a file</span>
+<span class="w">  </span><span class="k">struct</span><span class="w"> </span><span class="nc">stat</span><span class="w"> </span><span class="n">state</span><span class="p">;</span>
+<span class="w">  </span><span class="n">fstat</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">state</span><span class="p">);</span><span class="w">  </span><span class="c1">// get the file size</span>
+<span class="w">  </span><span class="n">pc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="n">mmap</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">.</span><span class="n">st_size</span><span class="p">,</span><span class="w"> </span><span class="n">PROT_READ</span><span class="p">,</span><span class="w"> </span><span class="n">MAP_PRIVATE</span><span class="p">,</span><span class="w"> </span><span class="n">fd</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">x</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">  </span><span class="n">rd</span><span class="p">(</span><span class="n">n</span><span class="p">);</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="n">n</span><span class="o">--</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">rd</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+<span class="w">    </span><span class="n">sum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">x</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">printf</span><span class="p">(</span><span class="s">"%d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div>
+<h2 id="en-references">References</h2>
+<p><a href="https://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">cin.tie 与 sync_with_stdio 加速输入输出 - 码农场 (Chinese)</a></p>
+<p><a href="https://heavywatal.github.io/cxx/speed.html">C++ 高速化 - Heavy Watal (Japanese)</a></p>
+<p><a href="https://marc.info/?l=linux-kernel&amp;m=95496636207616&amp;w=2">'Re: mmap/mlock performance versus read' - MARC</a></p>
+        </div>
+        <nav class="oiwiki-susjedi"><a class="prethodna" href="resources.html">← <span class="jezik jezik-hr" lang="hr">Resursi za učenje</span><span class="jezik jezik-en" lang="en">Learning resources</span></a><span></span><a class="sljedeca" href="dictionary.html"><span class="jezik jezik-hr" lang="hr">Tablice unaprijed izračunatih odgovora</span><span class="jezik jezik-en" lang="en">Lookup tables</span> →</a></nav>
+    </article>
+</body>
+</html>

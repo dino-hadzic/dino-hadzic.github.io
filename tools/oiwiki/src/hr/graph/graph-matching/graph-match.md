@@ -187,7 +187,7 @@ U težinskom općem grafu problem se može riješiti Edmondsovim blossom algorit
 
 ## Povezani problemi
 
-Najveće sparivanje (maksimalne težine) usko je povezano s drugim problemima teorije grafova. U ovom odjeljku razmatramo samo opće grafove; za rezultate o bipartitnim grafovima vidi stranicu [Najveće sparivanje u bipartitnom grafu](./bigraph-match.md#相关问题).
+Najveće sparivanje (maksimalne težine) usko je povezano s drugim problemima teorije grafova. U ovom odjeljku razmatramo samo opće grafove; za rezultate o bipartitnim grafovima vidi stranicu [Najveće sparivanje u bipartitnom grafu](./bigraph-match.md#povezani-problemi).
 
 ### Najveće sparivanje maksimalne težine
 

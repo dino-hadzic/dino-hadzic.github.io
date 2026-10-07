@@ -9,7 +9,7 @@ Preduvjeti: [Dijkstrin algoritam](./shortest-path.md#dijkstrin-algoritam), [A\* 
 Zadan je usmjereni graf s $n$ vrhova i $m$ bridova; odredite duljinu $k$-tog najkraćeg među svim različitim putovima od $s$ do $t$.
 
 ???+ info "„Put”"
-    „Put” u ovom članku smije više puta proći istim bridom ili istim vrhom, pa bi strogi naziv bio „[šetnja](./concept.md#路径)” (walk), a ne „put”. Problem o kojem govorimo strogo je, dakle, problem **$k$-te najkraće šetnje** ($k$ shortest walk). No, prema uvriježenoj praksi, u članku i dalje rabimo naziv „put”, a put koji se ne siječe sam sa sobom zovemo „jednostavni put”.
+    „Put” u ovom članku smije više puta proći istim bridom ili istim vrhom, pa bi strogi naziv bio „[šetnja](./concept.md#putevi)” (walk), a ne „put”. Problem o kojem govorimo strogo je, dakle, problem **$k$-te najkraće šetnje** ($k$ shortest walk). No, prema uvriježenoj praksi, u članku i dalje rabimo naziv „put”, a put koji se ne siječe sam sa sobom zovemo „jednostavni put”.
 
 ## A\* algoritam
 

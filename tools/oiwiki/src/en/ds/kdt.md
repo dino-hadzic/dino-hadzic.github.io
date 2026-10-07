@@ -144,7 +144,7 @@ Below is sample code using binary grouping.
     The worst-case time complexity of a single nearest-point query with a k-D Tree is still $O(n)$, but it is nevertheless an excellent heuristic for scoring partial points; use it with care. The explanation of neighborhood queries here only serves to deepen the understanding of the k-D Tree structure.
 
 ???+ note "Example problem [Luogu P1429 平面最近点对（加强版）](https://www.luogu.com.cn/problem/P1429)"
-    Given $n$ points $(x_i,y_i)$ in the plane, find the [Euclidean distance](../geometry/distance.md#欧氏距离) between the closest pair of points in the plane.
+    Given $n$ points $(x_i,y_i)$ in the plane, find the [Euclidean distance](../geometry/distance.md#euclidean-distance) between the closest pair of points in the plane.
     
     $2\le n\le 200000 , 0\le x_i,y_i\le 10^9$
 

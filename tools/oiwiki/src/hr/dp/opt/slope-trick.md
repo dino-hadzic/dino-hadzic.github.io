@@ -221,7 +221,7 @@ zove se **infimalna konvolucija**[^inf-conv] (infimal convolution) funkcija $f$ 
 ??? example "Objašnjenje slike"
     Kao na slici, da bismo dobili infimalnu konvoluciju $h$ funkcija $f$ i $g$, svaku točku grafa funkcije $f$ (crvena isprekidana crta na trećoj slici) možemo smatrati ishodištem i u pripadnom koordinatnom sustavu nacrtati graf funkcije $g$ (plava isprekidana crta na trećoj slici). Kad se ishodište koordinatnog sustava pomiče po grafu funkcije $f$, obris traga koji ostavlja graf (epigraf) funkcije $g$ (tj. donja konveksna ljuska) upravo je graf funkcije $h$. Vidi se da je svaki segment nagiba funkcije $h$ ili segment nagiba funkcije $f$ ili segment nagiba funkcije $g$: samo su iznova poredani po veličini nagiba. Pritom se uloge $f$ i $g$ mogu zamijeniti, tj. pomičemo li graf funkcije $f$ po grafu funkcije $g$, rezultat je isti.
 
-Geometrijski gledano, $\operatorname{epi}h$ je upravo [suma Minkowskog](../../geometry/convex-hull.md#闵可夫斯基和) skupova $\operatorname{epi}f$ i $\operatorname{epi}g$. Ako su $f$ i $g$ po dijelovima linearne funkcije, tada je i $h$ po dijelovima linearna, a njezini segmenti nagiba mogu se promatrati kao rezultat spajanja (i ponovnog sortiranja) segmenata nagiba funkcija $f$ i $g$.
+Geometrijski gledano, $\operatorname{epi}h$ je upravo [suma Minkowskog](../../geometry/convex-hull.md#suma-minkowskog) skupova $\operatorname{epi}f$ i $\operatorname{epi}g$. Ako su $f$ i $g$ po dijelovima linearne funkcije, tada je i $h$ po dijelovima linearna, a njezini segmenti nagiba mogu se promatrati kao rezultat spajanja (i ponovnog sortiranja) segmenata nagiba funkcija $f$ i $g$.
 
 ??? note "Dokaz"
     Neka su $f,g$ konveksne funkcije i $h$ njihova infimalna konvolucija. Neka je $x_1<x_2$ i $\alpha\in(0,1)$. Prema definiciji infimalne konvolucije, za svaki $\varepsilon>0$ postoje $y_i,z_i\in\mathbf R$ takvi da je $y_i+z_i=x_i$ i
@@ -411,7 +411,7 @@ Ogledni zadaci:
     1.  pomak svih segmenata negativnog nagiba ulijevo za $h$ i svih segmenata pozitivnog nagiba udesno za $h$;
     2.  dvostruko umetanje $a_i$.
     
-    Očito je za ovaj zadatak zgodno zasebno održavati segmente pozitivnog i negativnog nagiba. Budući da su operacije uglavnom koncentrirane oko segmenta nultog nagiba, razmotrimo [par hrpa](../../ds/binary-heap.md#对顶堆), tj. max-hrpom i min-hrpom zasebno održavamo lomne točke segmenata negativnog i pozitivnog nagiba. Pomak svih lomnih točaka izvodimo lijenom oznakom. U drugom koraku u svaku od dviju hrpa umećemo po jedan $a_i$; nakon umetanja vrh max-hrpe ne mora više biti manji ili jednak vrhu min-hrpe. Tada zamjenjujemo vrhove hrpa dok odnos veličina vrhova ne bude zadovoljen.
+    Očito je za ovaj zadatak zgodno zasebno održavati segmente pozitivnog i negativnog nagiba. Budući da su operacije uglavnom koncentrirane oko segmenta nultog nagiba, razmotrimo [par hrpa](../../ds/binary-heap.md#dvostruki-heap), tj. max-hrpom i min-hrpom zasebno održavamo lomne točke segmenata negativnog i pozitivnog nagiba. Pomak svih lomnih točaka izvodimo lijenom oznakom. U drugom koraku u svaku od dviju hrpa umećemo po jedan $a_i$; nakon umetanja vrh max-hrpe ne mora više biti manji ili jednak vrhu min-hrpe. Tada zamjenjujemo vrhove hrpa dok odnos veličina vrhova ne bude zadovoljen.
     
     Na kraju razmotrimo kako tijekom operacija ažurirati minimum. Budući da pomak u prvom koraku ne mijenja minimum, dovoljno je razmotriti operaciju zamjene vrhova hrpa. Neka je $\xi_{-1}>\xi_1$; pri zamjeni vrhova $\xi_{-1}$ i $\xi_1$ funkcija se iz
     

@@ -6,7 +6,7 @@ title: Particijsko stablo
 
 Particijsko stablo (dividing tree) struktura je podataka za rješavanje problema $K$-tog najvećeg elementa intervala; ima znatno manju konstantu i lakše se razumije od perzistentnog segment treea (tzv. „chairman tree”). Istodobno je particijsko stablo usko vezano uz „$K$-ti najveći”, pa je to struktura podataka temeljena na sortiranju.
 
-Preduvjeti: [perzistentni segment tree](persistent-seg.md#主席树)
+Preduvjeti: [perzistentni segment tree](persistent-seg.md#chairman-tree)
 
 ## Postupak
 

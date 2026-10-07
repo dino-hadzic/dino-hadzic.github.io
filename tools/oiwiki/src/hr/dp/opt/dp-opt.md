@@ -30,9 +30,9 @@ Ovdje je svaki $f(i,\cdot)$ polje ili neki drugi složeniji objekt. Dakle, iako 
 
 ### Optimizacija DP-a prefiksnim sumama
 
-Povezana stranica: [prefiksne sume](../../basic/prefix-sum.md#前缀和)
+Povezana stranica: [prefiksne sume](../../basic/prefix-sum.md#prefiksne-sume)
 
-Ako izračun trenutnog stanja ovisi o zbroju nekog podsegmenta prethodnih stanja, izračun se može ubrzati održavanjem prefiksnih suma. Jedna klasa zadataka s višedimenzionalnim prefiksnim sumama naziva se i [SOS DP](../../basic/prefix-sum.md#特例子集和-dp).
+Ako izračun trenutnog stanja ovisi o zbroju nekog podsegmenta prethodnih stanja, izračun se može ubrzati održavanjem prefiksnih suma. Jedna klasa zadataka s višedimenzionalnim prefiksnim sumama naziva se i [SOS DP](../../basic/prefix-sum.md#poseban-slučaj-dp-po-podskupovima-sos).
 
 Zadaci:
 
