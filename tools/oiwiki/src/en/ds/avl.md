@@ -1,0 +1,157 @@
+---
+title: AVL tree
+---
+
+An AVL tree is a balanced binary search tree. Lengthy explanations of AVL trees in algorithm textbooks have given many people the impression that they are complicated and impractical. In fact, the principles of AVL trees are simple, and their implementation is not complicated either.
+
+## Properties
+
+1.  An empty binary tree is an AVL tree.
+2.  If T is an AVL tree, its left and right subtrees are also AVL trees, and $|h(ls) - h(rs)| \leq 1$, where h denotes the height of a subtree.
+3.  The tree height is $O(\log n)$.
+
+Balance factor: height of the right subtree - height of the left subtree.
+
+???+ note "Proof of the height bound"
+    Let $f_n$ be the minimum number of nodes in an AVL tree of height $n$. Then
+    
+    $$
+    f_n=
+    \begin{cases}
+    1&(n=1)\\
+    2&(n=2)\\
+    f_{n-1}+f_{n-2}+1& (n>2)
+    \end{cases}
+    $$
+    
+    By solving the nonhomogeneous linear difference equation with constant coefficients, $\{f_n+1\}$ is a Fibonacci sequence. The explicit formula for $f_n$ is:
+    
+    $$
+    f_n=\frac{5+2\sqrt{5}}{5}\left(\frac{1+\sqrt{5}}{2}\right)^n+\frac{5-2\sqrt{5}}{5}\left(\frac{1-\sqrt{5}}{2}\right)^n-1
+    $$
+    
+    The Fibonacci sequence grows exponentially, so for the tree height $n$ we have:
+    
+    $$
+    n<\log_{\frac{1+\sqrt{5}}{2}} (f_n+1)<\frac{3}{2}\log_2 (f_n+1)
+    $$
+    
+    Therefore, the height of an AVL tree is $O(\log f_n)$, where $f_n$ is the number of nodes.
+
+## Procedure
+
+### Inserting a node
+
+As in a BST (binary search tree), first perform an unsuccessful search to determine the insertion position. After inserting the node, use the balance factor to decide whether adjustments are needed.
+
+### Deleting a node
+
+Deletion is similar to deletion in a BST: swap the node with its successor, then delete it.
+
+Deletion changes the tree height and balance factors. These changes must be handled along the path from the deleted node to the root.
+
+### Maintaining balance
+
+Inserting or deleting a node may violate property 2 of an AVL tree. We therefore maintain the tree along the path from the inserted/deleted node to the root. If property 2 no longer holds at some node, the absolute value of its balance factor is at most 2: we inserted/deleted only one node, which changes the height by at most 1. By symmetry, we only discuss the case in which the left subtree is 2 taller than the right subtree, namely $h(B)-h(E)=2$ in the figure below. We further distinguish two cases according to the relationship between $h(A)$ and $h(C)$. Note that since we maintain balance from the bottom up, property 2 still holds for all descendants of node D.
+
+![](./images/avl1.svg)
+
+#### Case 1: the subtree at A is at least as tall as the subtree at C
+
+Let $h(E)=x$. Then
+
+$$
+\begin{cases}
+    h(B)=x+2\\
+    h(A)=x+1\\
+    x\leq h(C)\leq x+1
+\end{cases}
+$$
+
+Here, $h(C)\geq x$ follows because node B satisfies property 2, so $h(C)$ and $h(A)$ differ by at most 1. We now perform a right rotation at node D (rotations are the same as in other types of balanced binary search trees), as shown below.
+
+![](./images/avl2.svg)
+
+Clearly, the heights of nodes A, C, and E do not change, and
+
+$$
+\begin{cases}
+    0\leq h(C)-h(E)\leq 1\\
+    x+1\leq h'(D)=\max(h(C),h(E))+1=h(C)+1\leq x+2\\
+    0\leq h'(D)-h(A)\leq 1
+\end{cases}
+$$
+
+Therefore, nodes B and D also satisfy property 2 after the rotation.
+
+#### Case 2: the subtree at A is shorter than the subtree at C
+
+Let $h(E)=x$. By the same reasoning as before,
+
+$$
+\begin{cases}
+    h(B)=x+2\\
+    h(C)=x+1\\
+    h(A)=x
+\end{cases}
+$$
+
+We now first perform a left rotation at node B, then a right rotation at node D, as shown below.
+
+![](./images/avl3.svg)
+
+Clearly, the heights of nodes A and E do not change. The new right child of B and the new left child of D are the original left and right children of C, respectively, so
+
+$$
+\begin{cases}
+    x-1\leq h'(rs_B),h'(ls_D)\leq x\\
+    0\leq h(A)-h'(rs_B)\leq 1\\
+    0\leq h(E)-h'(ls_D)\leq 1\\
+    h'(B)=\max(h(A),h'(rs_B))+1=x+1\\
+    h'(D)=\max(h(E),h'(ls_D))+1=x+1\\
+    h'(B)-h'(D)=0
+\end{cases}
+$$
+
+Therefore, nodes B, C, and D also satisfy property 2 after the rotations.
+
+???+ note "Balance maintenance: pseudocode"
+    $$
+    \begin{array}{ll}
+    1 &  \textbf{function } \mathrm{MaintainBalance}(p) \\
+    2 &  \qquad l \gets ls_p, r \gets rs_p \\
+    3 &  \qquad \textbf{if } h(l)-h(r)=2 \\
+    4 &  \qquad\qquad \textbf{if } h(ls_l) \ge h(rs_l) \\
+    5 &  \qquad\qquad\qquad \mathrm{RightRotate}(p) \\
+    6 &  \qquad\qquad \textbf{else} \\
+    7 &  \qquad\qquad\qquad \mathrm{LeftRotate}(l) \\
+    8 &  \qquad\qquad\qquad \mathrm{RightRotate}(p) \\
+    9 &  \qquad \textbf{else if } h(l)-h(r)=-2 \\
+    10 &  \qquad\qquad \textbf{if } h(ls_r) \le h(rs_r) \\
+    11 &  \qquad\qquad\qquad \mathrm{LeftRotate}(p) \\
+    12 &  \qquad\qquad \textbf{else} \\
+    13 &  \qquad\qquad\qquad \mathrm{RightRotate}(r) \\
+    14 &  \qquad\qquad\qquad \mathrm{LeftRotate}(p) \\
+    \end{array}
+    $$
+
+As with other balanced binary search trees, information such as node heights and subtree sizes must be maintained during rotations in an AVL tree.
+
+## Other operations
+
+Other AVL tree operations (Predecessor, Successor, Select, Rank, etc.) are the same as in an ordinary binary search tree.
+
+## Reference code
+
+The following code implements a `Map`, an ordered mapping with unique keys, using an AVL tree:
+
+??? note "Reference code"
+    ```cpp
+    --8<-- "docs/ds/code/avl-tree/AvlTreeMap.hpp"
+    ```
+
+## Further reading
+
+You can observe AVL tree balance maintenance at [AVL Tree Visualization](https://www.cs.usfca.edu/~galles/visualization/AVLtree.html).
+
+[Wikipedia — AVL tree](https://en.wikipedia.org/wiki/AVL_tree)
