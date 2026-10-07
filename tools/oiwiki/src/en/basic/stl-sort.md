@@ -187,7 +187,7 @@ Common mistakes:
 
 -   using `<=` to define the less-than operator for sorting;
 -   reading, inside the sorting operator, an external array whose values may change (common in shortest-path algorithms);
--   using the result of comparing maxima/minima of several numbers as the sorting operator (the classic mistake in problems such as "皇后游戏" / "加工生产调度").
+-   using the result of comparing maxima/minima of several numbers as the sorting operator (the classic mistake in problems such as "皇后游戏" (Queen's Game) / "加工生产调度" (Production Scheduling)).
 
 ## External links
 

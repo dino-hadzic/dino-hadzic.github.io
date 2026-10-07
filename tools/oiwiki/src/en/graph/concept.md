@@ -123,7 +123,7 @@ It is easy to see that an induced subgraph is determined solely by the vertex se
 
 If $H \subseteq G$ satisfies $V' = V$, then $H$ is called a **spanning subgraph** of $G$.
 
-Obviously, $G$ is a subgraph, a spanning subgraph and an induced subgraph of itself; the [edgeless graph](#en-special-graphs) is a spanning subgraph of $G$. The original graph $G$ and the edgeless graph are the trivial subgraphs of $G$.
+Obviously, $G$ is a subgraph, a spanning subgraph and an induced subgraph of itself; the [edgeless graph](#special-graphs) is a spanning subgraph of $G$. The original graph $G$ and the edgeless graph are the trivial subgraphs of $G$.
 
 If some spanning subgraph $F$ of an undirected graph $G$ is a $k$-regular graph, then $F$ is called a **$k$-factor** of $G$.
 
