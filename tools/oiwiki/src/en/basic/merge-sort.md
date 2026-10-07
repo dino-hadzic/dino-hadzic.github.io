@@ -104,7 +104,7 @@ Further reading and reference implementation: [Inversions](../math/permutation.m
 
 An inversion is an ordered pair $(i, j)$ with $i < j$ and $a_i > a_j$.
 
-A sorted array has no inversions. In the merge step of merge sort, every time the first element of the back segment is taken as the current minimum, the number of remaining elements in the front segment is the number of inversions removed by that merge; hence merge sort counts inversions in $\Theta (n \log n)$ time. Inversions can also be counted with a Fenwick tree or a segment tree, also in $O(n \log n)$; a detailed explanation of that algorithm is in the corresponding part of the [Fenwick tree](../ds/fenwick.md#全局逆序对全局二维偏序) chapter. Reference implementations of both algorithms are in the [Inversions](../math/permutation.md#逆序数) chapter.
+A sorted array has no inversions. In the merge step of merge sort, every time the first element of the back segment is taken as the current minimum, the number of remaining elements in the front segment is the number of inversions removed by that merge; hence merge sort counts inversions in $\Theta (n \log n)$ time. Inversions can also be counted with a Fenwick tree or a segment tree, also in $O(n \log n)$; a detailed explanation of that algorithm is in the corresponding part of the [Fenwick tree](../ds/fenwick.md#global-inversions-global-two-dimensional-partial-order) chapter. Reference implementations of both algorithms are in the [Inversions](../math/permutation.md#逆序数) chapter.
 
 ## External links
 

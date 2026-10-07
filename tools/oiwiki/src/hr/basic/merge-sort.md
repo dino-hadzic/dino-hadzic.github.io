@@ -104,7 +104,7 @@ Dodatno čitanje i referentna implementacija: [Inverzije](../math/permutation.md
 
 Inverzija je uređeni par $(i, j)$ takav da je $i < j$ i $a_i > a_j$.
 
-Sortirani niz nema inverzija. U postupku spajanja merge sorta, svaki put kad se prvi element stražnjeg dijela uzme kao trenutni minimum, broj preostalih elemenata prednjeg dijela jednak je broju inverzija koje to spajanje uklanja; stoga merge sort broji inverzije u vremenu $\Theta (n \log n)$. Osim toga, inverzije se mogu brojati i Fenwickovim stablom ili segmentnim stablom, također u $O(n \log n)$; detaljno objašnjenje tog algoritma nalazi se u odgovarajućem dijelu poglavlja [Fenwickovo stablo](../ds/fenwick.md#全局逆序对全局二维偏序). Referentne implementacije obaju algoritama nalaze se u poglavlju [Inverzije](../math/permutation.md#逆序数).
+Sortirani niz nema inverzija. U postupku spajanja merge sorta, svaki put kad se prvi element stražnjeg dijela uzme kao trenutni minimum, broj preostalih elemenata prednjeg dijela jednak je broju inverzija koje to spajanje uklanja; stoga merge sort broji inverzije u vremenu $\Theta (n \log n)$. Osim toga, inverzije se mogu brojati i Fenwickovim stablom ili segmentnim stablom, također u $O(n \log n)$; detaljno objašnjenje tog algoritma nalazi se u odgovarajućem dijelu poglavlja [Fenwickovo stablo](../ds/fenwick.md#globalne-inverzije-globalni-dvodimenzionalni-parcijalni-poredak). Referentne implementacije obaju algoritama nalaze se u poglavlju [Inverzije](../math/permutation.md#逆序数).
 
 ## Vanjske poveznice
 
