@@ -187,7 +187,7 @@ Operator po kojem se sortira mora zadovoljavati [strogi slabi uređaj](../math/o
 
 -   definiranje operatora „manje” za sortiranje pomoću `<=`;
 -   čitanje vanjskog niza čije se vrijednosti mogu mijenjati tijekom poziva operatora sortiranja (često u algoritmima najkraćeg puta);
--   korištenje rezultata usporedbe maksimuma/minimuma više brojeva kao operatora sortiranja (klasična pogreška u zadacima poput „皇后游戏”/„加工生产调度”).
+-   korištenje rezultata usporedbe maksimuma/minimuma više brojeva kao operatora sortiranja (klasična pogreška u zadacima poput „皇后游戏” (Igra kraljica) / „加工生产调度” (Raspoređivanje proizvodnje)).
 
 ## Vanjske poveznice
 

@@ -217,7 +217,14 @@ def prefix_ids(body: str, lang: str) -> str:
 def rewrite_links(page: Page, pages: dict[str, Page], lang: str) -> str:
     def zamjena(m):
         attrs, href = m.group(1), m.group(2)
-        if re.match(r"^(https?:|mailto:|#|javascript:)", href):
+        if href.startswith("#"):
+            anchor = href[1:]
+            if lang != "hr" and anchor.startswith(f"{lang}-"):
+                anchor = anchor[len(lang) + 1:]
+            if anchor and anchor not in page.ids.get(lang, set()):
+                greska(f"{page.key} ({lang}): poveznica na nepostojeću kotvu #{anchor} na istoj stranici")
+            return m.group(0)
+        if re.match(r"^(https?:|mailto:|javascript:)", href):
             return m.group(0)
         path, _, anchor = href.partition("#")
         if path.endswith(".md"):
