@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Strojno učenje 1: Uvod u strojno učenje i linearna regresija</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#strojno-ucenje">Strojno učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Strojno učenje · lekcija 1 od 6</p>
+            <h1><span class="broj-lekcije">M1</span> Uvod u strojno učenje i linearna regresija</h1>
+            <p class="meta">Što znači „naučiti iz podataka”: podaci, model, gubitak i optimizacija na najjednostavnijem modelu</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.0" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>nadzirano učenje</li>
+                <li>hipoteza</li>
+                <li>MSE</li>
+                <li>metoda najmanjih kvadrata</li>
+                <li>normalna jednadžba</li>
+                <li>$R^2$</li>
+                <li>train/test podjela</li>
+                <li>scikit-learn</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Razlikovati nadzirano, nenadzirano i podržano učenje te prepoznati regresiju i klasifikaciju u tekstu zadatka.</li>
+<li>Zapisati linearni model u matričnom obliku, definirati gubitak MSE i izvesti normalnu jednadžbu $w^*=(X^\top X)^{-1}X^\top y$.</li>
+<li>Istrenirati linearnu regresiju ručno u NumPy-ju i u scikit-learnu, izmjeriti $R^2$ i MSE na odvojenom testnom skupu.</li>
+<li>Vidjeti na primjeru polinomijalne regresije zašto model koji je savršen na treningu može biti beskoristan na novim podacima.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Klasično programiranje: čovjek napiše pravila, računalo ih primijeni na podatke. <b>Strojno učenje</b> (engl. <i>machine learning</i>, ML) okreće smjer: zadamo podatke i <em>obitelj</em> mogućih pravila (model), a algoritam iz podataka odabere ono pravilo koje najbolje odgovara. Svaki zadatak na IOAI – od predviđanja cijene do klasifikacije slika – može se opisati četirima sastojcima: <b>podaci</b>, <b>model</b>, <b>gubitak</b> (mjera koliko model griješi) i <b>algoritam učenja</b> (postupak koji smanjuje gubitak).</p>
+
+<h3>Vrste učenja</h3>
+<div class="pojam">
+<h4>Nadzirano učenje</h4>
+<p>Zadan je skup podataka $D=\{(x_1,y_1),\dots,(x_n,y_n)\}$ parova <b>ulaz</b> $x_i\in\mathbb R^d$ (vektor <b>značajki</b>, engl. <i>features</i>) i <b>ciljna vrijednost</b> $y_i$ (engl. <i>label, target</i>). Cilj je naći funkciju $f$ takvu da $f(x)\approx y$ i za <em>nove</em>, neviđene ulaze. Ako je $y\in\mathbb R$, zadatak je <b>regresija</b>; ako $y$ pripada konačnom skupu klasa, zadatak je <b>klasifikacija</b>.</p>
+</div>
+<p>U <b>nenadziranom učenju</b> nema oznaka $y$ – tražimo strukturu u samim ulazima (grupiranje, smanjenje dimenzije; lekcija M6). U <b>podržanom učenju</b> (engl. <i>reinforcement learning</i>) agent uči iz nagrada koje dobiva za svoje poteze; na IOAI se pojavljuje rijetko, pa ga u ovom kurikulumu samo spominjemo.</p>
+
+<div class="trener-umetak">
+<p>Prvo pitanje pri čitanju bilo kojeg zadatka: <em>što je $x$, što je $y$, a čime se mjeri uspjeh?</em> Ako znaš odgovor na ta tri pitanja, znaš i koju lekciju ovog kurikuluma otvoriti.</p>
+</div>
+
+<h3>Linearni model</h3>
+<div class="pojam">
+<h4>Linearna regresija</h4>
+<p>Model (hipoteza) linearne regresije je
+$$\hat y = f_{w,b}(x) = w_1x_1+w_2x_2+\dots+w_dx_d + b = w^\top x + b,$$
+gdje su $w\in\mathbb R^d$ <b>težine</b> i $b\in\mathbb R$ <b>pomak</b> (engl. <i>bias, intercept</i>). Za $d=1$ to je pravac $\hat y=wx+b$.</p>
+</div>
+<p>Pomak se najlakše obrađuje <b>trikom s jedinicom</b>: svakom ulazu dodamo nultu značajku $x_0=1$, pa je $b=w_0$ i model postaje $\hat y=w^\top x$ s $w\in\mathbb R^{d+1}$. Ako sve ulaze složimo u redove <b>matrice dizajna</b> $X\in\mathbb R^{n\times(d+1)}$ (prvi stupac su jedinice) i oznake u vektor $y\in\mathbb R^n$, sve predikcije odjednom su $\hat y = Xw$.</p>
+
+<h3>Gubitak: srednja kvadratna greška</h3>
+<div class="pojam">
+<h4>MSE</h4>
+<p><b>Srednja kvadratna greška</b> (engl. <i>mean squared error</i>) modela s parametrima $w$ na skupu $D$ je
+$$L(w)=\frac1n\sum_{i=1}^n\left(\hat y_i-y_i\right)^2=\frac1n\lVert Xw-y\rVert^2 .$$
+Razlike $r_i=y_i-\hat y_i$ zovu se <b>reziduali</b>.</p>
+</div>
+<p>Zašto baš kvadrat? Kvadrat je gladak (derivabilan), kažnjava velike greške jače od malih i – kako ćemo sad vidjeti – ima rješenje u zatvorenom obliku. Druga česta mjera je <b>MAE</b>, srednja apsolutna greška $\frac1n\sum|r_i|$, koja je otpornija na odstupajuće podatke (engl. <i>outliers</i>), ali nema zatvoreno rješenje. Izbor gubitka dio je dizajna modela: na natjecanju ga obično diktira metrika kojom se rješenje ocjenjuje.</p>
+
+<div class="tvrdnja">
+<p><strong>Teorem 1 (normalna jednadžba).</strong> Ako matrica $X^\top X$ ima inverz, MSE ima jedinstven minimum u
+$$w^*=\left(X^\top X\right)^{-1}X^\top y .$$
+Taj postupak zove se <b>metoda najmanjih kvadrata</b> (engl. <i>ordinary least squares</i>, OLS).</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Raspišimo $nL(w)=(Xw-y)^\top(Xw-y)=w^\top X^\top Xw-2y^\top Xw+y^\top y$. Gradijent po $w$ (lekcija P6) je $\nabla_w\,nL=2X^\top Xw-2X^\top y$. U minimumu je gradijent nula, pa $X^\top Xw=X^\top y$; to su <em>normalne jednadžbe</em>, a uz invertibilnost slijedi formula. Minimum je jedinstven jer je Hesseova matrica $2X^\top X$ pozitivno definitna: za $v\ne0$ je $v^\top X^\top Xv=\lVert Xv\rVert^2\gt0$ (nula bi značila $Xv=0$, što invertibilnost isključuje). <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+
+<div class="trener-umetak">
+<p>U praksi se $\left(X^\top X\right)^{-1}$ <em>ne računa</em>: inverz je numerički nestabilan kad su značajke gotovo linearno zavisne (npr. visina u cm i u m). Koristi <code>np.linalg.lstsq(X, y)</code> ili <code>np.linalg.solve(X.T @ X, X.T @ y)</code>; scikit-learn interno radi isto. Ako je $X^\top X$ singularna (više parametara nego podataka, duplicirane značajke), rješenja ima beskonačno mnogo – lijek je regularizacija iz lekcije M2.</p>
+</div>
+
+<h3>Koliko je model dobar?</h3>
+<div class="pojam">
+<h4>Koeficijent determinacije $R^2$</h4>
+<p>Uz $\bar y=\frac1n\sum y_i$,
+$$R^2 = 1-\frac{\sum_i (y_i-\hat y_i)^2}{\sum_i (y_i-\bar y)^2}.$$
+Nazivnik je greška najglupljeg modela koji uvijek predviđa prosjek; $R^2=1$ znači savršene predikcije, $R^2=0$ da nismo bolji od prosjeka, a $R^2\lt0$ da smo gori od njega (na testnim podacima to je moguće!).</p>
+</div>
+
+<h3>Generalizacija: trening i test</h3>
+<p>Mala greška na podacima na kojima smo učili ne znači ništa – model može jednostavno <em>zapamtiti</em> podatke. Zato se skup uvijek dijeli na <b>skup za učenje</b> (engl. <i>train</i>) na kojem biramo $w$ i <b>testni skup</b> koji model vidi tek na kraju, jednom. Razlika između greške na treningu i na testu zove se <b>jaz generalizacije</b>; velik jaz je znak <b>prenaučenosti</b> (engl. <i>overfitting</i>), a velika greška na oba skupa znak <b>podnaučenosti</b> (engl. <i>underfitting</i>). Primjer 3 pokazuje oboje, a lekcija M5 razrađuje kako to mjeriti pouzdano.</p>
+
+<h3>Linearno u parametrima, ne nužno u $x$</h3>
+<p>Model je linearan u <em>parametrima</em> $w$, a značajke smiju biti bilo kakve funkcije ulaza. Ako iz jedne varijable $x$ napravimo značajke $1,x,x^2,\dots,x^k$, dobivamo <b>polinomijalnu regresiju</b> – polinom stupnja $k$ u $x$, ali još uvijek linearna regresija s istom normalnom jednadžbom. Isto vrijedi za $\log x$, $\sin x$, umnoške $x_1x_2$ itd. Dobre značajke često vrijede više od složenijeg modela; to je „inženjerstvo značajki” iz lekcije N3.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Generiraj $200$ točaka $y=3x+2+\varepsilon$ sa šumom $\varepsilon\sim\mathcal N(0,1)$ i $x\in[0,5]$. Nađi pravac najmanjih kvadrata (a) normalnom jednadžbom u NumPy-ju, (b) pomoću <code>sklearn.linear_model.LinearRegression</code>, pa usporedi.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci.</b> Uvijek fiksiraj sjeme generatora slučajnih brojeva da se eksperiment može ponoviti.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">n</span> <span class="o">=</span> <span class="mi">200</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">y</span><span class="p">[:</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>[3.185 1.349 0.205 0.083] [10.969  5.574  3.201  1.584]</code></pre>
+<p><b>Korak 2: matrica dizajna i normalna jednadžba.</b> Prvi stupac su jedinice (pomak), drugi je $x$. Umjesto inverza rješavamo sustav $X^\top Xw=X^\top y$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">x</span><span class="p">])</span>        <span class="c1"># oblik (200, 2)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y</span><span class="p">)</span>       <span class="c1"># w[0] = b, w[1] = nagib</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;b = </span><span class="si">%.4f</span><span class="s2">, w = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">w</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+<span class="n">y_hat</span> <span class="o">=</span> <span class="n">X</span> <span class="o">@</span> <span class="n">w</span>
+<span class="n">mse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">y_hat</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MSE =&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">mse</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>b = 2.0471, w = 2.9494
+MSE = 1.0421</code></pre>
+<p>Nagib i pomak su blizu pravih vrijednosti $3$ i $2$, a MSE je blizu varijance šuma $\sigma^2=1$ – bolje od toga nijedan model ne može, jer je šum nepredvidiv.</p>
+<p><b>Korak 3: isto u scikit-learnu.</b> Sučelje je uvijek isto: <code>fit(X, y)</code> uči, <code>predict(X)</code> predviđa. Scikit-learn očekuje 2D ulaz oblika <code>(n, d)</code> i sam dodaje pomak (<code>intercept_</code>), pa ne dodajemo stupac jedinica.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LinearRegression</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;intercept_ = </span><span class="si">%.4f</span><span class="s2">, coef_ = </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">intercept_</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">coef_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isti rezultat:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">([</span><span class="n">model</span><span class="o">.</span><span class="n">intercept_</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">w</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>intercept_ = 2.0471, coef_ = [2.9494]
+isti rezultat: True</code></pre>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka diabetes</span></h3>
+<div class="zadatak">
+<p>Skup <code>load_diabetes</code> (ugrađen u scikit-learn) ima $442$ pacijenta, $10$ standardiziranih značajki (dob, BMI, krvni tlak, …) i ciljnu vrijednost: mjeru napredovanja bolesti godinu dana kasnije. Podijeli podatke na trening i test, istreniraj linearnu regresiju i ocijeni je s MSE i $R^2$ na oba skupa. Koja značajka najviše utječe na predikciju?</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podjela.</b> <code>train_test_split</code> miješa podatke i odvaja 20 % za test; <code>random_state</code> fiksira miješanje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_diabetes</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">mean_squared_error</span><span class="p">,</span> <span class="n">r2_score</span>
+
+<span class="n">podaci</span> <span class="o">=</span> <span class="n">load_diabetes</span><span class="p">()</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">podaci</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">podaci</span><span class="o">.</span><span class="n">target</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">podaci</span><span class="o">.</span><span class="n">feature_names</span><span class="p">)</span>
+
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="s2">&quot;za učenje,&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_te</span><span class="p">),</span> <span class="s2">&quot;za test&quot;</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>(442, 10) (442,) ['age', 'sex', 'bmi', 'bp', 's1', 's2', 's3', 's4', 's5', 's6']
+353 za učenje, 89 za test</code></pre>
+<p><b>Korak 2: učenje i ocjena.</b> Metrike računamo odvojeno na podacima za učenje i na testu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">model</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">naziv</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;trening&quot;</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)]:</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-8s</span><span class="s2"> MSE = </span><span class="si">%7.1f</span><span class="s2">   R^2 = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">r2_score</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>trening  MSE =  2868.5   R^2 = 0.528
+test     MSE =  2900.2   R^2 = 0.453</code></pre>
+<p>Linearni model objašnjava oko polovice varijance; greška na testu malo je drugačija nego na treningu, ali nema dramatičnog jaza – model nije prenaučen. Preostala greška znači da bolest ovisi i o onome što u ovih 10 brojeva nije zabilježeno.</p>
+<p><b>Korak 3: tumačenje koeficijenata.</b> Značajke su u ovom skupu već skalirane na isti raspon, pa su koeficijenti izravno usporedivi: veći $|w_j|$ znači veći utjecaj promjene te značajke na predikciju. Kad značajke nisu na istoj skali, prvo ih treba standardizirati (lekcija M2), inače koeficijent uz „visinu u metrima” izgleda sto puta važniji od istog uz „visinu u centimetrima”.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">poredak</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">coef_</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">poredak</span><span class="p">[:</span><span class="mi">4</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-4s</span><span class="s2"> </span><span class="si">%8.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">podaci</span><span class="o">.</span><span class="n">feature_names</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">model</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>s1     -931.5
+s5      736.2
+bmi     542.4
+s2      518.1</code></pre>
+<p>Najveći utjecaj imaju serumske mjere <code>s1</code> i <code>s5</code> te BMI. Oprez: koeficijent govori o <em>povezanosti</em> u ovom skupu, ne o uzročnosti, a kad su značajke međusobno korelirane (<code>s1</code> i <code>s2</code> jesu), pojedinačni koeficijenti mogu biti veliki i suprotnih predznaka iako je zajednički učinak umjeren.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Iz funkcije $y=\sin(2\pi x)$ uzmi $30$ točaka za učenje i $200$ za test na $[0,1]$, obje sa šumom $\sigma=0{,}2$. Prilagodi polinome stupnja $1$, $3$, $9$ i $15$ i usporedi MSE na treningu i na testu. Što se događa?</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci i značajke.</b> Polinomijalne značajke $1,x,\dots,x^k$ generira <code>PolynomialFeatures</code>. Ovdje za fit koristimo <code>np.linalg.lstsq</code> jer je za visoke stupnjeve $X^\top X$ vrlo loše uvjetovana i <code>solve</code> bi vraćao numeričko smeće.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">PolynomialFeatures</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">uzorak</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+<span class="n">xp_tr</span><span class="p">,</span> <span class="n">yp_tr</span> <span class="o">=</span> <span class="n">uzorak</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">xp_te</span><span class="p">,</span> <span class="n">yp_te</span> <span class="o">=</span> <span class="n">uzorak</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">polinom_mse</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+    <span class="n">pf</span> <span class="o">=</span> <span class="n">PolynomialFeatures</span><span class="p">(</span><span class="n">degree</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+    <span class="n">A_tr</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">xp_tr</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">A_te</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">xp_te</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">w</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">yp_tr</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">A_tr</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">yp_tr</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">A_te</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">yp_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stupanj  MSE trening  MSE test&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">15</span><span class="p">):</span>
+    <span class="n">tr</span><span class="p">,</span> <span class="n">te</span> <span class="o">=</span> <span class="n">polinom_mse</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%6d</span><span class="s2">   </span><span class="si">%10.4f</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>stupanj  MSE trening  MSE test
+     1       0.1982     0.2723
+     3       0.0296     0.0393
+     9       0.0246     0.0492
+    15       0.0110  1086.5208</code></pre>
+<p><b>Korak 2: čitanje tablice.</b> Pravac ($k=1$) je <em>podnaučen</em>: sinus se ne može opisati pravcem, pa su obje greške velike. Kubni polinom pogađa oblik: obje greške padaju blizu $\sigma^2=0{,}04$. Stupanj $9$ i $15$ i dalje smanjuju grešku na treningu (polinom prolazi sve bliže točkama, uključujući šum), ali greška na testu <em>raste</em> – za stupanj $15$ eksplodira na više od tisuću, jer polinom između rijetkih točaka za učenje i uz rubove intervala divlja. To je <em>prenaučenost</em>. Što je model fleksibilniji u odnosu na količinu podataka, to mu više treba kontrola iz lekcija M2 (regularizacija) i M5 (validacija).</p>
+<p><b>Korak 3: slika.</b> Na natjecanju uvijek nacrtaj što model radi – greška od tisuću zvuči apstraktno, a slika polinoma stupnja $15$ koji između točaka divlja odmah objašnjava problem.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;Agg&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="n">mreza</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mf">3.4</span><span class="p">),</span> <span class="n">sharey</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">os_</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">osi</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">15</span><span class="p">)):</span>
+    <span class="n">pf</span> <span class="o">=</span> <span class="n">PolynomialFeatures</span><span class="p">(</span><span class="n">degree</span><span class="o">=</span><span class="n">k</span><span class="p">)</span>
+    <span class="n">w</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">pf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">xp_tr</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]),</span> <span class="n">yp_tr</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">xp_tr</span><span class="p">,</span> <span class="n">yp_tr</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;trening&quot;</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">mreza</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">mreza</span><span class="p">),</span> <span class="s2">&quot;k--&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;istina&quot;</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">mreza</span><span class="p">,</span> <span class="n">pf</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">mreza</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span> <span class="o">@</span> <span class="n">w</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;polinom st. </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">k</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="o">-</span><span class="mf">1.6</span><span class="p">,</span> <span class="mf">1.6</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;stupanj </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">k</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;polinomi.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;spremljeno polinomi.png&quot;</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>spremljeno polinomi.png</code></pre>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za tri točke $(0,1)$, $(1,3)$ i $(2,4)$ ručno (bez računala) odredi pravac $\hat y=wx+b$ najmanjih kvadrata. Provjeri rezultat u NumPy-ju.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Za $d=1$ normalne jednadžbe daju poznate formule $w=\dfrac{\sum(x_i-\bar x)(y_i-\bar y)}{\sum(x_i-\bar x)^2}$ i $b=\bar y-w\bar x$. Ovdje je $\bar x=1$, $\bar y=\frac83$, $\sum(x_i-\bar x)(y_i-\bar y)=(-1)\left(1-\frac83\right)+0+1\cdot\left(4-\frac83\right)=\frac53+\frac43=3$ i $\sum(x_i-\bar x)^2=2$, pa je $w=\frac32$ i $b=\frac83-\frac32=\frac76$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">b</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;w = </span><span class="si">%.4f</span><span class="s2">  b = </span><span class="si">%.4f</span><span class="s2">  (7/6 = </span><span class="si">%.4f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="mi">7</span> <span class="o">/</span> <span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>w = 1.5000  b = 1.1667  (7/6 = 1.1667)</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za svaki od sljedećih zadataka reci je li riječ o nadziranom ili nenadziranom učenju te o regresiji ili klasifikaciji: (a) predviđanje vremena dolaska autobusa iz GPS podataka; (b) podjela kupaca web-trgovine u skupine sličnog ponašanja; (c) prepoznavanje je li e-mail neželjena pošta; (d) procjena starosti osobe sa fotografije; (e) određivanje jezika kojim je napisan tekst.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) nadzirano, regresija ($y$ je vrijeme); (b) nenadzirano – nema zadanih skupina, klasteriranje (M6); (c) nadzirano, binarna klasifikacija; (d) nadzirano, regresija (starost je broj; u praksi se zna rješavati i kao klasifikacija po dobnim skupinama); (e) nadzirano, višeklasna klasifikacija.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Jedan podatak u skupu je pogrešno unesen ($y=1000$ umjesto $y=10$). Koji će gubitak – MSE ili MAE – jače „povući” naučeni pravac prema toj točki? Zašto?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>MSE. Rezidual te točke ulazi u MSE kvadriran (reda $10^6$), pa pomicanje pravca prema njoj smanjuje gubitak puno više nego što ga povećavaju mali pomaci na svim ostalim točkama. U MAE isti rezidual ulazi linearno, pa jedna točka ima utjecaj usporediv s ostalima. Zato je MAE (ili Huberov gubitak, kombinacija obaju) izbor kad se u podacima očekuju odstupajuće vrijednosti.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Dokaži: ako model sadrži pomak (stupac jedinica u $X$), reziduali rješenja najmanjih kvadrata zbrajaju se u nulu, $\sum_i r_i=0$, a pravac (hiperravnina) prolazi kroz točku $(\bar x,\bar y)$.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Normalne jednadžbe glase $X^\top(Xw^*-y)=0$. Što kaže njihov prvi redak?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Vektor reziduala je $r=y-Xw^*$, a normalne jednadžbe su $X^\top r=0$: rezidual je okomit na svaki stupac matrice $X$. Prvi stupac je vektor jedinica $\mathbf 1$, pa je $\mathbf 1^\top r=\sum_i r_i=0$. Dijeljenjem s $n$: $\bar y-\frac1n\sum_i \hat y_i=0$, a $\frac1n\sum_i\hat y_i=\frac1n\sum_i (w^\top x_i+b)=w^\top\bar x+b$ je upravo predikcija modela u točki $\bar x$. Dakle $f(\bar x)=\bar y$.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napiši vlastitu funkciju <code>r2(y, y_hat)</code> prema definiciji i provjeri da na testnom skupu iz Primjera 2 daje isto što i <code>sklearn.metrics.r2_score</code>. Zatim izračunaj $R^2$ modela koji na testu uvijek predviđa <em>prosjek trening skupa</em> i objasni zašto nije točno $0$.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">r2</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y</span> <span class="o">-</span> <span class="n">y_hat</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">y</span> <span class="o">-</span> <span class="n">y</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_te</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">r2</span><span class="p">(</span><span class="n">y_te</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="mi">6</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">r2_score</span><span class="p">(</span><span class="n">y_te</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prosjek treninga:&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">r2</span><span class="p">(</span><span class="n">y_te</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">y_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">())),</span> <span class="mi">4</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>0.452603 0.452603
+prosjek treninga: -0.012</code></pre>
+<p>Nazivnik u $R^2$ koristi prosjek <em>testnog</em> skupa $\bar y_{te}$, a konstantna predikcija $\bar y_{tr}$ nije jednaka njemu, pa je brojnik malo veći od nazivnika i $R^2$ je malo negativan. Općenito: $R^2=0$ postiže upravo konstanta $\bar y$ skupa na kojem mjerimo, a sve lošije od toga daje negativan $R^2$.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Pokaži eksperimentom, a zatim i dokaži, da se <em>predikcije</em> linearne regresije ne mijenjaju ako neku značajku pomnožimo konstantom $c\ne0$ ili joj dodamo konstantu (uz pomak u modelu). Što se događa s koeficijentima?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Nova matrica dizajna je $X'=XA$ za neku invertibilnu matricu $A$. Kako izgleda $w'^*$ u odnosu na $w^*$?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">X2</span> <span class="o">=</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">X2</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">X2</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="mi">7</span>           <span class="c1"># BMI u drugoj skali i pomaknut</span>
+<span class="n">m2</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="n">X2_te</span> <span class="o">=</span> <span class="n">X_te</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">X2_te</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">X2_te</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="mi">7</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;iste predikcije:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">m2</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X2_te</span><span class="p">),</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_te</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;koef. uz BMI: </span><span class="si">%.3f</span><span class="s2">  -&gt;  </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">m2</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>iste predikcije: True
+koef. uz BMI: 542.429  -&gt;  5.424</code></pre>
+<p>Dokaz: množenje stupca konstantom i dodavanje konstante (koja je višekratnik stupca jedinica) su stupčane operacije, pa je $X'=XA$ za invertibilnu $A$. Tada je $X'^\top X'w'=X'^\top y$ ekvivalentno s $A^\top X^\top XAw'=A^\top X^\top y$, odnosno (množenjem s $A^{-\top}$) $X^\top X(Aw')=X^\top y$. Dakle $Aw'^*=w^*$, tj. $w'^*=A^{-1}w^*$, a predikcije $X'w'^*=XAA^{-1}w^*=Xw^*$ su iste. Koeficijent uz skaliranu značajku dijeli se s $c$ (ovdje sa $100$), a pomak preuzima dodanu konstantu. Zaključak: skaliranje značajki ne mijenja OLS, ali mijenja <em>čitljivost koeficijenata</em>; kod regularizacije i gradijentnog spusta (M2) skaliranje mijenja i rješenje.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Reziduale $r_i$ modela iz Primjera 2 na testnom skupu nacrtaj u ovisnosti o predikciji $\hat y_i$. Što bi trebalo vidjeti ako je linearni model primjeren, a što vidiš? Izračunaj i korelaciju između $\hat y$ i $r$ te između $\hat y$ i $|r|$.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">p</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_te</span><span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="n">y_te</span> <span class="o">-</span> <span class="n">p</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;korelacija(y_hat, r)   = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">r</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;korelacija(y_hat, |r|) = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">r</span><span class="p">))[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mf">3.4</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;k&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;predikcija&quot;</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;rezidual&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;reziduali.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>korelacija(y_hat, r)   = -0.087
+korelacija(y_hat, |r|) = 0.275</code></pre>
+<p>Za primjeren model reziduali su „oblak bez strukture” oko nule, podjednako široki za sve predikcije. Korelacija $\hat y$ s $r$ je na testu približno nula (na treningu je točno nula – to je Zadatak 1 primijenjen na sve stupce). Pozitivna korelacija $\hat y$ s $|r|$ znači da je raspršenje veće za velike predikcije (heteroskedastičnost): model je nesigurniji za teže bolesnike. Takav dijagram reziduala je jedan od najbržih načina da se na natjecanju odluči je li potrebna transformacija cilja (npr. $\log y$) ili nelinearni model.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Normalnoj jednadžbi dodaj „kaznu” za velike težine: minimiziraj $\lVert Xw-y\rVert^2+\lambda\lVert w\rVert^2$. Izvedi rješenje u zatvorenom obliku i primijeni ga na polinom stupnja $15$ iz Primjera 3 za $\lambda\in\{0,\,10^{-6},\,10^{-3},\,10^{-1}\}$. Kako se mijenjaju testna greška i veličina koeficijenata? (Ovo je <em>grebena regresija</em>, engl. <i>ridge</i>; sustavno u lekciji M2.)</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Gradijent dodanog člana je $2\lambda w$. Zbroji ga s gradijentom iz dokaza normalne jednadžbe.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Gradijent cilja je $2X^\top Xw-2X^\top y+2\lambda w$; izjednačavanje s nulom daje $(X^\top X+\lambda I)w=X^\top y$, pa je $w^*_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$. Matrica $X^\top X+\lambda I$ je za $\lambda\gt0$ uvijek invertibilna (pozitivno definitna), pa rješenje postoji i kad je $X^\top X$ singularna – zato je ridge omiljeni popravak numeričkih problema iz napomene u teoriji.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pf</span> <span class="o">=</span> <span class="n">PolynomialFeatures</span><span class="p">(</span><span class="n">degree</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+<span class="n">A_tr</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">xp_tr</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+<span class="n">A_te</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">xp_te</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+<span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">A_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  lambda   MSE test   max|w|&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">lam</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">A_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">A_tr</span> <span class="o">+</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">I</span><span class="p">,</span> <span class="n">A_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">yp_tr</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%8g</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">  </span><span class="si">%8.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">A_te</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">yp_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>  lambda   MSE test   max|w|
+       0     1.6886  21406573.5
+   1e-06     0.0433      41.9
+   0.001     0.0455      12.4
+     0.1     0.1387       1.6</code></pre>
+<p>Već sićušna kazna obara koeficijente s reda desetaka milijuna na red desetaka i testna greška pada blizu razine kubnog polinoma iz Primjera 3; prevelika kazna ($\lambda=0{,}1$) počinje gušiti i korisne koeficijente, pa greška opet raste. (Za $\lambda=0$ <code>solve</code> na gotovo singularnoj matrici daje nestabilan rezultat – još jedan razlog da se u Primjeru 3 koristio <code>lstsq</code>.) Izbor $\lambda$ je tipičan <em>hiperparametar</em>: bira se na validacijskom skupu, nikad na testu.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Ne koristeći normalnu jednadžbu, numerički provjeri formulu za gradijent $\nabla_w L(w)=\frac2n X^\top(Xw-y)$ iz dokaza: za slučajni $w$ usporedi je s <b>konačnim razlikama</b> $\dfrac{L(w+\varepsilon e_j)-L(w-\varepsilon e_j)}{2\varepsilon}$. Zatim napravi $2000$ koraka $w\leftarrow w-\eta\nabla_w L(w)$ s $\eta=0{,}05$ na podacima iz Primjera 1 i usporedi s rješenjem normalne jednadžbe.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Provjera konačnim razlikama standardni je test svakog ručno izvedenog gradijenta (koristit ćemo ga opet u lekciji D2).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span> <span class="n">x</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">L</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">X</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">grad</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">X</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="n">numericki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">L</span><span class="p">(</span><span class="n">w</span> <span class="o">+</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">)</span> <span class="o">-</span> <span class="n">L</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;analitički:&quot;</span><span class="p">,</span> <span class="n">grad</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;numerički: &quot;</span><span class="p">,</span> <span class="n">numericki</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">-=</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">grad</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+<span class="n">w_ols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">X</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;gradijentni spust:&quot;</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="s2">&quot; normalna jednadžba:&quot;</span><span class="p">,</span> <span class="n">w_ols</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>analitički: [-20.244828 -66.369742]
+numerički:  [-20.244828 -66.369742]
+gradijentni spust: [2.0471 2.9494]  normalna jednadžba: [2.0471 2.9494]</code></pre>
+<p>Gradijentni spust približava se istom minimumu, samo sporije (a s prevelikim $\eta$, npr. $0{,}1$, ovdje divergira – isprobaj!) – i radi i kad podataka ima milijune ili kad model nije linearan, gdje zatvorene formule nema. To je tema sljedeće lekcije.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Svaki ML zadatak = podaci $(x,y)$ + model $f_w$ + gubitak $L$ + algoritam koji smanjuje $L$. Prvo odredi što je $x$, što $y$ i koja je metrika.</li>
+<li>Linearna regresija: $\hat y=Xw$ (s stupcem jedinica za pomak), gubitak MSE, rješenje $w^*=(X^\top X)^{-1}X^\top y$ – ali računaj ga s <code>lstsq</code>/<code>solve</code>, ne inverzom.</li>
+<li>Ocjenjuj na podacima koje model nije vidio (train/test); $R^2$ i MSE na treningu ne govore ništa o generalizaciji.</li>
+<li>Polinomijalne i druge transformirane značajke čine model moćnijim, ali bez kontrole (regularizacija, validacija) vode u prenaučenost.</li>
+<li>Scikit-learn: <code>model.fit(X, y)</code>, <code>model.predict(X)</code>, <code>train_test_split</code>, <code>mean_squared_error</code>, <code>r2_score</code>.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 1 i 4.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/linear_model.html">Linear Models</a> i <a href="https://scikit-learn.org/stable/modules/cross_validation.html">Cross-validation</a>.</li>
+<li>Andrew Ng, <i>Machine Learning Specialization</i> (Coursera), tjedan 1–2: ista lekcija uz videozapise.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <span class="lekcija-nav-prazno prethodna"></span>
+                <span class="lekcija-nav-prazno sljedeca"></span>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

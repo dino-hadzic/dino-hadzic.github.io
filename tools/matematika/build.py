@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Generator statičnih stranica kurikuluma Matematika (Matematika/).
+"""Generator statičnih stranica kurikuluma u lekcijama (Matematika/, IOAI/).
+
+Pokretanje:  python3 build.py [--manifest put/do/manifest.json] [oblast ...]
+Zadani manifest je manifest.json u mapi skripte; tools/ioai/build.py poziva isti
+generator s vlastitim manifestom.
 
 Ulaz:
-  tools/matematika/manifest.json                     oblasti i redoslijed lekcija
-  tools/matematika/content/<oblast>/<slug>.html      sadržaj lekcije
+  <kurikulum>/manifest.json                          naslov, izlazna mapa, razine, oblasti i redoslijed lekcija
+  <kurikulum>/content/<oblast>/<slug>.html           sadržaj lekcije
 
 Izlaz:
-  Matematika/index.html                              kartice svih lekcija
-  Matematika/<oblast>/<slug>.html                    stranica lekcije
+  <izlaz>/index.html                                 kartice svih lekcija
+  <izlaz>/<oblast>/<slug>.html                       stranica lekcije
 
 Format datoteke sadržaja: blokovi započinju retkom "@@ ime":
   meta      retci "kljuc = vrijednost" (naslov, podnaslov, oznake)
@@ -26,6 +30,8 @@ Kratice koje se pretvaraju u HTML (ne smiju biti ugniježđene jedna u drugu):
   <primjer izvor="...">tekst<rjesenje>...</rjesenje></primjer>
   <zadatak izvor="..." tezina="0|1|2|3|4">tekst[<naputak>...</naputak>]<rjesenje>...</rjesenje></zadatak>
                                               (0 = zagrijavanje: uvodni laki zadaci, numerirani odvojeno)
+  <kod jezik="python">...</kod>               izvorni kod (sirovi tekst, bez HTML escapeanja; boja ga Pygments)
+  <izlaz>...</izlaz>                          ispis programa (sirovi tekst)
 """
 import html
 import json
@@ -36,20 +42,35 @@ from html.parser import HTMLParser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
-OUT = os.path.join(REPO, 'Matematika')
-CONTENT = os.path.join(HERE, 'content')
 
-MANIFEST = json.load(open(os.path.join(HERE, 'manifest.json'), encoding='utf-8'))
+try:
+    from pygments import highlight as pyg_highlight
+    from pygments.formatters import HtmlFormatter
+    from pygments.lexers import get_lexer_by_name
+except ImportError:  # pragma: no cover
+    pyg_highlight = None
 
-# Razine težine po rednom broju lekcije (1–12); --tezina ide linearno od 0 do 1.
-RAZINE = [
-    (3, 'Osnove', 'školska i županijska razina'),
-    (5, 'Državno', 'državno natjecanje, HMO kvalifikacije'),
-    (7, 'JBMO / MEMO', 'juniorska balkanska i srednjoeuropska olimpijada'),
-    (9, 'ISL 1–2', 'lakši zadaci IMO shortliste (npr. A1–A2, N1–N2)'),
-    (11, 'ISL 3–4', 'srednji zadaci IMO shortliste (npr. A3–A4, G3–G4)'),
-    (12, 'ISL 4–5', 'teži zadaci IMO shortliste (npr. A4–A5, C5, N4–N5)'),
-]
+# Postavke kurikuluma (puni se iz manifesta u load_manifest()):
+#   naslov, izlaz (mapa u korijenu repozitorija), razine, uvod, legenda, dijelovi, zadaci_napomena, oblasti
+K = {}
+CONTENT = None
+OUT = None
+
+# Razine težine po rednom broju lekcije; --tezina ide linearno od 0 do 1.
+# Manifest: "razine": [[gornja_granica, "kratko", "opis"], ...]
+RAZINE = []
+
+
+def load_manifest(path):
+    global K, CONTENT, OUT, RAZINE
+    K = json.load(open(path, encoding='utf-8'))
+    for key in ('naslov', 'izlaz', 'razine', 'uvod', 'legenda', 'dijelovi', 'zadaci_napomena', 'oblasti'):
+        if key not in K:
+            raise SystemExit(f'{path}: manifest nema polje "{key}"')
+    CONTENT = os.path.join(os.path.dirname(os.path.abspath(path)), 'content')
+    OUT = os.path.join(REPO, K['izlaz'])
+    RAZINE = [tuple(r) for r in K['razine']]
+
 
 TEZINA_ZADATKA = {'0': 'uvodni', '1': 'lakši', '2': 'srednji', '3': 'teži', '4': 'najteži'}
 
@@ -121,7 +142,31 @@ ZADATAK_RE = re.compile(r'<zadatak\b([^>]*)>(.*?)</zadatak>', re.S)
 RJESENJE_RE = re.compile(r'<rjesenje\b[^>]*>(.*?)</rjesenje>', re.S)
 NAPUTAK_RE = re.compile(r'<naputak\b[^>]*>(.*?)</naputak>', re.S)
 
+KOD_RE = re.compile(r'<kod\b([^>]*)>\n?(.*?)</kod>', re.S)
+IZLAZ_RE = re.compile(r'<izlaz\b[^>]*>\n?(.*?)</izlaz>', re.S)
+
 VRSTA_NAZIV = {'teorem': 'Teorem', 'lema': 'Lema', 'propozicija': 'Propozicija', 'korolar': 'Korolar'}
+
+
+def expand_code(text, path):
+    """<kod> i <izlaz> sadrže sirovi tekst; pretvaraju se prije svih ostalih kratica."""
+    def kod(m):
+        a, src = attrs(m.group(1)), m.group(2).rstrip()
+        jezik = a.get('jezik', 'python')
+        if pyg_highlight is None:
+            raise SystemExit(f'{path}: <kod> zahtijeva Pygments (pip3 install pygments)')
+        try:
+            lexer = get_lexer_by_name(jezik)
+        except Exception:
+            raise SystemExit(f'{path}: nepoznat jezik koda "{jezik}"')
+        out = pyg_highlight(src, lexer, HtmlFormatter(nowrap=True)).rstrip('\n')
+        return f'<div class="highlight kod kod-{esc(jezik)}"><pre><code>{out}</code></pre></div>'
+
+    def izlaz(m):
+        return f'<pre class="izlaz"><code>{html.escape(m.group(1).rstrip(), quote=False)}</code></pre>'
+
+    text = KOD_RE.sub(kod, text)
+    return IZLAZ_RE.sub(izlaz, text)
 
 
 def wrap_paragraph(body):
@@ -301,7 +346,7 @@ def check_math(text, path):
         if '\n\n' in f:
             raise SystemExit(f'{path}: prazan redak unutar formule: {f[:60]!r}')
     for tag in ('teorem', 'lema', 'propozicija', 'korolar', 'definicija', 'dokaz', 'napomena',
-                'primjer', 'zadatak', 'rjesenje', 'naputak'):
+                'primjer', 'zadatak', 'rjesenje', 'naputak', 'kod', 'izlaz'):
         if re.search(rf'<{tag}\b', text):
             raise SystemExit(f'{path}: kratica <{tag}> nije pretvorena (vjerojatno ugniježđena ili neispravna)')
 
@@ -346,6 +391,8 @@ def head(title, depth, mapa=False):
             f'    <link rel="stylesheet" href="{rel}assets/css/joisc.css">',
             f'    <link rel="stylesheet" href="{rel}assets/css/matematika.css">',
         ]
+        if K.get('kod'):
+            parts.append(f'    <link rel="stylesheet" href="{rel}assets/css/oiwiki-pygments.css">')
     parts.append('</head>')
     return '\n'.join(parts) + '\n'
 
@@ -365,27 +412,22 @@ def lesson_card(oblast, item, n, indent='        '):
 
 
 def root_index(oblasti):
-    total = sum(len(o['items']) for o in oblasti)
-    p = [head('Matematika — olimpijski kurikulum', 1, mapa=True)]
+    p = [head(f'{K["naslov"]} — {K["podnaslov"]}', 1, mapa=True)]
     p.append('<body>')
-    p.append('    <h1>Matematika</h1>')
+    p.append(f'    <h1>{esc(K["naslov"])}</h1>')
     p.append('    <p><a href="../index.html">← Natrag na početnu</a></p>')
     p.append('    <div class="joisc-uvod">')
-    p.append(f'        <p>Kurikulum za natjecateljsku matematiku u {total} lekcije, po {len(oblasti[0]["items"])} u svakoj od četiri oblasti. '
-             'Lekcije unutar oblasti idu linearno po težini: od školskih osnova preko državnog natjecanja i JBMO/MEMO razine '
-             'do zadataka IMO shortliste (razine A4–A5, C5, G4–G5, N4–N5).</p>')
-    p.append('        <p>Svaka lekcija je zasebna kartica s teorijom i dokazima, riješenim primjerima korak po korak i zadacima za vježbu '
-             'sa skrivenim rješenjima (klikni na <b>Rješenje</b>). Preporučeni redoslijed: prolazi četiri oblasti usporedno, '
-             'lekciju po lekciju (A1, C1, G1, N1, pa A2, …).</p>')
+    for odlomak in K['uvod']:
+        p.append(f'        <p>{odlomak}</p>')
     p.append('    </div>')
     p.append('    <nav class="matematika-oblasti" aria-label="Oblasti">')
     for o in oblasti:
         p.append(f'        <a href="#{o["slug"]}">{esc(o["naslov"])}</a>')
     p.append('    </nav>')
     p.append('    <div class="joisc-legenda" aria-hidden="true">')
-    p.append('        <div>Boja kartice = razina lekcije unutar oblasti</div>')
+    p.append(f'        <div>{esc(K["legenda"]["naslov"])}</div>')
     p.append('        <div class="traka"></div>')
-    p.append('        <div class="krajevi"><span>osnove</span><span>IMO shortlist</span></div>')
+    p.append(f'        <div class="krajevi"><span>{esc(K["legenda"]["lijevo"])}</span><span>{esc(K["legenda"]["desno"])}</span></div>')
     p.append('    </div>')
     p.append('    <div class="mreza-mapa joisc-mreza">')
     for o in oblasti:
@@ -415,19 +457,20 @@ def lesson_page(oblast, item, prev_item, next_item, n, blocks, path):
     tags = [x.strip() for x in meta.get('oznake', '').split(',') if x.strip()]
     counter = Counter()
 
-    teorija = expand_theory(blocks['teorija'], counter)
-    primjeri = expand_examples(blocks['primjeri'], path, counter)
+    teorija = expand_theory(expand_code(blocks['teorija'], path), counter)
+    primjeri = expand_examples(expand_code(blocks['primjeri'], path), path, counter)
     primjeri = expand_theory(primjeri, counter)
-    zadaci = expand_problems(blocks['zadaci'], path, counter)
+    zadaci = expand_problems(expand_code(blocks['zadaci'], path), path, counter)
     zadaci = expand_theory(zadaci, counter)
+    dijelovi = K['dijelovi']
 
-    p = [head(f'Matematika — {oblast["naslov"]} {i}: {meta["naslov"]}', 2)]
+    p = [head(f'{K["naslov"]} — {oblast["naslov"]} {i}: {meta["naslov"]}', 2)]
     p.append('<body>')
-    p.append('    <p class="navigacija-analize"><a href="../index.html">← Natrag na Matematiku</a> · '
+    p.append(f'    <p class="navigacija-analize"><a href="../index.html">← Natrag na {esc(K["natrag"])}</a> · '
              f'<a href="../index.html#{oblast["slug"]}">{esc(oblast["naslov"])}</a> · <a href="../../index.html">Početna</a></p>')
     p.append('    <article class="analiza lekcija">')
     p.append('        <header>')
-    p.append(f'            <p class="nadnaslov">Matematika · {esc(oblast["naslov"])} · lekcija {i} od {n}</p>')
+    p.append(f'            <p class="nadnaslov">{esc(K["naslov"])} · {esc(oblast["naslov"])} · lekcija {i} od {n}</p>')
     p.append(f'            <h1><span class="broj-lekcije">{oblast["kod"]}{i}</span> {esc(meta["naslov"])}</h1>')
     if meta.get('podnaslov'):
         p.append(f'            <p class="meta">{esc(meta["podnaslov"])}</p>')
@@ -445,15 +488,15 @@ def lesson_page(oblast, item, prev_item, next_item, n, blocks, path):
         p.append('            </ul>')
         p.append('        </div>')
     p.append('        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">')
-    p.append('            <a href="#teorija">Teorija</a><a href="#primjeri">Riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>')
+    p.append(f'            <a href="#teorija">{esc(dijelovi["teorija"])}</a><a href="#primjeri">{esc(dijelovi["primjeri"])}</a>'
+             f'<a href="#zadaci">{esc(dijelovi["zadaci"])}</a>')
     p.append('        </nav>')
-    p.append('        <h2 id="teorija">Teorija</h2>')
+    p.append(f'        <h2 id="teorija">{esc(dijelovi["teorija"])}</h2>')
     p.append(teorija)
-    p.append('        <h2 id="primjeri">Riješeni primjeri</h2>')
+    p.append(f'        <h2 id="primjeri">{esc(dijelovi["primjeri"])}</h2>')
     p.append(primjeri)
-    p.append('        <h2 id="zadaci">Zadaci za vježbu</h2>')
-    p.append('        <p class="zadaci-napomena">Prvo pokušaj sam; rješenje otvori tek nakon ozbiljnog pokušaja. '
-             'Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>')
+    p.append(f'        <h2 id="zadaci">{esc(dijelovi["zadaci"])}</h2>')
+    p.append(f'        <p class="zadaci-napomena">{K["zadaci_napomena"]}</p>')
     p.append(zadaci)
     if blocks.get('sazetak'):
         p.append('        <div class="rezime">')
@@ -482,11 +525,18 @@ def lesson_page(oblast, item, prev_item, next_item, n, blocks, path):
     return page
 
 
-def main():
-    only = set(sys.argv[1:])  # opcionalno: oblasti koje treba (ponovno) generirati
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    manifest = os.path.join(HERE, 'manifest.json')
+    if '--manifest' in argv:
+        k = argv.index('--manifest')
+        manifest = argv[k + 1]
+        del argv[k:k + 2]
+    load_manifest(manifest)
+    only = set(argv)  # opcionalno: oblasti koje treba (ponovno) generirati
     oblasti = []
     missing = 0
-    for o in MANIFEST['oblasti']:
+    for o in K['oblasti']:
         items = []
         n = len(o['lekcije'])
         for i, slug in enumerate(o['lekcije'], start=1):
