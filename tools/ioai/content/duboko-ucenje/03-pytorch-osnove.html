@@ -1,0 +1,641 @@
+@@ meta
+naslov = PyTorch: tenzori, autograd i prva mreža
+podnaslov = Od NumPy polja do tenzora s gradijentom: autograd, nn.Module, gubici, optimizatori, petlja treniranja, DataLoader i spremanje modela
+oznake = tenzor, autograd, requires_grad, nn.Module, nn.Sequential, optimizator, DataLoader, state_dict
+
+@@ ciljevi
+<li>Stvarati tenzore, pretvarati ih iz NumPy polja i natrag te razumjeti zašto je <code>dtype</code> (float32 naspram float64, int64) najčešći izvor grešaka.</li>
+<li>Objasniti što radi <code>requires_grad</code>, <code>backward()</code> i <code>.grad</code>, zašto se gradijenti zbrajaju i kada treba <code>torch.no_grad()</code>.</li>
+<li>Sastaviti mrežu pomoću <code>nn.Linear</code>, <code>nn.Sequential</code> i vlastite potklase <code>nn.Module</code> te je trenirati petljom <em>zero_grad → forward → loss → backward → step</em> uz <code>nn.CrossEntropyLoss</code>, SGD i Adam.</li>
+<li>Puniti podatke kroz <code>Dataset</code>/<code>DataLoader</code>, spremiti i učitati <code>state_dict</code> i prebaciti model na GPU kad je dostupan.</li>
+
+@@ teorija
+<p>U lekciji D2 napisali smo backpropagation ručno. Za svaki novi sloj to bi značilo novi izvod i novu provjeru gradijenta, a i NumPy ne zna za GPU. <b>PyTorch</b> rješava oboje: njegovi <b>tenzori</b> izgledaju kao NumPy polja, ali svaka operacija nad njima usput gradi računski graf, pa se gradijent svih parametara dobiva jednim pozivom <code>backward()</code>. Na IOAI je PyTorch standardni alat za sve što nije tabularno – ova lekcija daje osnovu koju lekcije D4–D6 i V3–V6 pretpostavljaju.</p>
+
+<h3>Instalacija</h3>
+<p>Verzija za CPU je dovoljna za sve lekcije kurikuluma i instalira se brzo; na računalu s NVIDIA karticom ili u Colabu instalira se verzija s CUDA-om prema uputama na <a href="https://pytorch.org/get-started/locally/">pytorch.org</a>.</p>
+<kod jezik="python" pokreni="ne">
+# u terminalu (ne u Pythonu):
+#   pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+import torch
+print(torch.__version__, torch.cuda.is_available())    # npr. "2.x.y+cpu False"
+</kod>
+
+<h3>Tenzori</h3>
+<definicija naslov="Tenzor">
+<b>Tenzor</b> (<code>torch.Tensor</code>) je višedimenzionalno polje brojeva jednog tipa (<code>dtype</code>) smješteno na jednom uređaju (<code>device</code>: <code>cpu</code> ili <code>cuda</code>). Skalar je tenzor dimenzije $0$, vektor dimenzije $1$, matrica dimenzije $2$; mini-skup slika je tenzor dimenzije $4$ oblika $(n, \text{kanali}, \text{visina}, \text{širina})$. Uz podatke, tenzor može nositi i gradijent (<code>.grad</code>) i vezu na operaciju koja ga je stvorila (<code>.grad_fn</code>).
+</definicija>
+<p>Gotovo sve iz lekcije P3 vrijedi doslovno: indeksiranje, <code>reshape</code>/<code>view</code>, broadcasting, <code>@</code> za matrično množenje, redukcije <code>sum</code>, <code>mean</code>, <code>argmax</code> s argumentom <code>dim</code> (umjesto <code>axis</code>). Tri razlike koje stalno izazivaju greške:</p>
+<ul>
+<li><b>Zadani tip je <code>float32</code></b>, a NumPy-jev <code>float64</code>. <code>torch.tensor(np_polje)</code> zadržava <code>float64</code>, što se sudara s težinama mreže (<code>float32</code>). Pretvaraj eksplicitno: <code>torch.tensor(polje, dtype=torch.float32)</code> ili <code>.float()</code>. Oznake klasa za <code>CrossEntropyLoss</code> moraju biti <code>int64</code> (<code>torch.long</code>).</li>
+<li><code>torch.from_numpy(polje)</code> i <code>tenzor.numpy()</code> <b>dijele memoriju</b> – promjena jednog mijenja drugo; <code>torch.tensor(polje)</code> kopira.</li>
+<li>Operacije sa završnim <code>_</code> (<code>add_</code>, <code>zero_</code>, <code>mul_</code>) rade <b>na mjestu</b> (engl. <i>in-place</i>) i ne stvaraju novi tenzor; za parametre s gradijentom dopuštene su samo unutar <code>torch.no_grad()</code>.</li>
+</ul>
+
+<h3>Autograd</h3>
+<definicija naslov="Dinamični računski graf">
+Ako tenzor ima <code>requires_grad=True</code>, svaka operacija koja ga koristi vraća tenzor koji pamti svoje ulaze i funkciju za prolaz unatrag (<code>grad_fn</code>). Graf se gradi <em>tijekom izvođenja</em> (engl. <i>define-by-run</i>) i razgrađuje nakon <code>backward()</code>; zato petlje i grananja u <code>forward</code> smiju biti običan Python. Poziv <code>L.backward()</code> na skalaru $L$ računa $\partial L/\partial\theta$ za svaki list grafa $\theta$ s <code>requires_grad=True</code> i <b>pribraja</b> ga u <code>θ.grad</code>.
+</definicija>
+<napomena>„Pribraja”, ne „postavlja”: dva uzastopna <code>backward()</code> daju dvostruki gradijent. Zato svaka iteracija treniranja počinje s <code>optimizer.zero_grad()</code> (ili <code>θ.grad = None</code>). Zaboravljen <code>zero_grad()</code> jedna je od tri najčešće greške početnika; druge dvije su pogrešan <code>dtype</code> i ocjenjivanje modela bez <code>model.eval()</code> i <code>torch.no_grad()</code>.</napomena>
+<p>Tri alata za izlazak iz grafa: <code>with torch.no_grad():</code> isključuje bilježenje (ocjenjivanje, ručno ažuriranje težina – štedi i memoriju i vrijeme), <code>t.detach()</code> vraća isti tenzor bez povijesti, a <code>t.item()</code> pretvara jednočlani tenzor u Python broj (za ispis i spremanje gubitka; <code>float(t)</code> radi isto).</p>
+
+<h3>Slojevi: <code>nn.Module</code></h3>
+<p><code>torch.nn.Module</code> je bazni razred za sve što ima parametre. <code>nn.Linear(d, m)</code> računa $y = xW^\top + b$ s $W\in\mathbb R^{m\times d}$ (primijeti: PyTorch sprema težine kao <em>izlaz × ulaz</em>, transponirano u odnosu na zapis iz lekcije D2) i $b\in\mathbb R^m$; parametri su objekti <code>nn.Parameter</code> – tenzori s <code>requires_grad=True</code> koje modul automatski prijavljuje u <code>parameters()</code>. Složene mreže grade se na dva načina:</p>
+<ul>
+<li><code>nn.Sequential(sloj1, sloj2, …)</code> – slojevi se primjenjuju redom; dovoljno za svaki MLP.</li>
+<li>Vlastita potklasa <code>nn.Module</code>: u <code>__init__</code> stvoriš podmodule (obavezno prvo <code>super().__init__()</code>), a u <code>forward(self, x)</code> napišeš izračun običnim Pythonom. Model se poziva kao funkcija, <code>model(x)</code>, nikad <code>model.forward(x)</code> izravno.</li>
+</ul>
+<p>Aktivacije postoje kao moduli (<code>nn.ReLU()</code>, <code>nn.Tanh()</code>) i kao funkcije (<code>torch.relu</code>, <code>torch.nn.functional</code>, uobičajeno <code>F</code>). Zadana inicijalizacija <code>nn.Linear</code> je slučajna i uniformna, ovisna o širini ulaza, pa rezultate čini ponovljivima samo <code>torch.manual_seed(…)</code> <em>prije</em> stvaranja modela.</p>
+
+<h3>Gubici i optimizatori</h3>
+<p>Gubitak je također modul: <code>nn.MSELoss()</code> za regresiju, <code>nn.CrossEntropyLoss()</code> za klasifikaciju. Potonji <b>prima logite</b> oblika $(n, K)$ i cjelobrojne oznake oblika $(n,)$ te interno radi <code>log_softmax</code> + negativnu log-izglednost – točno kombinaciju iz lekcije D2. Ne stavljaj softmax na kraj mreže; dvostruki softmax „spljošti” gradijente i model uči sporije.</p>
+<p>Optimizator (<code>torch.optim</code>) dobiva <code>model.parameters()</code> i stopu učenja te u <code>step()</code> ažurira parametre iz njihovih <code>.grad</code>. <code>SGD(lr, momentum)</code> je gradijentni spust (po mini-skupovima) s opcionalnim momentumom; <code>Adam(lr)</code> prilagođava korak svakom parametru posebno i obično radi dobro već sa zadanim <code>lr=1e-3</code>, pa je uobičajen prvi izbor na natjecanju. Usporedba i podešavanje su tema lekcije D4.</p>
+<teorem naslov="petlja treniranja">
+<p>Jedna iteracija učenja na mini-skupu $(x_b,y_b)$ uvijek ima pet koraka, uvijek istim redom:</p>
+<ol>
+<li><code>optimizer.zero_grad()</code> – poništi stare gradijente;</li>
+<li><code>izlaz = model(x_b)</code> – prolaz unaprijed;</li>
+<li><code>gubitak = kriterij(izlaz, y_b)</code> – skalar;</li>
+<li><code>gubitak.backward()</code> – gradijenti u <code>.grad</code> svih parametara;</li>
+<li><code>optimizer.step()</code> – korak optimizatora.</li>
+</ol>
+<p>Epoha je prolaz kroz sve mini-skupove. Ocjenjivanje ide uz <code>model.eval()</code> i <code>with torch.no_grad()</code>, a nakon njega <code>model.train()</code>.</p>
+</teorem>
+
+<h3>Podaci: <code>Dataset</code> i <code>DataLoader</code></h3>
+<p><code>Dataset</code> je bilo što s <code>__len__</code> i <code>__getitem__(i)</code> koji vraća $i$-ti primjer; za tenzore u memoriji služi <code>TensorDataset(X, y)</code>. <code>DataLoader(skup, batch_size, shuffle)</code> ga reže na mini-skupove, miješa ih svake epohe i po potrebi puni podatke u više procesa (<code>num_workers</code>). Za ponovljivo miješanje predaj mu <code>generator=torch.Generator().manual_seed(0)</code>. Veličina mini-skupa je hiperparametar: manji daje šumnije ali češće korake, veći bolje iskorištava hardver (lekcija D4).</p>
+
+<h3>Spremanje modela i uređaj</h3>
+<p><code>model.state_dict()</code> je rječnik <em>ime parametra → tenzor</em>. Sprema se s <code>torch.save(model.state_dict(), "model.pt")</code>, a učitava u <em>već stvoren</em> model iste arhitekture s <code>model.load_state_dict(torch.load("model.pt"))</code>. Spremati samo <code>state_dict</code>, a ne cijeli objekt modela, standardna je praksa – datoteka ne ovisi o izvornom kodu razreda. Na natjecanju spremaj najbolji model tijekom treninga, ne samo zadnji.</p>
+<p>Uređaj se bira jednom, <code>device = torch.device("cuda" if torch.cuda.is_available() else "cpu")</code>, pa se model (<code>model.to(device)</code>) i <em>svaki</em> mini-skup (<code>x_b.to(device)</code>) šalju na njega; tenzori na različitim uređajima ne mogu se kombinirati. Za ispis ili NumPy tenzor se vraća s <code>.cpu()</code>. Isti kod radi na CPU-u i GPU-u – samo na GPU-u desetke puta brže za velike mreže.</p>
+
+@@ primjeri
+<primjer>
+<p>Ponovi račune iz lekcije D2 u PyTorchu: (a) stvori tenzore iz Python lista i NumPy polja i provjeri tipove; (b) izračunaj gradijent funkcije $f(x,y,z)=(x+y)z$ i jednog neurona sa sigmoidom autogradom i usporedi s ručnim rezultatom; (c) pokaži da se gradijenti pribrajaju i kako se parametri ručno ažuriraju.</p>
+<rjesenje>
+<p><b>Korak 1: tenzori i tipovi.</b> Obrati pažnju na <code>dtype</code> u svakom retku ispisa.</p>
+<kod jezik="python">
+import numpy as np
+import torch
+
+a = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+print(a.shape, a.dtype, a.device)
+print(torch.arange(6).reshape(2, 3).dtype)         # cijeli brojevi -> int64
+
+polje = np.linspace(0, 1, 5)
+print(torch.tensor(polje).dtype, torch.tensor(polje, dtype=torch.float32).dtype)
+
+t = torch.from_numpy(polje)                         # dijeli memoriju s poljem
+t[0] = 100.0
+print(polje[:2], t[:2].numpy())
+print((a @ a.T).numpy(), a.sum(dim=0), a.argmax(dim=1), sep="\n")
+</kod>
+<izlaz>
+torch.Size([2, 2]) torch.float32 cpu
+torch.int64
+torch.float64 torch.float32
+[100.     0.25] [100.     0.25]
+[[ 5. 11.]
+ [11. 25.]]
+tensor([4., 6.])
+tensor([1, 1])
+</izlaz>
+<p><b>Korak 2: autograd na malom grafu.</b> Isti graf kao u Primjeru 1 lekcije D2: označimo ulaze s <code>requires_grad=True</code>, izračunamo $f$ običnim operatorima i pozovemo <code>backward()</code>. Atribut <code>grad_fn</code> pokazuje koja operacija je stvorila tenzor.</p>
+<kod jezik="python">
+x = torch.tensor(2.0, requires_grad=True)
+y = torch.tensor(-3.0, requires_grad=True)
+z = torch.tensor(4.0, requires_grad=True)
+f = (x + y) * z
+print("f =", f.item(), " grad_fn:", type(f.grad_fn).__name__)
+f.backward()
+print("df/dx = %.1f, df/dy = %.1f, df/dz = %.1f" % (x.grad, y.grad, z.grad))
+</kod>
+<izlaz>
+f = -4.0  grad_fn: MulBackward0
+df/dx = 4.0, df/dy = 4.0, df/dz = -1.0
+</izlaz>
+<p><b>Korak 3: neuron sa sigmoidom.</b> U D2 smo za $x=(1,-2)$, $y=1$, $w=(0{,}5;\,-0{,}3)$, $b=0{,}1$ ručno dobili $\partial L/\partial w=(-0{,}082356;\;0{,}164713)$ i $\partial L/\partial b=-0{,}082356$. Ovdje koristimo <code>float64</code> da se decimale točno poklope.</p>
+<kod jezik="python">
+x_n = torch.tensor([1.0, -2.0], dtype=torch.float64)
+w_n = torch.tensor([0.5, -0.3], dtype=torch.float64, requires_grad=True)
+b_n = torch.tensor(0.1, dtype=torch.float64, requires_grad=True)
+
+L = (torch.sigmoid(w_n @ x_n + b_n) - 1.0) ** 2
+L.backward()
+print("L = %.4f" % L.item())
+print("dL/dw =", w_n.grad.numpy().round(6), " dL/db = %.6f" % b_n.grad)
+</kod>
+<izlaz>
+L = 0.0536
+dL/dw = [-0.082356  0.164713]  dL/db = -0.082356
+</izlaz>
+<p><b>Korak 4: gradijenti se pribrajaju; ručni korak.</b> Drugi <code>backward()</code> bez poništavanja udvostruči gradijent. Ažuriranje parametara mora ići unutar <code>torch.no_grad()</code>, inače bi i sam korak ušao u graf (i izazvao grešku jer je operacija na mjestu nad listom grafa).</p>
+<kod jezik="python">
+L = (torch.sigmoid(w_n @ x_n + b_n) - 1.0) ** 2
+L.backward()
+print("nakon drugog backward(): dL/db = %.6f" % b_n.grad)
+
+w_n.grad.zero_(); b_n.grad.zero_()                  # isto što radi optimizer.zero_grad()
+L = (torch.sigmoid(w_n @ x_n + b_n) - 1.0) ** 2
+L.backward()
+with torch.no_grad():
+    w_n -= 0.5 * w_n.grad
+    b_n -= 0.5 * b_n.grad
+L_novi = (torch.sigmoid(w_n @ x_n + b_n) - 1.0) ** 2
+print("gubitak prije %.4f  poslije koraka %.4f" % (L.item(), L_novi.item()))
+print("requires_grad novog gubitka:", L_novi.requires_grad, " detach:", L_novi.detach().requires_grad)
+</kod>
+<izlaz>
+nakon drugog backward(): dL/db = -0.164713
+gubitak prije 0.0536  poslije koraka 0.0363
+requires_grad novog gubitka: True  detach: False
+</izlaz>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka make_moons">
+<p>Mrežu $2\to16\to2$ iz lekcije D2 sastavi s <code>nn.Sequential</code>, ispiši njezine parametre i istreniraj je punim gradijentnim spustom (SGD, $\eta=0{,}5$, $600$ epoha) na <code>make_moons</code>. Zatim istu arhitekturu istreniraj Adamom i usporedi krivulje gubitka.</p>
+<rjesenje>
+<p><b>Korak 1: podaci kao tenzori.</b> Ulazi u <code>float32</code>, oznake u <code>int64</code> (to <code>torch.tensor</code> napravi sam iz NumPy-jevih cijelih brojeva).</p>
+<kod jezik="python">
+from sklearn.datasets import make_moons
+from sklearn.model_selection import train_test_split
+import torch.nn as nn
+
+X, y = make_moons(n_samples=400, noise=0.2, random_state=0)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0)
+X_tr, X_te = torch.tensor(X_tr, dtype=torch.float32), torch.tensor(X_te, dtype=torch.float32)
+y_tr, y_te = torch.tensor(y_tr), torch.tensor(y_te)
+print(X_tr.shape, X_tr.dtype, y_tr.shape, y_tr.dtype)
+</kod>
+<izlaz>
+torch.Size([300, 2]) torch.float32 torch.Size([300]) torch.int64
+</izlaz>
+<p><b>Korak 2: model.</b> Zadnji sloj daje logite; softmax je unutar gubitka. Sjeme postavljamo prije stvaranja modela da inicijalizacija bude ponovljiva.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+model = nn.Sequential(nn.Linear(2, 16), nn.ReLU(), nn.Linear(16, 2))
+print(model)
+for ime, p in model.named_parameters():
+    print("%-10s oblik %-9s requires_grad=%s" % (ime, tuple(p.shape), p.requires_grad))
+print("ukupno parametara:", sum(p.numel() for p in model.parameters()))
+with torch.no_grad():
+    print("početni gubitak: %.4f" % nn.CrossEntropyLoss()(model(X_tr), y_tr).item())
+</kod>
+<izlaz>
+Sequential(
+  (0): Linear(in_features=2, out_features=16, bias=True)
+  (1): ReLU()
+  (2): Linear(in_features=16, out_features=2, bias=True)
+)
+0.weight   oblik (16, 2)   requires_grad=True
+0.bias     oblik (16,)     requires_grad=True
+2.weight   oblik (2, 16)   requires_grad=True
+2.bias     oblik (2,)      requires_grad=True
+ukupno parametara: 82
+početni gubitak: 0.7558
+</izlaz>
+<p>Težina sloja <code>0.weight</code> ima oblik $(16, 2)$ – izlaz puta ulaz. Ukupno $2\cdot16+16+16\cdot2+2=82$ parametra, a početni gubitak je blizu $\ln 2\approx0{,}693$, kako i treba za neutralni model s dvije klase.</p>
+<p><b>Korak 3: petlja treniranja.</b> Pet koraka iz teorije, bez ijednog ručnog gradijenta. Točnost mjerimo pod <code>no_grad</code>.</p>
+<kod jezik="python">
+def tocnost(model, X, y):
+    model.eval()
+    with torch.no_grad():
+        rezultat = (model(X).argmax(dim=1) == y).float().mean().item()
+    model.train()
+    return rezultat
+
+def treniraj_puni(model, optimizator, X, y, epohe=600, ispis=()):
+    kriterij = nn.CrossEntropyLoss()
+    povijest = []
+    for epoha in range(1, epohe + 1):
+        optimizator.zero_grad()                     # 1
+        logiti = model(X)                           # 2
+        gubitak = kriterij(logiti, y)               # 3
+        gubitak.backward()                          # 4
+        optimizator.step()                          # 5
+        povijest.append(gubitak.item())
+        if epoha in ispis:
+            print("epoha %3d  gubitak %.4f  točnost test %.3f" % (epoha, gubitak.item(), tocnost(model, X_te, y_te)))
+    return povijest
+
+opt_sgd = torch.optim.SGD(model.parameters(), lr=0.5)
+pov_sgd = treniraj_puni(model, opt_sgd, X_tr, y_tr, ispis=(1, 100, 300, 600))
+</kod>
+<izlaz>
+epoha   1  gubitak 0.7558  točnost test 0.720
+epoha 100  gubitak 0.2540  točnost test 0.910
+epoha 300  gubitak 0.1250  točnost test 0.940
+epoha 600  gubitak 0.0841  točnost test 0.960
+</izlaz>
+<p>Isti zadatak kao u D2 i slična točnost, ali ovaj put bez ijednog izvoda: formule iz D2 sada izvodi autograd. Ako je u tvojoj NumPy verziji trebalo mijenjati <code>unatrag</code> za svaki novi sloj ili gubitak, ovdje mijenjaš samo <code>forward</code>.</p>
+<p><b>Korak 4: Adam umjesto SGD-a.</b> Mijenjamo samo jedan redak. Adam s malim <code>lr</code> napreduje sigurno i glatko; detalji zašto u lekciji D4.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+model_adam = nn.Sequential(nn.Linear(2, 16), nn.ReLU(), nn.Linear(16, 2))
+opt_adam = torch.optim.Adam(model_adam.parameters(), lr=0.01)
+pov_adam = treniraj_puni(model_adam, opt_adam, X_tr, y_tr, ispis=(1, 100, 300, 600))
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+plt.figure(figsize=(5.5, 3.5))
+plt.plot(pov_sgd, label="SGD, lr = 0.5"); plt.plot(pov_adam, label="Adam, lr = 0.01")
+plt.xlabel("epoha"); plt.ylabel("unakrsna entropija"); plt.legend()
+plt.tight_layout(); plt.savefig("moons_sgd_adam.png", dpi=120)
+</kod>
+<izlaz>
+epoha   1  gubitak 0.7558  točnost test 0.530
+epoha 100  gubitak 0.2484  točnost test 0.910
+epoha 300  gubitak 0.0929  točnost test 0.960
+epoha 600  gubitak 0.0639  točnost test 0.950
+</izlaz>
+<p>Na slici obje krivulje padaju; Adamova brže dođe na nisku razinu gubitka iako je korak sto puta manji – Adam skalira korak svakog parametra prema povijesti njegovih gradijenata, pa stopa učenja nije izravno usporediva sa SGD-ovom.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka load_digits">
+<p>Za skup <code>load_digits</code> napiši vlastiti <code>nn.Module</code> (MLP $64\to64\to10$), podatke puni kroz <code>DataLoader</code> s mini-skupovima od $32$, treniraj Adamom $20$ epoha i prati gubitak i točnost. Spremi <code>state_dict</code>, učitaj ga u novi model i provjeri da daje iste predikcije; na kraju kod prilagodi za GPU.</p>
+<rjesenje>
+<p><b>Korak 1: Dataset i DataLoader.</b> Podjelu radimo na NumPy poljima, pa polja pretvaramo u tenzore; <code>TensorDataset</code> ih upakira u parove, a <code>DataLoader</code> ih miješa i reže. <code>len(loader)</code> je broj mini-skupova po epohi.</p>
+<kod jezik="python">
+from sklearn.datasets import load_digits
+from torch.utils.data import TensorDataset, DataLoader
+
+znamenke = load_digits()
+Xd_tr, Xd_te, yd_tr, yd_te = train_test_split(
+    znamenke.data / 16.0, znamenke.target, test_size=0.25, random_state=0, stratify=znamenke.target)
+Xd_tr, Xd_te = torch.tensor(Xd_tr, dtype=torch.float32), torch.tensor(Xd_te, dtype=torch.float32)
+yd_tr, yd_te = torch.tensor(yd_tr), torch.tensor(yd_te)
+
+skup_tr = TensorDataset(Xd_tr, yd_tr)
+loader_tr = DataLoader(skup_tr, batch_size=32, shuffle=True,
+                       generator=torch.Generator().manual_seed(0))
+print("primjera:", len(skup_tr), " mini-skupova po epohi:", len(loader_tr))
+xb, yb = next(iter(loader_tr))
+print("jedan mini-skup:", xb.shape, yb.shape, " prve oznake:", yb[:8].tolist())
+</kod>
+<izlaz>
+primjera: 1347  mini-skupova po epohi: 43
+jedan mini-skup: torch.Size([32, 64]) torch.Size([32])  prve oznake: [8, 5, 5, 7, 3, 7, 3, 3]
+</izlaz>
+<p><b>Korak 2: model kao potklasa <code>nn.Module</code>.</b> Podmoduli se stvaraju u <code>__init__</code>, a <code>forward</code> ih povezuje. Ovdje je to isto što i <code>Sequential</code>, ali ovaj oblik dopušta grananja, preskakanja i više ulaza (lekcije D5, D6).</p>
+<kod jezik="python">
+class MLP(nn.Module):
+    def __init__(self, d_ulaz, d_skriveni, broj_klasa):
+        super().__init__()
+        self.sloj1 = nn.Linear(d_ulaz, d_skriveni)
+        self.sloj2 = nn.Linear(d_skriveni, broj_klasa)
+
+    def forward(self, x):
+        h = torch.relu(self.sloj1(x))
+        return self.sloj2(h)                        # logiti
+
+torch.manual_seed(0)
+model_zn = MLP(64, 64, 10)
+print(model_zn)
+print("parametara:", sum(p.numel() for p in model_zn.parameters()))
+</kod>
+<izlaz>
+MLP(
+  (sloj1): Linear(in_features=64, out_features=64, bias=True)
+  (sloj2): Linear(in_features=64, out_features=10, bias=True)
+)
+parametara: 4810
+</izlaz>
+<p><b>Korak 3: treniranje po mini-skupovima.</b> Unutarnja petlja ide po <code>DataLoaderu</code>; gubitak epohe je prosjek po mini-skupovima. Na kraju svake epohe mjerimo točnost na testu (u pravom zadatku to bi bio <em>validacijski</em> skup – lekcija M5).</p>
+<kod jezik="python">
+def treniraj(model, loader, epohe=20, lr=1e-3, ispis=()):
+    kriterij = nn.CrossEntropyLoss()
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    povijest = []
+    for epoha in range(1, epohe + 1):
+        model.train()
+        zbroj = 0.0
+        for xb, yb in loader:
+            opt.zero_grad()
+            gubitak = kriterij(model(xb), yb)
+            gubitak.backward()
+            opt.step()
+            zbroj += gubitak.item() * len(yb)
+        povijest.append(zbroj / len(loader.dataset))
+        if epoha in ispis:
+            print("epoha %2d  gubitak %.4f  točnost test %.3f" % (epoha, povijest[-1], tocnost(model, Xd_te, yd_te)))
+    return povijest
+
+pov_zn = treniraj(model_zn, loader_tr, ispis=(1, 2, 5, 10, 20))
+</kod>
+<izlaz>
+epoha  1  gubitak 2.1884  točnost test 0.709
+epoha  2  gubitak 1.8255  točnost test 0.831
+epoha  5  gubitak 0.7156  točnost test 0.909
+epoha 10  gubitak 0.3055  točnost test 0.936
+epoha 20  gubitak 0.1486  točnost test 0.964
+</izlaz>
+<p>Nakon deset epoha mreža prepoznaje oko $94\,\%$ testnih znamenki, nakon dvadeset oko $96\,\%$, a gubitak na treningu još uvijek pada – s više epoha ili većom stopom učenja došli bismo brže do razine iz lekcije D2. Kada stati, kako birati stopu učenja i što raditi kad trening nastavi padati a test ne, tema je lekcije D4.</p>
+<p><b>Korak 4: spremanje i učitavanje.</b> <code>state_dict</code> ima jedan tenzor po parametru. Učitamo ga u svježe stvoren model i usporedimo predikcije.</p>
+<kod jezik="python">
+sd = model_zn.state_dict()
+print({ime: tuple(t.shape) for ime, t in sd.items()})
+torch.save(sd, "mlp_digits.pt")
+
+model_ucitan = MLP(64, 64, 10)                      # nova, slučajna inicijalizacija
+print("prije učitavanja: točnost %.3f" % tocnost(model_ucitan, Xd_te, yd_te))
+model_ucitan.load_state_dict(torch.load("mlp_digits.pt"))
+print("nakon učitavanja: točnost %.3f" % tocnost(model_ucitan, Xd_te, yd_te))
+with torch.no_grad():
+    print("iste predikcije:", torch.equal(model_ucitan(Xd_te).argmax(1), model_zn(Xd_te).argmax(1)))
+</kod>
+<izlaz>
+{'sloj1.weight': (64, 64), 'sloj1.bias': (64,), 'sloj2.weight': (10, 64), 'sloj2.bias': (10,)}
+prije učitavanja: točnost 0.182
+nakon učitavanja: točnost 0.964
+iste predikcije: True
+</izlaz>
+<p><b>Korak 5: uređaj.</b> Isti kod radi na GPU-u ako model i podatke pošaljemo na <code>device</code>. Na računalu bez CUDA-e ispis je <code>cpu</code> i ništa se ne mijenja; u Colabu s GPU-om bio bi <code>cuda</code>.</p>
+<kod jezik="python">
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model_zn = model_zn.to(device)
+xb, yb = xb.to(device), yb.to(device)
+with torch.no_grad():
+    logiti = model_zn(xb)
+print(device, logiti.device, logiti.shape)
+print("natrag na CPU za NumPy:", logiti.argmax(1).cpu().numpy()[:8])
+</kod>
+<izlaz>
+cpu cpu torch.Size([32, 10])
+natrag na CPU za NumPy: [8 5 5 7 3 7 3 3]
+</izlaz>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Što se dogodi kad u <code>nn.Linear(3, 1)</code> pošalješ (a) <code>torch.tensor([1, 2, 3])</code>, (b) <code>torch.tensor(np.array([1.0, 2.0, 3.0]))</code>? Isprobaj, pročitaj poruke o grešci i popravi oba poziva.</p>
+<rjesenje>
+<p>(a) Lista cijelih brojeva daje <code>int64</code>; (b) NumPy polje daje <code>float64</code>. Težine sloja su <code>float32</code>, a matrično množenje zahtijeva isti tip. Lijek: <code>.float()</code> ili <code>dtype=torch.float32</code> pri stvaranju.</p>
+<kod jezik="python">
+sloj = nn.Linear(3, 1)
+for ulaz in (torch.tensor([1, 2, 3]), torch.tensor(np.array([1.0, 2.0, 3.0]))):
+    try:
+        sloj(ulaz)
+    except RuntimeError as e:
+        print("dtype %-13s ->" % ulaz.dtype, str(e).split(",")[0])
+    print("popravljeno:", sloj(ulaz.float()).shape, sloj(ulaz.float()).dtype)
+</kod>
+<izlaz>
+dtype torch.int64   -> mat1 and mat2 must have the same dtype
+popravljeno: torch.Size([1]) torch.float32
+dtype torch.float64 -> mat1 and mat2 must have the same dtype
+popravljeno: torch.Size([1]) torch.float32
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Bez pokretanja koda odredi oblik <code>weight</code> i <code>bias</code> sloja <code>nn.Linear(64, 32)</code>, oblik izlaza za ulaz oblika $(16, 64)$ i ukupan broj parametara mreže $64\to32\to10$. Zatim provjeri.</p>
+<rjesenje>
+<p><code>weight</code> je $(32, 64)$ (izlaz × ulaz), <code>bias</code> je $(32,)$, izlaz je $(16, 32)$. Parametara: $64\cdot32+32+32\cdot10+10=2410$.</p>
+<kod jezik="python">
+sloj = nn.Linear(64, 32)
+print(tuple(sloj.weight.shape), tuple(sloj.bias.shape), tuple(sloj(torch.zeros(16, 64)).shape))
+m = nn.Sequential(nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, 10))
+print(sum(p.numel() for p in m.parameters()))
+</kod>
+<izlaz>
+(32, 64) (32,) (16, 32)
+2410
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Napiši kratki eksperiment koji pokazuje što se događa kad se u petlji treniranja zaboravi <code>zero_grad()</code>: za $L(\theta)=\theta^2$ u $\theta=3$ pozovi <code>backward()</code> tri puta i ispiši <code>θ.grad</code> nakon svakog poziva. Koji bi gradijent trebao biti?</p>
+<rjesenje>
+<p>Točan gradijent je $2\theta=6$; bez poništavanja dobivamo $6, 12, 18$ – svaki <code>backward()</code> pribraja. U petlji treniranja to bi značilo da korak u iteraciji $t$ koristi zbroj gradijenata svih dosadašnjih mini-skupova.</p>
+<kod jezik="python">
+theta = torch.tensor(3.0, requires_grad=True)
+for i in range(3):
+    (theta ** 2).backward()
+    print("nakon %d. backward(): grad = %.0f" % (i + 1, theta.grad))
+theta.grad = None                                   # alternativa za zero_()
+(theta ** 2).backward()
+print("nakon poništavanja: grad = %.0f" % theta.grad)
+</kod>
+<izlaz>
+nakon 1. backward(): grad = 6
+nakon 2. backward(): grad = 12
+nakon 3. backward(): grad = 18
+nakon poništavanja: grad = 6
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Linearnu regresiju iz lekcije M1 (podaci $y=3x+2+\varepsilon$, <code>default_rng(0)</code>, $n=200$) riješi gradijentnim spustom u PyTorchu bez <code>nn</code> i <code>optim</code>: parametri $w, b$ su tenzori s <code>requires_grad</code>, gubitak je MSE, $2000$ koraka s $\eta=0{,}05$. Usporedi s normalnom jednadžbom ($b=2{,}0471$, $w=2{,}9494$).</p>
+<naputak>Petlja: izračunaj gubitak, <code>backward()</code>, pod <code>no_grad()</code> oduzmi $\eta\cdot$grad, poništi gradijente. Koristi <code>float64</code> da se decimale točno slože.</naputak>
+<rjesenje>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+x_np = rng.uniform(0, 5, size=200)
+y_np = 3 * x_np + 2 + rng.normal(0, 1, size=200)
+x_t, y_t = torch.tensor(x_np), torch.tensor(y_np)           # float64
+
+w = torch.zeros((), dtype=torch.float64, requires_grad=True)
+b = torch.zeros((), dtype=torch.float64, requires_grad=True)
+for _ in range(2000):
+    gubitak = ((w * x_t + b - y_t) ** 2).mean()
+    gubitak.backward()
+    with torch.no_grad():
+        w -= 0.05 * w.grad
+        b -= 0.05 * b.grad
+    w.grad.zero_(); b.grad.zero_()
+print("b = %.4f, w = %.4f, MSE = %.4f" % (b.item(), w.item(), gubitak.item()))
+</kod>
+<izlaz>
+b = 2.0471, w = 2.9494, MSE = 1.0421
+</izlaz>
+<p>Isti brojevi kao u M1 – autograd je izračunao $\partial L/\partial w=\frac2n\sum x_i(wx_i+b-y_i)$ i $\partial L/\partial b=\frac2n\sum(wx_i+b-y_i)$ umjesto nas. Četiri retka unutar petlje upravo su ono što <code>optim.SGD</code> radi u <code>step()</code> i <code>zero_grad()</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Dokaži eksperimentom da je <code>torch.optim.SGD(lr=η)</code> bez momentuma točno pravilo $\theta\leftarrow\theta-\eta\,\nabla L$: napravi dvije kopije istog modela (<code>copy.deepcopy</code>), jednu treniraj optimizatorom, drugu ručnim koracima pod <code>no_grad()</code>, $100$ koraka na <code>make_moons</code>, pa usporedi sve parametre s <code>torch.allclose</code>.</p>
+<rjesenje>
+<kod jezik="python">
+import copy
+
+torch.manual_seed(1)
+m_opt = nn.Sequential(nn.Linear(2, 16), nn.ReLU(), nn.Linear(16, 2))
+m_rucno = copy.deepcopy(m_opt)
+kriterij = nn.CrossEntropyLoss()
+opt = torch.optim.SGD(m_opt.parameters(), lr=0.5)
+for _ in range(100):
+    opt.zero_grad()
+    kriterij(m_opt(X_tr), y_tr).backward()
+    opt.step()
+
+    for p in m_rucno.parameters():
+        p.grad = None
+    kriterij(m_rucno(X_tr), y_tr).backward()
+    with torch.no_grad():
+        for p in m_rucno.parameters():
+            p -= 0.5 * p.grad
+
+isti = all(torch.allclose(p, q) for p, q in zip(m_opt.parameters(), m_rucno.parameters()))
+print("parametri jednaki nakon 100 koraka:", isti)
+print("gubitak: %.4f  %.4f" % (kriterij(m_opt(X_tr), y_tr).item(), kriterij(m_rucno(X_tr), y_tr).item()))
+</kod>
+<izlaz>
+parametri jednaki nakon 100 koraka: True
+gubitak: 0.2434  0.2434
+</izlaz>
+<p>Optimizator ne radi ništa „magično” – samo uredno primjenjuje pravilo ažuriranja na sve parametre. S <code>momentum=0.9</code> ili Adamom pravilo je složenije (lekcija D4), ali struktura petlje ostaje ista.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Pokaži da je <code>nn.CrossEntropyLoss</code> jednak $-\frac1n\sum_i\log\operatorname{softmax}(z_i)_{y_i}$ izračunatom „ručno” s <code>torch.log_softmax</code>, i da je gradijent po logitima jednak $\frac1n(P-Y)$ iz lekcije D2. Što se dogodi s gradijentom ako na logite prije gubitka greškom primijeniš još jedan <code>softmax</code>?</p>
+<naputak>Logite stvori kao list grafa s <code>requires_grad=True</code>, pa nakon <code>backward()</code> pročitaj <code>logiti.grad</code>. Za $P-Y$ koristi <code>torch.softmax</code> i <code>torch.nn.functional.one_hot</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+logiti = torch.randn(4, 3, requires_grad=True)
+klase = torch.tensor([0, 2, 1, 2])
+
+L1 = nn.CrossEntropyLoss()(logiti, klase)
+L2 = -torch.log_softmax(logiti, dim=1)[torch.arange(4), klase].mean()
+print("CrossEntropyLoss %.6f   ručno %.6f" % (L1.item(), L2.item()))
+
+L1.backward()
+P_minus_Y = (torch.softmax(logiti, dim=1) - F.one_hot(klase, 3)) / 4
+print("gradijent = (P - Y)/n:", torch.allclose(logiti.grad, P_minus_Y.detach()))
+
+logiti2 = logiti.detach().clone().requires_grad_(True)
+nn.CrossEntropyLoss()(torch.softmax(logiti2, dim=1), klase).backward()
+print("|grad| ispravno %.4f   s dvostrukim softmaxom %.4f" % (logiti.grad.norm(), logiti2.grad.norm()))
+</kod>
+<izlaz>
+CrossEntropyLoss 0.935686   ručno 0.935686
+gradijent = (P - Y)/n: True
+|grad| ispravno 0.3673   s dvostrukim softmaxom 0.1141
+</izlaz>
+<p>Vrijednosti i gradijent poklapaju se s izvodom iz D2. S dvostrukim softmaxom gubitak prima „logite” koji su već u $[0,1]$, pa su razlike među klasama male: gradijent je nekoliko puta manji i model uči sporije, a najgore je što se greška ne vidi – kod se izvršava bez ikakve poruke. Mreža za klasifikaciju završava linearnim slojem, i ništa poslije njega.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Istreniraj model iz Primjera 3 (<code>MLP(64, 64, 10)</code>, Adam, <code>lr=1e-3</code>, $10$ epoha) s veličinama mini-skupa $8$, $32$ i $256$. Za svaku ispiši broj koraka optimizatora po epohi, konačni gubitak na treningu i točnost na testu. Objasni razlike.</p>
+<naputak>Broj koraka je <code>len(loader)</code>. Pri istom broju epoha manji mini-skup znači više ažuriranja parametara, ali svako je šumnije.</naputak>
+<rjesenje>
+<kod jezik="python">
+for velicina in (8, 32, 256):
+    loader = DataLoader(skup_tr, batch_size=velicina, shuffle=True,
+                        generator=torch.Generator().manual_seed(0))
+    torch.manual_seed(0)
+    m = MLP(64, 64, 10)
+    pov = treniraj(m, loader, epohe=10)
+    print("batch %3d   koraka/epohi %3d   gubitak %.4f   točnost test %.3f" %
+          (velicina, len(loader), pov[-1], tocnost(m, Xd_te, yd_te)))
+</kod>
+<izlaz>
+batch   8   koraka/epohi 169   gubitak 0.1352   točnost test 0.964
+batch  32   koraka/epohi  43   gubitak 0.3047   točnost test 0.933
+batch 256   koraka/epohi   6   gubitak 1.6764   točnost test 0.860
+</izlaz>
+<p>Pri istom broju epoha i istoj stopi učenja mali mini-skup napravi puno više koraka pa gubitak padne niže, dok veliki mini-skup napravi samo šest koraka po epohi i nakon $10$ epoha još je daleko od konvergencije – trebao bi veći <code>lr</code> ili više epoha. Mali mini-skupovi su po koraku jeftini, ali svaki korak ima režijske troškove, pa je na GPU-u epoha s <code>batch_size=8</code> znatno sporija od one s $256$. Tipičan kompromis je $32$–$128$; detalji u lekciji D4.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Napiši vlastiti sloj <code>MojLinear(nn.Module)</code> s parametrima <code>W</code> oblika (ulaz, izlaz) i <code>b</code> kao <code>nn.Parameter</code>, inicijaliziranima kao u lekciji D2 (He-ova inicijalizacija, pomak nula). Kopiraj težine iz jednog <code>nn.Linear</code> (pazi na transponiranje) i provjeri da oba sloja daju iste izlaze i iste gradijente; zatim mrežu od dva <code>MojLinear</code> sloja istreniraj na <code>make_moons</code> i usporedi s Primjerom 2.</p>
+<naputak>Običan tenzor dodijeljen atributu modula <em>nije</em> parametar – optimizator ga ne vidi. Omotaj ga u <code>nn.Parameter</code>, pa će se pojaviti u <code>parameters()</code> i <code>state_dict()</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+class MojLinear(nn.Module):
+    def __init__(self, d_ulaz, d_izlaz):
+        super().__init__()
+        self.W = nn.Parameter(torch.randn(d_ulaz, d_izlaz) * (2 / d_ulaz) ** 0.5)
+        self.b = nn.Parameter(torch.zeros(d_izlaz))
+
+    def forward(self, x):
+        return x @ self.W + self.b
+
+torch.manual_seed(0)
+ref, moj = nn.Linear(2, 16), MojLinear(2, 16)
+with torch.no_grad():
+    moj.W.copy_(ref.weight.T)                        # (16, 2) -> (2, 16)
+    moj.b.copy_(ref.bias)
+print("isti izlaz:", torch.allclose(ref(X_tr), moj(X_tr)))
+ref(X_tr).sum().backward(); moj(X_tr).sum().backward()
+print("isti gradijent W:", torch.allclose(ref.weight.grad.T, moj.W.grad),
+      " b:", torch.allclose(ref.bias.grad, moj.b.grad))
+
+torch.manual_seed(0)
+model_moj = nn.Sequential(MojLinear(2, 16), nn.ReLU(), MojLinear(16, 2))
+print("parametara:", sum(p.numel() for p in model_moj.parameters()), list(model_moj.state_dict().keys()))
+treniraj_puni(model_moj, torch.optim.SGD(model_moj.parameters(), lr=0.5), X_tr, y_tr, ispis=(600,))
+</kod>
+<izlaz>
+isti izlaz: True
+isti gradijent W: True  b: True
+parametara: 82 ['0.W', '0.b', '2.W', '2.b']
+epoha 600  gubitak 0.0761  točnost test 0.950
+</izlaz>
+<p>Sloj je matematički identičan <code>nn.Linear</code>, a jer je <code>W</code> <code>nn.Parameter</code>, automatski se pojavljuje u <code>parameters()</code> (optimizator ga ažurira) i u <code>state_dict()</code> (sprema se). Točnost je u istom rasponu kao u Primjeru 2; razlika dolazi od drukčije inicijalizacije (He-ova normalna umjesto PyTorchove uniformne).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>PyTorch dopušta i vlastite operacije s ručno napisanim prolazom unatrag: potklasa <code>torch.autograd.Function</code> sa statičkim metodama <code>forward(ctx, x)</code> i <code>backward(ctx, grad_izlaz)</code>. Napiši tako sigmoidu (prolaz unatrag $\sigma(x)(1-\sigma(x))\cdot\bar y$ iz lekcije D2), provjeri je s <code>torch.autograd.gradcheck</code> u <code>float64</code> i pokaži da daje isti gradijent kao <code>torch.sigmoid</code>. Što <code>gradcheck</code> radi?</p>
+<naputak><code>ctx.save_for_backward(izlaz)</code> u <code>forward</code> sprema što treba za <code>backward</code>; tamo ga vraća <code>ctx.saved_tensors</code>. Funkcija se poziva s <code>MojaSigmoida.apply(x)</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+class MojaSigmoida(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x):
+        s = 1 / (1 + torch.exp(-x))
+        ctx.save_for_backward(s)
+        return s
+
+    @staticmethod
+    def backward(ctx, grad_izlaz):
+        (s,) = ctx.saved_tensors
+        return grad_izlaz * s * (1 - s)             # lančano pravilo, kao u D2
+
+torch.manual_seed(0)
+u = torch.randn(6, dtype=torch.float64, requires_grad=True)
+print("gradcheck:", torch.autograd.gradcheck(MojaSigmoida.apply, (u,)))
+
+v = u.detach().clone().requires_grad_(True)
+(MojaSigmoida.apply(u) * torch.arange(1.0, 7.0, dtype=torch.float64)).sum().backward()
+(torch.sigmoid(v) * torch.arange(1.0, 7.0, dtype=torch.float64)).sum().backward()
+print("isti gradijent kao torch.sigmoid:", torch.allclose(u.grad, v.grad))
+print(u.grad.numpy().round(5))
+</kod>
+<izlaz>
+gradcheck: True
+isti gradijent kao torch.sigmoid: True
+[0.14528 0.48939 0.274   0.92338 0.94409 0.95292]
+</izlaz>
+<p><code>gradcheck</code> je upravo numerička provjera gradijenta iz lekcije D2: za svaki element ulaza izračuna centralnu konačnu razliku i usporedi je s onim što vrati <code>backward</code>, u dvostrukoj preciznosti i uz zadanu toleranciju. Vlastite <code>Function</code> trebaju rijetko (operacije koje autograd ne pokriva ili ih želiš ubrzati), ali pokazuju da PyTorch iznutra radi točno ono što smo u D2 radili ručno – svaki ugrađeni operator ima svoj <code>forward</code> i <code>backward</code>.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Tenzor = NumPy polje + <code>dtype</code>/<code>device</code> + autograd. Zadani tip je <code>float32</code>; ulaze pretvaraj eksplicitno, oznake klasa drži u <code>int64</code>.</li>
+<li><code>requires_grad=True</code> uključuje bilježenje grafa, <code>L.backward()</code> računa i <em>pribraja</em> gradijente u <code>.grad</code>; zato <code>zero_grad()</code> na početku svake iteracije. Ocjenjivanje i ručna ažuriranja idu pod <code>torch.no_grad()</code>.</li>
+<li>Mreža je <code>nn.Module</code>: <code>nn.Sequential</code> za nizove slojeva, vlastita potklasa s <code>__init__</code> i <code>forward</code> za sve ostalo; <code>nn.Linear(d, m)</code> ima težinu oblika $(m, d)$.</li>
+<li>Petlja treniranja: <code>zero_grad → model(x) → kriterij → backward → step</code>. <code>nn.CrossEntropyLoss</code> prima logite; <code>Adam(lr=1e-3)</code> je dobar prvi izbor.</li>
+<li><code>TensorDataset</code> + <code>DataLoader(batch_size, shuffle, generator)</code> daju mini-skupove; <code>model.eval()</code>/<code>model.train()</code> prebacuju način rada.</li>
+<li>Spremaj <code>state_dict</code> (<code>torch.save</code>/<code>load_state_dict</code>); uređaj biraj jednom i šalji na njega i model i svaki mini-skup.</li>
+</ul>
+
+@@ literatura
+<li>Službeni vodiči PyTorcha: <a href="https://pytorch.org/tutorials/beginner/basics/intro.html">Learn the Basics</a> (tenzori, Dataset/DataLoader, autograd, optimizacija, spremanje) i <a href="https://pytorch.org/tutorials/beginner/pytorch_with_examples.html">Learning PyTorch with Examples</a>.</li>
+<li>Dokumentacija: <a href="https://pytorch.org/docs/stable/nn.html">torch.nn</a>, <a href="https://pytorch.org/docs/stable/optim.html">torch.optim</a>, <a href="https://pytorch.org/docs/stable/notes/autograd.html">Autograd mechanics</a>.</li>
+<li>E. Stevens, L. Antiga, T. Viehmann, <i>Deep Learning with PyTorch</i>, Manning, poglavlja 3–6 (tenzori, autograd, prvi modeli).</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 10 – isti pojmovi, drugi okvir; korisno za usporedbu.</li>

@@ -1,0 +1,636 @@
+@@ meta
+naslov = Backpropagation: kako mreža uči
+podnaslov = Računski graf i lančano pravilo pretvaraju gradijent milijuna parametara u jedan prolaz unatrag – izvod, numerička provjera i cjelovit MLP u čistom NumPy-ju
+oznake = računski graf, lančano pravilo, gradijent, softmax, unakrsna entropija, numerička provjera gradijenta, autograd
+
+@@ ciljevi
+<li>Prikazati izračun funkcije računskim grafom i lančanim pravilom izračunati gradijent po svakom ulazu „unatrag” kroz graf.</li>
+<li>Izvesti gradijente jednog sloja MLP-a u matričnom obliku: $\partial L/\partial W=h^\top\delta$, $\partial L/\partial b=\sum\delta$, $\delta^{(l-1)}=(\delta^{(l)}W^\top)\odot\sigma'(z^{(l-1)})$.</li>
+<li>Izvesti gradijent gubitka MSE i kombinacije softmax + unakrsna entropija te svaki ručno izveden gradijent provjeriti konačnim razlikama.</li>
+<li>Napisati i istrenirati cijeli višeslojni perceptron u čistom NumPy-ju na skupovima <code>make_moons</code> i <code>load_digits</code> te pročitati krivulju gubitka.</li>
+
+@@ teorija
+<p>U lekciji D1 definirali smo višeslojni perceptron (MLP): niz slojeva $z^{(l)}=h^{(l-1)}W^{(l)}+b^{(l)}$, $h^{(l)}=\sigma(z^{(l)})$. Učenje je gradijentni spust (lekcija M2) po svim težinama odjednom: $W\leftarrow W-\eta\,\partial L/\partial W$. Jedino pitanje koje ostaje jest <em>kako izračunati</em> $\partial L/\partial W^{(l)}$ za svaki sloj, i to brzo – mreža s milijun parametara ne smije zahtijevati milijun prolaza. Odgovor je <b>backpropagation</b> (engl. <i>backward propagation of errors</i>, širenje greške unatrag): lančano pravilo primijenjeno sustavno, od izlaza prema ulazu, uz pamćenje međurezultata iz prolaza unaprijed.</p>
+
+<h3>Računski graf</h3>
+<definicija naslov="Računski graf">
+<b>Računski graf</b> (engl. <i>computational graph</i>) usmjereni je aciklički graf čiji su čvorovi ulazne varijable i elementarne operacije ($+$, $\cdot$, $\exp$, $\max$, matrično množenje, …), a bridovi pokazuju koji rezultat ulazi u koju operaciju. <b>Prolaz unaprijed</b> (engl. <i>forward pass</i>) računa vrijednost svakog čvora od ulaza prema izlazu; <b>prolaz unatrag</b> (engl. <i>backward pass</i>) računa derivaciju izlaza po svakom čvoru od izlaza prema ulazima.
+</definicija>
+<p>Primjer: $f(x,y,z)=(x+y)\,z$ ima dva operacijska čvora, $q=x+y$ i $f=q\cdot z$. Svaki čvor zna samo svoju <b>lokalnu derivaciju</b>: čvor zbrajanja zna $\partial q/\partial x=\partial q/\partial y=1$, čvor množenja zna $\partial f/\partial q=z$ i $\partial f/\partial z=q$. Globalnu derivaciju $\partial f/\partial x$ dobivamo tako da lokalne derivacije duž puta od $f$ do $x$ <em>pomnožimo</em> – to je lančano pravilo.</p>
+
+<h3>Lančano pravilo</h3>
+<teorem naslov="lančano pravilo">
+<p>Ako je $f=f(u_1,\dots,u_k)$ i svaki $u_j=u_j(x)$ derivabilan, onda je
+$$\frac{\partial f}{\partial x}=\sum_{j=1}^k\frac{\partial f}{\partial u_j}\,\frac{\partial u_j}{\partial x}.$$
+Za varijablu $x$ koja utječe na $f$ kroz više čvorova, doprinosi se <em>zbrajaju</em>; duž jednog puta lokalne derivacije se <em>množe</em>.</p>
+</teorem>
+<p>Backpropagation je lančano pravilo organizirano tako da se svaki čvor posjeti točno jednom. U prolazu unatrag svaki čvor $u$ primi $\bar u:=\partial L/\partial u$ (nazivamo ga <b>gradijent koji dolazi odozgo</b>, engl. <i>upstream gradient</i>), pomnoži ga svojom lokalnom derivacijom i rezultat proslijedi (zbroji) svakom od svojih ulaza. Za skalarni izlaz $L$ to daje gradijent po <em>svim</em> parametrima uz trošak otprilike dva prolaza unaprijed, neovisno o broju parametara – to je <b>obrnuti način</b> automatske derivacije (engl. <i>reverse-mode automatic differentiation</i>). Suprotni, „unaprijedni” način (derivirati svaki parametar posebno, ili konačne razlike) stoji jedan prolaz <em>po parametru</em>, što je za milijun parametara milijun puta sporije.</p>
+
+<napomena>Backpropagation nije ništa mistično: to je <em>derivacija složene funkcije</em> iz srednjoškolske matematike, samo primijenjena na funkciju s milijun ulaza i organizirana tako da se ništa ne računa dvaput. Kad zapneš, nacrtaj graf i na svaki brid napiši lokalnu derivaciju.</napomena>
+
+<h3>Gradijenti jednog sloja u matričnom obliku</h3>
+<p>Dogovor o oblicima (isti kao u PyTorchu): mini-skup od $n$ primjera čini redove, pa je ulaz u sloj $h^{(l-1)}\in\mathbb R^{n\times d}$, težine $W^{(l)}\in\mathbb R^{d\times m}$, pomak $b^{(l)}\in\mathbb R^{m}$ (dodaje se svakom retku), $z^{(l)}=h^{(l-1)}W^{(l)}+b^{(l)}\in\mathbb R^{n\times m}$ i $h^{(l)}=\sigma(z^{(l)})$ uz aktivaciju $\sigma$ primijenjenu po elementima. Označimo gradijent gubitka po predaktivaciji sloja s
+$$\delta^{(l)}:=\frac{\partial L}{\partial z^{(l)}}\in\mathbb R^{n\times m}.$$</p>
+<teorem naslov="backpropagation kroz jedan sloj">
+<p>Ako je poznat $\delta^{(l)}$, onda su
+$$\frac{\partial L}{\partial W^{(l)}}=\left(h^{(l-1)}\right)^{\!\top}\delta^{(l)},\qquad
+\frac{\partial L}{\partial b^{(l)}}=\sum_{i=1}^n\delta^{(l)}_{i,:},\qquad
+\frac{\partial L}{\partial h^{(l-1)}}=\delta^{(l)}\left(W^{(l)}\right)^{\!\top},$$
+a gradijent po predaktivaciji prethodnog sloja je
+$$\delta^{(l-1)}=\left(\delta^{(l)}\left(W^{(l)}\right)^{\!\top}\right)\odot\sigma'\!\left(z^{(l-1)}\right),$$
+gdje je $\odot$ množenje po elementima.</p>
+</teorem>
+<dokaz>
+<p>Element $z_{ik}=\sum_j h_{ij}W_{jk}+b_k$ ovisi o $W_{jk}$ s lokalnom derivacijom $h_{ij}$, i to za svaki primjer $i$. Lančano pravilo zbraja po svim $z_{ik}$ koji sadrže $W_{jk}$: $\partial L/\partial W_{jk}=\sum_i \delta_{ik}h_{ij}=(h^\top\delta)_{jk}$. Pomak $b_k$ ulazi u $z_{ik}$ za svaki $i$ s derivacijom $1$, pa je $\partial L/\partial b_k=\sum_i\delta_{ik}$. Ulaz $h_{ij}$ ulazi u $z_{ik}$ za svaki $k$ s derivacijom $W_{jk}$: $\partial L/\partial h_{ij}=\sum_k\delta_{ik}W_{jk}=(\delta W^\top)_{ij}$. Konačno $h^{(l-1)}=\sigma(z^{(l-1)})$ po elementima, pa se gradijent po $h^{(l-1)}$ množi po elementima s $\sigma'(z^{(l-1)})$.</p>
+</dokaz>
+<napomena>Provjera oblika je najbrži test ispravnosti: $\partial L/\partial W$ mora imati oblik od $W$ ($d\times m$), što $h^\top\delta=(d\times n)(n\times m)$ i daje; $\delta W^\top=(n\times m)(m\times d)$ ima oblik ulaza. Ako se oblici ne slažu, formula je sigurno pogrešna; ako se slažu, još uvijek nije sigurno točna – zato slijedi numerička provjera.</napomena>
+<p>Derivacije uobičajenih aktivacija: za sigmoidu $\sigma(z)=1/(1+e^{-z})$ vrijedi $\sigma'(z)=\sigma(z)(1-\sigma(z))$, za $\tanh$ je $\tanh'(z)=1-\tanh^2 z$, a za ReLU $\max(0,z)$ je $\sigma'(z)=1$ za $z\gt0$ i $0$ za $z\lt0$ (u $z=0$ derivacija ne postoji; u praksi se uzme $0$). Primijeti da je $\sigma'\le\frac14$ za sigmoidu: svaki sloj sa sigmoidom množi gradijent s brojem ne većim od $\frac14$, pa kroz $10$ slojeva gradijent prvog sloja padne barem $4^{10}\approx10^6$ puta – to je <b>nestajući gradijent</b> (engl. <i>vanishing gradient</i>) i glavni razlog zašto se u dubokim mrežama koristi ReLU.</p>
+
+<h3>Gradijent gubitka: MSE i softmax + unakrsna entropija</h3>
+<p>Backpropagation počinje gradijentom gubitka po izlazu mreže. Za regresiju s izlazom $\hat y\in\mathbb R^{n\times 1}$ i MSE $L=\frac1n\sum_i(\hat y_i-y_i)^2$ to je jednostavno
+$$\frac{\partial L}{\partial\hat y}=\frac2n(\hat y-y).$$
+Za klasifikaciju u $K$ klasa izlazni sloj daje <b>logite</b> $z\in\mathbb R^{n\times K}$ (nenormirane rezultate) koje <b>softmax</b> pretvara u vjerojatnosti.</p>
+<definicija naslov="Softmax i unakrsna entropija">
+Za jedan primjer s logitima $z\in\mathbb R^K$ i točnom klasom $y\in\{0,\dots,K-1\}$,
+$$p_k=\operatorname{softmax}(z)_k=\frac{e^{z_k}}{\sum_{j}e^{z_j}},\qquad \ell(z,y)=-\log p_y .$$
+<b>Unakrsna entropija</b> (engl. <i>cross-entropy</i>) na mini-skupu je prosjek $L=\frac1n\sum_i\ell(z_i,y_i)$. Ona je negativna log-izglednost: minimizirati je znači maksimizirati vjerojatnost koju model daje točnim klasama.
+</definicija>
+<teorem naslov="gradijent softmaxa s unakrsnom entropijom">
+<p>Za jedan primjer je $\dfrac{\partial\ell}{\partial z_k}=p_k-[k=y]$, tj. u matričnom obliku na mini-skupu
+$$\delta^{(L)}=\frac{\partial L}{\partial z}=\frac1n\left(P-Y\right),$$
+gdje je $P$ matrica softmax vjerojatnosti, a $Y$ matrica s jedinicom na mjestu točne klase (engl. <i>one-hot</i>).</p>
+</teorem>
+<dokaz>
+<p>Napišimo $\ell=-z_y+\log\sum_j e^{z_j}$. Derivacija drugog člana po $z_k$ je $e^{z_k}/\sum_j e^{z_j}=p_k$, a prvog je $-1$ ako je $k=y$, inače $0$. Dijeljenje s $n$ dolazi od prosjeka po mini-skupu.</p>
+</dokaz>
+<p>Rezultat je elegantan: greška je naprosto „predviđena vjerojatnost minus istina”. Zato se softmax i unakrsna entropija uvijek deriviraju <em>zajedno</em> (u PyTorchu <code>nn.CrossEntropyLoss</code> prima logite, a ne vjerojatnosti). Numerički, $\exp$ velikih logita prelijeva se; prije eksponenciranja oduzmi $\max_k z_k$ – softmax se ne mijenja, a brojevi ostaju razumni.</p>
+
+<h3>Numerička provjera gradijenta</h3>
+<p>Svaki ručno izveden gradijent provjeri <b>konačnim razlikama</b> (engl. <i>gradient checking</i>): za pojedini parametar $\theta_j$
+$$\frac{\partial L}{\partial\theta_j}\approx\frac{L(\theta+\varepsilon e_j)-L(\theta-\varepsilon e_j)}{2\varepsilon},\qquad \varepsilon\approx10^{-5},$$
+a kao mjeru slaganja koristi <em>relativnu</em> grešku $|g_{\text{num}}-g_{\text{ana}}|/(|g_{\text{num}}|+|g_{\text{ana}}|)$. Vrijednosti ispod $10^{-6}$ znače da je izvod točan; iznad $10^{-3}$ gotovo sigurno je greška u kodu. Provjeru radi u <code>float64</code>, na malom modelu i malom uzorku parametara (puna provjera stoji dva prolaza po parametru) i isključi je prije treniranja.</p>
+
+@@ primjeri
+<primjer>
+<p>(a) Za $f(x,y,z)=(x+y)\,z$ u točki $(2,-3,4)$ izračunaj $f$ i sve tri parcijalne derivacije prolazom unatrag kroz graf. (b) Za jedan neuron sa sigmoidom, $a=\sigma(w^\top x+b)$ i gubitkom $L=(a-y)^2$, s $x=(1,-2)$, $y=1$, $w=(0{,}5;\,-0{,}3)$, $b=0{,}1$, izračunaj $\partial L/\partial w$ i $\partial L/\partial b$ ručno pa provjeri konačnim razlikama.</p>
+<rjesenje>
+<p><b>Korak 1: graf s dva čvora.</b> Prolaz unaprijed sprema međuvrijednost $q=x+y$, jer je lokalna derivacija čvora množenja po $z$ upravo $q$. Prolaz unatrag kreće od $\partial f/\partial f=1$.</p>
+<kod jezik="python">
+import numpy as np
+
+x, y, z = 2.0, -3.0, 4.0
+q = x + y                  # čvor zbrajanja
+f = q * z                  # čvor množenja
+print("f =", f)
+
+df_df = 1.0                # početak prolaza unatrag
+df_dq = z * df_df          # lokalna derivacija množenja po q je z
+df_dz = q * df_df          # ... a po z je q
+df_dx = 1.0 * df_dq        # zbrajanje: lokalna derivacija 1, gradijent samo prolazi
+df_dy = 1.0 * df_dq
+print("df/dx = %.1f, df/dy = %.1f, df/dz = %.1f" % (df_dx, df_dy, df_dz))
+</kod>
+<izlaz>
+f = -4.0
+df/dx = 4.0, df/dy = 4.0, df/dz = -1.0
+</izlaz>
+<p>Čvor zbrajanja gradijent koji dođe odozgo <em>kopira</em> oba ulaza, a čvor množenja ga <em>zamijeni</em>: svakom ulazu da gradijent pomnožen vrijednošću drugog ulaza. Te dvije „slike” vrijede za sve grafove.</p>
+<p><b>Korak 2: neuron sa sigmoidom.</b> Graf je $z=w^\top x+b\to a=\sigma(z)\to L=(a-y)^2$. Unatrag: $\partial L/\partial a=2(a-y)$, zatim $\partial L/\partial z=\partial L/\partial a\cdot a(1-a)$, pa $\partial L/\partial w=\partial L/\partial z\cdot x$ i $\partial L/\partial b=\partial L/\partial z$.</p>
+<kod jezik="python">
+def sigmoid(t):
+    return 1 / (1 + np.exp(-t))
+
+x_n = np.array([1.0, -2.0]); y_n = 1.0        # ulaz i cilj
+w_n = np.array([0.5, -0.3]); b_n = 0.1        # parametri neurona
+
+z = w_n @ x_n + b_n            # unaprijed
+a = sigmoid(z)
+L = (a - y_n) ** 2
+print("z = %.3f, a = %.4f, L = %.4f" % (z, a, L))
+
+dL_da = 2 * (a - y_n)          # unatrag
+dL_dz = dL_da * a * (1 - a)
+dL_dw = dL_dz * x_n
+dL_db = dL_dz
+print("dL/dw =", dL_dw.round(6), " dL/db = %.6f" % dL_db)
+</kod>
+<izlaz>
+z = 1.200, a = 0.7685, L = 0.0536
+dL/dw = [-0.082356  0.164713]  dL/db = -0.082356
+</izlaz>
+<p><b>Korak 3: provjera konačnim razlikama.</b> Pomaknemo svaki parametar za $\pm\varepsilon$ i podijelimo razliku gubitaka s $2\varepsilon$.</p>
+<kod jezik="python">
+def gubitak_neurona(w, b):
+    return (sigmoid(w @ x_n + b) - y_n) ** 2
+
+eps = 1e-6
+num_w = [(gubitak_neurona(w_n + eps * e, b_n) - gubitak_neurona(w_n - eps * e, b_n)) / (2 * eps)
+         for e in np.eye(2)]
+num_b = (gubitak_neurona(w_n, b_n + eps) - gubitak_neurona(w_n, b_n - eps)) / (2 * eps)
+print("numerički: dL/dw =", np.round(num_w, 6), " dL/db = %.6f" % num_b)
+</kod>
+<izlaz>
+numerički: dL/dw = [-0.082356  0.164713]  dL/db = -0.082356
+</izlaz>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka make_moons">
+<p>Napiši MLP u čistom NumPy-ju (slojevi zadane širine, ReLU, softmax s unakrsnom entropijom, prolaz unaprijed, prolaz unatrag i korak gradijentnog spusta). Provjeri gradijent konačnim razlikama, zatim mrežu $2\to16\to2$ istreniraj na skupu <code>make_moons</code> i nacrtaj krivulju gubitka.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> Dva isprepletena „polumjeseca” nisu linearno odvojiva, pa je ovo najmanji zadatak na kojem skriveni sloj stvarno nešto radi.</p>
+<kod jezik="python">
+from sklearn.datasets import make_moons
+from sklearn.model_selection import train_test_split
+
+X, y = make_moons(n_samples=400, noise=0.2, random_state=0)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0)
+print(X_tr.shape, X_te.shape, "klase u treningu:", np.bincount(y_tr))
+</kod>
+<izlaz>
+(300, 2) (100, 2) klase u treningu: [153 147]
+</izlaz>
+<p><b>Korak 2: mreža.</b> Prolaz unaprijed pamti $h^{(l)}$ i $z^{(l)}$ svakog sloja jer ih prolaz unatrag treba. Metoda <code>unatrag</code> doslovno je teorem iz teorije: počinje s $\delta=(P-Y)/n$, pa za svaki sloj od zadnjeg prema prvom računa <code>dW = h.T @ delta</code>, <code>db = delta.sum(0)</code> i <code>delta = (delta @ W.T) * σ'(z)</code>. Težine inicijaliziramo iz $\mathcal N(0,\,2/d_{\text{ulaz}})$ (He-ova inicijalizacija, lekcija D4), pomake nulama. Aktivaciju i njezinu derivaciju biramo iz rječnika da bismo u zadacima mogli isprobati i $\tanh$.</p>
+<kod jezik="python">
+AKTIVACIJE = {
+    "relu": (lambda z: np.maximum(z, 0), lambda z: (z > 0).astype(float)),
+    "tanh": (np.tanh, lambda z: 1 - np.tanh(z) ** 2),
+}
+
+def softmax(z):
+    z = z - z.max(axis=1, keepdims=True)       # stabilnost; softmax se ne mijenja
+    e = np.exp(z)
+    return e / e.sum(axis=1, keepdims=True)
+
+def unakrsna_entropija(p, y):
+    return -np.mean(np.log(p[np.arange(len(y)), y]))
+
+class MLP:
+    def __init__(self, slojevi, aktivacija="relu", seed=0):
+        rng = np.random.default_rng(seed)
+        self.akt, self.akt_der = AKTIVACIJE[aktivacija]
+        self.W = [rng.normal(0, np.sqrt(2 / d_in), size=(d_in, d_out))
+                  for d_in, d_out in zip(slojevi[:-1], slojevi[1:])]
+        self.b = [np.zeros(d_out) for d_out in slojevi[1:]]
+
+    def unaprijed(self, X):
+        self.h, self.z = [X], []               # h[l] = izlaz sloja l, h[0] = ulaz
+        for l, (W, b) in enumerate(zip(self.W, self.b)):
+            z = self.h[-1] @ W + b
+            self.z.append(z)
+            zadnji = l == len(self.W) - 1
+            self.h.append(z if zadnji else self.akt(z))   # zadnji sloj daje logite
+        return softmax(self.h[-1])
+
+    def unatrag(self, p, y):
+        n = len(y)
+        delta = p.copy()
+        delta[np.arange(n), y] -= 1
+        delta /= n                              # dL/dz zadnjeg sloja = (P - Y) / n
+        self.dW, self.db = [None] * len(self.W), [None] * len(self.W)
+        for l in reversed(range(len(self.W))):
+            self.dW[l] = self.h[l].T @ delta
+            self.db[l] = delta.sum(axis=0)
+            if l > 0:
+                delta = (delta @ self.W[l].T) * self.akt_der(self.z[l - 1])
+
+    def korak(self, eta):
+        for l in range(len(self.W)):
+            self.W[l] -= eta * self.dW[l]
+            self.b[l] -= eta * self.db[l]
+
+    def predvidi(self, X):
+        return self.unaprijed(X).argmax(axis=1)
+
+mreza = MLP([2, 16, 2])
+p = mreza.unaprijed(X_tr)
+print("oblik P:", p.shape, " zbroj redaka:", p.sum(axis=1)[:3].round(6))
+print("početni gubitak: %.4f  (ln 2 = %.4f)" % (unakrsna_entropija(p, y_tr), np.log(2)))
+</kod>
+<izlaz>
+oblik P: (300, 2)  zbroj redaka: [1. 1. 1.]
+početni gubitak: 0.6142  (ln 2 = 0.6931)
+</izlaz>
+<p>Prije učenja mreža „pogađa”: gubitak je blizu $\ln 2$, što je unakrsna entropija potpuno nesigurnog modela s dvije klase. To je koristan test – ako početni gubitak nije približno $\ln K$, inicijalizacija je prevelika.</p>
+<p><b>Korak 3: provjera gradijenta.</b> Za nasumičnih pet težina u svakom sloju usporedimo analitički gradijent s konačnim razlikama.</p>
+<kod jezik="python">
+def provjeri_gradijent(mreza, X, y, eps=1e-5, seed=1):
+    rng = np.random.default_rng(seed)
+    mreza.unatrag(mreza.unaprijed(X), y)
+    dW = [g.copy() for g in mreza.dW]
+    najveca = 0.0
+    for l in range(len(mreza.W)):
+        for _ in range(5):
+            i = rng.integers(mreza.W[l].shape[0]); j = rng.integers(mreza.W[l].shape[1])
+            staro = mreza.W[l][i, j]
+            mreza.W[l][i, j] = staro + eps
+            L_plus = unakrsna_entropija(mreza.unaprijed(X), y)
+            mreza.W[l][i, j] = staro - eps
+            L_minus = unakrsna_entropija(mreza.unaprijed(X), y)
+            mreza.W[l][i, j] = staro
+            num, ana = (L_plus - L_minus) / (2 * eps), dW[l][i, j]
+            najveca = max(najveca, abs(num - ana) / (abs(num) + abs(ana) + 1e-15))
+    return najveca
+
+print("najveća relativna greška gradijenta: %.1e" % provjeri_gradijent(mreza, X_tr, y_tr))
+</kod>
+<izlaz>
+najveća relativna greška gradijenta: 5.0e-10
+</izlaz>
+<p><b>Korak 4: treniranje punim skupom.</b> Svaka epoha je jedan prolaz unaprijed, jedan unatrag i jedan korak; gubitak spremamo za krivulju.</p>
+<kod jezik="python">
+mreza = MLP([2, 16, 2])
+povijest = []
+for epoha in range(1, 601):
+    p = mreza.unaprijed(X_tr)
+    povijest.append(unakrsna_entropija(p, y_tr))
+    mreza.unatrag(p, y_tr)
+    mreza.korak(eta=0.5)
+    if epoha in (1, 50, 100, 200, 400, 600):
+        tocnost = np.mean(mreza.predvidi(X_te) == y_te)
+        print("epoha %3d  gubitak %.4f  točnost test %.3f" % (epoha, povijest[-1], tocnost))
+</kod>
+<izlaz>
+epoha   1  gubitak 0.6142  točnost test 0.860
+epoha  50  gubitak 0.2793  točnost test 0.900
+epoha 100  gubitak 0.2600  točnost test 0.900
+epoha 200  gubitak 0.1663  točnost test 0.930
+epoha 400  gubitak 0.0963  točnost test 0.960
+epoha 600  gubitak 0.0794  točnost test 0.950
+</izlaz>
+<p><b>Korak 5: krivulja gubitka i granica odluke.</b> Krivulju gubitka (engl. <i>loss curve</i>) crtaj uvijek: brzi pad pa zaravnjenje znači da učenje konvergira; skokovi i rast znače da je $\eta$ prevelik, a ravna linija od početka da je premalen ili da je gradijent pogrešan.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+fig, (lijevo, desno) = plt.subplots(1, 2, figsize=(10, 3.6))
+lijevo.plot(povijest)
+lijevo.set_xlabel("epoha"); lijevo.set_ylabel("unakrsna entropija"); lijevo.set_title("krivulja gubitka")
+
+xx, yy = np.meshgrid(np.linspace(-1.8, 2.8, 200), np.linspace(-1.3, 1.8, 200))
+mreza_odluka = mreza.predvidi(np.column_stack([xx.ravel(), yy.ravel()])).reshape(xx.shape)
+desno.contourf(xx, yy, mreza_odluka, alpha=0.25, levels=[-0.5, 0.5, 1.5])
+desno.scatter(X_te[:, 0], X_te[:, 1], c=y_te, s=14, edgecolor="k", lw=0.3)
+desno.set_title("granica odluke na testu")
+fig.tight_layout(); fig.savefig("mlp_moons.png", dpi=120)
+print("spremljeno mlp_moons.png")
+</kod>
+<izlaz>
+spremljeno mlp_moons.png
+</izlaz>
+<p>Na slici lijevo gubitak strmo pada u prvih stotinjak epoha, zatim se polako spušta; desno granica odluke više nije pravac nego zakrivljena vrpca koja slijedi oba polumjeseca, sastavljena od ravnih komada – svaki komad je područje u kojem je aktivan drugi skup ReLU neurona.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka load_digits">
+<p>Istu mrežu primijeni na rukom pisane znamenke <code>load_digits</code> ($1797$ slika $8\times8$, $10$ klasa): arhitektura $64\to32\to10$, mini-skupovi od $32$ primjera. Izmjeri točnost na testu i usporedi krivulje gubitka za nekoliko stopa učenja.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> Pikseli su cijeli brojevi $0$–$16$; dijeljenjem sa $16$ dovodimo ih u $[0,1]$ (mreže loše uče na velikim ulazima – lekcija D4). Podjela je stratificirana da svaka znamenka bude podjednako zastupljena.</p>
+<kod jezik="python">
+from sklearn.datasets import load_digits
+
+znamenke = load_digits()
+Xd = znamenke.data / 16.0
+Xd_tr, Xd_te, yd_tr, yd_te = train_test_split(
+    Xd, znamenke.target, test_size=0.25, random_state=0, stratify=znamenke.target)
+print(Xd_tr.shape, Xd_te.shape, "raspon piksela:", Xd.min(), Xd.max())
+</kod>
+<izlaz>
+(1347, 64) (450, 64) raspon piksela: 0.0 1.0
+</izlaz>
+<p><b>Korak 2: mini-skupovi.</b> Umjesto jednog koraka po epohi radimo korak za svaki mini-skup (engl. <i>mini-batch</i>): podatke izmiješamo, režemo na komade od $32$ i za svaki komad napravimo unaprijed–unatrag–korak. Gradijent na mini-skupu je šumna procjena pravog gradijenta, ali korak je $40$ puta jeftiniji nego na cijelom skupu.</p>
+<kod jezik="python">
+def treniraj(mreza, X, y, epohe=30, velicina=32, eta=0.1, seed=0):
+    rng = np.random.default_rng(seed)
+    povijest = []
+    for _ in range(epohe):
+        perm = rng.permutation(len(y))
+        for i in range(0, len(y), velicina):
+            idx = perm[i:i + velicina]
+            mreza.unatrag(mreza.unaprijed(X[idx]), y[idx])
+            mreza.korak(eta)
+        povijest.append(unakrsna_entropija(mreza.unaprijed(X), y))
+    return povijest
+
+mreza_zn = MLP([64, 32, 10])
+pov_zn = treniraj(mreza_zn, Xd_tr, yd_tr)
+print("gubitak nakon 1, 5, 10, 20, 30 epoha:", np.round([pov_zn[i - 1] for i in (1, 5, 10, 20, 30)], 4))
+print("točnost trening %.3f  test %.3f" % (np.mean(mreza_zn.predvidi(Xd_tr) == yd_tr),
+                                           np.mean(mreza_zn.predvidi(Xd_te) == yd_te)))
+</kod>
+<izlaz>
+gubitak nakon 1, 5, 10, 20, 30 epoha: [1.445  0.3207 0.2739 0.1084 0.0764]
+točnost trening 0.987  test 0.967
+</izlaz>
+<p>Pedesetak redaka NumPy-ja prepoznaje znamenke s točnošću iznad $95\,\%$ – usporedi s logističkom regresijom iz lekcije M3. Preostale greške su uglavnom slične znamenke (npr. $3$/$5$, $4$/$9$) na malim slikama.</p>
+<p><b>Korak 3: utjecaj stope učenja.</b> Isti model s tri vrijednosti $\eta$; krivulje spremamo na sliku, a u ispisu gledamo gubitak nakon 5 i nakon 30 epoha.</p>
+<kod jezik="python">
+plt.figure(figsize=(5.5, 3.6))
+for eta in (0.01, 0.1, 1.0):
+    pov = treniraj(MLP([64, 32, 10]), Xd_tr, yd_tr, eta=eta)
+    plt.plot(pov, label="eta = %g" % eta)
+    print("eta = %4g   gubitak nakon 5 epoha %.4f   nakon 30 epoha %.4f" % (eta, pov[4], pov[-1]))
+plt.yscale("log"); plt.xlabel("epoha"); plt.ylabel("gubitak (log)"); plt.legend()
+plt.tight_layout(); plt.savefig("mlp_digits_eta.png", dpi=120)
+</kod>
+<izlaz>
+eta = 0.01   gubitak nakon 5 epoha 1.8309   nakon 30 epoha 0.5030
+eta =  0.1   gubitak nakon 5 epoha 0.3207   nakon 30 epoha 0.0764
+eta =    1   gubitak nakon 5 epoha 0.1736   nakon 30 epoha 0.1611
+</izlaz>
+<p>Premala stopa ($0{,}01$) uči sporo – krivulja se spušta gotovo pravocrtno i nakon $30$ epoha još je daleko od ostalih. Stopa $0{,}1$ brzo padne i glatko se zaravna. Stopa $1$ padne najbrže na početku, ali krivulja je izlomljena i ne spušta se ispod krivulje za $0{,}1$: koraci su preveliki da bi se model smirio u minimumu. Lekcija D4 sustavno obrađuje izbor stope učenja i njezino smanjivanje tijekom treninga.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za $f(x,y)=(xy+1)^2$ nacrtaj računski graf (čvorovi: množenje, zbrajanje konstante, kvadriranje) i prolazom unatrag izračunaj $\partial f/\partial x$ i $\partial f/\partial y$ u točki $(1,2)$. Provjeri rezultat eksplicitnim deriviranjem.</p>
+<rjesenje>
+<p>Graf: $u=xy$, $v=u+1$, $f=v^2$. Unaprijed: $u=2$, $v=3$, $f=9$. Unatrag: $\partial f/\partial v=2v=6$; čvor zbrajanja konstante gradijent samo propušta, $\partial f/\partial u=6$; čvor množenja ga zamijeni: $\partial f/\partial x=6\cdot y=12$, $\partial f/\partial y=6\cdot x=6$. Eksplicitno: $\partial f/\partial x=2(xy+1)\,y=2\cdot3\cdot2=12$ i $\partial f/\partial y=2(xy+1)\,x=6$.</p>
+<kod jezik="python">
+x0, y0 = 1.0, 2.0
+u = x0 * y0; v = u + 1; f = v ** 2
+df_dv = 2 * v; df_du = df_dv; df_dx = df_du * y0; df_dy = df_du * x0
+print("f = %.0f, df/dx = %.0f, df/dy = %.0f" % (f, df_dx, df_dy))
+</kod>
+<izlaz>
+f = 9, df/dx = 12, df/dy = 6
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Sloj ima $W\in\mathbb R^{64\times32}$ i $b\in\mathbb R^{32}$, a mini-skup ima $16$ primjera. Koji su oblici matrica $z$, $\delta$, $\partial L/\partial W$, $\partial L/\partial b$ i $\partial L/\partial h$ (gradijent po ulazu sloja)? Zašto se u $\partial L/\partial b$ zbraja po primjerima, a u $\partial L/\partial W$ ne „vidi se” zbroj?</p>
+<rjesenje>
+<p>$z,\delta\in\mathbb R^{16\times32}$ (kao izlaz sloja), $\partial L/\partial W\in\mathbb R^{64\times32}$ (kao $W$), $\partial L/\partial b\in\mathbb R^{32}$ (kao $b$), $\partial L/\partial h\in\mathbb R^{16\times64}$ (kao ulaz). Pomak $b_k$ sudjeluje u $z_{ik}$ za svih $16$ primjera, pa se njegovih $16$ doprinosa zbraja: $\sum_i\delta_{ik}$. Isti zbroj po primjerima postoji i u $\partial L/\partial W=h^\top\delta$ – samo je skriven u matričnom umnošku, jer je $(h^\top\delta)_{jk}=\sum_i h_{ij}\delta_{ik}$ upravo zbroj po $i$. Provjera oblikom: $(64\times16)(16\times32)=64\times32$.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Dokaži $\sigma'(z)=\sigma(z)(1-\sigma(z))$ za sigmoidu i pokaži da je $\sigma'(z)\le\frac14$. Ako mreža ima $10$ slojeva sa sigmoidom i sve težine su po apsolutnoj vrijednosti najviše $1$, koliko najviše puta gradijent ulaznog sloja može biti veći od gradijenta na izlazu (zanemari zbrajanje po neuronima)?</p>
+<rjesenje>
+<p>Uz $\sigma(z)=(1+e^{-z})^{-1}$ je $\sigma'(z)=e^{-z}(1+e^{-z})^{-2}=\sigma(z)\cdot\dfrac{e^{-z}}{1+e^{-z}}=\sigma(z)(1-\sigma(z))$. Funkcija $s(1-s)$ na $[0,1]$ ima maksimum $\frac14$ u $s=\frac12$. Duž jednog puta kroz $10$ slojeva gradijent se množi s $10$ faktora $\sigma'\le\frac14$ i $10$ težina $|w|\le1$, pa je najviše $4^{-10}\approx 9{,}5\cdot10^{-7}$ puta <em>manji</em> – nikad veći. Ulazni slojevi duboke sigmoidne mreže zato gotovo da ne uče; ReLU ima derivaciju točno $1$ na aktivnom dijelu i taj problem nema.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Za neuron iz Primjera 1 izračunaj relativnu grešku numeričkog gradijenta $\partial L/\partial b$ za $\varepsilon\in\{10^{-1},10^{-3},10^{-5},10^{-7},10^{-9},10^{-11}\}$. Zašto greška nije monotona u $\varepsilon$? Koji je $\varepsilon$ razuman izbor?</p>
+<naputak>Dva su izvora greške: Taylorov ostatak reda $\varepsilon^2$ (prevelik $\varepsilon$) i oduzimanje gotovo jednakih brojeva u <code>float64</code> (premalen $\varepsilon$).</naputak>
+<rjesenje>
+<kod jezik="python">
+for eps in (1e-1, 1e-3, 1e-5, 1e-7, 1e-9, 1e-11):
+    num = (gubitak_neurona(w_n, b_n + eps) - gubitak_neurona(w_n, b_n - eps)) / (2 * eps)
+    print("eps = %5.0e   rel. greška = %.1e" % (eps, abs(num - dL_db) / abs(dL_db)))
+</kod>
+<izlaz>
+eps = 1e-01   rel. greška = 1.9e-03
+eps = 1e-03   rel. greška = 2.0e-07
+eps = 1e-05   rel. greška = 8.7e-12
+eps = 1e-07   rel. greška = 2.0e-09
+eps = 1e-09   rel. greška = 2.2e-07
+eps = 1e-11   rel. greška = 2.1e-05
+</izlaz>
+<p>Za velik $\varepsilon$ dominira greška odbacivanja (centralna razlika točna je do člana reda $\varepsilon^2$), pa greška pada kvadratno s $\varepsilon$. Za vrlo mali $\varepsilon$ razlika $L(b+\varepsilon)-L(b-\varepsilon)$ je reda $\varepsilon$, a svaki od ta dva broja zaokružen je na relativnu točnost $\approx10^{-16}$; dijeljenjem s $2\varepsilon$ greška zaokruživanja naraste na $\approx10^{-16}/\varepsilon$. Minimum zbroja dvaju učinaka je oko $\varepsilon\approx10^{-5}$ do $10^{-6}$, što je i uobičajena preporuka.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Prilagodi mrežu za <em>regresiju</em>: izlazni sloj ima jedan neuron bez softmaxa, a gubitak je MSE. Izvedi $\delta$ zadnjeg sloja i istreniraj mrežu $1\to32\to1$ s $\tanh$ aktivacijom na $y=\sin(2\pi x)+\varepsilon$, $x\in[0,1]$, $\sigma_\varepsilon=0{,}1$. Kolika je MSE na testu u odnosu na varijancu šuma $0{,}01$?</p>
+<naputak>Za $L=\frac1n\sum_i(\hat y_i-y_i)^2$ je $\partial L/\partial\hat y=\frac2n(\hat y-y)$, a budući da zadnji sloj nema aktivaciju, to je ujedno $\delta$ zadnjeg sloja. Ostatak prolaza unatrag je identičan.</naputak>
+<rjesenje>
+<p>Jedina razlika prema klasi <code>MLP</code> je početni $\delta$: umjesto $(P-Y)/n$ koristimo $\frac2n(\hat y-y)$. Napišemo potklasu koja mijenja samo početak prolaza unatrag i izlaz prolaza unaprijed.</p>
+<kod jezik="python">
+class MLPRegresija(MLP):
+    def unaprijed(self, X):
+        super().unaprijed(X)
+        return self.h[-1]                       # logiti su izravno predikcija
+
+    def unatrag(self, y_hat, y):
+        n = len(y)
+        delta = 2 / n * (y_hat - y.reshape(-1, 1))
+        self.dW, self.db = [None] * len(self.W), [None] * len(self.W)
+        for l in reversed(range(len(self.W))):
+            self.dW[l] = self.h[l].T @ delta
+            self.db[l] = delta.sum(axis=0)
+            if l > 0:
+                delta = (delta @ self.W[l].T) * self.akt_der(self.z[l - 1])
+
+rng = np.random.default_rng(3)
+xs_tr = rng.uniform(0, 1, (200, 1)); ys_tr = np.sin(2 * np.pi * xs_tr[:, 0]) + rng.normal(0, 0.1, 200)
+xs_te = rng.uniform(0, 1, (500, 1)); ys_te = np.sin(2 * np.pi * xs_te[:, 0]) + rng.normal(0, 0.1, 500)
+
+reg = MLPRegresija([1, 32, 1], aktivacija="tanh", seed=0)
+for epoha in range(6000):
+    y_hat = reg.unaprijed(xs_tr)
+    reg.unatrag(y_hat, ys_tr)
+    reg.korak(eta=0.1)
+mse_te = np.mean((reg.unaprijed(xs_te)[:, 0] - ys_te) ** 2)
+print("MSE trening %.4f   MSE test %.4f   (varijanca šuma 0.0100)" %
+      (np.mean((reg.unaprijed(xs_tr)[:, 0] - ys_tr) ** 2), mse_te))
+</kod>
+<izlaz>
+MSE trening 0.0120   MSE test 0.0115   (varijanca šuma 0.0100)
+</izlaz>
+<p>Testna MSE blizu je varijance šuma $0{,}01$ – mreža je naučila sinus, a ne šum. Puni gradijentni spust na ovom je zadatku spor (treba tisuće epoha; sa stopom $0{,}2$ već divergira, isprobaj), što je jedan od razloga za Adam i mini-skupove iz lekcije D4. Da smo trenirali puno dulje sa širim slojem bez ikakve kontrole, MSE na treningu bi padala ispod $0{,}01$, a na testu rasla: prenaučenost iz lekcije M1, sada u mreži.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Usporedi ReLU i $\tanh$ u klasi <code>MLP</code>: (a) najveću relativnu grešku provjere gradijenta na skupu <code>make_moons</code> – očekuješ li razliku i zašto? (b) točnost na testu skupa <code>load_digits</code> nakon $30$ epoha s istim postavkama kao u Primjeru 3.</p>
+<naputak>ReLU nije derivabilan u nuli i konačne razlike za težinu koja neki $z$ prebaci preko nule mjere nešto drugo od analitičke derivacije; vjerojatnost toga raste s $\varepsilon$.</naputak>
+<rjesenje>
+<kod jezik="python">
+for akt in ("relu", "tanh"):
+    greska = provjeri_gradijent(MLP([2, 16, 2], aktivacija=akt), X_tr, y_tr)
+    m = MLP([64, 32, 10], aktivacija=akt)
+    treniraj(m, Xd_tr, yd_tr)
+    print("%-5s  greška gradijenta %.1e   točnost test (digits) %.3f" %
+          (akt, greska, np.mean(m.predvidi(Xd_te) == yd_te)))
+</kod>
+<izlaz>
+relu   greška gradijenta 5.0e-10   točnost test (digits) 0.967
+tanh   greška gradijenta 1.2e-09   točnost test (digits) 0.969
+</izlaz>
+<p>(a) Obje greške su sićušne – izvod je točan za obje aktivacije. Kod $\tanh$ funkcija gubitka je glatka pa je slaganje do granice zaokruživanja; kod ReLU moguće je da pomak $\pm\varepsilon$ neki $z_{ik}$ prebaci preko nule, što bi dalo veću grešku za tu težinu, ali uz $\varepsilon=10^{-5}$ i $300$ primjera to se rijetko dogodi. (b) Na ovako plitkoj mreži obje aktivacije daju sličnu točnost; prednost ReLU vidi se tek u dubljim mrežama, gdje $\tanh$ (čija je derivacija $\le1$ i blizu nule za velike $|z|$) guši gradijent.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Izvedi gradijent softmaxa s unakrsnom entropijom iz definicije softmaxa (ne preko $\log\sum e^{z_j}$): izračunaj $\partial p_k/\partial z_j$ za $k=j$ i $k\ne j$, pa primijeni lančano pravilo na $\ell=-\log p_y$. Zatim na slučajnim logitima za $K=5$ numerički provjeri formulu $\partial\ell/\partial z=p-e_y$.</p>
+<naputak>Za $k=j$: $\partial p_k/\partial z_k=p_k(1-p_k)$; za $k\ne j$: $\partial p_k/\partial z_j=-p_kp_j$. Obje formule stanu u jednu: $\partial p_k/\partial z_j=p_k([k=j]-p_j)$.</naputak>
+<rjesenje>
+<p>Uz $S=\sum_j e^{z_j}$ je $p_k=e^{z_k}/S$. Za $k=j$: $\partial p_k/\partial z_k=(e^{z_k}S-e^{z_k}e^{z_k})/S^2=p_k-p_k^2=p_k(1-p_k)$. Za $k\ne j$: brojnik ne ovisi o $z_j$, pa $\partial p_k/\partial z_j=-e^{z_k}e^{z_j}/S^2=-p_kp_j$. Lančano pravilo za $\ell=-\log p_y$: $\partial\ell/\partial z_j=-\dfrac{1}{p_y}\dfrac{\partial p_y}{\partial z_j}=-\dfrac{p_y([y=j]-p_j)}{p_y}=p_j-[y=j]$, što je upravo $p-e_y$.</p>
+<kod jezik="python">
+rng = np.random.default_rng(5)
+zl = rng.normal(size=(1, 5)); klasa = np.array([2])
+def l_od(zl):
+    return unakrsna_entropija(softmax(zl), klasa)
+
+p = softmax(zl)[0]
+analiticki = p - np.eye(5)[2]
+eps = 1e-6
+numericki = np.array([(l_od(zl + eps * e) - l_od(zl - eps * e)) / (2 * eps) for e in np.eye(5)])
+print("p           =", p.round(5))
+print("analitički  =", analiticki.round(5))
+print("numerički   =", numericki.round(5))
+</kod>
+<izlaz>
+p           = [0.07314 0.04338 0.12722 0.24833 0.50793]
+analitički  = [ 0.07314  0.04338 -0.87278  0.24833  0.50793]
+numerički   = [ 0.07314  0.04338 -0.87278  0.24833  0.50793]
+</izlaz>
+<p>Primijeti: gradijent po logitu točne klase negativan je (treba ga povećati), po ostalima pozitivan (treba ih smanjiti), a zbroj svih komponenata je nula jer softmax ne mijenja ako svim logitima dodamo istu konstantu.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Zašto se težine inicijaliziraju slučajno, a ne, recimo, sve na istu vrijednost $0{,}1$? Inicijaliziraj mrežu $2\to16\to2$ tako da su <em>svi</em> elementi $W^{(1)}$ jednaki $0{,}1$ i svi elementi $W^{(2)}$ jednaki $0{,}1$, istreniraj je na <code>make_moons</code> kao u Primjeru 2 i ispiši koliko se stupaca $W^{(1)}$ razlikuje nakon treninga te točnost. Objasni pojavu i dokaži je iz formula za backpropagation.</p>
+<naputak>Ako su svi skriveni neuroni na početku identični (iste težine, isti pomaci), imaju iste aktivacije; pokaži da onda dobivaju i iste gradijente, pa ostaju identični zauvijek.</naputak>
+<rjesenje>
+<kod jezik="python">
+sim = MLP([2, 16, 2])
+sim.W[0][:] = 0.1
+sim.W[1][:] = 0.1
+for _ in range(600):
+    p = sim.unaprijed(X_tr)
+    sim.unatrag(p, y_tr)
+    sim.korak(eta=0.5)
+odstupanje = np.abs(sim.W[0] - sim.W[0][:, [0]]).max()
+print("najveća razlika među stupcima W1 nakon treninga: %.1e" % odstupanje)
+print("točnost test: %.3f" % np.mean(sim.predvidi(X_te) == y_te))
+</kod>
+<izlaz>
+najveća razlika među stupcima W1 nakon treninga: 0.0e+00
+točnost test: 0.900
+</izlaz>
+<p>Svih $16$ stupaca ostaje identično do zaokruživanja – mreža je zapravo cijelo vrijeme imala <em>jedan</em> skriveni neuron, pa je granica odluke pravac (izlaz je afina funkcija jedne ReLU aktivacije) i točnost je na razini linearnog modela, daleko od $0{,}95$ iz Primjera 2. Dokaz: neka su u nekom trenutku svi stupci $W^{(1)}$ jednaki, svi $b^{(1)}_k$ jednaki i svi redci $W^{(2)}$ jednaki. Tada su za svaki primjer $i$ svi $z^{(1)}_{ik}$ jednaki, pa i $h^{(1)}_{ik}$. Gradijent $\delta^{(1)}=(\delta^{(2)}(W^{(2)})^\top)\odot\sigma'(z^{(1)})$ ima $k$-ti stupac $\sum_c\delta^{(2)}_{ic}W^{(2)}_{kc}\,\sigma'(z^{(1)}_{ik})$, koji ne ovisi o $k$ (svi redci $W^{(2)}$ jednaki, svi $z^{(1)}_{ik}$ jednaki). Stoga su svi stupci $\partial L/\partial W^{(1)}=(h^{(0)})^\top\delta^{(1)}$ jednaki, kao i komponente $\partial L/\partial b^{(1)}$, a redci $\partial L/\partial W^{(2)}=(h^{(1)})^\top\delta^{(2)}$ također (svi stupci $h^{(1)}$ su jednaki). Nakon koraka gradijentnog spusta simetrija je očuvana; indukcijom vrijedi zauvijek. Slučajna inicijalizacija <em>razbija simetriju</em> (engl. <i>symmetry breaking</i>) i zato je nužna.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Napiši mini-autograd: razred <code>Vrijednost</code> koji pamti skalar, gradijent, roditelje i operaciju; podrži zbrajanje, množenje, potenciranje realnim brojem i $\tanh$ te metodu <code>unatrag()</code> koja topološki sortira graf i primijeni lančano pravilo od izlaza prema ulazima. Provjeri ga na funkciji iz Primjera 1(a), zatim njime istreniraj mrežu $2\to4\to1$ s $\tanh$ na problemu XOR.</p>
+<naputak>Svaka operacija stvara novi čvor i definira funkciju <code>_unatrag</code> koja <em>pribraja</em> (ne postavlja!) gradijent roditeljima – ista varijabla može se koristiti više puta. <code>unatrag()</code> postavi <code>grad = 1</code> na izlazu i poziva <code>_unatrag</code> čvorova obrnutim topološkim redom.</naputak>
+<rjesenje>
+<p>Ovo je skalarna verzija onoga što PyTorchov autograd radi s tenzorima (lekcija D3). Zbroj se u <code>_unatrag</code> koristi zato što lančano pravilo zbraja doprinose svih puteva.</p>
+<kod jezik="python">
+import math
+
+class Vrijednost:
+    def __init__(self, podatak, roditelji=(), op=""):
+        self.podatak, self.grad = float(podatak), 0.0
+        self._roditelji, self._op, self._unatrag = set(roditelji), op, lambda: None
+
+    def __add__(self, drugi):
+        drugi = drugi if isinstance(drugi, Vrijednost) else Vrijednost(drugi)
+        izlaz = Vrijednost(self.podatak + drugi.podatak, (self, drugi), "+")
+        def _unatrag():
+            self.grad += izlaz.grad
+            drugi.grad += izlaz.grad
+        izlaz._unatrag = _unatrag
+        return izlaz
+
+    def __mul__(self, drugi):
+        drugi = drugi if isinstance(drugi, Vrijednost) else Vrijednost(drugi)
+        izlaz = Vrijednost(self.podatak * drugi.podatak, (self, drugi), "*")
+        def _unatrag():
+            self.grad += drugi.podatak * izlaz.grad
+            drugi.grad += self.podatak * izlaz.grad
+        izlaz._unatrag = _unatrag
+        return izlaz
+
+    def __pow__(self, k):
+        izlaz = Vrijednost(self.podatak ** k, (self,), "**")
+        def _unatrag():
+            self.grad += k * self.podatak ** (k - 1) * izlaz.grad
+        izlaz._unatrag = _unatrag
+        return izlaz
+
+    def tanh(self):
+        t = math.tanh(self.podatak)
+        izlaz = Vrijednost(t, (self,), "tanh")
+        def _unatrag():
+            self.grad += (1 - t ** 2) * izlaz.grad
+        izlaz._unatrag = _unatrag
+        return izlaz
+
+    __radd__ = __add__
+    __rmul__ = __mul__
+    def __neg__(self): return self * -1
+    def __sub__(self, drugi): return self + (-drugi)
+    def __rsub__(self, drugi): return (-self) + drugi
+
+    def unatrag(self):
+        poredak, posjeceno = [], set()
+        def obidji(v):
+            if v not in posjeceno:
+                posjeceno.add(v)
+                for r in v._roditelji:
+                    obidji(r)
+                poredak.append(v)
+        obidji(self)
+        self.grad = 1.0
+        for v in reversed(poredak):
+            v._unatrag()
+
+xa, ya, za = Vrijednost(2.0), Vrijednost(-3.0), Vrijednost(4.0)
+fa = (xa + ya) * za
+fa.unatrag()
+print("f = %.1f, df/dx = %.1f, df/dy = %.1f, df/dz = %.1f" % (fa.podatak, xa.grad, ya.grad, za.grad))
+</kod>
+<izlaz>
+f = -4.0, df/dx = 4.0, df/dy = 4.0, df/dz = -1.0
+</izlaz>
+<p>Isti rezultat kao ručni račun u Primjeru 1. Sad mreža: parametri su objekti <code>Vrijednost</code>, prolaz unaprijed je običan Python s operatorima, a <code>unatrag()</code> na gubitku daje gradijente svih parametara. Prije svakog koraka gradijente treba <em>poništiti</em> jer se pribrajaju – isto kao <code>optimizer.zero_grad()</code> u PyTorchu.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+ulazi = [(0, 0), (0, 1), (1, 0), (1, 1)]
+ciljevi = [-1, 1, 1, -1]                     # XOR, kodiran s -1/1 za tanh izlaz
+
+W1 = [[Vrijednost(rng.normal(0, 1)) for _ in range(2)] for _ in range(4)]
+b1 = [Vrijednost(0.0) for _ in range(4)]
+W2 = [Vrijednost(rng.normal(0, 1)) for _ in range(4)]
+b2 = Vrijednost(0.0)
+parametri = [v for red in W1 for v in red] + b1 + W2 + [b2]
+
+def mreza_xor(x):
+    skriveni = [(w[0] * x[0] + w[1] * x[1] + b).tanh() for w, b in zip(W1, b1)]
+    return (sum(w * h for w, h in zip(W2, skriveni)) + b2).tanh()
+
+for korak in range(1, 301):
+    gubitak = sum((mreza_xor(x) - c) ** 2 for x, c in zip(ulazi, ciljevi))
+    for p in parametri:
+        p.grad = 0.0
+    gubitak.unatrag()
+    for p in parametri:
+        p.podatak -= 0.1 * p.grad
+    if korak in (1, 50, 100, 300):
+        print("korak %3d  gubitak %.4f" % (korak, gubitak.podatak))
+print("predikcije:", [round(mreza_xor(x).podatak, 2) for x in ulazi])
+</kod>
+<izlaz>
+korak   1  gubitak 4.7276
+korak  50  gubitak 0.1370
+korak 100  gubitak 0.0396
+korak 300  gubitak 0.0087
+predikcije: [-0.97, 0.95, 0.95, -0.94]
+</izlaz>
+<p>Gubitak pada prema nuli i predikcije se približavaju ciljevima $-1,1,1,-1$: mreža je naučila XOR, što jedan perceptron ne može (lekcija D1). Ovaj razred je u suštini <i>micrograd</i> A. Karpathyja; PyTorch radi isto, samo s tenzorima umjesto skalara i s kernelima pisanima u C++-u.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Backpropagation = lančano pravilo na računskom grafu: svaki čvor primi gradijent odozgo, pomnoži ga lokalnom derivacijom i proslijedi ulazima; doprinosi različitih puteva se zbrajaju. Trošak je neovisan o broju parametara.</li>
+<li>Jedan sloj $z=hW+b$: $\partial L/\partial W=h^\top\delta$, $\partial L/\partial b=\sum_i\delta_{i,:}$, $\delta^{(l-1)}=(\delta^{(l)}W^\top)\odot\sigma'(z^{(l-1)})$. Prvo provjeri oblike.</li>
+<li>Gradijent gubitka po izlazu: MSE $\frac2n(\hat y-y)$; softmax + unakrsna entropija $\frac1n(P-Y)$ – zato se uvijek deriviraju zajedno i modelu se predaju logiti.</li>
+<li>Svaki ručni gradijent provjeri centralnim konačnim razlikama ($\varepsilon\approx10^{-5}$, relativna greška, <code>float64</code>); greška iznad $10^{-3}$ znači bug.</li>
+<li>Krivulja gubitka je prvi dijagnostički alat: početni gubitak $\approx\ln K$, zatim brz pad i zaravnjenje; skokovi znače prevelik $\eta$. Slučajna inicijalizacija je nužna da se razbije simetrija neurona.</li>
+<li>Autograd (PyTorch) automatizira sve ovo za proizvoljne grafove; razumijevanje ručnog izvoda i dalje je ključno za pronalaženje grešaka i čitanje gradijenata.</li>
+</ul>
+
+@@ literatura
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press, poglavlje 6.5 (Back-Propagation and Other Differentiation Algorithms); besplatno na <a href="https://www.deeplearningbook.org/">deeplearningbook.org</a>.</li>
+<li>M. Nielsen, <i>Neural Networks and Deep Learning</i>, poglavlje 2 (How the backpropagation algorithm works), <a href="http://neuralnetworksanddeeplearning.com/chap2.html">neuralnetworksanddeeplearning.com</a>.</li>
+<li>Stanford CS231n, bilješke <a href="https://cs231n.github.io/optimization-2/">Backpropagation, Intuitions</a>.</li>
+<li>A. Karpathy, <i>micrograd</i> i videopredavanje „The spelled-out intro to neural networks and backpropagation”, <a href="https://github.com/karpathy/micrograd">github.com/karpathy/micrograd</a>.</li>
