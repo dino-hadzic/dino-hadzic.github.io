@@ -1,0 +1,558 @@
+@@ meta
+naslov = Transfer learning u računalnom vidu
+podnaslov = Zašto pretrenirana mreža vrijedi više od tvojih podataka: ResNet i skip veze, zamrzavanje i fino ugađanje, zamjena glave, ekstrakcija značajki i poštena evaluacija
+oznake = transfer learning, ImageNet, ResNet, skip veze, fine-tuning, zamrzavanje slojeva, zamjena glave, stopa učenja, ekstrakcija značajki, torchvision.models
+
+@@ ciljevi
+<li>Objasniti zašto mreža pretrenirana na ImageNetu rješava tuđi zadatak s malo podataka i što znače pojmovi <em>trup</em> (backbone), <em>glava</em> (head) i <em>značajke</em>.</li>
+<li>Opisati ResNet i ulogu skip veza; prepoznati EfficientNet i ViT kao druge obitelji pretreniranih trupova.</li>
+<li>Odabrati i izvesti jedan od tri recepta: ekstrakcija značajki + logistička regresija, zamrznuti trup + nova glava, fino ugađanje (fine-tuning) cijele mreže s malom stopom učenja.</li>
+<li>Napisati cjelovit <code>torchvision.models.resnet18</code> recept i pošteno ga evaluirati na odvojenom testnom skupu.</li>
+
+@@ teorija
+<p>U prethodnoj lekciji (V4) sliku si pretvorio u tenzor i naučio ga rezati, okretati i filtrirati. Sljedeći je korak klasifikator. Problem: konvolucijska mreža koja išta vrijedi ima milijune parametara, a na natjecanju tipično dobiješ nekoliko stotina označenih slika i procesor bez GPU-a. Učenje od nule u takvim uvjetima gotovo uvijek gubi od jednostavnog trika – uzmi mrežu koju je netko već naučio na ogromnom skupu i <em>prenesi</em> njezino znanje. To je <em>transfer learning</em> (prijenosno učenje) i to je recept broj jedan za računalni vid s malo podataka.</p>
+
+<h3>Zašto pretrenirane mreže</h3>
+<p>ImageNet (ILSVRC) skup je od oko $1{,}2$ milijuna fotografija označenih u $1000$ razreda – od pasmina pasa do vrsta brodova. Mreža naučena na njemu nije naučila samo „koji je ovo pas”: njezini prvi slojevi reagiraju na rubove, boje i teksture, srednji na dijelove (oči, kotače, perje), a zadnji na cijele objekte. Rubovi i teksture isti su na rendgenskoj snimci, satelitskoj slici i fotografiji s mobitela, pa se ti slojevi mogu <em>ponovno upotrijebiti</em>. Što je sloj dublji, to je specifičniji za izvorni zadatak; zadnji, <em>glava</em> (head, u torchvisionu sloj <code>fc</code>), računa upravo $1000$ ImageNetovih razreda i za tvoj zadatak je beskorisna.</p>
+<definicija>Neka je pretrenirana mreža $f=g\circ\phi$, gdje je $\phi:\mathbb{R}^{3\times H\times W}\to\mathbb{R}^d$ <em>trup</em> (backbone, ekstraktor značajki), a $g:\mathbb{R}^d\to\mathbb{R}^{1000}$ <em>glava</em>. <em>Transfer learning</em> znači zadržati $\phi$ (ili njegov početak), zamijeniti $g$ novom glavom $g'$ s $k$ izlaza za tvojih $k$ razreda i naučiti $g'$ te eventualno dio $\phi$ na vlastitim podacima.</definicija>
+<p>Vektor $\phi(x)\in\mathbb{R}^d$ zove se <em>značajka</em> (feature, embedding) slike. Za ResNet-18 $d=512$, za ResNet-50 $d=2048$. Ključna je činjenica da su značajke dobrog trupa gotovo linearno odvojive za većinu „prirodnih” razreda, pa je i običan linearni klasifikator na njima jak.</p>
+
+<h3>Arhitekture ukratko: ResNet, EfficientNet, ViT</h3>
+<p>Prije 2015. dublje mreže često su bile <em>lošije</em> i na skupu za učenje – ne zbog pretreniranosti, nego zato što gradijent kroz desetke slojeva teško prolazi, a sloj koji bi trebao naučiti identitet to teško nauči. <em>ResNet</em> (residual network, He i sur., 2016.) rješava to <em>skip vezom</em> (preskočnom vezom): blok od dva konvolucijska sloja ne uči izlaz $H(x)$ nego ostatak $F(x)=H(x)-x$, a izlaz bloka je</p>
+$$y=F(x)+x .$$
+<p>Ako blok ne treba ništa promijeniti, dovoljno je $F\approx0$, što je lako. Gradijent se kroz zbroj prenosi neokrnjen, pa se bez problema uče mreže sa $18$, $50$ ili $152$ sloja. ResNet-18 sastoji se od početne konvolucije $7\times7$ s korakom $2$, sažimanja, četiri faze (<code>layer1</code>–<code>layer4</code>) s po dva rezidualna bloka, pri čemu svaka faza upola smanjuje visinu i širinu i udvostručuje broj kanala ($64\to128\to256\to512$), zatim globalnog usrednjavanja (<code>avgpool</code>) u vektor od $512$ brojeva i glave <code>fc</code>. Ima oko $11{,}7$ milijuna parametara i na ImageNetu postiže oko $70\,\%$ top-1 točnosti; ResNet-50 oko $76\,\%$ (podaci iz torchvision dokumentacije).</p>
+<p><em>EfficientNet</em> (Tan i Le, 2019.) istodobno skalira dubinu, širinu i razlučivost pa za istu točnost treba višestruko manje računanja; <em>ViT</em> (Vision Transformer, Dosovitskiy i sur., 2021.) sliku reže na pločice $16\times16$, svaku pretvara u vektor kao „riječ” i pušta kroz transformer iz lekcija o jeziku. Za nas su sve tri obitelji isto: trup koji daje vektor značajki, a torchvision ih nudi istim sučeljem (<code>models.efficientnet_b0</code>, <code>models.vit_b_16</code>). Na CPU-u s malo podataka ResNet-18 ostaje najbolji omjer brzine i točnosti.</p>
+
+<h3>Tri recepta: značajke, zamrznuti trup, fino ugađanje</h3>
+<p>Koliko mreže smiješ dirati ovisi o tome koliko imaš podataka i koliko su slični ImageNetu.</p>
+<ol>
+<li><b>Ekstrakcija značajki + linearni model.</b> Trup se niti ne stavlja u PyTorchovu petlju učenja: jednom prođeš sve slike, spremiš $\phi(x)$ u NumPy matricu $n\times d$ i na njoj naučiš <code>LogisticRegression</code> ili SVM iz scikit-learna. Nema hiperparametara mreže, traje minute na CPU-u, teško se pokvari. Prvi izbor kad imaš manje od oko tisuću slika.</li>
+<li><b>Zamrznuti trup + nova glava.</b> Isto što i 1., ali glava je PyTorchov sloj i uči se gradijentom, što dopušta augmentaciju u petlji (svaka epoha vidi drugačije izrezane slike). Parametri trupa imaju <code>requires_grad=False</code>, pa optimizator uči samo glavu.</li>
+<li><b>Fino ugađanje (fine-tuning).</b> Uče se svi slojevi (ili zadnja faza i glava), ali s <em>malom</em> stopom učenja. Najbolje rezultate daje kad imaš više podataka ili kad se domena razlikuje od ImageNeta (mikroskopija, crteži, radar), jer tada i rani slojevi moraju nešto promijeniti.</li>
+</ol>
+<napomena>Zamrznuti trup ne znači samo <code>requires_grad=False</code>. Slojevi <em>normalizacije serije</em> (BatchNorm) u načinu <code>model.train()</code> i dalje ažuriraju tekuće statistike, što na maloj seriji drugačijih slika kvari pretrenirane vrijednosti. Zato trup drži u <code>model.eval()</code> dok ga ne ugađaš, a u evaluaciji <em>uvijek</em> pozovi <code>model.eval()</code> i računaj pod <code>torch.no_grad()</code>.</napomena>
+
+<h3>Zamjena glave i stopa učenja</h3>
+<p>Zamjena glave je jedan redak: <code>model.fc = nn.Linear(model.fc.in_features, k)</code>. Novi sloj počinje od slučajnih težina, dok trup počinje od dobrih; to je razlog zašto se za fino ugađanje uzima stopa učenja $10$ do $100$ puta manja nego za učenje od nule. Prevelika stopa u prvim koracima, dok glava još daje besmislene gradijente, „pregazi” pretrenirane težine i mreža zaboravi što zna – ostane ti mreža od nule s lošom inicijalizacijom. Uobičajeni je recept Adam s $10^{-3}$ za glavu i $10^{-4}$ (ili manje) za trup, ostvaren <em>grupama parametara</em> u optimizatoru; ili prvo nekoliko epoha samo glave pa tek onda odmrzavanje trupa. Ulaz se normalizira ImageNetovim konstantama, srednjim vrijednostima $(0{,}485;\,0{,}456;\,0{,}406)$ i devijacijama $(0{,}229;\,0{,}224;\,0{,}225)$ po kanalu, jer je mreža takve ulaze vidjela u učenju; ista pravila daju i <code>weights.transforms()</code>.</p>
+<teorem>Yosinski i sur. (2014.) mjerili su prenosivost slojeva: značajke ranih slojeva prenose se gotovo bez gubitka i između nepovezanih zadataka, dok kasni slojevi postaju specifični za izvorni zadatak; fino ugađanje prenesenih slojeva uz malu stopu učenja bilo je bolje od učenja od nule <em>čak i kad je ciljni skup bio velik</em>. To je empirijska činjenica, ne teorem, ali je pouzdan vodič: što je ciljni zadatak dalje od izvornog, to ranije odreži trup.</teorem>
+
+<h3>Evaluacija</h3>
+<p>Pretrenirani trup tako je jak da je lako prevariti sebe. Pravila su ista kao uvijek, ali ih vrijedi ponoviti: (1) podijeli podatke <em>prije</em> bilo kakvog učenja, stratificirano po razredu; (2) sve odluke – koji recept, koja stopa, koliko epoha – donosi na validacijskom dijelu; testni skup otvori jednom, na kraju; (3) uz točnost pogledaj matricu zabune, jer s neuravnoteženim razredima točnost laže; (4) ako su slike istog objekta snimljene više puta, sve snimke istog objekta moraju biti na istoj strani podjele. Augmentacija vrijedi samo za skup za učenje; test se prolazi s determinističkom pretvorbom (promjena veličine, središnji izrez, normalizacija).</p>
+
+@@ primjeri
+<primjer>
+<p>Pogledaj ResNet-18 iznutra: ispiši njegove dijelove, broj parametara i kako se oblik tenzora mijenja kroz mrežu, pa mu zamijeni glavu za $5$ razreda. Zatim napiši cjelovit recept: učitavanje pretreniranih težina, priprema slika iz mapa, učenje samo glave, pa fino ugađanje zadnje faze, te recept za ekstrakciju značajki + logističku regresiju.</p>
+<rjesenje>
+<p><b>Korak 1: arhitektura bez preuzimanja težina.</b> <code>resnet18(weights=None)</code> stvara istu mrežu sa slučajnim težinama – dovoljno da vidimo oblike. Provlačimo seriju od dvije slike $224\times224$ kroz dijelove redom (<code>named_children</code>) i ispisujemo oblik nakon svakog.</p>
+<kod jezik="python">
+import torch
+import torch.nn as nn
+from torchvision.models import resnet18
+
+torch.manual_seed(0)
+torch.set_num_threads(1)
+model = resnet18(weights=None).eval()            # ista arhitektura, slučajne težine, bez preuzimanja
+print("parametara: %.2f milijuna" % (sum(p.numel() for p in model.parameters()) / 1e6))
+h = torch.randn(2, 3, 224, 224)                  # serija od 2 slike, N x C x H x W
+with torch.no_grad():
+    for ime, sloj in model.named_children():
+        if ime == "fc":
+            h = torch.flatten(h, 1)
+        h = sloj(h)
+        print("%-8s -> %s" % (ime, tuple(h.shape)))
+print("glava:", model.fc)
+model.fc = nn.Linear(model.fc.in_features, 5)    # zamjena glave: 1000 razreda -> 5
+with torch.no_grad():
+    print("nakon zamjene glave:", tuple(model(torch.randn(2, 3, 224, 224)).shape))
+</kod>
+<izlaz>
+parametara: 11.69 milijuna
+conv1    -> (2, 64, 112, 112)
+bn1      -> (2, 64, 112, 112)
+relu     -> (2, 64, 112, 112)
+maxpool  -> (2, 64, 56, 56)
+layer1   -> (2, 64, 56, 56)
+layer2   -> (2, 128, 28, 28)
+layer3   -> (2, 256, 14, 14)
+layer4   -> (2, 512, 7, 7)
+avgpool  -> (2, 512, 1, 1)
+fc       -> (2, 1000)
+glava: Linear(in_features=512, out_features=1000, bias=True)
+nakon zamjene glave: (2, 5)
+</izlaz>
+<p>Trup gotovo cijelu sliku sažme u $512$ brojeva po slici (<code>avgpool</code>); glava je linearni sloj $512\to1000$ s $513\,000$ parametara, dakle manje od $5\,\%$ mreže. Zato je učenje same glave jeftino: gradijent se računa samo za nju, a trup se može proći jednom unaprijed.</p>
+<p><b>Korak 2: cjelovit recept s pretreniranim težinama.</b> Ovaj blok traži preuzimanje težina ($\approx45$ MB) i mapu <code>podaci/</code> sa strukturom <code>train/razred/slika.jpg</code> i <code>val/razred/slika.jpg</code>, pa se u lekciji ne pokreće; na natjecateljskom računalu radi doslovno ovako.</p>
+<kod jezik="python" pokreni="ne">
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from torchvision.models import resnet18, ResNet18_Weights
+
+torch.manual_seed(0)
+tezine = ResNet18_Weights.DEFAULT                       # preuzima se pri prvom pozivu
+norm = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+pretvorba_ucenje = transforms.Compose([
+    transforms.RandomResizedCrop(224, scale=(0.6, 1.0)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(), norm])
+pretvorba_test = transforms.Compose([
+    transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), norm])
+ucenje = datasets.ImageFolder("podaci/train", pretvorba_ucenje)
+test = datasets.ImageFolder("podaci/val", pretvorba_test)
+k = len(ucenje.classes)
+ul = DataLoader(ucenje, batch_size=32, shuffle=True, num_workers=2)
+tl = DataLoader(test, batch_size=64, shuffle=False, num_workers=2)
+
+model = resnet18(weights=tezine)
+for p in model.parameters():
+    p.requires_grad = False                              # zamrzni trup
+model.fc = nn.Linear(model.fc.in_features, k)            # nova glava, requires_grad=True
+
+def tocnost(model):
+    model.eval()
+    pogodaka = 0
+    with torch.no_grad():
+        for x, y in tl:
+            pogodaka += (model(x).argmax(1) == y).sum().item()
+    return pogodaka / len(test)
+
+def epoha(model, opt):
+    model.train()
+    for x, y in ul:
+        opt.zero_grad()
+        nn.functional.cross_entropy(model(x), y).backward()
+        opt.step()
+
+opt = torch.optim.Adam(model.fc.parameters(), lr=1e-3)   # faza 1: samo glava
+for e in range(3):
+    epoha(model, opt)
+    print("glava, epoha %d: točnost %.3f" % (e + 1, tocnost(model)))
+
+for p in model.layer4.parameters():
+    p.requires_grad = True                               # faza 2: odmrzni zadnju fazu
+opt = torch.optim.Adam([{"params": model.layer4.parameters(), "lr": 1e-4},
+                        {"params": model.fc.parameters(), "lr": 1e-3}])
+for e in range(3):
+    epoha(model, opt)
+    print("fino ugađanje, epoha %d: točnost %.3f" % (e + 1, tocnost(model)))
+torch.save(model.state_dict(), "resnet18_moj.pt")
+</kod>
+<p>Tri su detalja važna. Augmentacija je samo u <code>pretvorba_ucenje</code>; <code>model.train()</code> uključuje se samo dok se uči (u fazi 1 trup je zamrznut, ali BatchNorm bi se ipak pomicao – za najstrože zamrzavanje drži <code>model.eval()</code> i u učenju glave, vidi Zadatak 3); odmrznuti dio dobiva $10$ puta manju stopu učenja od glave.</p>
+<p><b>Korak 3: jeftin recept – značajke + logistička regresija.</b> Trup se prođe jednom, bez gradijenata, značajke se spreme kao NumPy matrica, a sve ostalo radi scikit-learn. Na CPU-u s nekoliko stotina slika to traje minutu-dvije.</p>
+<kod jezik="python" pokreni="ne">
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+
+model = resnet18(weights=tezine)
+model.fc = nn.Identity()                                 # mreža sada vraća 512 značajki
+model.eval()
+
+def znacajke(loader):
+    X, y = [], []
+    with torch.no_grad():
+        for xb, yb in loader:
+            X.append(model(xb).numpy())
+            y.append(yb.numpy())
+    return np.concatenate(X), np.concatenate(y)
+
+ucenje.transform = pretvorba_test                        # bez augmentacije: deterministične značajke
+X_tr, y_tr = znacajke(DataLoader(ucenje, batch_size=64))
+X_te, y_te = znacajke(tl)
+np.savez("znacajke.npz", X_tr=X_tr, y_tr=y_tr, X_te=X_te, y_te=y_te)   # spremi: trup više ne treba
+klf = LogisticRegression(C=0.5, max_iter=5000).fit(X_tr, y_tr)
+print(classification_report(y_te, klf.predict(X_te), target_names=ucenje.classes))
+</kod>
+<p>Značajke spremi na disk: nakon toga svaki pokušaj (drugi $C$, SVM, k-NN, drugačija podjela) traje sekunde, a trup ne moraš više ni učitati. To je i razlog zašto je ovaj recept idealan kad je vrijeme ograničeno.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Simuliraj transfer learning bez preuzimanja ičega, na skupu <code>load_digits</code>. <em>Izvorni</em> zadatak: klasifikacija $10$ znamenki na $1000$ slika. <em>Ciljni</em> zadatak, na <em>drugim</em> slikama: ima li znamenka zatvorenu petlju ($0,6,8,9$ – da; ostale – ne), ali s označenih samo $20$ slika. Usporedi logističku regresiju na pikselima i na značajkama izvorne mreže te tri neuronske varijante: MLP od nule, zamrznuti trup + nova glava, fino ugađanje svega.</p>
+<rjesenje>
+<p><b>Korak 1: izvorna mreža.</b> MLP $64\to128\to64\to10$ igra ulogu „ImageNet trupa”: zadnji sloj je glava, sve ispred njega je trup $\phi$ koji daje $64$ značajke. Pomoćne funkcije <code>treniraj</code> i <code>tocnost</code> koristit ćemo cijelu lekciju.</p>
+<kod jezik="python">
+import numpy as np
+import torch
+import torch.nn as nn
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+
+torch.manual_seed(0)
+torch.set_num_threads(1)
+podaci = load_digits()
+X = (podaci.data / 16.0).astype(np.float32)              # 1797 x 64, pikseli u [0, 1]
+y = podaci.target
+X_izvor, X_cilj, y_izvor, y_cilj = train_test_split(X, y, train_size=1000, random_state=0, stratify=y)
+
+def mlp(k):
+    return nn.Sequential(nn.Linear(64, 128), nn.ReLU(), nn.Linear(128, 64), nn.ReLU(), nn.Linear(64, k))
+
+def treniraj(model, X, y, epohe, lr, parametri=None):
+    opt = torch.optim.Adam(model.parameters() if parametri is None else parametri, lr=lr)
+    Xt, yt = torch.from_numpy(X), torch.from_numpy(y).long()
+    for _ in range(epohe):                               # puna serija: 1000 slika stane odjednom
+        opt.zero_grad()
+        gubitak = nn.functional.cross_entropy(model(Xt), yt)
+        gubitak.backward()
+        opt.step()
+    return gubitak.item()
+
+def tocnost(model, X, y):
+    with torch.no_grad():
+        return (model(torch.from_numpy(X)).argmax(1).numpy() == y).mean()
+
+izvor = mlp(10)
+g = treniraj(izvor, X_izvor, y_izvor, epohe=200, lr=1e-2)
+print("izvorni zadatak: gubitak %.4f, točnost na %d neviđenih slika %.3f" % (g, len(X_cilj), tocnost(izvor, X_cilj, y_cilj)))
+print("trup:", izvor[:-1])
+</kod>
+<izlaz>
+izvorni zadatak: gubitak 0.0005, točnost na 797 neviđenih slika 0.965
+trup: Sequential(
+  (0): Linear(in_features=64, out_features=128, bias=True)
+  (1): ReLU()
+  (2): Linear(in_features=128, out_features=64, bias=True)
+  (3): ReLU()
+)
+</izlaz>
+<p><b>Korak 2: ekstrakcija značajki.</b> Ciljni skup ($797$ slika koje izvor nije vidio) dobiva novu, binarnu oznaku; za učenje uzimamo samo $20$ slika, ostalo je test. Trup <code>izvor[:-1]</code> prolazi se bez gradijenata i na njegovih $64$ brojeva po slici učimo logističku regresiju – isto kao na $64$ piksela.</p>
+<kod jezik="python">
+from sklearn.linear_model import LogisticRegression
+
+petlja = np.isin(y_cilj, [0, 6, 8, 9]).astype(int)      # 1 = znamenka ima zatvorenu petlju
+X_tr, X_te, y_tr, y_te = train_test_split(X_cilj, petlja, train_size=20, random_state=0, stratify=petlja)
+print("ciljni zadatak: %d slika za učenje, %d za test, udio petlji %.2f" % (len(X_tr), len(X_te), petlja.mean()))
+
+trup = izvor[:-1]                                        # sve osim glave
+
+def znacajke(X):
+    with torch.no_grad():
+        return trup(torch.from_numpy(X)).numpy()
+
+print("oblik značajki:", znacajke(X_tr).shape)
+na_pikselima = LogisticRegression(max_iter=5000).fit(X_tr, y_tr)
+na_znacajkama = LogisticRegression(max_iter=5000).fit(znacajke(X_tr), y_tr)
+print("logistička regresija na pikselima:  %.3f" % na_pikselima.score(X_te, y_te))
+print("logistička regresija na značajkama: %.3f" % na_znacajkama.score(znacajke(X_te), y_te))
+</kod>
+<izlaz>
+ciljni zadatak: 20 slika za učenje, 777 za test, udio petlji 0.40
+oblik značajki: (20, 64)
+logistička regresija na pikselima:  0.835
+logistička regresija na značajkama: 0.842
+</izlaz>
+<p><b>Korak 3: tri neuronske varijante.</b> <code>nova_glava()</code> kopira izvornu mrežu i zamjenjuje joj zadnji sloj slojem $64\to2$ – točno ono što <code>model.fc = nn.Linear(...)</code> radi ResNetu. Zamrzavanje je <code>requires_grad=False</code> na parametrima trupa, uz optimizator koji dobiva <em>samo</em> parametre glave. Fino ugađanje uči sve, ali s $10$ puta manjom stopom.</p>
+<kod jezik="python">
+import copy
+
+def nova_glava(k=2):
+    model = copy.deepcopy(izvor)
+    model[-1] = nn.Linear(64, k)                         # zamjena glave: 10 razreda -> 2
+    return model
+
+torch.manual_seed(0)
+od_nule = mlp(2)
+treniraj(od_nule, X_tr, y_tr, epohe=200, lr=1e-2)
+
+torch.manual_seed(0)
+zamrznuto = nova_glava()
+for p in zamrznuto[:-1].parameters():
+    p.requires_grad = False                              # zamrzni trup
+treniraj(zamrznuto, X_tr, y_tr, epohe=200, lr=1e-2, parametri=zamrznuto[-1].parameters())
+
+torch.manual_seed(0)
+fino = nova_glava()
+treniraj(fino, X_tr, y_tr, epohe=200, lr=1e-3)           # fine-tuning svega, 10x manja stopa
+
+varijante = [("MLP od nule", od_nule), ("zamrznuti trup + nova glava", zamrznuto),
+             ("fino ugađanje svih slojeva", fino)]
+for ime, m in varijante:
+    print("%-30s točnost na testu %.3f" % (ime, tocnost(m, X_te, y_te)))
+</kod>
+<izlaz>
+MLP od nule                    točnost na testu 0.825
+zamrznuti trup + nova glava    točnost na testu 0.847
+fino ugađanje svih slojeva     točnost na testu 0.878
+</izlaz>
+<p>Poredak je onaj koji ćeš vidjeti i s pravim ResNetom: s $20$ primjera učenje od nule ($0{,}825$) i logistička regresija na sirovim pikselima ($0{,}835$) zaostaju, prenesene značajke pomažu ($0{,}842$ s logističkom regresijom, $0{,}847$ s naučenom glavom), a najviše daje fino ugađanje ($0{,}878$) – trup već zna što je „krug u znamenki”, samo to treba povezati s novom oznakom. Razlike su ovdje male jer su slike $8\times8$ same po sebi pristojne značajke; kod fotografija $224\times224$ razlika između piksela i značajki iznosi desetke postotnih bodova.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Na istom ciljnom zadatku istraži stopu učenja za fino ugađanje: za $\eta\in\{10^{-1},10^{-2},10^{-3},10^{-4}\}$ ispiši gubitak na skupu za učenje, točnost na testu i koliko su se težine trupa pomaknule od pretreniranih. Zatim upotrijebi različite stope za trup i glavu (grupe parametara) i najbolji model evaluiraj matricom zabune.</p>
+<rjesenje>
+<p><b>Korak 1: pretraga stope učenja.</b> Relativni pomak težina $\lVert W-W_0\rVert/\lVert W_0\rVert$ mjeri koliko je fino ugađanje „pregazilo” pretrenirani trup.</p>
+<kod jezik="python">
+def tezine_trupa(model):
+    return torch.cat([p.detach().flatten() for p in model[:-1].parameters()])
+
+W0 = tezine_trupa(izvor)
+print("stopa     gubitak(učenje)  točnost(test)  pomak trupa")
+for lr in [1e-1, 1e-2, 1e-3, 1e-4]:
+    torch.manual_seed(0)
+    m = nova_glava()
+    g = treniraj(m, X_tr, y_tr, epohe=200, lr=lr)
+    pomak = ((tezine_trupa(m) - W0).norm() / W0.norm()).item()
+    print("%-9g %-16.4f %-14.3f %.3f" % (lr, g, tocnost(m, X_te, y_te), pomak))
+</kod>
+<izlaz>
+stopa     gubitak(učenje)  točnost(test)  pomak trupa
+0.1       0.6730           0.604          3.034
+0.01      0.0003           0.879          0.398
+0.001     0.0051           0.878          0.148
+0.0001    0.2214           0.857          0.050
+</izlaz>
+<p>Stopa $0{,}1$ je katastrofa: trup se pomakne za tri norme pretreniranih težina, model ne nauči ni $20$ primjera (gubitak $0{,}67$) i točnost padne na $0{,}604$ – pretrenirano znanje je pregaženo već u prvim koracima, dok je glava još slučajna. Stope $10^{-2}$ i $10^{-3}$ daju istu točnost ($0{,}879$ i $0{,}878$), ali prva pomakne trup gotovo tri puta više ($0{,}398$ prema $0{,}148$) – ista korist uz više zaboravljanja izvornog znanja (Zadatak 9). Stopa $10^{-4}$ u $200$ epoha ne stigne ni skup za učenje dovesti do kraja (gubitak $0{,}22$) i ostane na $0{,}857$. Gubitak na skupu za učenje ne govori koja je stopa dobra; to odlučuje validacija.</p>
+<p><b>Korak 2: grupe parametara.</b> Optimizator prima popis rječnika; svaka grupa ima svoju stopu. Glava, koja počinje od slučajnih težina, dobiva veliku stopu, trup malu.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+grupe = nova_glava()
+opt = torch.optim.Adam([{"params": grupe[:-1].parameters(), "lr": 1e-4},
+                        {"params": grupe[-1].parameters(), "lr": 1e-2}])
+Xt, yt = torch.from_numpy(X_tr), torch.from_numpy(y_tr).long()
+for _ in range(200):
+    opt.zero_grad()
+    nn.functional.cross_entropy(grupe(Xt), yt).backward()
+    opt.step()
+pomak = ((tezine_trupa(grupe) - W0).norm() / W0.norm()).item()
+print("trup 1e-4 + glava 1e-2: točnost %.3f, pomak trupa %.3f" % (tocnost(grupe, X_te, y_te), pomak))
+</kod>
+<izlaz>
+trup 1e-4 + glava 1e-2: točnost 0.852, pomak trupa 0.010
+</izlaz>
+<p>S tako malom stopom za trup pomak je tek simboličan ($1\,\%$), pa je rezultat ($0{,}852$) između zamrznutog trupa ($0{,}847$) i punog ugađanja ($0{,}878$): u $200$ epoha trup se jedva prilagodio. Grupe parametara isplate se kad trup treba <em>zaštititi</em> – kod pravih mreža slučajna glava u prvim koracima šalje velike i besmislene gradijente u trup, a i kad isti trup mora služiti više zadataka (Zadatak 9). Omjer stopa i broj epoha i ovdje bira validacija.</p>
+<p><b>Korak 3: matrica zabune.</b> Točnost je jedan broj; matrica zabune pokazuje <em>koje</em> pogreške model radi. Redci su prave oznake, stupci predviđene.</p>
+<kod jezik="python">
+from sklearn.metrics import confusion_matrix
+
+with torch.no_grad():
+    pred = grupe(torch.from_numpy(X_te)).argmax(1).numpy()
+M = confusion_matrix(y_te, pred)
+print("matrica zabune (redak = prava oznaka, stupac = predviđena):")
+print(M)
+print("osjetljivost za petlju: %.3f, za ne-petlju: %.3f" % (M[1, 1] / M[1].sum(), M[0, 0] / M[0].sum()))
+</kod>
+<izlaz>
+matrica zabune (redak = prava oznaka, stupac = predviđena):
+[[388  81]
+ [ 34 274]]
+osjetljivost za petlju: 0.890, za ne-petlju: 0.827
+</izlaz>
+<p>Udio petlji je $0{,}40$, pa bi model koji uvijek kaže „nema petlje” imao točnost $0{,}60$ – prema tome se mjeri $0{,}852$. Matrica otkriva asimetriju: od $469$ znamenki bez petlje $81$ je proglašeno petljom, a od $308$ s petljom promašene su $34$; model je, dakle, skloniji lažnoj petlji. Kad bi jedna vrsta pogreške bila skuplja, prag odluke (ili težine razreda u gubitku) bio bi sljedeća stvar za ugađanje – na validaciji, ne na ovom testu.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Glava ResNet-18 je linearni sloj $512\to1000$. Koliko parametara ima (težine + pristranosti)? Koliko nakon zamjene glavom za $k=5$ razreda? Koliki je to postotak od ukupnih $11{,}7$ milijuna parametara? Što iz toga slijedi za brzinu recepta „zamrznuti trup + nova glava”?</p>
+<rjesenje>
+<p>$512\cdot1000+1000=513\,000$ parametara; za $k=5$: $512\cdot5+5=2565$, što je oko $0{,}02\,\%$ mreže. Kod zamrznutog trupa gradijent se računa samo za tih $2565$ brojeva, a prolaz unaprijed kroz trup može se napraviti jednom i spremiti (ekstrakcija značajki), pa jedna epoha nad spremljenim značajkama traje milisekunde umjesto minuta.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za svaki slučaj odaberi recept (A: značajke + logistička regresija; B: zamrznuti trup + glava s augmentacijom; C: fino ugađanje) i obrazloži: (a) $300$ fotografija $5$ vrsta ptica, CPU, sat vremena; (b) $20\,000$ rendgenskih snimki, dva razreda, GPU; (c) $800$ crteža olovkom u $10$ razreda, GPU, pola dana; (d) $150$ fotografija, a razredi se razlikuju samo po finoj teksturi.</p>
+<rjesenje>
+<p>(a) A: malo podataka, slično ImageNetu, malo vremena – značajke + logistička regresija daju gotovo sve što se može izvući. (b) C: puno podataka i domena daleko od fotografija, pa se isplati ugađati i rane slojeve (uz malu stopu). (c) C ili B pa C: crteži su daleko od fotografija, $800$ je dovoljno za fino ugađanje zadnje faze; prvo nauči glavu, pa odmrzni <code>layer4</code>. (d) A ili B uz izrezivanje na veću razlučivost; sa $150$ slika fino ugađanje bi se pretreniralo, a teksture dobro hvataju srednji slojevi – vrijedi isprobati i značajke iz <code>layer3</code> (usporedi Zadatak 6).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Natjecatelj je zamrznuo sve parametre ResNeta (<code>requires_grad=False</code>), naučio novu glavu i dobio odličnu točnost na skupu za učenje, ali lošu na validaciji. Učio je s <code>model.train()</code>, s <code>batch_size=4</code>, a slike je normalizirao srednjom vrijednošću i devijacijom <em>svoga</em> skupa. Navedi tri stvari koje je mogao pokvariti i kako ih popraviti.</p>
+<rjesenje>
+<p>(1) BatchNorm u načinu <code>train()</code> i dalje mijenja tekuće statistike iako su težine zamrznute; sa serijom od $4$ slike te su statistike šum, pa se trup u evaluaciji ponaša drugačije nego u učenju – drži trup u <code>eval()</code> ili povećaj seriju. (2) Normalizacija vlastitim konstantama pomiče ulaze u raspon koji mreža nije vidjela; koristi ImageNetove konstante ($0{,}485/0{,}456/0{,}406$ i $0{,}229/0{,}224/0{,}225$) ili <code>weights.transforms()</code>. (3) Mogući je i klasičan uzrok: nema augmentacije ili premalo podataka za broj epoha – glava od $2565$ parametara ipak se može pretrenirati na $50$ slika; dodaj augmentaciju, regularizaciju (weight decay) ili prijeđi na logističku regresiju s $C$ odabranim unakrsnom validacijom.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Kako prednost prenesenih značajki ovisi o broju označenih slika? Na ciljnom zadatku iz Primjera 2 usporedi logističku regresiju na pikselima i na značajkama za $n\in\{10,20,40,80,160,320\}$ slika za učenje (ostatak je test, <code>random_state=0</code>). Kako se prednost mijenja s $n$ i zašto?</p>
+<naputak>Ponovi Korak 2 iz Primjera 2 u petlji; <code>znacajke</code> je već definirana.</naputak>
+<rjesenje>
+<kod jezik="python">
+print("   n   pikseli  značajke")
+for n in [10, 20, 40, 80, 160, 320]:
+    A_tr, A_te, b_tr, b_te = train_test_split(X_cilj, petlja, train_size=n, random_state=0, stratify=petlja)
+    p = LogisticRegression(max_iter=5000).fit(A_tr, b_tr).score(A_te, b_te)
+    z = LogisticRegression(max_iter=5000).fit(znacajke(A_tr), b_tr).score(znacajke(A_te), b_te)
+    print("%4d   %.3f    %.3f" % (n, p, z))
+</kod>
+<izlaz>
+   n   pikseli  značajke
+  10   0.720    0.755
+  20   0.835    0.842
+  40   0.841    0.884
+  80   0.886    0.919
+ 160   0.882    0.925
+ 320   0.904    0.925
+</izlaz>
+<p>Značajke su bolje od piksela u cijelom rasponu, i to za $2$ do $4$ postotna boda ($0{,}884$ prema $0{,}841$ pri $n=40$), a sa $320$ slika razlika se počinje topiti ($0{,}925$ prema $0{,}904$): s dovoljno podataka linearni model i iz piksela nauči što treba. Značajke ovdje ne smetaju ni s puno podataka jer izvorni zadatak (koja je znamenka) sadrži svu informaciju potrebnu cilju; kad to ne vrijedi, prednost s rastom $n$ može prijeći i u zaostatak (Zadatak 8). Opći obrazac ostaje: transfer learning najviše vrijedi točno tamo gdje podataka nema.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Za <code>resnet18(weights=None)</code> s glavom za $5$ razreda prebroji parametre koji se uče u tri postavke: (a) sve zamrznuto osim glave; (b) odmrznuta i faza <code>layer4</code>; (c) sve se uči. Ispiši i udio u postocima. Provjeri da se (a) slaže sa Zadatkom 1.</p>
+<rjesenje>
+<kod jezik="python">
+from torchvision.models import resnet18
+
+def broj_ucenih(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+m = resnet18(weights=None)
+m.fc = nn.Linear(m.fc.in_features, 5)
+ukupno = sum(p.numel() for p in m.parameters())
+for ime, p in m.named_parameters():
+    p.requires_grad = ime.startswith("fc.")
+a = broj_ucenih(m)
+for p in m.layer4.parameters():
+    p.requires_grad = True
+b = broj_ucenih(m)
+for p in m.parameters():
+    p.requires_grad = True
+c = broj_ucenih(m)
+for ime, n in [("samo glava", a), ("layer4 + glava", b), ("sve", c)]:
+    print("%-15s %10d parametara  (%6.2f %%)" % (ime, n, 100 * n / ukupno))
+</kod>
+<izlaz>
+samo glava            2565 parametara  (  0.02 %)
+layer4 + glava     8396293 parametara  ( 75.11 %)
+sve               11179077 parametara  (100.00 %)
+</izlaz>
+<p>Glava je $2565$ parametara, $0{,}02\,\%$ mreže, kao u Zadatku 1. Zadnja faza nosi gotovo tri četvrtine parametara mreže – kanali se udvostručuju svakom fazom, a broj parametara konvolucije raste s kvadratom broja kanala. Zato je „odmrzni samo <code>layer4</code>” i dalje velik model koji s malo podataka traži malu stopu učenja i augmentaciju.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Značajke se mogu uzeti iz bilo kojeg sloja. Na ciljnom zadatku iz Primjera 2 ($20$ slika) usporedi logističku regresiju na: pikselima, izlazu prvog skrivenog sloja (<code>izvor[:2]</code>, $128$ brojeva), izlazu drugog (<code>izvor[:4]</code>, $64$ broja), na $10$ logita izvorne mreže (<code>izvor</code>) i na $10$ softmax vjerojatnosti. Dodaj i pravilo bez učenja: „petlja ako izvorna mreža predvidi $0,6,8$ ili $9$”. Objasni poredak.</p>
+<naputak>Oznaka „petlja” je funkcija identiteta znamenke, a to je upravo ono što izvorna mreža računa. U kojem je obliku ta informacija linearno dostupna: u logitima ili u vjerojatnostima?</naputak>
+<rjesenje>
+<kod jezik="python">
+def iz_sloja(podmreza, X):
+    with torch.no_grad():
+        return podmreza(torch.from_numpy(X)).numpy()
+
+razine = [("pikseli (64)", nn.Identity()), ("1. skriveni sloj (128)", izvor[:2]),
+          ("2. skriveni sloj (64)", izvor[:4]), ("logiti (10)", izvor),
+          ("softmax (10)", nn.Sequential(izvor, nn.Softmax(dim=1)))]
+for ime, podmreza in razine:
+    s = LogisticRegression(max_iter=5000).fit(iz_sloja(podmreza, X_tr), y_tr).score(iz_sloja(podmreza, X_te), y_te)
+    print("%-26s %.3f" % (ime, s))
+pravilo = np.isin(iz_sloja(izvor, X_te).argmax(1), [0, 6, 8, 9]).astype(int)
+print("%-26s %.3f" % ("pravilo argmax, bez učenja", (pravilo == y_te).mean()))
+</kod>
+<izlaz>
+pikseli (64)               0.835
+1. skriveni sloj (128)     0.852
+2. skriveni sloj (64)      0.842
+logiti (10)                0.833
+softmax (10)               0.976
+pravilo argmax, bez učenja 0.977
+</izlaz>
+<p>Skriveni slojevi malo pomažu ($0{,}852$ i $0{,}842$ prema $0{,}835$ na pikselima), a sirovi logiti ništa ($0{,}833$) – iako sadrže gotovo sav odgovor, jer pravilo argmax bez ijednog ciljnog primjera postiže $0{,}977$! Razlika je u <em>obliku</em>: u vjerojatnostima je „petlja” doslovno zbroj četiriju koordinata, pa logistička regresija na softmaxu dosegne $0{,}976$, dok u logitima (velike vrijednosti različitih skala, $20$ točaka u $10$ dimenzija) regularizirani model s tako malo primjera nađe neki drugi razdvajač. Pouke: kad je ciljni zadatak funkcija izvornih razreda, najbolje prenosi sam izlaz izvorne mreže, ali u obliku vjerojatnosti; kad bi cilj bio drukčiji (npr. „je li znamenka pomaknuta ulijevo”), ta bi informacija u izlazu bila izbrisana i bolje bi prošli raniji slojevi – što je cilj dalje od izvora, ranije reži trup.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Djelomično zamrzavanje: na ciljnom zadatku ($20$ slika, stopa $10^{-3}$, $200$ epoha) usporedi fino ugađanje (a) samo glave, (b) glave i drugog skrivenog sloja, (c) svega. Za svaku varijantu ispiši broj parametara koji se uče, točnost na testu i pomak težina trupa. Nije li čudno da (a) sa stopom $10^{-3}$ daje drugačiji rezultat od zamrznute varijante u Primjeru 2?</p>
+<rjesenje>
+<kod jezik="python">
+print("varijanta            učenih   točnost  pomak trupa")
+for ime, odmrznuto in [("samo glava", [4]), ("glava + 2. sloj", [2, 4]), ("sve", [0, 2, 4])]:
+    torch.manual_seed(0)
+    m = nova_glava()
+    for p in m.parameters():
+        p.requires_grad = False
+    ucenje = []
+    for i in odmrznuto:
+        for p in m[i].parameters():
+            p.requires_grad = True
+            ucenje.append(p)
+    treniraj(m, X_tr, y_tr, epohe=200, lr=1e-3, parametri=ucenje)
+    pomak = ((tezine_trupa(m) - W0).norm() / W0.norm()).item()
+    print("%-20s %6d   %.3f    %.3f" % (ime, sum(p.numel() for p in ucenje), tocnost(m, X_te, y_te), pomak))
+</kod>
+<izlaz>
+varijanta            učenih   točnost  pomak trupa
+samo glava              130   0.852    0.000
+glava + 2. sloj        8386   0.853    0.110
+sve                   16706   0.878    0.148
+</izlaz>
+<p>Nije čudno: varijanta (a) je isti model kao „zamrznuti trup + nova glava” u Primjeru 2, samo s drugom stopom učenja ($10^{-3}$ umjesto $10^{-2}$) – glava od $130$ parametara na $20$ primjera osjetljiva je na to koliko se daleko stigne u $200$ epoha. Pomak trupa u (a) je nula jer se trup nije ni mogao mijenjati; u (b) se mijenja samo drugi sloj, pa je pomak mali. Odmrzavanje s kraja prema početku standardan je način da se s malo podataka doda upravo onoliko slobode koliko treba.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><em>Negativan transfer.</em> Nauči izvornu mrežu samo na znamenkama $0$–$4$ (svih njihovih slika), a kao ciljni zadatak uzmi klasifikaciju znamenki $5$–$9$ (oznake $0$–$4$) s $25$ označenih slika. Usporedi logističku regresiju na pikselima i na značajkama <code>trup2 = izvor2[:-1]</code> te fino ugađanje sa stopom $10^{-3}$. Objasni zašto ovdje transfer ne pomaže, iako su i izvor i cilj „znamenke”.</p>
+<naputak>Trup $64\to128\to64$ s $10$ izlaza na kraju nauči upravo ono što razlikuje $0$–$4$; informacija koja razlikuje $5$ od $6$ smije mu biti nebitna.</naputak>
+<rjesenje>
+<kod jezik="python">
+maska = y < 5
+torch.manual_seed(0)
+izvor2 = mlp(5)
+treniraj(izvor2, X[maska], y[maska], epohe=200, lr=1e-2)
+X2, y2 = X[~maska], y[~maska] - 5                        # znamenke 5-9 -> oznake 0-4
+A_tr, A_te, b_tr, b_te = train_test_split(X2, y2, train_size=25, random_state=0, stratify=y2)
+trup2 = izvor2[:-1]
+z = lambda A: iz_sloja(trup2, A)
+print("pikseli + logistička regresija:  %.3f" % LogisticRegression(max_iter=5000).fit(A_tr, b_tr).score(A_te, b_te))
+print("značajke + logistička regresija: %.3f" % LogisticRegression(max_iter=5000).fit(z(A_tr), b_tr).score(z(A_te), b_te))
+torch.manual_seed(0)
+m = copy.deepcopy(izvor2)
+m[-1] = nn.Linear(64, 5)
+treniraj(m, A_tr, b_tr, epohe=200, lr=1e-3)
+print("fino ugađanje:                   %.3f" % tocnost(m, A_te, b_te))
+torch.manual_seed(0)
+m0 = mlp(5)
+treniraj(m0, A_tr, b_tr, epohe=200, lr=1e-2)
+print("MLP od nule:                     %.3f" % tocnost(m0, A_te, b_te))
+</kod>
+<izlaz>
+pikseli + logistička regresija:  0.923
+značajke + logistička regresija: 0.550
+fino ugađanje:                   0.873
+MLP od nule:                     0.916
+</izlaz>
+<p>Izvorna mreža na kraju trupa ima samo $64$ broja i naučila ih je tako da razdvajaju $0$–$4$; sve što za to nije bilo potrebno smjela je odbaciti, pa se $5$–$9$ u tom prostoru djelomično stapaju – značajke daju $0{,}550$ prema $0{,}923$ na sirovim pikselima. Fino ugađanje popravi značajke ($0{,}873$), ali ni ono ne stigne mrežu od nule ($0{,}916$). To je <em>negativan transfer</em>: izvorni zadatak preuzak i prespecifičan, a ciljni razredi nisu bili u njemu zastupljeni. ImageNet trupovi rijetko tako podbace jer je $1000$ raznolikih razreda prisililo mrežu da zadrži opće značajke; s uskim izvorom bolje prođe raniji sloj (Zadatak 6) ili fino ugađanje koje značajke popravi.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><em>Katastrofalno zaboravljanje.</em> Fino ugodi trup iz Primjera 2 na ciljni zadatak sa stopama $10^{-2}$, $10^{-3}$ i $10^{-4}$, a zatim ugođeni trup spoji s <em>izvornom</em> glavom i izmjeri koliko dobro još klasificira $10$ znamenki na skupu <code>X_izvor</code>. Kako gubitak znanja o izvornom zadatku ovisi o stopi? Što iz toga slijedi za sustave koji jedan trup dijele među više zadataka?</p>
+<rjesenje>
+<kod jezik="python">
+print("prije ugađanja: točnost izvora %.3f" % tocnost(izvor, X_izvor, y_izvor))
+for lr in [1e-2, 1e-3, 1e-4]:
+    torch.manual_seed(0)
+    m = nova_glava()
+    treniraj(m, X_tr, y_tr, epohe=200, lr=lr)
+    spojeno = nn.Sequential(*m[:-1], izvor[-1])          # ugođeni trup + stara glava
+    print("stopa %-6g ciljni zadatak %.3f   izvorni zadatak sa starom glavom %.3f" %
+          (lr, tocnost(m, X_te, y_te), tocnost(spojeno, X_izvor, y_izvor)))
+</kod>
+<izlaz>
+prije ugađanja: točnost izvora 1.000
+stopa 0.01   ciljni zadatak 0.879   izvorni zadatak sa starom glavom 0.830
+stopa 0.001  ciljni zadatak 0.878   izvorni zadatak sa starom glavom 0.953
+stopa 0.0001 ciljni zadatak 0.857   izvorni zadatak sa starom glavom 0.993
+</izlaz>
+<p>Što je stopa veća, to trup više zaboravi: točnost na izvornom zadatku padne s $1{,}000$ na $0{,}830$ nakon ugađanja s $10^{-2}$, na $0{,}953$ s $10^{-3}$, a s $10^{-4}$ ostane $0{,}993$ – pri čemu ciljni zadatak s $10^{-2}$ i $10^{-3}$ prođe jednako ($0{,}879$ i $0{,}878$). Nova zadaća se nauči i uz malu stopu jer glava radi većinu posla. Kad jedan trup treba služiti više zadataka, ili ga ne ugađaj (recept A/B – svaki zadatak dobije svoju glavu), ili ugađaj tako malo da izvorni zadatak preživi; to je i razlog zašto se u praksi čuvaju <em>odvojene kopije</em> ugođenih težina po zadatku.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Pretrenirana mreža $f=g\circ\phi$: trup $\phi$ daje značajke ($512$ za ResNet-18), glava $g$ računa ImageNetove razrede. Rani slojevi (rubovi, teksture) prenose se gotovo univerzalno, kasni su specifični za izvorni zadatak – što je cilj dalje od izvora, ranije reži trup.</li>
+<li>ResNet: blok uči ostatak, $y=F(x)+x$; skip veza propušta gradijent pa duboke mreže uče. ResNet-18: četiri faze ($64\to512$ kanala), <code>avgpool</code>, <code>fc</code>; $\approx11{,}7$ M parametara. EfficientNet i ViT su drugi trupovi s istim sučeljem.</li>
+<li>Tri recepta: (A) značajke + <code>LogisticRegression</code> – prvi izbor s malo podataka i bez GPU-a; (B) zamrznuti trup (<code>requires_grad=False</code>, trup u <code>eval()</code>) + nova glava; (C) fino ugađanje s $10$–$100$ puta manjom stopom, po potrebi grupama parametara (trup $10^{-4}$, glava $10^{-3}$).</li>
+<li>Zamjena glave: <code>model.fc = nn.Linear(model.fc.in_features, k)</code>; ulaz normaliziraj ImageNetovim konstantama ili <code>weights.transforms()</code>; <code>model.eval()</code> i <code>torch.no_grad()</code> u evaluaciji.</li>
+<li>Prevelika stopa „pregazi” trup (velik pomak težina, pad točnosti, katastrofalno zaboravljanje); premala ništa ne prilagodi. Biraj je validacijom, ne gubitkom na skupu za učenje.</li>
+<li>Transfer nije besplatan: preuzak izvorni zadatak daje negativan transfer, a s puno ciljnih podataka prednost značajki se smanjuje. Evaluiraj stratificiranom podjelom napravljenom prije učenja, odluke donosi na validaciji, test otvori jednom i pogledaj matricu zabune.</li>
+</ul>
+
+@@ literatura
+<li>K. He, X. Zhang, S. Ren, J. Sun, „Deep Residual Learning for Image Recognition”, <i>CVPR</i> 2016 – <a href="https://arxiv.org/abs/1512.03385">arXiv:1512.03385</a>.</li>
+<li>J. Yosinski, J. Clune, Y. Bengio, H. Lipson, „How transferable are features in deep neural networks?”, <i>NeurIPS</i> 2014 – <a href="https://arxiv.org/abs/1411.1792">arXiv:1411.1792</a>.</li>
+<li>PyTorch: <a href="https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html">Transfer Learning for Computer Vision Tutorial</a>; torchvision: <a href="https://pytorch.org/vision/stable/models.html">Models and pre-trained weights</a>.</li>
+<li>M. Tan, Q. V. Le, „EfficientNet: Rethinking Model Scaling for CNNs”, <i>ICML</i> 2019; A. Dosovitskiy i sur., „An Image is Worth 16x16 Words”, <i>ICLR</i> 2021.</li>

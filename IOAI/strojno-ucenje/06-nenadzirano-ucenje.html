@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Strojno učenje 6: Nenadzirano učenje: grupiranje i smanjenje dimenzije</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#strojno-ucenje">Strojno učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Strojno učenje · lekcija 6 od 6</p>
+            <h1><span class="broj-lekcije">M6</span> Nenadzirano učenje: grupiranje i smanjenje dimenzije</h1>
+            <p class="meta">Što se može naučiti iz podataka bez oznaka: k-means i srodnici, PCA, t-SNE i detekcija anomalija</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 1.0" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>k-means</li>
+                <li>inercija</li>
+                <li>silhouette</li>
+                <li>DBSCAN</li>
+                <li>PCA</li>
+                <li>varijanca</li>
+                <li>t-SNE</li>
+                <li>detekcija anomalija</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Zapisati cilj k-meansa (inerciju), provesti Lloydov algoritam ručno u NumPy-ju i objasniti zašto inicijalizacija i broj grupa $k$ nisu nevažni.</li>
+<li>Izabrati $k$ metodom lakta i silhouette koeficijentom te prepoznati kada su hijerarhijsko grupiranje ili DBSCAN bolji izbor od k-meansa.</li>
+<li>Izvesti PCA kao smjerove najveće varijance, provesti ga ručno (SVD) i u scikit-learnu te izračunati udio objašnjene varijance i grešku rekonstrukcije.</li>
+<li>Vizualizirati skup <code>load_digits</code> u 2D pomoću PCA i t-SNE-a te upotrijebiti grešku rekonstrukcije za detekciju anomalija.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U nadziranom učenju oznaka $y$ govori što tražimo. U <b>nenadziranom učenju</b> (engl. <i>unsupervised learning</i>) imamo samo ulaze $x_1,\dots,x_n\in\mathbb R^d$ i pitanje je: kakvu strukturu podaci imaju sami po sebi? Dva su klasična odgovora. <b>Grupiranje</b> (engl. <i>clustering</i>) traži skupine međusobno sličnih primjera; <b>smanjenje dimenzije</b> (engl. <i>dimensionality reduction</i>) traži malo brojeva koji dobro opisuju svaki primjer. Na natjecanju se nenadzirane metode rijetko pojavljuju kao cijeli zadatak, ali su stalni alat: za upoznavanje podataka (vizualizacija), za nove značajke (klaster kojem primjer pripada, PCA komponente), za ubrzavanje (manje dimenzija) i za detekciju anomalija.</p>
+
+<h3>k-means</h3>
+<div class="pojam">
+<h4>Cilj k-meansa</h4>
+<p>Zadan je broj grupa $k$. Tražimo središta $\mu_1,\dots,\mu_k\in\mathbb R^d$ i pridruživanje $c(i)\in\{1,\dots,k\}$ svakog primjera jednom središtu koji minimiziraju <b>inerciju</b> (engl. <i>inertia, within-cluster sum of squares</i>)
+$$J=\sum_{i=1}^n\lVert x_i-\mu_{c(i)}\rVert^2 .$$</p>
+</div>
+<p>Točno minimiziranje $J$ je NP-teško, ali jednostavna iterativna heuristika – <b>Lloydov algoritam</b>, koji se obično i zove k-means – u praksi radi izvrsno:</p>
+<ol>
+<li><b>Inicijalizacija:</b> izaberi $k$ početnih središta.</li>
+<li><b>Pridruživanje:</b> svaki $x_i$ dodijeli najbližem središtu, $c(i)=\arg\min_j\lVert x_i-\mu_j\rVert$.</li>
+<li><b>Ažuriranje:</b> svako središte postavi u prosjek njemu dodijeljenih točaka, $\mu_j=\frac{1}{|C_j|}\sum_{i\in C_j}x_i$.</li>
+<li>Ponavljaj 2 i 3 dok se pridruživanja ne prestanu mijenjati.</li>
+</ol>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (konvergencija k-meansa).</strong> Svaki korak Lloydova algoritma ne povećava $J$, pa algoritam u konačno mnogo koraka završava u (lokalnom) minimumu.</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Pridruživanje najbližem središtu po definiciji minimizira svaki pribrojnik $\lVert x_i-\mu_{c(i)}\rVert^2$ uz fiksna središta. Uz fiksno pridruživanje, $\sum_{i\in C_j}\lVert x_i-\mu\rVert^2$ je kvadratna funkcija od $\mu$ s minimumom u prosjeku (deriviraj po $\mu$ i izjednači s nulom). Dakle $J$ monotono pada; kako konačno mnogo pridruživanja postoji, a nijedno se ne ponavlja uz strogi pad, postupak staje. <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<p>Lokalni minimum nije nužno globalni – rezultat ovisi o inicijalizaciji (Zadatak 4). Dva su lijeka: ponoviti algoritam iz više početaka i zadržati najmanju inerciju (<code>n_init</code> u scikit-learnu) i pametnija inicijalizacija <b>k-means++</b>: prvo središte je slučajna točka, a svako sljedeće bira se s vjerojatnošću razmjernom <em>kvadratu udaljenosti</em> do najbližeg već izabranog središta, pa početna središta budu razmaknuta. To je zadana inicijalizacija u <code>sklearn.cluster.KMeans</code>.</p>
+
+<h3>Koliko grupa?</h3>
+<p>Inercija s $k$ uvijek pada (za $k=n$ je nula), pa je ne možemo izravno minimizirati po $k$. <b>Metoda lakta</b> (engl. <i>elbow method</i>): nacrtaj $J(k)$ i traži „lakat” nakon kojeg se pad naglo uspori – tamo dodatne grupe više ne objašnjavaju strukturu nego šum. Lakat je često nejasan, pa je korisnija mjera koja ne pada monotono.</p>
+<div class="pojam">
+<h4>Silhouette koeficijent</h4>
+<p>Za primjer $i$ neka je $a_i$ prosječna udaljenost do ostalih točaka njegove grupe, a $b_i$ najmanja prosječna udaljenost do točaka neke <em>druge</em> grupe. Tada je
+$$s_i=\frac{b_i-a_i}{\max(a_i,b_i)}\in[-1,1].$$
+Vrijednost blizu $1$ znači da je točka dobro smještena, blizu $0$ da leži na granici dviju grupa, a negativna da bi vjerojatno pripadala drugoj grupi. Prosjek $\bar s$ po svim točkama je ocjena cijelog grupiranja; bira se $k$ s najvećim $\bar s$.</p>
+</div>
+<div class="trener-umetak">
+<p>k-means pretpostavlja <em>okrugle</em> grupe slične veličine i euklidsku udaljenost. Značajke različitih skala treba standardizirati (inače dominira ona s najvećim rasponom), a izdužene, ugniježđene ili polumjesečaste grupe k-means će presjeći na pola. Uvijek nacrtaj rezultat (u 2D preko PCA ako treba) prije nego mu povjeruješ.</p>
+</div>
+
+<h3>Hijerarhijsko grupiranje i DBSCAN</h3>
+<p><b>Aglomerativno hijerarhijsko grupiranje</b> kreće od $n$ grupa od po jedne točke i u svakom koraku spaja dvije najbliže grupe; udaljenost grupa zadaje <em>poveznica</em> (engl. <i>linkage</i>): najmanja udaljenost točaka (<i>single</i>), najveća (<i>complete</i>), prosječna (<i>average</i>) ili porast inercije (<i>Ward</i>, najsličniji k-meansu). Rezultat je stablo spajanja (<b>dendrogram</b>) koje se „reže” na željenoj visini, pa $k$ ne treba znati unaprijed; cijena je $O(n^2)$ memorije. <b>DBSCAN</b> grupira po <em>gustoći</em>: točka s barem <code>min_samples</code> susjeda unutar polumjera <code>eps</code> je jezgrena, grupe su povezane komponente jezgrenih točaka i njihovih susjeda, a sve ostalo je <b>šum</b> (oznaka $-1$). DBSCAN nalazi grupe proizvoljnog oblika i sam izdvaja odstupajuće točke, ali je osjetljiv na izbor <code>eps</code> i ne voli grupe vrlo različitih gustoća.</p>
+
+<h3>PCA – analiza glavnih komponenata</h3>
+<p>Želimo $d$-dimenzionalne podatke sažeti u $m\lt d$ brojeva, a izgubiti što manje. PCA (engl. <i>principal component analysis</i>) bira <em>linearnu</em> projekciju: $m$ međusobno okomitih smjerova duž kojih podaci najviše variraju.</p>
+<div class="pojam">
+<h4>Glavne komponente</h4>
+<p>Neka su podaci centrirani ($\bar x=0$) i složeni u $X\in\mathbb R^{n\times d}$, a $\Sigma=\frac1n X^\top X$ njihova kovarijacijska matrica. <b>Prva glavna komponenta</b> je jedinični vektor $u_1$ koji maksimizira varijancu projekcije $\frac1n\lVert Xu\rVert^2=u^\top\Sigma u$; $j$-ta je jedinični vektor okomit na prethodne koji maksimizira istu veličinu. <b>Projekcija</b> primjera $x$ na prvih $m$ komponenata je $z=U_m^\top x\in\mathbb R^m$, gdje su stupci $U_m$ vektori $u_1,\dots,u_m$, a <b>rekonstrukcija</b> je $\hat x=U_mz=U_mU_m^\top x$.</p>
+</div>
+<div class="tvrdnja">
+<p><strong>Teorem 2 (PCA i svojstveni vektori).</strong> Glavne komponente su svojstveni vektori matrice $\Sigma$ poredani po padajućim svojstvenim vrijednostima $\lambda_1\ge\lambda_2\ge\dots\ge\lambda_d\ge0$. Varijanca projekcije na $u_j$ jednaka je $\lambda_j$, ukupna varijanca je $\sum_j\lambda_j$, a srednja kvadratna greška rekonstrukcije s $m$ komponenata je $\frac1n\sum_i\lVert x_i-\hat x_i\rVert^2=\sum_{j\gt m}\lambda_j$ – PCA je ujedno <em>najbolja</em> linearna projekcija ranga $m$ u smislu najmanjih kvadrata.</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Za prvu komponentu: $\Sigma$ je simetrična, pa ima ortonormiranu bazu svojstvenih vektora $u_1,\dots,u_d$. Zapišemo $u=\sum_j\alpha_ju_j$ s $\sum\alpha_j^2=1$; tada $u^\top\Sigma u=\sum_j\lambda_j\alpha_j^2\le\lambda_1$, s jednakošću za $u=u_1$. Isti argument na potprostoru okomitom na već izabrane daje ostale. Greška rekonstrukcije: $x-\hat x$ je projekcija na preostale smjerove, pa je $\frac1n\sum_i\lVert x_i-\hat x_i\rVert^2=\sum_{j\gt m}u_j^\top\Sigma u_j=\sum_{j\gt m}\lambda_j$. <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<p>Udio $\lambda_j/\sum_l\lambda_l$ je <b>udio objašnjene varijance</b> (<code>explained_variance_ratio_</code>); kumulativni udio govori koliko komponenata treba da se zadrži npr. 90 % varijance. Numerički se PCA ne računa iz $\Sigma$, nego <b>dekompozicijom singularnih vrijednosti</b> $X=USV^\top$: stupci $V$ su glavne komponente, a $\lambda_j=s_j^2/n$. Kao i kod k-meansa, značajke različitih jedinica prvo standardiziraj – inače prva komponenta jednostavno pokazuje smjer značajke s najvećim brojevima.</p>
+
+<h3>t-SNE i UMAP</h3>
+<p>PCA čuva <em>globalnu</em> geometriju (velike udaljenosti), ali je linearan: nelinearno savijene strukture u 2D projekciji se preklapaju. <b>t-SNE</b> (engl. <i>t-distributed stochastic neighbor embedding</i>) traži 2D raspored točaka u kojem su <em>susjedi</em> iz izvornog prostora i dalje susjedi: sličnosti u visokoj dimenziji opiše Gaussovim vjerojatnostima, u niskoj Studentovom $t$-razdiobom (teški repovi razmiču grupe), i gradijentnim spustom minimizira razliku (KL-divergenciju) između njih. Ključni hiperparametar <code>perplexity</code> (tipično 5–50) je efektivni broj susjeda. <b>UMAP</b> radi na sličnoj ideji preko grafa susjeda, brži je i bolje čuva globalnu strukturu, a za razliku od t-SNE-a može transformirati i nove točke. Oprez pri čitanju obiju slika: udaljenosti među grupama i veličine grupa <em>nemaju</em> značenje, a drukčiji seed daje drukčiju sliku. To su alati za gledanje, ne za mjerenje; za značajke modela koristi PCA.</p>
+
+<h3>Detekcija anomalija</h3>
+<p>Mnoge nenadzirane metode daju usput <b>ocjenu anomalnosti</b> (engl. <i>anomaly score</i>) – broj koji je velik za primjere nepoput ostalih: udaljenost do najbližeg k-means središta, oznaka šuma u DBSCAN-u, ili <em>greška rekonstrukcije</em> PCA: ako glavne komponente opisuju „normalne” podatke, primjer koji se njima ne da dobro rekonstruirati odskače (Zadatak 8). Isti princip s neuronskim autoenkoderom koristi se za slike. Prag se bira kao kvantil ocjene na normalnim podacima, a kvaliteta se, ako imamo barem malo označenih anomalija, mjeri s ROC-AUC (lekcija M3).</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Generiraj $600$ točaka u ravnini iz četiri grupe (<code>make_blobs</code>). Implementiraj Lloydov algoritam u NumPy-ju, pokreni ga i usporedi inerciju i pridruživanja s <code>sklearn.cluster.KMeans</code>. Zatim odredi $k$ metodom lakta i silhouette koeficijentom.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: k-means ručno.</b> Udaljenosti svih točaka do svih središta računamo odjednom emitiranjem (engl. <i>broadcasting</i>) na niz oblika $(n,k,d)$. Početna središta su $k$ slučajno izabranih točaka.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_blobs</span>
+
+<span class="n">X</span><span class="p">,</span> <span class="n">y_istina</span> <span class="o">=</span> <span class="n">make_blobs</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">centers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">cluster_std</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">kmeans_rucno</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">rng</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">centri</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">k</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">udalj</span> <span class="o">=</span> <span class="p">((</span><span class="n">X</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">centri</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>   <span class="c1"># (n, k)</span>
+        <span class="n">oznake</span> <span class="o">=</span> <span class="n">udalj</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">novi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">X</span><span class="p">[</span><span class="n">oznake</span> <span class="o">==</span> <span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">oznake</span> <span class="o">==</span> <span class="n">j</span><span class="p">)</span> <span class="k">else</span> <span class="n">centri</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">)])</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">novi</span><span class="p">,</span> <span class="n">centri</span><span class="p">):</span>
+            <span class="k">break</span>
+        <span class="n">centri</span> <span class="o">=</span> <span class="n">novi</span>
+    <span class="n">inercija</span> <span class="o">=</span> <span class="n">udalj</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">centri</span><span class="p">,</span> <span class="n">oznake</span><span class="p">,</span> <span class="n">inercija</span><span class="p">,</span> <span class="n">it</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">centri</span><span class="p">,</span> <span class="n">oznake</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">koraka</span> <span class="o">=</span> <span class="n">kmeans_rucno</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"koraka:"</span><span class="p">,</span> <span class="n">koraka</span><span class="p">,</span> <span class="s2">" inercija: </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">J</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"središta:</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">centri</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(600, 2)
+koraka: 3  inercija: 913.20
+središta:
+ [[-8.5   5.58]
+ [ 0.21 -8.68]
+ [ 9.54  0.72]
+ [-1.22  4.27]]</code></pre>
+<p><b>Korak 2: usporedba sa scikit-learnom.</b> <code>KMeans</code> zadano koristi k-means++ i <code>n_init</code> ponavljanja. Pridruživanja uspoređujemo <b>prilagođenim Randovim indeksom</b> (ARI), mjerom slaganja dviju podjela koja ne ovisi o tome kako su grupe numerirane ($1$ = iste podjele, $\approx0$ = slučajno).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">KMeans</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">adjusted_rand_score</span><span class="p">,</span> <span class="n">silhouette_score</span>
+
+<span class="n">km</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"sklearn inercija: </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">km</span><span class="o">.</span><span class="n">inertia_</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ARI(ručno, sklearn) = </span><span class="si">%.3f</span><span class="s2">   ARI(sklearn, istina) = </span><span class="si">%.3f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">adjusted_rand_score</span><span class="p">(</span><span class="n">oznake</span><span class="p">,</span> <span class="n">km</span><span class="o">.</span><span class="n">labels_</span><span class="p">),</span> <span class="n">adjusted_rand_score</span><span class="p">(</span><span class="n">km</span><span class="o">.</span><span class="n">labels_</span><span class="p">,</span> <span class="n">y_istina</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>sklearn inercija: 913.20
+ARI(ručno, sklearn) = 1.000   ARI(sklearn, istina) = 1.000</code></pre>
+<p>Obje implementacije završavaju u istom minimumu (ista inercija, ARI $=1$), a grupe se gotovo savršeno slažu sa stvarnim – na ovako jasnim podacima to i očekujemo.</p>
+<p><b>Korak 3: izbor $k$.</b> Za $k=2,\dots,8$ ispisujemo inerciju i prosječni silhouette.</p>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="s2">" k  inercija  silhouette"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="n">n_clusters</span><span class="o">=</span><span class="n">k</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%2d</span><span class="s2">  </span><span class="si">%8.1f</span><span class="s2">     </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">inertia_</span><span class="p">,</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">labels_</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code> k  inercija  silhouette
+ 2   18162.5     0.594
+ 3    5018.2     0.773
+ 4     913.2     0.830
+ 5     826.1     0.696
+ 6     745.7     0.571
+ 7     663.4     0.467
+ 8     590.0     0.330</code></pre>
+<p>Inercija pada strmo do $k=4$, a zatim polako – lakat je na $4$. Silhouette je najveći upravo za $k=4$ i pada za veće $k$, jer dijeljenje prave grupe na dvije daje točke koje su jednako blizu „tuđem” kao i vlastitom središtu. Kad se obje metode slažu, odluka je laka; kad se ne slažu, odlučuje ono čemu grupiranje služi.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Generiraj $500$ točaka u $\mathbb R^3$ koje leže blizu ravnine (dvije „prave” dimenzije plus mali šum). Izvedi PCA ručno preko kovarijacijske matrice i preko SVD-a, usporedi s <code>sklearn.decomposition.PCA</code> te provjeri da je greška rekonstrukcije s dvije komponente jednaka odbačenoj svojstvenoj vrijednosti.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci i kovarijacija.</b> Točke su $x=Az+\varepsilon$ sa slučajnim $z\in\mathbb R^2$ i šumom $\varepsilon$ malog raspršenja. PCA uvijek počinje centriranjem.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.5</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]])</span>          <span class="c1"># (3, 2): ravnina u R^3</span>
+<span class="n">Z</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">X3</span> <span class="o">=</span> <span class="n">Z</span> <span class="o">@</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+
+<span class="n">Xc</span> <span class="o">=</span> <span class="n">X3</span> <span class="o">-</span> <span class="n">X3</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Sigma</span> <span class="o">=</span> <span class="n">Xc</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Xc</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">Xc</span><span class="p">)</span>
+<span class="n">lam</span><span class="p">,</span> <span class="n">U</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">Sigma</span><span class="p">)</span>                 <span class="c1"># eigh vraća uzlazno</span>
+<span class="n">lam</span><span class="p">,</span> <span class="n">U</span> <span class="o">=</span> <span class="n">lam</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">U</span><span class="p">[:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"svojstvene vrijednosti:"</span><span class="p">,</span> <span class="n">lam</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"udio varijance:        "</span><span class="p">,</span> <span class="p">(</span><span class="n">lam</span> <span class="o">/</span> <span class="n">lam</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>svojstvene vrijednosti: [5.0658 3.5343 0.0459]
+udio varijance:         [0.5859 0.4088 0.0053]</code></pre>
+<p>Dvije velike svojstvene vrijednosti opisuju ravninu, treća je varijanca šuma okomito na nju ($\sigma^2=0{,}04$). Dvije komponente čuvaju gotovo svu varijancu.</p>
+<p><b>Korak 2: isto preko SVD-a i u scikit-learnu.</b> Svojstveni vektori su određeni do na predznak, pa uspoređujemo apsolutne vrijednosti skalarnih produkata.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.decomposition</span><span class="w"> </span><span class="kn">import</span> <span class="n">PCA</span>
+
+<span class="n">_</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">Vt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">full_matrices</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"lambda iz SVD-a:"</span><span class="p">,</span> <span class="p">(</span><span class="n">s</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">Xc</span><span class="p">))</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+
+<span class="n">pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"sklearn udio varijance:"</span><span class="p">,</span> <span class="n">pca</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"|&lt;u_j, komponenta_j&gt;| ="</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">U</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">pca</span><span class="o">.</span><span class="n">components_</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>lambda iz SVD-a: [5.0658 3.5343 0.0459]
+sklearn udio varijance: [0.5859 0.4088]
+|&lt;u_j, komponenta_j&gt;| = [1. 1.]</code></pre>
+<p>Sva tri puta vode do istih smjerova – skalarni produkti su $1$ do na predznak. Scikit-learn interno radi upravo SVD centriranih podataka.</p>
+<p><b>Korak 3: projekcija i rekonstrukcija.</b> $Z=X_cU_2$ su koordinate u ravnini, a $\hat X=ZU_2^\top$ (plus vraćeni prosjek) rekonstrukcija.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Z2</span> <span class="o">=</span> <span class="n">Xc</span> <span class="o">@</span> <span class="n">U</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span>                             <span class="c1"># (500, 2)</span>
+<span class="n">X_rek</span> <span class="o">=</span> <span class="n">Z2</span> <span class="o">@</span> <span class="n">U</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">X3</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">greska</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">X3</span> <span class="o">-</span> <span class="n">X_rek</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"greška rekonstrukcije: </span><span class="si">%.4f</span><span class="s2">   odbačena lambda_3: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">greska</span><span class="p">,</span> <span class="n">lam</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isto kao sklearn:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">pca</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">pca</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X3</span><span class="p">)),</span> <span class="n">X_rek</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>greška rekonstrukcije: 0.0459   odbačena lambda_3: 0.0459
+isto kao sklearn: True</code></pre>
+<p>Greška rekonstrukcije je točno odbačena svojstvena vrijednost, kako kaže teorem. Od $1500$ brojeva ($500\times3$) prešli smo na $1000$ ($500\times2$) plus $6$ brojeva za bazu i izgubili samo šum.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3 <span class="izvor-oznaka">skup podataka digits</span></h3>
+<div class="zadatak">
+<p>Skup <code>load_digits</code> ima $1797$ slika $8\times8$, dakle $64$ dimenzije. Koliko glavnih komponenata treba za 90 % varijance? Prikaži skup u 2D pomoću PCA i t-SNE-a i usporedi koliko se znamenke razdvajaju. Rekonstruiraj slike iz $10$ i $30$ komponenata.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: objašnjena varijanca.</b> Pikseli su na istoj skali (0–16), pa standardizacija nije nužna; centriranje radi <code>PCA</code> sam.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_digits</span>
+
+<span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">(</span><span class="n">return_X_y</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">pca_sve</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xd</span><span class="p">)</span>
+<span class="n">kum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">pca_sve</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prve 3 komponente:"</span><span class="p">,</span> <span class="n">pca_sve</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">prag</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%d</span><span class="s2"> </span><span class="si">%%</span><span class="s2"> varijance: </span><span class="si">%2d</span><span class="s2"> komponenata"</span> <span class="o">%</span> <span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">prag</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">kum</span><span class="p">,</span> <span class="n">prag</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>prve 3 komponente: [0.149 0.136 0.118]
+50 % varijance:  5 komponenata
+80 % varijance: 13 komponenata
+90 % varijance: 21 komponenata
+95 % varijance: 29 komponenata
+99 % varijance: 41 komponenata</code></pre>
+<p>Već $21$ komponenta čuva $90$ % varijance, a $41$ čuva $99$ % – trećina dimenzija praktički je prazna (rubni pikseli koji su uvijek nula i šum). Zato PCA prije kNN-a ili SVM-a često ubrza učenje bez gubitka točnosti (Zadatak 7).</p>
+<p><b>Korak 2: 2D slike – PCA i t-SNE.</b> t-SNE radimo na podskupu od $600$ slika radi brzine. Koliko se znamenke razdvajaju mjerimo silhouette koeficijentom izračunatim <em>prema stvarnim oznakama</em> u 2D prostoru – veći broj znači da su točke iste znamenke zbijene i odvojene od ostalih.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.manifold</span><span class="w"> </span><span class="kn">import</span> <span class="n">TSNE</span>
+
+<span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xd</span><span class="p">),</span> <span class="mi">600</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">Z_pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">Xd</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+<span class="n">Z_tsne</span> <span class="o">=</span> <span class="n">TSNE</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">perplexity</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">Xd</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"silhouette prema oznakama: PCA </span><span class="si">%.3f</span><span class="s2">   t-SNE </span><span class="si">%.3f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">silhouette_score</span><span class="p">(</span><span class="n">Z_pca</span><span class="p">,</span> <span class="n">yd</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span> <span class="n">silhouette_score</span><span class="p">(</span><span class="n">Z_tsne</span><span class="p">,</span> <span class="n">yd</span><span class="p">[</span><span class="n">idx</span><span class="p">])))</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mf">4.2</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">os_</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">naslov</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">osi</span><span class="p">,</span> <span class="p">(</span><span class="n">Z_pca</span><span class="p">,</span> <span class="n">Z_tsne</span><span class="p">),</span> <span class="p">(</span><span class="s2">"PCA"</span><span class="p">,</span> <span class="s2">"t-SNE"</span><span class="p">)):</span>
+    <span class="n">sc</span> <span class="o">=</span> <span class="n">os_</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">Z</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">Z</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">yd</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"tab10"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">12</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">naslov</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">sc</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">osi</span><span class="p">,</span> <span class="n">ticks</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"digits_2d.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno digits_2d.png"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>silhouette prema oznakama: PCA 0.092   t-SNE 0.516
+spremljeno digits_2d.png</code></pre>
+<p>Na PCA slici znamenke tvore preklapajuće oblake: $0$ i $6$ odvojeni su od ostalih, ali $1$, $4$, $7$, $9$ se miješaju – dvije linearne komponente nose tek $29$ % varijance. t-SNE razdvaja gotovo svih deset znamenki u zasebne otoke, što potvrđuje i više nego peterostruko veći silhouette. Zapamti ipak upozorenje iz teorije: razmaci među otocima na t-SNE slici nisu mjera sličnosti znamenki.</p>
+<p><b>Korak 3: rekonstrukcija.</b> Sliku zapisujemo s $10$ odnosno $30$ brojeva umjesto $64$ i gledamo što se gubi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mf">3.3</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">red</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">((</span><span class="mi">64</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">osi</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xd</span><span class="p">)</span>
+    <span class="n">rek</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">Xd</span><span class="p">[:</span><span class="mi">8</span><span class="p">]))</span>
+    <span class="n">mse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">p</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">Xd</span><span class="p">))</span> <span class="o">-</span> <span class="n">Xd</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"m = </span><span class="si">%2d</span><span class="s2"> komponenata: MSE rekonstrukcije po pikselu </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">mse</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">os_</span><span class="p">,</span> <span class="n">slika</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">red</span><span class="p">,</span> <span class="n">rek</span><span class="p">):</span>
+        <span class="n">os_</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">slika</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"gray_r"</span><span class="p">);</span> <span class="n">os_</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"digits_rek.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>m = 64 komponenata: MSE rekonstrukcije po pikselu 0.000
+m = 30 komponenata: MSE rekonstrukcije po pikselu 0.768
+m = 10 komponenata: MSE rekonstrukcije po pikselu 4.914</code></pre>
+<p>Sa $30$ komponenata slike su golim okom jednake izvornima; s $10$ su mutne, ali znamenke su još čitljive – $10$ brojeva nosi bit, ostatak su detalji rukopisa. Greška s $64$ komponenata je nula do na zaokruživanje, jer tada ništa ne odbacujemo.</p>
+<p><b>Korak 4: UMAP.</b> UMAP nije dio scikit-learna (paket <code>umap-learn</code>), pa ga ovdje ne pokrećemo; sučelje je isto kao kod t-SNE-a, a slika je slična, s otocima znamenki koji su obično kompaktniji i s očuvanijim međusobnim rasporedom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="c1"># pip3 install umap-learn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">umap</span>
+<span class="n">Z_umap</span> <span class="o">=</span> <span class="n">umap</span><span class="o">.</span><span class="n">UMAP</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_neighbors</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">min_dist</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">Xd</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">Z_umap</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>      <span class="c1"># (600, 2)</span></code></pre></div>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Na brojevnom pravcu zadane su točke $1,2,3,10,11,12$, a početna središta su $\mu_1=1$ i $\mu_2=2$. Provedi Lloydov algoritam ručno (pridruživanje, ažuriranje) do konvergencije i izračunaj konačnu inerciju. Provjeri svojom funkcijom iz Primjera 1.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p><em>1. krug:</em> točka $1$ ide $\mu_1$, sve ostale su bliže $\mu_2=2$ (točka $2$ i sve veće). Nova središta: $\mu_1=1$, $\mu_2=\frac{2+3+10+11+12}{5}=7{,}6$. <em>2. krug:</em> $1,2,3$ bliže su $1$ nego $7{,}6$ (granica je $4{,}3$), a $10,11,12$ bliže su $7{,}6$. Nova središta $\mu_1=2$, $\mu_2=11$. <em>3. krug:</em> pridruživanja se ne mijenjaju – gotovo. Inercija: $(1+0+1)+(1+0+1)=4$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">kmeans_iz_sredista</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">centri</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">it</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">udalj</span> <span class="o">=</span> <span class="p">((</span><span class="n">X</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">centri</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="n">oznake</span> <span class="o">=</span> <span class="n">udalj</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">novi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">X</span><span class="p">[</span><span class="n">oznake</span> <span class="o">==</span> <span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">centri</span><span class="p">))])</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">novi</span><span class="p">,</span> <span class="n">centri</span><span class="p">):</span>
+            <span class="k">break</span>
+        <span class="n">centri</span> <span class="o">=</span> <span class="n">novi</span>
+    <span class="k">return</span> <span class="n">centri</span><span class="p">,</span> <span class="n">oznake</span><span class="p">,</span> <span class="n">udalj</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">it</span>
+
+<span class="n">X1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>
+<span class="n">c</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">J1</span><span class="p">,</span> <span class="n">it</span> <span class="o">=</span> <span class="n">kmeans_iz_sredista</span><span class="p">(</span><span class="n">X1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">]]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"središta:"</span><span class="p">,</span> <span class="n">c</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="s2">" oznake:"</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="s2">" inercija:"</span><span class="p">,</span> <span class="n">J1</span><span class="p">,</span> <span class="s2">" krugova:"</span><span class="p">,</span> <span class="n">it</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>središta: [ 2. 11.]  oznake: [0 0 0 1 1 1]  inercija: 4.0  krugova: 3</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Kovarijacijska matrica dvodimenzionalnih podataka je $\Sigma=\begin{pmatrix}3&amp;1\\1&amp;3\end{pmatrix}$. Odredi glavne komponente i udio varijance koji objašnjava prva. Provjeri s <code>np.linalg.eigh</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Karakteristični polinom je $(3-\lambda)^2-1=0$, pa $\lambda_1=4$, $\lambda_2=2$. Za $\lambda_1=4$: $(\Sigma-4I)u=0$ daje $u_1=\frac{1}{\sqrt2}(1,1)$, a $u_2=\frac1{\sqrt2}(1,-1)$. Prva komponenta objašnjava $\frac{4}{4+2}=\frac23\approx66{,}7$ % varijance: podaci su izduženi duž dijagonale $x_1=x_2$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">lam2</span><span class="p">,</span> <span class="n">U2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"lambda:"</span><span class="p">,</span> <span class="n">lam2</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="s2">" u_1:"</span><span class="p">,</span> <span class="n">U2</span><span class="p">[:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">][:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="s2">" udio: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">lam2</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">/</span> <span class="n">lam2</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>lambda: [4. 2.]  u_1: [0.7071 0.7071]  udio: 0.6667</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Odgovori i obrazloži: (a) Može li inercija k-meansa porasti kad $k$ povećamo s $4$ na $5$ (uz globalni optimum)? (b) Što znači prosječni silhouette od $0{,}05$? (c) Zašto PCA treba primijeniti na standardizirane podatke ako su značajke „visina u cm” i „plaća u eurima”? (d) Zašto se udaljenost dviju grupa na t-SNE slici ne smije tumačiti?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) Ne: svako rješenje s $4$ središta je i rješenje s $5$ (peto stavimo na bilo koju točku – njezin pribrojnik postane nula), pa je optimum za $k=5$ najviše jednak onom za $k=4$. Zato inercija ne može birati $k$. (b) Točke su u prosjeku jednako blizu tuđim grupama kao vlastitoj – grupiranje je gotovo proizvoljno; ili grupe ne postoje, ili $k$ ne valja. (c) Varijanca plaće (tisuće eura) stotinama puta nadmašuje varijancu visine, pa bi prva komponenta bila praktički os plaće bez obzira na strukturu; standardizacija svim značajkama daje varijancu $1$. (d) t-SNE čuva samo lokalna susjedstva; gradijentni spust razmiče grupe koliko mu treba za razdvajanje, a globalni raspored ovisi o seedu i perplexityju.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Pokaži ovisnost k-meansa o inicijalizaciji: na podacima iz Primjera 1 pokreni <code>KMeans(n_clusters=4, init="random", n_init=1)</code> za $20$ različitih <code>random_state</code> i ispiši raspon dobivenih inercija te koliko puta je dosegnut najbolji minimum. Ponovi s <code>init="k-means++"</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">init</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"random"</span><span class="p">,</span> <span class="s2">"k-means++"</span><span class="p">):</span>
+    <span class="n">inercije</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">KMeans</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="n">init</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">inertia_</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">)])</span>
+    <span class="n">naj</span> <span class="o">=</span> <span class="n">inercije</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-10s</span><span class="s2"> min </span><span class="si">%.1f</span><span class="s2">  max </span><span class="si">%.1f</span><span class="s2">   u globalnom minimumu </span><span class="si">%2d</span><span class="s2">/20 puta"</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">init</span><span class="p">,</span> <span class="n">naj</span><span class="p">,</span> <span class="n">inercije</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="p">(</span><span class="n">inercije</span> <span class="o">&lt;</span> <span class="n">naj</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>random     min 913.2  max 13981.9   u globalnom minimumu  8/20 puta
+k-means++  min 913.2  max 913.2   u globalnom minimumu 20/20 puta</code></pre>
+<p>Sa slučajnim početnim središtima dio pokretanja završi u lošem lokalnom minimumu (dvije prave grupe spojene, jedna presječena na pola), s inercijom znatno većom od najbolje. k-means++ razmiče početna središta i daleko češće nađe pravi minimum. Zadane postavke scikit-learna (k-means++ i više ponavljanja) rješavaju problem u većini slučajeva – nemoj ih bez razloga mijenjati.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Na podacima iz Primjera 1 pomnoži prvu koordinatu sa $100$ (npr. ista veličina u drugim jedinicama). Što se događa s k-meansom i ARI-jem prema stvarnim grupama? Popravi standardizacijom. Isto ispitaj za udio varijance prve PCA komponente.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">StandardScaler</span>
+
+<span class="n">X_skal</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">();</span> <span class="n">X_skal</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*=</span> <span class="mi">100</span>
+<span class="n">X_std</span> <span class="o">=</span> <span class="n">StandardScaler</span><span class="p">()</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X_skal</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">D</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"izvorno"</span><span class="p">,</span> <span class="n">X</span><span class="p">),</span> <span class="p">(</span><span class="s2">"x1 * 100"</span><span class="p">,</span> <span class="n">X_skal</span><span class="p">),</span> <span class="p">(</span><span class="s2">"standardizirano"</span><span class="p">,</span> <span class="n">X_std</span><span class="p">)):</span>
+    <span class="n">lab</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
+    <span class="n">udio1</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-16s</span><span class="s2"> ARI = </span><span class="si">%.3f</span><span class="s2">   udio 1. komponente = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">adjusted_rand_score</span><span class="p">(</span><span class="n">lab</span><span class="p">,</span> <span class="n">y_istina</span><span class="p">),</span> <span class="n">udio1</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>izvorno          ARI = 1.000   udio 1. komponente = 0.675
+x1 * 100         ARI = 0.765   udio 1. komponente = 1.000
+standardizirano  ARI = 1.000   udio 1. komponente = 0.663</code></pre>
+<p>Nakon skaliranja prve koordinate udaljenosti ovise praktički samo o njoj: k-means dijeli točke na „pruge” po $x_1$, i grupe koje se razlikuju samo po $x_2$ više ne razlikuje, a prva PCA komponenta objašnjava gotovo $100$ % varijance jer gleda samo $x_1$. Standardizacija vraća ravnotežu. Oprez i u suprotnom smjeru: ako značajka s velikim rasponom <em>jest</em> važnija, standardizacija tu informaciju briše – odluka o skaliranju dio je modeliranja.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Generiraj dva isprepletena polumjeseca (<code>make_moons(n_samples=400, noise=0.06, random_state=0)</code>). Grupiraj ih k-meansom ($k=2$), aglomerativno s poveznicom <code>single</code> i <code>ward</code> te DBSCAN-om; za svaku metodu ispiši ARI prema stvarnim oznakama. Zatim mijenjaj <code>eps</code> DBSCAN-a i promatraj broj grupa i točaka šuma.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Aglomerativno grupiranje: <code>AgglomerativeClustering(n_clusters=2, linkage=…)</code>. Kod DBSCAN-a broj grupa je broj različitih oznaka bez $-1$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_moons</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.cluster</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgglomerativeClustering</span><span class="p">,</span> <span class="n">DBSCAN</span>
+
+<span class="n">Xm</span><span class="p">,</span> <span class="n">ym</span> <span class="o">=</span> <span class="n">make_moons</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">metode</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"k-means"</span><span class="p">:</span> <span class="n">KMeans</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+          <span class="s2">"single"</span><span class="p">:</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="s2">"single"</span><span class="p">),</span>
+          <span class="s2">"ward"</span><span class="p">:</span> <span class="n">AgglomerativeClustering</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">linkage</span><span class="o">=</span><span class="s2">"ward"</span><span class="p">),</span>
+          <span class="s2">"DBSCAN"</span><span class="p">:</span> <span class="n">DBSCAN</span><span class="p">(</span><span class="n">eps</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">)}</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">metode</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-8s</span><span class="s2"> ARI = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">adjusted_rand_score</span><span class="p">(</span><span class="n">ym</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">Xm</span><span class="p">))))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">" eps  grupa  šum"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">eps</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">):</span>
+    <span class="n">lab</span> <span class="o">=</span> <span class="n">DBSCAN</span><span class="p">(</span><span class="n">eps</span><span class="o">=</span><span class="n">eps</span><span class="p">,</span> <span class="n">min_samples</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">fit_predict</span><span class="p">(</span><span class="n">Xm</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%.2f</span><span class="s2">  </span><span class="si">%5d</span><span class="s2">  </span><span class="si">%4d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">lab</span><span class="p">)</span> <span class="o">-</span> <span class="p">{</span><span class="o">-</span><span class="mi">1</span><span class="p">}),</span> <span class="p">(</span><span class="n">lab</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>k-means  ARI = 0.274
+single   ARI = 1.000
+ward     ARI = 0.239
+DBSCAN   ARI = 1.000
+ eps  grupa  šum
+0.05     28   218
+0.10      4    10
+0.20      2     0
+0.40      1     0</code></pre>
+<p>k-means i Ward presijecaju polumjesece ravnom crtom (ARI oko $0{,}25$): oba traže kompaktne, okrugle grupe. Poveznica <i>single</i> i DBSCAN prate gustoću uzduž luka i nalaze točno dvije grupe. DBSCAN je pritom osjetljiv na <code>eps</code>: premali raspršuje točke u mnogo malih grupa i šum, a preveliki spaja oba polumjeseca u jednu grupu. Pravilo palca: pogledaj razdiobu udaljenosti do $k$-tog najbližeg susjeda i stavi <code>eps</code> na njezin „lakat”.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>PCA kao pretprocesiranje: na skupu <code>digits</code> (podjela 70/30, <code>random_state=0</code>) istreniraj <code>KNeighborsClassifier(3)</code> na izvornih $64$ piksela i na prvih $m\in\{5,10,20,40\}$ glavnih komponenata. Ispiši točnost na testu. Pazi na curenje: PCA se uči samo na skupu za učenje.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Upotrijebi <code>make_pipeline(PCA(m), KNeighborsClassifier(3))</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.neighbors</span><span class="w"> </span><span class="kn">import</span> <span class="n">KNeighborsClassifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_pipeline</span>
+
+<span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">yd_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yd</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"64 piksela: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">KNeighborsClassifier</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">):</span>
+    <span class="n">cjev</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">m</span><span class="p">),</span> <span class="n">KNeighborsClassifier</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"PCA </span><span class="si">%2d</span><span class="s2">:     </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">cjev</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>64 piksela: 0.9852
+PCA  5:     0.9056
+PCA 10:     0.9704
+PCA 20:     0.9815
+PCA 40:     0.9852</code></pre>
+<p>S $5$ komponenata gubimo mnogo, ali $20$ komponenata gotovo dostiže, a $40$ izjednačava točnost svih $64$ piksela: odbacivanjem komponenata male varijance odbacujemo uglavnom šum, a kNN u manje dimenzija radi brže i udaljenosti su mu smislenije. Broj komponenata je hiperparametar – u <code>GridSearchCV</code> ulazi kao <code>"pca__n_components"</code>, zajedno s hiperparametrima klasifikatora.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Detekcija anomalija greškom rekonstrukcije: nauči PCA s $m=8$ komponenata samo na slikama znamenke $0$ iz skupa <code>digits</code> (bez zadnjih $30$ nula, koje čuvaš za test). Za testne nule i za $100$ slučajno izabranih slika drugih znamenki izračunaj grešku rekonstrukcije. Usporedi medijane dviju skupina i izračunaj ROC-AUC greške kao ocjene anomalnosti. Što se mijenja s $m=1$, $m=40$ i $m=64$?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Anomalija je pozitivna klasa; <code>roc_auc_score(je_anomalija, greska)</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">roc_auc_score</span>
+
+<span class="n">nule</span> <span class="o">=</span> <span class="n">Xd</span><span class="p">[</span><span class="n">yd</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">ostali</span> <span class="o">=</span> <span class="n">Xd</span><span class="p">[</span><span class="n">yd</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">test_nule</span> <span class="o">=</span> <span class="n">nule</span><span class="p">[</span><span class="o">-</span><span class="mi">30</span><span class="p">:]</span>
+<span class="n">test_drugi</span> <span class="o">=</span> <span class="n">ostali</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ostali</span><span class="p">),</span> <span class="mi">100</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+<span class="n">X_test</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">test_nule</span><span class="p">,</span> <span class="n">test_drugi</span><span class="p">])</span>
+<span class="n">je_anomalija</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">30</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">100</span><span class="p">)]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">greska_rek</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">X_</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">p</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_</span><span class="p">))</span> <span class="o">-</span> <span class="n">X_</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">64</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">nule</span><span class="p">[:</span><span class="o">-</span><span class="mi">30</span><span class="p">])</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">greska_rek</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">X_test</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"m = </span><span class="si">%2d</span><span class="s2">: medijan greške nule </span><span class="si">%6.1f</span><span class="s2">  ostali </span><span class="si">%6.1f</span><span class="s2">   AUC = </span><span class="si">%.3f</span><span class="s2">"</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">g</span><span class="p">[:</span><span class="mi">30</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="mi">30</span><span class="p">:]),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">je_anomalija</span><span class="p">,</span> <span class="n">g</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>m =  1: medijan greške nule  340.9  ostali 2073.7   AUC = 1.000
+m =  8: medijan greške nule  115.2  ostali 1300.1   AUC = 1.000
+m = 40: medijan greške nule    2.4  ostali  334.4   AUC = 1.000
+m = 64: medijan greške nule    0.0  ostali    0.0   AUC = 0.500</code></pre>
+<p>Komponente naučene na nulama opisuju „kako izgleda nula”: nove nule rekonstruiraju se dobro, druge znamenke loše, pa greška savršeno razdvaja skupine (AUC $=1$) – na ovom su skupu nule toliko različite od ostalih znamenki da to vrijedi za svaki razuman $m$. Ipak, <em>razmak</em> se mijenja: s $m=1$ i nule se rekonstruiraju loše (medijan $341$), pa je omjer greške anomalija i normalnih oko $6$; s $m=8$ omjer je oko $11$; s $m=40$ nule imaju gotovo nultu grešku, ali $40$ smjerova u $64$-dimenzionalnom prostoru već solidno rekonstruira i tuđe znamenke, a s $m=64$ greška je nula za sve i AUC pada na $0{,}5$ – model koji može rekonstruirati sve ne vidi nijednu anomaliju. Na težim podacima (npr. anomalije koje su samo malo iskrivljene nule) upravo bi taj omjer odlučivao, pa je broj komponenata hiperparametar koji treba izabrati na validacijskim podacima s poznatim anomalijama, ako ih imamo.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Implementiraj inicijalizaciju <b>k-means++</b> u NumPy-ju: prvo središte je slučajna točka, a svako sljedeće bira se s vjerojatnošću razmjernom kvadratu udaljenosti do najbližeg već izabranog središta. Spoji je sa svojom funkcijom iz Zadatka 1 i na podacima iz Primjera 1 usporedi sa slučajnom inicijalizacijom kroz $50$ pokretanja: prosječnu inerciju, udio pokretanja koja dosegnu globalni minimum i prosječan broj krugova.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Vjerojatnosti su $p_i=D_i^2/\sum_l D_l^2$; uzorkuj s <code>rng.choice(n, p=p)</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">init_kmeanspp</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="n">centri</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))]]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="n">D2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(((</span><span class="n">X</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:]</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">centri</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">centri</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">p</span><span class="o">=</span><span class="n">D2</span> <span class="o">/</span> <span class="n">D2</span><span class="o">.</span><span class="n">sum</span><span class="p">())])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">centri</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pokusi</span><span class="p">(</span><span class="n">init</span><span class="p">,</span> <span class="n">n_pok</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">rez</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_pok</span><span class="p">):</span>
+        <span class="n">c0</span> <span class="o">=</span> <span class="n">init</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span> <span class="k">if</span> <span class="n">init</span> <span class="k">else</span> <span class="n">X</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">J_</span><span class="p">,</span> <span class="n">it_</span> <span class="o">=</span> <span class="n">kmeans_iz_sredista</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">c0</span><span class="p">)</span>
+        <span class="n">rez</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">J_</span><span class="p">,</span> <span class="n">it_</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rez</span><span class="p">)</span>
+
+<span class="n">naj_J</span> <span class="o">=</span> <span class="n">KMeans</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">inertia_</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">init</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"slučajna"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="p">(</span><span class="s2">"k-means++"</span><span class="p">,</span> <span class="n">init_kmeanspp</span><span class="p">)):</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">pokusi</span><span class="p">(</span><span class="n">init</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-10s</span><span class="s2"> prosj. inercija </span><span class="si">%7.1f</span><span class="s2">   globalni min </span><span class="si">%2d</span><span class="s2">/50   prosj. krugova </span><span class="si">%.1f</span><span class="s2">"</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">r</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="p">(</span><span class="n">r</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">naj_J</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">r</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>slučajna   prosj. inercija  3546.2   globalni min 33/50   prosj. krugova 5.6
+k-means++  prosj. inercija  1395.5   globalni min 44/50   prosj. krugova 3.5</code></pre>
+<p>k-means++ gotovo uvijek pogodi globalni minimum i treba manje krugova, jer su početna središta već približno po jedno u svakoj grupi. Teorijski rezultat (Arthur i Vassilvitskii, 2007.) kaže da je očekivana inercija nakon same k-means++ inicijalizacije najviše $O(\log k)$ puta optimalna – slučajna inicijalizacija nema nikakvu takvu garanciju.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>k-means minimizira inerciju Lloydovim algoritmom (pridruži najbližem središtu, pomakni središte u prosjek); konvergira u lokalni minimum, pa koristi k-means++ i više ponavljanja (<code>n_init</code>).</li>
+<li>Broj grupa biraj metodom lakta i silhouette koeficijentom; k-means traži okrugle grupe – za oblike proizvoljnog izgleda ili šum koristi DBSCAN ili hijerarhijsko grupiranje s poveznicom <i>single</i>.</li>
+<li>PCA: smjerovi najveće varijance = svojstveni vektori kovarijacijske matrice (u praksi SVD); udio objašnjene varijance bira $m$, greška rekonstrukcije je zbroj odbačenih svojstvenih vrijednosti.</li>
+<li>Prije k-meansa i PCA standardiziraj značajke različitih skala; PCA kao pretprocesiranje ide u <code>Pipeline</code> da ne curi informacija.</li>
+<li>t-SNE i UMAP služe za gledanje (lokalna susjedstva), ne za mjerenje udaljenosti ni za značajke modela.</li>
+<li>Greška rekonstrukcije, udaljenost do središta ili oznaka šuma u DBSCAN-u su gotove ocjene anomalnosti.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/clustering.html">Clustering</a> (uključuje usporedbu metoda na različitim oblicima grupa) i <a href="https://scikit-learn.org/stable/modules/decomposition.html">Decomposing signals in components</a>.</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 8 (Dimensionality Reduction) i 9 (Unsupervised Learning Techniques).</li>
+<li>D. Arthur, S. Vassilvitskii, <i>k-means++: The Advantages of Careful Seeding</i>, SODA 2007.</li>
+<li>L. van der Maaten, G. Hinton, <i>Visualizing Data using t-SNE</i>, JMLR 9 (2008); M. Wattenberg, F. Viégas, I. Johnson, <a href="https://distill.pub/2016/misread-tsne/">How to Use t-SNE Effectively</a>, Distill (2016).</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="05-vrednovanje-modela.html"><small>← Prethodna lekcija</small>M5 · Vrednovanje modela i odabir hiperparametara</a>
+                <span class="lekcija-nav-prazno sljedeca"></span>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

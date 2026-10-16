@@ -1,0 +1,663 @@
+@@ meta
+naslov = Generativni i multimodalni modeli
+podnaslov = Autoenkoder i varijacijski autoenkoder, GAN, difuzijski modeli, CLIP i kontrastivni gubitak, zero-shot klasifikacija te veliki jezični modeli kao alat natjecatelja
+oznake = autoenkoder, latentni prostor, VAE, GAN, difuzijski modeli, CLIP, kontrastivni gubitak, zero-shot klasifikacija, veliki jezični modeli, promptanje
+
+@@ ciljevi
+<li>Razlikovati diskriminativne i generativne modele te napisati i naučiti autoenkoder u PyTorchu, pročitati njegov latentni prostor i upotrijebiti ga za sažimanje, uklanjanje šuma i klasifikaciju.</li>
+<li>Objasniti ideju varijacijskog autoenkodera, GAN-a (generator protiv diskriminatora) i difuzijskog modela te prepoznati njihove tipične probleme (mutne slike, kolaps modova, spora generacija).</li>
+<li>Napisati kontrastivni gubitak CLIP-a, simulirati ga u NumPy-ju i provesti zero-shot klasifikaciju pomoću tekstualnih opisa razreda.</li>
+<li>Koristiti veliki jezični model kao alat za učenje i programiranje: što mu prepustiti, što provjeriti i gdje su mu granice.</li>
+
+@@ teorija
+<p>Dosad su svi modeli u ovom kurikulumu bili <em>diskriminativni</em>: od ulaza $x$ računaju oznaku $y$. Generativni modeli idu obrnuto – uče kako podaci <em>izgledaju</em>, pa mogu stvoriti nove, popuniti oštećene, izmjeriti koliko je nešto neobično ili naučiti korisne značajke bez ijedne oznake. Multimodalni modeli vežu dva svijeta, sliku i tekst, u isti prostor brojeva. Ova lekcija daje ideje i mali radni kod za svaku obitelj; nijedan od ovih modela nećeš istrenirati „kako treba” na laptopu, ali ćeš znati što oni rade i kako ih koristiti gotove.</p>
+<definicija><em>Diskriminativni</em> model uči $p(y\mid x)$ ili izravno funkciju $x\mapsto y$. <em>Generativni</em> model uči razdiobu podataka $p(x)$ (ili $p(x\mid y)$) toliko dobro da iz nje može <em>uzorkovati</em> nove primjere. <em>Latentni prostor</em> je prostor $\mathbb{R}^d$ s $d$ mnogo manjim od dimenzije podataka, u kojem model opisuje „bit” svakog primjera vektorom $z$.</definicija>
+
+<h3>Autoenkoder</h3>
+<p>Autoenkoder (autoencoder) je par mreža: <em>enkoder</em> $e:\mathbb{R}^D\to\mathbb{R}^d$ sažima ulaz u latentni vektor $z=e(x)$, a <em>dekoder</em> $g:\mathbb{R}^d\to\mathbb{R}^D$ ga pokušava rekonstruirati, $\hat x=g(z)$. Uči se bez oznaka, minimiziranjem pogreške rekonstrukcije</p>
+$$\mathcal{L}=\frac1n\sum_{i=1}^n\lVert x_i-g(e(x_i))\rVert^2 .$$
+<p>Jedino što sprječava trivijalno rješenje $\hat x=x$ jest <em>usko grlo</em> $d\ll D$: mreža mora odlučiti kojih $d$ brojeva najbolje opisuje sliku. Ako su $e$ i $g$ linearni, optimum je upravo PCA; s nelinearnostima autoenkoder sažima bolje. Latentni vektori su dobre značajke za klasifikaciju s malo oznaka, udaljenost $\lVert x-\hat x\rVert$ otkriva <em>anomalije</em> (što model nikad nije vidio, loše rekonstruira), a ako enkoderu daš sliku sa šumom, a dekoder tražiš čistu, dobiješ <em>autoenkoder za uklanjanje šuma</em> (denoising autoencoder).</p>
+
+<h3>Varijacijski autoenkoder</h3>
+<p>Običan autoenkoder loše <em>generira</em>: latentni prostor ima rupe i točka $z$ nasumce izabrana dekodira se u smeće. <em>Varijacijski autoenkoder</em> (VAE, Kingma i Welling, 2014.) to popravlja tako da enkoder za svaku sliku ne vraća točku nego <em>razdiobu</em> $\mathcal{N}(\mu(x),\sigma^2(x))$, dekoder dobiva uzorak $z=\mu+\sigma\odot\varepsilon$, $\varepsilon\sim\mathcal{N}(0,I)$ (<em>trik reparametrizacije</em>, da gradijent prođe kroz uzorkovanje), a gubitku se dodaje kazna koja sve te razdiobe gura prema standardnoj normalnoj:</p>
+$$\mathcal{L}=\underbrace{\lVert x-\hat x\rVert^2}_{\text{rekonstrukcija}}+\beta\,\underbrace{\tfrac12\sum_{j=1}^{d}\bigl(\mu_j^2+\sigma_j^2-1-\log\sigma_j^2\bigr)}_{D_{\mathrm{KL}}\left(\mathcal{N}(\mu,\sigma^2)\,\Vert\,\mathcal{N}(0,I)\right)} .$$
+<p>Posljedica: cijeli latentni prostor oko ishodišta je „popunjen”, pa se nova slika generira tako da se uzorkuje $z\sim\mathcal{N}(0,I)$ i dekodira. Cijena je zamućenost – kvadratna pogreška nagrađuje „prosjek” svih mogućih slika, pa su VAE-ovi uzorci mekani i mutni.</p>
+
+<h3>GAN: generator protiv diskriminatora</h3>
+<p><em>Generativna suparnička mreža</em> (GAN, Goodfellow i sur., 2014.) ne mjeri pogrešku rekonstrukcije uopće. <em>Generator</em> $G$ iz šuma $z$ proizvodi uzorak $G(z)$; <em>diskriminator</em> $D$ je klasifikator koji za uzorak vraća vjerojatnost da je stvaran. Igra je</p>
+$$\min_G\max_D\ \mathbb{E}_{x\sim p_{\text{podaci}}}\bigl[\log D(x)\bigr]+\mathbb{E}_{z}\bigl[\log\bigl(1-D(G(z))\bigr)\bigr] :$$
+<p>$D$ uči razlikovati stvarno od lažnog, $G$ uči zavarati $D$, a u ravnoteži $G$ proizvodi razdiobu podataka i $D$ odgovara $\tfrac12$ za sve. U praksi se $G$ uči maksimizirati $\log D(G(z))$ (jači gradijent na početku), svaki korak naizmjence ažurira $D$ pa $G$, a <em>gubitak ne mjeri kvalitetu</em>: ravnoteža znači $D$ oko $\log4\approx1{,}39$ (zbroj dvaju članova) bez obzira na to koliko je $G$ dobar. GAN-ovi daju oštre slike, ali su nestabilni; najpoznatija je bolest <em>kolaps modova</em> (mode collapse): $G$ nauči jedan uvjerljiv tip uzorka i zanemari ostale, jer je to u tom trenutku dovoljno da prevari $D$.</p>
+
+<h3>Difuzijski modeli intuitivno</h3>
+<p>Difuzijski modeli (Sohl-Dickstein i sur., 2015.; Ho i sur., 2020.) danas stoje iza većine sustava tekst-u-sliku (npr. Stable Diffusion). Ideja ima dva smjera. <em>Unaprijed</em> se slici postupno dodaje Gaussov šum u $T$ koraka dok ne ostane čisti šum; zahvaljujući svojstvima normalne razdiobe stanje u koraku $t$ može se napisati izravno:</p>
+$$x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\varepsilon,\qquad\varepsilon\sim\mathcal{N}(0,I),$$
+<p>gdje $\bar\alpha_t$ pada od $1$ prema $0$. <em>Unatrag</em> se uči jedna mreža $\varepsilon_\theta(x_t,t)$ koja iz zašumljene slike i broja koraka pogađa dodani šum – to je obična regresija, stabilna i bez suparnika. Generiranje kreće od čistog šuma $x_T$ i u $T$ koraka oduzima procijenjeni šum, uz malo novog šuma u svakom koraku. Svaki korak malo „odšumljuje”, pa je mreža uvijek suočena s lakim zadatkom; cijena je što generiranje traje $T$ (desetke do stotine) prolaza kroz mrežu. Tekst ulazi kao dodatni uvjet mreži, obično kroz ugradnje teksta iz modela poput CLIP-a.</p>
+
+<h3>CLIP: zajednički prostor slika i teksta</h3>
+<p><em>CLIP</em> (Radford i sur., 2021.) uči dva enkodera, slike $f$ i teksta $h$, tako da slika i njezin opis završe na istom mjestu u zajedničkom prostoru $\mathbb{R}^d$. Podaci su parovi (slika, opis) s weba – u radu oko $400$ milijuna parova – i nikakve oznake razreda. Za seriju od $N$ parova izračunaju se normirane ugradnje $u_i=f(x_i)/\lVert f(x_i)\rVert$ i $v_j=h(t_j)/\lVert h(t_j)\rVert$ te matrica sličnosti $s_{ij}=\langle u_i,v_j\rangle$. <em>Kontrastivni gubitak</em> traži da $s_{ii}$ bude veće od svih $s_{ij}$ u istom retku <em>i</em> u istom stupcu – klasifikacija „koji je od $N$ opisa moj” i „koja je od $N$ slika moja” odjednom:</p>
+$$\mathcal{L}=\frac{1}{2N}\sum_{i=1}^{N}\left[-\log\frac{e^{s_{ii}/\tau}}{\sum_{j}e^{s_{ij}/\tau}}-\log\frac{e^{s_{ii}/\tau}}{\sum_{j}e^{s_{ji}/\tau}}\right].$$
+<p><em>Temperatura</em> $\tau$ (CLIP je uči kao parametar, uz donju granicu $0{,}01$) skalira sličnosti u logite: manja $\tau$ oštrije kažnjava najbliže negativne parove. Rezultat je model u kojem se razredi opisuju <em>rečenicama</em>: za <em>zero-shot klasifikaciju</em> ugradiš opise „a photo of a dog”, „a photo of a cat”, … i sliku pridružiš opisu s najvećom sličnošću – bez ijednog primjera za učenje. Isti prostor služi i za pretraživanje slika tekstom i kao kondicioniranje difuzijskih modela.</p>
+<napomena>Formulacija prompta utječe na točnost: „a photo of a {razred}” radi bolje od gole riječi, a prosjek ugradnji više formulacija (prompt ensembling) još bolje. Zero-shot CLIP je odličan početak i jaka osnovica, ali s makar nekoliko desetaka označenih slika <em>linearna sonda</em> (logistička regresija na CLIP-ovim ugradnjama slika, recept iz lekcije V5) obično ga nadmaši.</napomena>
+
+<h3>Veliki jezični modeli kao alat natjecatelja</h3>
+<p>Veliki jezični model (LLM) jest transformer (lekcija D6) naučen predviđati sljedeći token na ogromnoj količini teksta i zatim dodatno ugođen da slijedi upute. Za natjecatelja je on <em>alat</em>, kao dokumentacija ili tražilica – s jednom bitnom razlikom: odgovara samouvjereno i kad griješi. Dobro ga je koristiti za: objašnjenje nepoznatog pojma ili poruke o pogrešci, prijedlog strukture rješenja, pisanje šablonskog koda (petlja učenja, <code>DataLoader</code>, crtanje), pregled vlastitog koda („gdje bi ovo moglo curiti podatke iz testa?”) i generiranje testnih slučajeva. Loše ga je koristiti za: brojke i činjenice koje ne možeš provjeriti, odluke o hiperparametrima bez validacije i kod koji ne razumiješ. Dobar prompt daje kontekst (što su podaci, što je cilj, što već imaš), ograničenja (biblioteke, CPU, vrijeme) i traži objašnjenje uz kod; dobar natjecatelj zatim <em>pokrene i provjeri</em> sve što dobije. Smije li se i kako LLM koristiti na samom natjecanju određuju pravila konkretnog natjecanja i godine – pročitaj ih, ne pretpostavljaj.</p>
+
+@@ primjeri
+<primjer>
+<p>Nauči autoenkoder $64\to32\to8\to32\to64$ na skupu <code>load_digits</code>. Usporedi pogrešku rekonstrukcije s PCA-om s $8$ komponenata i s „modelom” koji svaku sliku zamijeni prosječnom, prikaži rekonstrukciju jedne znamenke, upotrijebi latentni prostor za klasifikaciju s k najbližih susjeda i interpoliraj između dviju znamenki.</p>
+<rjesenje>
+<p><b>Korak 1: model i učenje.</b> Enkoder i dekoder su mali MLP-ovi; dekoder završava sigmoidom jer su pikseli u $[0,1]$. Učimo punom serijom (svih $1797$ slika odjednom) Adamom, $500$ epoha, s kvadratnom pogreškom.</p>
+<kod jezik="python">
+import numpy as np
+import torch
+import torch.nn as nn
+from sklearn.datasets import load_digits
+from sklearn.decomposition import PCA
+
+torch.manual_seed(0)
+torch.set_num_threads(1)
+podaci = load_digits()
+X_np = (podaci.data / 16.0).astype(np.float32)           # 1797 x 64, pikseli u [0, 1]
+y = podaci.target
+X = torch.from_numpy(X_np)
+
+class Autoenkoder(nn.Module):
+    def __init__(self, d):
+        super().__init__()
+        self.enkoder = nn.Sequential(nn.Linear(64, 32), nn.ReLU(), nn.Linear(32, d))
+        self.dekoder = nn.Sequential(nn.Linear(d, 32), nn.ReLU(), nn.Linear(32, 64), nn.Sigmoid())
+
+    def forward(self, x):
+        return self.dekoder(self.enkoder(x))
+
+def nauci_ae(d, epohe=500, lr=1e-2, ispis=False):
+    torch.manual_seed(0)
+    ae = Autoenkoder(d)
+    opt = torch.optim.Adam(ae.parameters(), lr=lr)
+    for e in range(1, epohe + 1):
+        opt.zero_grad()
+        gubitak = ((ae(X) - X) ** 2).mean()
+        gubitak.backward()
+        opt.step()
+        if ispis and e % 100 == 0:
+            print("epoha %3d  MSE %.4f" % (e, gubitak.item()))
+    return ae
+
+ae = nauci_ae(8, ispis=True)
+with torch.no_grad():
+    mse_ae = ((ae(X) - X) ** 2).mean().item()
+pca = PCA(8).fit(X_np)
+mse_pca = ((pca.inverse_transform(pca.transform(X_np)) - X_np) ** 2).mean()
+mse_prosjek = ((X_np - X_np.mean(0)) ** 2).mean()
+print("MSE: autoenkoder(8) %.4f   PCA(8) %.4f   prosječna slika %.4f" % (mse_ae, mse_pca, mse_prosjek))
+</kod>
+<izlaz>
+epoha 100  MSE 0.0272
+epoha 200  MSE 0.0190
+epoha 300  MSE 0.0165
+epoha 400  MSE 0.0151
+epoha 500  MSE 0.0144
+MSE: autoenkoder(8) 0.0144   PCA(8) 0.0239   prosječna slika 0.0733
+</izlaz>
+<p>Osam brojeva po slici (umjesto $64$) čuva većinu sadržaja: pogreška $0{,}0144$ prema $0{,}0733$ za „prosječnu sliku”, a nelinearni autoenkoder sažima osjetno bolje od PCA-a iste dimenzije ($0{,}0239$).</p>
+<p><b>Korak 2: pogledaj rekonstrukciju.</b> Slike su male pa ih možemo ispisati znakovima: tamniji znak = svjetliji piksel. Lijevo original, desno rekonstrukcija iz $8$ brojeva.</p>
+<kod jezik="python">
+ZNAKOVI = " .:-=+*#%@"
+
+def ascii_slika(v):
+    v = np.clip(np.asarray(v).reshape(8, 8), 0, 1)
+    return ["".join(ZNAKOVI[int(p * 9.99)] for p in redak) for redak in v]
+
+def ispisi_par(a, b, naslov_a, naslov_b):
+    print("%-10s %s" % (naslov_a, naslov_b))
+    for ra, rb in zip(ascii_slika(a), ascii_slika(b)):
+        print(ra, "  ", rb)
+
+i = 0
+with torch.no_grad():
+    z = ae.enkoder(X[i:i + 1])
+    rekonstrukcija = ae.dekoder(z)[0].numpy()
+print("znamenka:", y[i], " latentni vektor:", np.round(z[0].numpy(), 2))
+ispisi_par(X_np[i], rekonstrukcija, "original", "rekonstrukcija")
+</kod>
+<izlaz>
+znamenka: 0  latentni vektor: [ -3.49  -0.41   0.37   1.31   2.38   2.11  -2.6  -10.85]
+original   rekonstrukcija
+  -%+         -%*:
+  %@*@-       %#+#.
+ .@. *=      .@. %=
+ :#  ==      -#  **
+ -=  +=      -+  =+
+ :*  #=      :#  #:
+ .%-*#        %+*%
+  -%*         -%#:
+</izlaz>
+<p><b>Korak 3: latentni prostor kao značajke i interpolacija.</b> Klasifikator $k$ najbližih susjeda primjenjujemo na $8$ latentnih brojeva, na $64$ piksela i na $8$ PCA komponenata (unakrsna validacija). Zatim dva latentna vektora linearno pomiješamo i dekodiramo sredinu: dekoder „izmišlja” sliku koja ne postoji u skupu.</p>
+<kod jezik="python">
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import cross_val_score
+
+with torch.no_grad():
+    Z = ae.enkoder(X).numpy()
+for ime, F in [("64 piksela", X_np), ("8 latentnih", Z), ("8 PCA", pca.transform(X_np))]:
+    print("k-NN (k=5) na %-12s točnost %.3f" % (ime + ":", cross_val_score(KNeighborsClassifier(5), F, y, cv=5).mean()))
+
+a, b = 0, 1                                             # znamenke 0 i 1
+with torch.no_grad():
+    za, zb = ae.enkoder(X[a:a + 1]), ae.enkoder(X[b:b + 1])
+    sredina = ae.dekoder(0.5 * za + 0.5 * zb)[0].numpy()
+print("znamenke %d i %d, dekodirana sredina latentnih vektora:" % (y[a], y[b]))
+ispisi_par(sredina, X_np[b], "sredina", "znamenka %d" % y[b])
+</kod>
+<izlaz>
+k-NN (k=5) na 64 piksela:  točnost 0.963
+k-NN (k=5) na 8 latentnih: točnost 0.907
+k-NN (k=5) na 8 PCA:       točnost 0.923
+znamenke 0 i 1, dekodirana sredina latentnih vektora:
+sredina    znamenka 1
+  .*#-         #%-
+  *%**.        *@+
+  %+:#.       .@@-
+  %%%#       =@@@.
+  #%#-         @@.
+  +:-+         @@-
+  ++++         @@-
+  .*#:         *@*
+</izlaz>
+<p>Osam brojeva naučenih <em>bez oznaka</em> nosi većinu informacije o razredu ($0{,}907$ prema $0{,}963$ na svim pikselima). Zanimljivo je da je PCA s $8$ komponenata za k-NN bolji ($0{,}923$) iako lošije rekonstruira: autoenkoder optimizira rekonstrukciju, ne razdvajanje razreda, a njegove latentne koordinate imaju vrlo različite skale (pogledaj vektor iz Koraka 2, jedna koordinata je $-10{,}85$), što iskrivljuje euklidsku udaljenost – prije k-NN-a vrijedi ih standardizirati. Sredina između $0$ i $1$ nije ni jedno ni drugo: običan autoenkoder ne jamči da su točke između primjera smislene; upravo to popravlja VAE (Zadatak 6).</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Nauči GAN na jednodimenzionalnoj razdiobi: stvarni podaci dolaze iz mješavine $\tfrac12\mathcal{N}(-2;\,0{,}5^2)+\tfrac12\mathcal{N}(2;\,0{,}5^2)$, generator iz dvodimenzionalnog šuma proizvodi jedan broj. Prati gubitke i oblik generirane razdiobe tijekom učenja, pa na kraju usporedi histogram stvarnih i generiranih uzoraka.</p>
+<rjesenje>
+<p><b>Korak 1: suparnici.</b> Generator i diskriminator su mali MLP-ovi; <code>BCEWithLogitsLoss</code> spaja sigmoid i binarnu unakrsnu entropiju. U svakom koraku prvo ažuriramo $D$ (stvarni $\to1$, lažni $\to0$, generatorovi uzorci su <code>detach</code>-ani da se $G$ ne mijenja), a zatim $G$ tako da $D$ njegove uzorke proglasi stvarnima. Svakih $500$ koraka mjerimo udio generiranih uzoraka lijevo od nule i njihove prosjeke po stranama.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+n = 128
+bce = nn.BCEWithLogitsLoss()
+G = nn.Sequential(nn.Linear(2, 32), nn.ReLU(), nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 1))
+D = nn.Sequential(nn.Linear(1, 32), nn.ReLU(), nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 1))
+opt_G = torch.optim.Adam(G.parameters(), lr=1e-3)
+opt_D = torch.optim.Adam(D.parameters(), lr=1e-3)
+
+def stvarni(n):
+    lijevo = (torch.rand(n, 1) < 0.5).float()
+    return lijevo * (-2 + 0.5 * torch.randn(n, 1)) + (1 - lijevo) * (2 + 0.5 * torch.randn(n, 1))
+
+def generiraj(n):
+    with torch.no_grad():
+        return G(torch.randn(n, 2)).numpy().ravel()
+
+print("korak  gubitak D  gubitak G  udio lijevo  prosjek lijevo  prosjek desno")
+for korak in range(3001):
+    x = stvarni(n)
+    lazni = G(torch.randn(n, 2)).detach()
+    opt_D.zero_grad()
+    gubitak_D = bce(D(x), torch.ones(n, 1)) + bce(D(lazni), torch.zeros(n, 1))
+    gubitak_D.backward()
+    opt_D.step()
+    opt_G.zero_grad()
+    gubitak_G = bce(D(G(torch.randn(n, 2))), torch.ones(n, 1))   # G želi da D kaže "stvarno"
+    gubitak_G.backward()
+    opt_G.step()
+    if korak % 500 == 0:
+        s = generiraj(2000)
+        lijevo = s[s < 0]
+        desno = s[s >= 0]
+        print("%5d  %9.3f  %9.3f  %11.2f  %14.2f  %13.2f" % (
+            korak, gubitak_D.item(), gubitak_G.item(), (s < 0).mean(),
+            lijevo.mean() if len(lijevo) else float("nan"), desno.mean() if len(desno) else float("nan")))
+</kod>
+<izlaz>
+korak  gubitak D  gubitak G  udio lijevo  prosjek lijevo  prosjek desno
+    0      1.389      0.573         0.98           -0.16           0.04
+  500      1.007      1.041         1.00           -1.96            nan
+ 1000      0.896      1.147         1.00           -2.13            nan
+ 1500      0.964      1.016         1.00           -1.73            nan
+ 2000      1.244      0.779         0.63           -1.77           1.96
+ 2500      1.388      0.803         0.50           -1.13           2.36
+ 3000      1.378      0.757         0.51           -2.02           2.01
+</izlaz>
+<p>Tijek je udžbenički: nakon nekoliko stotina koraka generator proizvodi <em>samo</em> lijevi mod – to je kolaps modova, a gubitak diskriminatora pritom pada jer je lažnjake lako prepoznati po tome što desnih nema. Kad $D$ to nauči, $G$ je prisiljen otkriti i desni mod; pri kraju su udjeli blizu $\tfrac12$ i gubitak $D$ oko $\log4\approx1{,}39$, što je ravnoteža. Da smo stali nakon $1000$ koraka s obrazloženjem „gubitak je nizak”, dobili bismo loš generator.</p>
+<p><b>Korak 2: histogram stvarnog i generiranog.</b> Isti rubovi razreda za oba uzorka; brojevi po razredima pokazuju koliko se razdiobe poklapaju.</p>
+<kod jezik="python">
+torch.manual_seed(1)
+s_gen = generiraj(5000)
+s_stv = stvarni(5000).numpy().ravel()
+rubovi = np.arange(-4, 4.5, 0.5)
+h_stv, _ = np.histogram(s_stv, rubovi)
+h_gen, _ = np.histogram(s_gen, rubovi)
+print("razred        stvarni  generirani")
+for lijevo, a, b in zip(rubovi, h_stv, h_gen):
+    print("[%4.1f, %4.1f)  %7d  %10d" % (lijevo, lijevo + 0.5, a, b))
+print("stvarni: prosjek %.2f, devijacija %.2f;  generirani: prosjek %.2f, devijacija %.2f" % (
+    s_stv.mean(), s_stv.std(), s_gen.mean(), s_gen.std()))
+</kod>
+<izlaz>
+razred        stvarni  generirani
+[-4.0, -3.5)        6           0
+[-3.5, -3.0)       56           0
+[-3.0, -2.5)      355           0
+[-2.5, -2.0)      847        1323
+[-2.0, -1.5)      827        1054
+[-1.5, -1.0)      342          39
+[-1.0, -0.5)       49          39
+[-0.5,  0.0)        2          45
+[ 0.0,  0.5)        0          42
+[ 0.5,  1.0)       47          33
+[ 1.0,  1.5)      336          70
+[ 1.5,  2.0)      867         648
+[ 2.0,  2.5)      830        1620
+[ 2.5,  3.0)      366          80
+[ 3.0,  3.5)       67           7
+[ 3.5,  4.0)        2           0
+stvarni: prosjek 0.02, devijacija 2.07;  generirani: prosjek 0.00, devijacija 2.04
+</izlaz>
+<p>Grbe su na pravom mjestu i ukupni prosjek i devijacija se slažu, ali razdiobe nisu iste: generirana je <em>uža</em> (gotovo svi uzorci u $[-2{,}5,-1{,}5)$ i $[1{,}5,2{,}5)$, repovi ispod $-2{,}5$ i iznad $2{,}5$ nedostaju) i ima tanak „most” oko nule kojeg u podacima nema. Most je neizbježan – generator je neprekidna funkcija šuma pa između grba mora negdje proći – a manjak repova je blaga inačica kolapsa modova (Zadatak 7). Ni jedno ni drugo ne vidi se iz gubitka.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Simuliraj CLIP u NumPy-ju. Šest „razreda” ima svoju pravu sliku (vektor u $\mathbb{R}^{20}$) i opis (vektor u $\mathbb{R}^{12}$); slike iz razreda su prava slika plus šum. Nauči dva linearna enkodera u zajednički prostor $\mathbb{R}^4$ kontrastivnim gubitkom (gradijent ručno), prati gubitak i točnost sparivanja, pa provedi zero-shot klasifikaciju novih slika usporedbom s ugradnjama opisa. Na kraju napiši isti postupak s pravim CLIP-om.</p>
+<rjesenje>
+<p><b>Korak 1: podaci, ugradnje i gubitak.</b> Serija ima po jednu sliku svakog razreda i njezin opis, pa je ispravno sparivanje dijagonala matrice sličnosti. Funkcija <code>kontrastivni</code> vraća gubitak iz teorije i njegov gradijent po matrici sličnosti: za unakrsnu entropiju gradijent po logitima je <code>softmax - I</code>, a po retcima i stupcima uzimamo polovicu zbroja.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+K, D_slika, D_tekst, d = 6, 20, 12, 4
+prava_slika = rng.normal(size=(K, D_slika))              # "prototip" slike razreda k
+opis = rng.normal(size=(K, D_tekst))                     # ugradnja opisa razreda k
+
+def serija_slika(sum_=0.6):
+    return prava_slika + sum_ * rng.normal(size=(K, D_slika))
+
+def normiraj(V):
+    return V / np.linalg.norm(V, axis=1, keepdims=True)
+
+def softmax(S):
+    E = np.exp(S - S.max(axis=1, keepdims=True))
+    return E / E.sum(axis=1, keepdims=True)
+
+def kontrastivni(U, V, tau):
+    S = U @ V.T / tau                                    # S[i, j] = <u_i, v_j> / tau
+    N = len(S)
+    I = np.eye(N)
+    P, Q = softmax(S), softmax(S.T)                      # po retcima: slika bira opis; po stupcima: opis bira sliku
+    gubitak = -0.5 * (np.log(P[I == 1]).mean() + np.log(Q[I == 1]).mean())
+    dS = 0.5 * ((P - I) + (Q - I).T) / (N * tau)
+    return gubitak, S, dS
+
+W_slika = rng.normal(size=(D_slika, d)) * 0.1            # linearni "enkoder" slika
+W_tekst = rng.normal(size=(D_tekst, d)) * 0.1            # linearni "enkoder" teksta
+U, V = normiraj(serija_slika() @ W_slika), normiraj(opis @ W_tekst)
+g, S, _ = kontrastivni(U, V, tau=0.1)
+print("prije učenja: gubitak %.3f (slučajno pogađanje: ln %d = %.3f)" % (g, K, np.log(K)))
+print("matrica sličnosti (zaokruženo):")
+print(np.round(U @ V.T, 2))
+</kod>
+<izlaz>
+prije učenja: gubitak 5.512 (slučajno pogađanje: ln 6 = 1.792)
+matrica sličnosti (zaokruženo):
+[[ 0.08 -0.88  0.52  0.04  0.07 -0.64]
+ [-0.11  0.11 -0.15 -0.44 -0.07 -0.06]
+ [ 0.19 -0.6  -0.15 -0.33  0.48 -0.99]
+ [ 0.18 -0.37  0.08 -0.32 -0.1  -0.5 ]
+ [-0.23  0.81 -0.88 -0.44  0.44  0.2 ]
+ [-0.05 -0.68 -0.01 -0.47  0.45 -0.93]]
+</izlaz>
+<p>Dijagonala nije ni po čemu posebna, a gubitak je čak veći od $\ln 6$: slučajni enkoderi daju neke parove vrlo sličnima, a pri $\tau=0{,}1$ sličnost $0{,}8$ postaje logit $8$ – model je <em>samouvjereno pogrešan</em>, što unakrsna entropija kažnjava više od neznanja.</p>
+<p><b>Korak 2: učenje gradijentnim spustom.</b> Ugradnja je $u=A/\lVert A\rVert$ s $A=xW$; gradijent kroz normiranje je $\partial\mathcal{L}/\partial A=\bigl(\partial\mathcal{L}/\partial u-u\,\langle u,\partial\mathcal{L}/\partial u\rangle\bigr)/\lVert A\rVert$, a zatim $\partial\mathcal{L}/\partial W=x^{\top}\,\partial\mathcal{L}/\partial A$. Točnost sparivanja je udio redaka u kojima je dijagonala najveća.</p>
+<kod jezik="python">
+def kroz_normiranje(A, U, dU):
+    return (dU - U * (U * dU).sum(axis=1, keepdims=True)) / np.linalg.norm(A, axis=1, keepdims=True)
+
+def korak_ucenja(W_slika, W_tekst, X_s, X_t, tau, lr):
+    A_s, A_t = X_s @ W_slika, X_t @ W_tekst
+    U, V = normiraj(A_s), normiraj(A_t)
+    g, S, dS = kontrastivni(U, V, tau)
+    dA_s = kroz_normiranje(A_s, U, dS @ V)
+    dA_t = kroz_normiranje(A_t, V, dS.T @ U)
+    W_slika = W_slika - lr * X_s.T @ dA_s
+    W_tekst = W_tekst - lr * X_t.T @ dA_t
+    return W_slika, W_tekst, g, (S.argmax(axis=1) == np.arange(len(S))).mean()
+
+rng = np.random.default_rng(0)
+Ws, Wt = W_slika.copy(), W_tekst.copy()
+for k in range(1, 301):
+    Ws, Wt, g, toc = korak_ucenja(Ws, Wt, serija_slika(), opis, tau=0.1, lr=0.5)
+    if k in (1, 10, 50, 100, 300):
+        print("korak %3d  gubitak %.3f  točnost sparivanja %.2f" % (k, g, toc))
+</kod>
+<izlaz>
+korak   1  gubitak 6.505  točnost sparivanja 0.17
+korak  10  gubitak 0.728  točnost sparivanja 0.67
+korak  50  gubitak 0.245  točnost sparivanja 1.00
+korak 100  gubitak 0.236  točnost sparivanja 1.00
+korak 300  gubitak 0.055  točnost sparivanja 1.00
+</izlaz>
+<p><b>Korak 3: zero-shot klasifikacija.</b> Nove slike (drugi šum, čak i jači) ugradimo enkoderom slika, opise enkoderom teksta i svakoj slici pridružimo najbliži opis. Nikakav klasifikator nije učen na oznakama – razredi su zadani opisima.</p>
+<kod jezik="python">
+pravi_razred = np.repeat(np.arange(K), 50)
+V_opisi = normiraj(opis @ Wt)                            # ugradnje opisa = "klasifikator"
+
+def zero_shot(slike, Ws, Wt):
+    U_nove, V_opisi = normiraj(slike @ Ws), normiraj(opis @ Wt)
+    return (U_nove @ V_opisi.T).argmax(axis=1)
+
+for sum_ in [0.6, 1.0, 1.5]:
+    rng = np.random.default_rng(1)
+    slike = prava_slika[pravi_razred] + sum_ * rng.normal(size=(len(pravi_razred), D_slika))
+    print("šum %.1f: zero-shot točnost na %d novih slika %.3f" % (sum_, len(slike), (zero_shot(slike, Ws, Wt) == pravi_razred).mean()))
+    if sum_ == 1.0:
+        nove_slike = slike                               # testni skup za Zadatak 8
+print("slučajno pogađanje: %.3f" % (1 / K))
+</kod>
+<izlaz>
+šum 0.6: zero-shot točnost na 300 novih slika 0.993
+šum 1.0: zero-shot točnost na 300 novih slika 0.933
+šum 1.5: zero-shot točnost na 300 novih slika 0.773
+slučajno pogađanje: 0.167
+</izlaz>
+<p>Sa šumom kakav je model vidio u učenju ($0{,}6$) zero-shot točnost je $0{,}993$, s jačim šumom pada ($0{,}933$ pri $1{,}0$, $0{,}773$ pri $1{,}5$), ali ostaje daleko iznad slučajnog pogađanja ($0{,}167$) – i to bez ijedne oznake slike: razredi su zadani isključivo ugradnjama opisa, pa bi se novi razred dodao jednim novim opisom, bez ponovnog učenja.</p>
+<p>Isti postupak s pravim CLIP-om preko biblioteke <code>transformers</code> izgleda ovako (model se preuzima, zato se blok ne pokreće): opisi razreda su rečenice, a <code>logits_per_image</code> već je matrica sličnosti pomnožena naučenom inverznom temperaturom.</p>
+<kod jezik="python" pokreni="ne">
+import torch
+from PIL import Image
+from transformers import CLIPModel, CLIPProcessor
+
+model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").eval()   # preuzima težine
+procesor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+razredi = ["dog", "cat", "bicycle", "airplane", "pizza"]
+opisi = ["a photo of a %s" % r for r in razredi]
+slika = Image.open("moja_slika.jpg").convert("RGB")
+ulaz = procesor(text=opisi, images=slika, return_tensors="pt", padding=True)
+with torch.no_grad():
+    izlaz = model(**ulaz)
+    vjerojatnosti = izlaz.logits_per_image.softmax(dim=1)[0]     # 1 slika x 5 opisa
+for r, p in sorted(zip(razredi, vjerojatnosti.tolist()), key=lambda t: -t[1]):
+    print("%-10s %.3f" % (r, p))
+
+# ugradnje slika za linearnu sondu (logistička regresija na njima, recept iz lekcije V5)
+with torch.no_grad():
+    u = model.get_image_features(**procesor(images=slika, return_tensors="pt"))
+    u = u / u.norm(dim=-1, keepdim=True)
+print("ugradnja slike:", tuple(u.shape))
+</kod>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Autoenkoder iz Primjera 1 ima enkoder $64\to32\to8$ i dekoder $8\to32\to64$. (a) Koliko ima parametara? (b) Što bi naučio da je usko grlo $d=64$ i zašto? (c) Zašto dekoder završava sigmoidom? (d) Što dobivaš ako iz oba dijela izbaciš ReLU?</p>
+<rjesenje>
+<p>(a) $64\cdot32+32+32\cdot8+8+8\cdot32+32+32\cdot64+64=4\,744$. (b) Identitet: bez uskog grla najjeftinije je prepisati ulaz, pa latentni vektor nije sažetak ničega. (c) Pikseli su u $[0,1]$ i sigmoid jamči izlaz u tom rasponu; bez nje bi mreža morala to naučiti, a MSE bi kažnjavao i prekoračenja. (d) Linearni autoenkoder: skup rješenja mu je potprostor koji razapinje prvih $d$ glavnih komponenata – isto što i PCA (do rotacije unutar potprostora), s istom pogreškom rekonstrukcije.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>U GAN-u iz Primjera 2 gubitak diskriminatora na kraju je oko $1{,}39$. (a) Zašto je upravo $\log4$ znak ravnoteže? (b) Zašto bi <em>savršen</em> diskriminator ($D=1$ na stvarnim, $0$ na lažnim) bio loš za učenje generatora? (c) Objasni jednom rečenicom što je kolaps modova i navedi gdje se u ispisu Primjera 2 vidi.</p>
+<rjesenje>
+<p>(a) Ako su generirana i stvarna razdioba jednake, najbolje što $D$ može jest $\tfrac12$ za sve; tada su oba člana $-\log\tfrac12=\log2$, zbroj $\log4\approx1{,}386$. (b) Gradijent generatora dolazi kroz $D$: ako je $D$ sigurno „lažno” za sve što $G$ proizvede, sigmoid je zasićen, gradijent gotovo nula i $G$ nema signal u kojem smjeru popraviti; zato se $D$ ne smije „pobjeći” i zato se koristi $\log D(G(z))$ umjesto $\log(1-D(G(z)))$. (c) Generator proizvodi samo dio razdiobe podataka (jedan „mod”) jer to trenutačno dovoljno vara $D$; u ispisu je to udio lijevo $1{,}00$ u koracima $500$–$1500$.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Natjecatelj rješava zadatak klasifikacije slika i ima pristup LLM-u (pretpostavi da pravila to dopuštaju). Za svaku upotrebu reci je li razumna i što treba provjeriti: (a) „Napiši mi petlju učenja u PyTorchu s validacijom nakon svake epohe.” (b) „Koja je najbolja stopa učenja za moj skup?” (c) „Evo moje funkcije za podjelu podataka – može li testni skup curiti u učenje?” (d) „Koliko slika ima CIFAR-10 i kolika je točnost ResNeta-18 na njemu?” (e) „Objasni mi što znači poruka <code>RuntimeError: mat1 and mat2 shapes cannot be multiplied</code>.”</p>
+<rjesenje>
+<p>(a) Razumno – šablonski kod; provjeri da <code>model.eval()</code> i <code>torch.no_grad()</code> stoje u validaciji i da se metrika računa na pravom skupu. (b) Nerazumno kao odluka: LLM ne zna tvoje podatke; može predložiti raspon, a odgovor daje validacija. (c) Vrlo korisno – pregled koda uz konkretno pitanje; svejedno sam provjeri presjek indeksa učenja i testa. (d) Činjenice i brojke provjeri u dokumentaciji ili radu; LLM ih može pogrešno „zapamtiti” ili izmisliti. (e) Razumno – objašnjenje pogreške (dimenzije ulaza i sloja se ne slažu); ispravak provjeri ispisom <code>x.shape</code>. Zajednički nazivnik: LLM daje nacrt i objašnjenje, a ti pokrećeš, mjeriš i odgovaraš za rezultat.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Kako širina uskog grla utječe na rekonstrukciju? Nauči autoenkoder iz Primjera 1 za $d\in\{2,4,8,16\}$ i za svaki ispiši MSE autoenkodera i PCA-a iste dimenzije. Kod koje dimenzije prednost autoenkodera nad PCA-om postaje najveća, a gdje se gubi?</p>
+<naputak><code>nauci_ae(d)</code> iz Primjera 1 već seeda i uči.</naputak>
+<rjesenje>
+<kod jezik="python">
+print("  d   MSE autoenkoder   MSE PCA   omjer")
+for d in [2, 4, 8, 16]:
+    m = nauci_ae(d)
+    with torch.no_grad():
+        mse_ae = ((m(X) - X) ** 2).mean().item()
+    p = PCA(d).fit(X_np)
+    mse_pca = ((p.inverse_transform(p.transform(X_np)) - X_np) ** 2).mean()
+    print("%3d   %15.4f   %7.4f   %.2f" % (d, mse_ae, mse_pca, mse_pca / mse_ae))
+</kod>
+<izlaz>
+  d   MSE autoenkoder   MSE PCA   omjer
+  2            0.0356    0.0524   1.47
+  4            0.0234    0.0376   1.60
+  8            0.0144    0.0239   1.66
+ 16            0.0094    0.0110   1.18
+</izlaz>
+<p>Pogreška pada s dimenzijom kod oba modela, a omjer PCA/autoenkoder raste od $1{,}47$ ($d=2$) do $1{,}66$ ($d=8$) pa pada na $1{,}18$ ($d=16$). Pri vrlo uskom grlu i autoenkoder je ograničen (dvije koordinate teško nose $10$ znamenki), u sredini nelinearnost najviše vrijedi – PCA mora $10$ zakrivljenih „oblaka” prikazati ravnim potprostorom, a autoenkoder ih može saviti – dok sa $16$ dimenzija linearni potprostor već hvata gotovo sve pa se prednost topi.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Autoenkoder za uklanjanje šuma: svakoj slici dodaj Gaussov šum s devijacijom $0{,}3$ (i odreži na $[0,1]$). Nauči autoenkoder ($d=8$) koji na ulazu dobiva zašumljenu, a kao cilj čistu sliku. Usporedi MSE prema čistoj slici za: zašumljeni ulaz bez obrade, obični autoenkoder iz Primjera 1 primijenjen na zašumljeni ulaz i autoenkoder za uklanjanje šuma. Ispiši jednu zašumljenu znamenku i njezinu očišćenu verziju.</p>
+<rjesenje>
+<kod jezik="python">
+torch.manual_seed(0)
+X_sum = torch.clamp(X + 0.3 * torch.randn_like(X), 0, 1)
+dae = Autoenkoder(8)
+opt = torch.optim.Adam(dae.parameters(), lr=1e-2)
+for e in range(500):
+    opt.zero_grad()
+    gubitak = ((dae(X_sum) - X) ** 2).mean()            # ulaz sa šumom, cilj čista slika
+    gubitak.backward()
+    opt.step()
+with torch.no_grad():
+    print("MSE prema čistoj slici: zašumljeni ulaz %.4f, obični AE %.4f, AE za uklanjanje šuma %.4f" % (
+        ((X_sum - X) ** 2).mean(), ((ae(X_sum) - X) ** 2).mean(), ((dae(X_sum) - X) ** 2).mean()))
+    ispisi_par(X_sum[0].numpy(), dae(X_sum[0:1])[0].numpy(), "sa šumom", "očišćeno")
+</kod>
+<izlaz>
+MSE prema čistoj slici: zašumljeni ulaz 0.0514, obični AE 0.0551, AE za uklanjanje šuma 0.0243
+sa šumom   očišćeno
+  :*%:        +%*:
+  @@*@*       %##%.
+  @-.:-+     :%:.#=
+: * =@#      :#. ++
+ -- .+*.     -#  +=
+ =+ :@       .%  %:
+ -@-+*.      .%=#%
+ :%@. +       +%*.
+</izlaz>
+<p>Obični autoenkoder šum ne ukloni nego ga još pogorša ($0{,}0551$ prema $0{,}0514$ bez obrade): nikad nije vidio zašumljene ulaze pa dio šuma „protumači” kao sadržaj i vjerno ga rekonstruira. Model koji je šum vidio u učenju prepolovi pogrešku ($0{,}0243$). Isti princip (pokvari ulaz, traži original) temelj je i modernih samonadziranih metoda, a difuzijski modeli su njegova „beskonačna” verzija s mnogo razina šuma.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Pretvori autoenkoder u varijacijski: enkoder neka vraća $\mu$ i $\log\sigma^2$ (dimenzije $8$), uzorkuj $z=\mu+\sigma\odot\varepsilon$ i minimiziraj zbroj binarne unakrsne entropije rekonstrukcije (zbrojeno po pikselima) i KL-divergencije iz teorije. Nakon učenja ispiši prosječnu KL-divergenciju, pa <em>generiraj</em> tri nove znamenke iz $z\sim\mathcal{N}(0,I)$ i ispiši ih znakovima. Liče li na znamenke?</p>
+<naputak>Za jednu sliku KL je $\tfrac12\sum_j(\mu_j^2+e^{\log\sigma_j^2}-1-\log\sigma_j^2)$; <code>nn.functional.binary_cross_entropy(xhat, x, reduction="sum")</code> daje zbroj po cijeloj seriji.</naputak>
+<rjesenje>
+<kod jezik="python">
+class VAE(nn.Module):
+    def __init__(self, d=8):
+        super().__init__()
+        self.trup = nn.Sequential(nn.Linear(64, 32), nn.ReLU())
+        self.mu = nn.Linear(32, d)
+        self.logvar = nn.Linear(32, d)
+        self.dekoder = nn.Sequential(nn.Linear(d, 32), nn.ReLU(), nn.Linear(32, 64), nn.Sigmoid())
+
+    def forward(self, x):
+        h = self.trup(x)
+        mu, logvar = self.mu(h), self.logvar(h)
+        z = mu + torch.exp(0.5 * logvar) * torch.randn_like(mu)   # trik reparametrizacije
+        return self.dekoder(z), mu, logvar
+
+torch.manual_seed(0)
+vae = VAE()
+opt = torch.optim.Adam(vae.parameters(), lr=1e-2)
+for e in range(1, 801):
+    opt.zero_grad()
+    xhat, mu, logvar = vae(X)
+    rekonstrukcija = nn.functional.binary_cross_entropy(xhat, X, reduction="sum") / len(X)
+    kl = 0.5 * (mu ** 2 + logvar.exp() - 1 - logvar).sum(1).mean()
+    (rekonstrukcija + kl).backward()
+    opt.step()
+    if e % 200 == 0:
+        print("epoha %3d  rekonstrukcija (BCE po slici) %.2f  KL %.2f" % (e, rekonstrukcija.item(), kl.item()))
+
+torch.manual_seed(0)
+with torch.no_grad():
+    nove = vae.dekoder(torch.randn(3, 8)).numpy()
+print("tri uzorka iz z ~ N(0, I):")
+for r1, r2, r3 in zip(*[ascii_slika(nova) for nova in nove]):
+    print(r1, "  ", r2, "  ", r3)
+</kod>
+<izlaz>
+epoha 200  rekonstrukcija (BCE po slici) 22.46  KL 2.35
+epoha 400  rekonstrukcija (BCE po slici) 22.09  KL 2.57
+epoha 600  rekonstrukcija (BCE po slici) 21.76  KL 2.71
+epoha 800  rekonstrukcija (BCE po slici) 21.32  KL 3.05
+tri uzorka iz z ~ N(0, I):
+   %*         .+#=         #+
+  +%#+        =###        :@:
+ .%=.#.       **+*        %#
+ :%  *+      .+##=       .@=
+ =%  **       +%%-       -@%**.
+ :@. *+       *+**.      .@%-##
+  %#=%=       =+*#.       #%:*%
+  .*@*        .*%+         *@%-
+</izlaz>
+<p>KL-član (ovdje oko $3$ nata po slici) drži latentne razdiobe blizu $\mathcal{N}(0,I)$, pa nasumična točka iz prostora dekodira u oblike koji podsjećaju na znamenke – prvi na $0$, treći na $6$ ili $9$ – mutno i nesavršeno, kako i teorija najavljuje, jer su rubovi „prosjek” više mogućih oblika. Veći model, više epoha i podešen $\beta$ dali bi jasnije uzorke; za oštre slike obično se ipak poseže za GAN-om ili difuzijom.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Ponovi GAN iz Primjera 2 na jednostavnijoj, jednomodalnoj razdiobi $\mathcal{N}(3;\,0{,}5^2)$ sa šumom dimenzije $4$ i $3000$ koraka. Svakih $500$ koraka ispiši prosjek i devijaciju generiranih uzoraka. Pogađa li generator prosjek? A devijaciju? Što to govori o „blagom” kolapsu modova?</p>
+<rjesenje>
+<kod jezik="python">
+torch.manual_seed(0)
+G1 = nn.Sequential(nn.Linear(4, 32), nn.ReLU(), nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 1))
+D1 = nn.Sequential(nn.Linear(1, 32), nn.ReLU(), nn.Linear(32, 32), nn.ReLU(), nn.Linear(32, 1))
+opt_G1 = torch.optim.Adam(G1.parameters(), lr=1e-3)
+opt_D1 = torch.optim.Adam(D1.parameters(), lr=1e-3)
+print("korak  prosjek  devijacija   (cilj: 3.00, 0.50)")
+for korak in range(3001):
+    x = 3 + 0.5 * torch.randn(n, 1)
+    lazni = G1(torch.randn(n, 4)).detach()
+    opt_D1.zero_grad()
+    (bce(D1(x), torch.ones(n, 1)) + bce(D1(lazni), torch.zeros(n, 1))).backward()
+    opt_D1.step()
+    opt_G1.zero_grad()
+    bce(D1(G1(torch.randn(n, 4))), torch.ones(n, 1)).backward()
+    opt_G1.step()
+    if korak % 500 == 0:
+        with torch.no_grad():
+            s = G1(torch.randn(2000, 4))
+        print("%5d  %7.2f  %10.2f" % (korak, s.mean(), s.std()))
+</kod>
+<izlaz>
+korak  prosjek  devijacija   (cilj: 3.00, 0.50)
+    0     0.11        0.06
+  500     3.00        0.66
+ 1000     2.98        0.32
+ 1500     2.76        0.31
+ 2000     2.99        0.32
+ 2500     2.98        0.32
+ 3000     3.00        0.33
+</izlaz>
+<p>Prosjek je pogođen već nakon $500$ koraka, ali devijacija se nakon početnih $0{,}66$ spusti na oko $0{,}32$ i ondje ostane: generator pokriva „sredinu” razdiobe i zanemaruje repove, jer ga diskriminator za uzorke iz sredine ne kažnjava. To je blaga inačica kolapsa modova – GAN-ovi uzorci redovito su manje raznoliki od podataka, i to se iz gubitka ne vidi.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Istraži temperaturu u simulaciji CLIP-a iz Primjera 3: za $\tau\in\{0{,}02;\,0{,}1;\,0{,}5;\,2\}$ nauči enkodere (isti seed, $300$ koraka, stopa $0{,}5$) i ispiši završni gubitak, točnost sparivanja u zadnjoj seriji i zero-shot točnost na istom testnom skupu kao u Koraku 3. Zatim izmjeri „razmak”: prosječnu sličnost ispravnih parova minus prosječnu sličnost pogrešnih parova u testnom skupu. Objasni ulogu $\tau$.</p>
+<naputak>Gubitak za različite $\tau$ nije izravno usporediv (logiti su različito skalirani); usporedi zero-shot točnost i razmak.</naputak>
+<rjesenje>
+<kod jezik="python">
+print(" tau   gubitak  sparivanje  zero-shot  razmak(ispravni - pogrešni)")
+for tau in [0.02, 0.1, 0.5, 2.0]:
+    rng = np.random.default_rng(0)
+    Ws_t, Wt_t = W_slika.copy(), W_tekst.copy()
+    for k in range(300):
+        Ws_t, Wt_t, g, toc = korak_ucenja(Ws_t, Wt_t, serija_slika(), opis, tau=tau, lr=0.5)
+    U_t, V_t = normiraj(nove_slike @ Ws_t), normiraj(opis @ Wt_t)
+    S_t = U_t @ V_t.T
+    pred = S_t.argmax(axis=1)
+    ispravni = S_t[np.arange(len(S_t)), pravi_razred]
+    pogresni = (S_t.sum(axis=1) - ispravni) / (K - 1)
+    print("%4.2f   %6.3f   %9.2f   %8.3f   %10.3f" % (tau, g, toc, (pred == pravi_razred).mean(), (ispravni - pogresni).mean()))
+</kod>
+<izlaz>
+ tau   gubitak  sparivanje  zero-shot  razmak(ispravni - pogrešni)
+0.02    0.042        1.00      0.823        0.343
+0.10    0.055        1.00      0.933        0.778
+0.50    0.521        1.00      0.937        1.029
+2.00    1.359        0.83      0.963        1.055
+</izlaz>
+<p>Sličnosti su u $[-1,1]$, pa $\tau$ određuje koliko su logiti $s_{ij}/\tau$ oštri. S velikom temperaturom ($\tau=2$) softmax je gotovo jednolik: gubitak ostaje visok ($1{,}36$) i čak ni serija za učenje nije savršeno sparena ($0{,}83$), ali gradijent gura <em>sve</em> parove ravnomjerno pa su ugradnje na testu dobro razmaknute (razmak $1{,}06$, zero-shot $0{,}963$). S malom temperaturom ($\tau=0{,}02$) i sitna razlika sličnosti postaje velika razlika vjerojatnosti: gubitak gleda samo najbliže pogrešne parove (<em>teške negative</em>), gradijent je $1/\tau$ puta veći i sa stopom $0{,}5$ prevelik, pa se model uz šum u podacima ne smiri – serija je sparena, ali razmak je malen ($0{,}34$) i zero-shot pada na $0{,}823$. Temperatura je dakle hiperparametar koji sa stopom učenja i šumom određuje na koje parove gubitak troši pažnju; zato je CLIP uči kao parametar (uz ograničenje), a ne fiksira.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Mali difuzijski model u jednoj dimenziji. Podaci: ista dvomodalna mješavina kao u Primjeru 2. (a) Uzmi $T=50$ koraka s $\beta_t$ linearno od $0{,}01$ do $0{,}3$ i izračunaj $\bar\alpha_t=\prod_{s\le t}(1-\beta_s)$; provjeri da je $x_T$ praktički standardni šum (prosjek i devijacija). (b) Nauči MLP $\varepsilon_\theta(x_t,t/T)$ koji pogađa dodani šum (kvadratna pogreška). (c) Generiraj $2000$ uzoraka pravilom $x_{t-1}=\frac{1}{\sqrt{1-\beta_t}}\Bigl(x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\varepsilon_\theta(x_t,t)\Bigr)+\sqrt{\beta_t}\,\xi$ (bez $\xi$ u zadnjem koraku) i usporedi udio lijevo od nule te prosjeke po stranama sa stvarnim podacima.</p>
+<rjesenje>
+<kod jezik="python">
+torch.manual_seed(0)
+T = 50
+beta = torch.linspace(0.01, 0.3, T)
+alfa_bar = torch.cumprod(1 - beta, dim=0)
+x0 = stvarni(4000)
+eps = torch.randn_like(x0)
+xT = alfa_bar[-1].sqrt() * x0 + (1 - alfa_bar[-1]).sqrt() * eps
+print("alfa_bar_T = %.5f; x_T: prosjek %.2f, devijacija %.2f" % (alfa_bar[-1], xT.mean(), xT.std()))
+
+mreza = nn.Sequential(nn.Linear(2, 64), nn.ReLU(), nn.Linear(64, 64), nn.ReLU(), nn.Linear(64, 1))
+opt = torch.optim.Adam(mreza.parameters(), lr=1e-2)
+for korak in range(3001):
+    x0 = stvarni(256)
+    t = torch.randint(0, T, (256, 1))
+    eps = torch.randn_like(x0)
+    xt = alfa_bar[t].sqrt() * x0 + (1 - alfa_bar[t]).sqrt() * eps
+    opt.zero_grad()
+    gubitak = ((mreza(torch.cat([xt, t / T], dim=1)) - eps) ** 2).mean()
+    gubitak.backward()
+    opt.step()
+    if korak % 1000 == 0:
+        print("korak %4d  MSE procjene šuma %.3f" % (korak, gubitak.item()))
+
+with torch.no_grad():
+    x = torch.randn(2000, 1)
+    for t in reversed(range(T)):
+        e_hat = mreza(torch.cat([x, torch.full((2000, 1), t / T)], dim=1))
+        x = (x - beta[t] / (1 - alfa_bar[t]).sqrt() * e_hat) / (1 - beta[t]).sqrt()
+        if t > 0:
+            x = x + beta[t].sqrt() * torch.randn_like(x)
+s = x.numpy().ravel()
+s_stv = stvarni(2000).numpy().ravel()
+for ime, u in [("stvarni", s_stv), ("difuzija", s)]:
+    print("%-9s udio lijevo %.2f  prosjek lijevo %.2f  prosjek desno %.2f  devijacija lijevo %.2f" % (
+        ime, (u < 0).mean(), u[u < 0].mean(), u[u >= 0].mean(), u[u < 0].std()))
+</kod>
+<izlaz>
+alfa_bar_T = 0.00017; x_T: prosjek 0.01, devijacija 1.02
+korak    0  MSE procjene šuma 1.129
+korak 1000  MSE procjene šuma 0.315
+korak 2000  MSE procjene šuma 0.256
+korak 3000  MSE procjene šuma 0.391
+stvarni   udio lijevo 0.46  prosjek lijevo -2.00  prosjek desno 1.99  devijacija lijevo 0.49
+difuzija  udio lijevo 0.48  prosjek lijevo -2.06  prosjek desno 1.99  devijacija lijevo 0.54
+</izlaz>
+<p>Mreža koja samo pogađa šum – obična regresija, bez suparnika i bez kolapsa modova – nakon $T$ koraka odšumljivanja iz čistog šuma vraća obje grbe s ispravnim udjelima. Isti recept, s U-Net mrežom umjesto MLP-a i slikama umjesto brojeva, jest difuzijski model za slike; ulaz $t/T$ odgovara „ugradnji vremena”, a dodavanje teksta kao još jednog ulaza daje model tekst-u-sliku.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Generativni model uči $p(x)$ i zna uzorkovati; latentni prostor $\mathbb{R}^d$, $d\ll D$, sažima „bit” primjera. Autoenkoder = enkoder + usko grlo + dekoder, MSE rekonstrukcije; linearan je PCA, nelinearan sažima bolje; koristi: značajke bez oznaka, anomalije, uklanjanje šuma.</li>
+<li>VAE: enkoder vraća $\mathcal{N}(\mu,\sigma^2)$, reparametrizacija $z=\mu+\sigma\odot\varepsilon$, gubitak = rekonstrukcija $+\beta\,D_{\mathrm{KL}}$; latentni prostor je popunjen pa se generira iz $\mathcal{N}(0,I)$, uz mutne uzorke.</li>
+<li>GAN: $\min_G\max_D$ igra; $D$ razlikuje stvarno/lažno, $G$ ga vara; ravnoteža $D=\tfrac12$, gubitak $D\approx\log4$; gubitak ne mjeri kvalitetu, tipičan problem je kolaps modova.</li>
+<li>Difuzija: unaprijed $x_t=\sqrt{\bar\alpha_t}x_0+\sqrt{1-\bar\alpha_t}\varepsilon$; uči se $\varepsilon_\theta(x_t,t)$ regresijom; generira se odšumljivanjem u $T$ koraka – stabilno, raznoliko, sporo.</li>
+<li>CLIP: enkoderi slike i teksta u isti prostor, normirane ugradnje, kontrastivni gubitak (simetrična unakrsna entropija po retcima i stupcima matrice $s_{ij}/\tau$); zero-shot klasifikacija = najbliži opis „a photo of a …”; linearna sonda na ugradnjama s malo oznaka obično je još bolja.</li>
+<li>LLM je alat: objašnjenja, šablonski kod, pregled koda, testni slučajevi – uz obvezno pokretanje i provjeru; ne za činjenice i brojke bez izvora ni za hiperparametre bez validacije. Što je dopušteno na natjecanju, piše u njegovim pravilima.</li>
+</ul>
+
+@@ literatura
+<li>I. Goodfellow i sur., „Generative Adversarial Nets”, <i>NeurIPS</i> 2014 – <a href="https://arxiv.org/abs/1406.2661">arXiv:1406.2661</a>; D. P. Kingma, M. Welling, „Auto-Encoding Variational Bayes”, <i>ICLR</i> 2014 – <a href="https://arxiv.org/abs/1312.6114">arXiv:1312.6114</a>.</li>
+<li>J. Ho, A. Jain, P. Abbeel, „Denoising Diffusion Probabilistic Models”, <i>NeurIPS</i> 2020 – <a href="https://arxiv.org/abs/2006.11239">arXiv:2006.11239</a>.</li>
+<li>A. Radford i sur., „Learning Transferable Visual Models From Natural Language Supervision”, <i>ICML</i> 2021 – <a href="https://arxiv.org/abs/2103.00020">arXiv:2103.00020</a>; <a href="https://huggingface.co/docs/transformers/model_doc/clip">CLIP u biblioteci transformers</a>.</li>
+<li>S. Prince, <i>Understanding Deep Learning</i>, MIT Press, 2023., poglavlja 15–18 (GAN, normalizing flows, VAE, difuzija) – besplatno na <a href="https://udlbook.github.io/udlbook/">udlbook.github.io</a>.</li>

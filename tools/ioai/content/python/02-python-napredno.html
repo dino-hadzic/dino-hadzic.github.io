@@ -1,0 +1,621 @@
+@@ meta
+naslov = Napredni Python za rješavanje zadataka
+podnaslov = Klase, generatori, funkcije višeg reda, dekoratori i standardna biblioteka – alati kojima se rješenje na natjecanju drži urednim i brzim
+oznake = klase i dunder metode, generatori, lambda i sorted, dekoratori, collections i itertools, random, type hints
+
+@@ ciljevi
+<li>Napisati vlastitu klasu s dunder metodama tako da se ponaša kao ugrađena zbirka (<code>len</code>, indeksiranje, iteracija, ispis) i znati kad se to isplati.</li>
+<li>Koristiti generatore za obradu podataka u komadima (batchevima) bez učitavanja svega u memoriju te funkcije višeg reda (<code>sorted</code> s <code>key</code>, <code>map</code>, <code>filter</code>, <code>lambda</code>).</li>
+<li>Napisati dekorator za mjerenje vremena, brojanje poziva i memoizaciju te mjeriti brzinu koda s <code>time.perf_counter</code>.</li>
+<li>Iskoristiti module <code>random</code>, <code>collections</code> i <code>itertools</code> za miješanje podataka, brojanje, grupiranje i pretraživanje kombinacija hiperparametara, uz type hints i organizaciju koda u funkcije.</li>
+
+@@ teorija
+<p>Rješenje zadatka na natjecanju iz umjetne inteligencije rijetko stane u deset redaka: učitavanje podataka, predobrada, model, vrednovanje i ispis rezultata lako narastu na nekoliko stotina. Ova lekcija pokazuje dijelove Pythona koji takav kod drže čitljivim i brzim – i koje PyTorch i scikit-learn stalno koriste, pa ih moraš prepoznati u tuđem kodu (<code>__getitem__</code> u <code>Dataset</code>u, generatori u učitavanju podataka, dekoratori poput <code>@torch.no_grad()</code>).</p>
+
+<h3>Klase i objekti</h3>
+<definicija naslov="Klasa, objekt, metoda">
+<b>Klasa</b> je nacrt koji povezuje podatke (<b>atribute</b>) i funkcije koje nad njima rade (<b>metode</b>); <b>objekt</b> (instanca) je jedan konkretan primjerak. Metoda prima objekt kao prvi argument, po dogovoru nazvan <code>self</code>. Posebna metoda <code>__init__</code> izvršava se pri stvaranju objekta i postavlja početne atribute.
+</definicija>
+<p>Klasu pišeš kad više funkcija dijeli isto stanje (npr. vokabular tokenizatora koji koriste <code>encode</code> i <code>decode</code>) ili kad želiš da se tvoj objekt ponaša kao ugrađeni tip. Klasa smije <b>naslijediti</b> drugu (<code>class Moja(Osnovna):</code>) i preuzeti ili nadjačati njezine metode; tako se piše svaki PyTorch model (<code>class Mreza(nn.Module)</code>, lekcija D3). Za klase koje su „samo podaci” najkraći je zapis <code>@dataclass</code> iz modula <code>dataclasses</code>: navedeš atribute s tipovima, a <code>__init__</code>, <code>__repr__</code> i <code>__eq__</code> dobivaš besplatno.</p>
+
+<h3>Dunder metode</h3>
+<p>Metode s dvostrukim podvlakama (engl. <i>double underscore</i>, „dunder”) Python poziva sam kad nad objektom primijeniš ugrađenu operaciju: <code>len(x)</code> poziva <code>x.__len__()</code>, <code>x[i]</code> poziva <code>x.__getitem__(i)</code>, <code>for e in x</code> poziva <code>x.__iter__()</code>, <code>a + b</code> poziva <code>a.__add__(b)</code>, <code>a == b</code> poziva <code>a.__eq__(b)</code>, a <code>print(x)</code> i ispis u konzoli koriste <code>__str__</code> odnosno <code>__repr__</code>. Zbog toga tvoj objekt može „glumiti” listu: definiraš <code>__len__</code> i <code>__getitem__</code> i već radi indeksiranje, <code>for</code> petlja (Python sam poziva <code>__getitem__</code> od $0$ dok ne dobije <code>IndexError</code>), <code>list(x)</code> i <code>random.shuffle</code>. Upravo to zahtijeva PyTorchov <code>Dataset</code>.</p>
+<napomena><code>__repr__</code> treba vratiti kratak, jednoznačan opis koji ćeš vidjeti pri ispitivanju grešaka; piši ga za <em>svaku</em> klasu koju napišeš. Bez njega ispis objekta je neupotrebljivo <code>&lt;__main__.Skup object at 0x7f…&gt;</code>.</napomena>
+
+<h3>Iteratori i generatori</h3>
+<definicija naslov="Iterator i generator">
+<b>Iterator</b> je objekt koji na poziv <code>next(it)</code> vraća sljedeći element, a kad ih više nema baca <code>StopIteration</code>; <code>for</code> petlja točno to radi. <b>Generator</b> je funkcija koja umjesto <code>return</code> koristi <code>yield</code>: pri svakom <code>yield</code> „zamrzne” se i preda vrijednost, a nastavlja od istog mjesta pri sljedećem <code>next</code>. Generator računa elemente <em>lijeno</em> (engl. <i>lazy</i>), jedan po jedan, pa ne zauzima memoriju za cijeli niz.
+</definicija>
+<p><b>Generatorski izraz</b> <code>(x ** 2 for x in a)</code> izgleda kao list comprehension s običnim zagradama, ali ne stvara listu; <code>sum(x ** 2 for x in a)</code> zato radi i za milijardu elemenata. Generatori su prirodan način za učitavanje podataka u <b>batchevima</b>, čitanje goleme datoteke redak po redak ili beskonačno kruženje po epohama. Cijena: generator se može proći samo <em>jednom</em>; za drugi prolaz pozovi funkciju ponovno.</p>
+
+<h3>Funkcije kao vrijednosti</h3>
+<p>Funkcija je objekt kao i svaki drugi: smije se predati drugoj funkciji, vratiti iz nje ili spremiti u rječnik (<code>{"mse": mse, "mae": mae}</code> pa <code>metrike[ime](y, p)</code>). <b>Lambda</b> <code>lambda x: x[1]</code> je anonimna funkcija od jednog izraza, najčešće kao argument <code>key</code> u <code>sorted</code>, <code>min</code> i <code>max</code>. <code>map(f, a)</code> primjenjuje <code>f</code> na svaki element, <code>filter(p, a)</code> zadržava elemente za koje je <code>p</code> istinit; oba vraćaju lijene iteratore. U modernom Pythonu comprehension je obično čitljiviji od <code>map</code>/<code>filter</code> s lambdom, ali ih moraš razumjeti jer ih tuđi kod koristi. Za ključeve poput „po drugom polju” postoji i <code>operator.itemgetter(1)</code>.</p>
+
+<h3>Dekoratori</h3>
+<definicija naslov="Dekorator">
+<b>Dekorator</b> je funkcija koja prima funkciju i vraća novu, obično „omotanu” funkciju. Zapis
+<code>@dek</code> iznad <code>def f(...)</code> znači točno <code>f = dek(f)</code>.
+</definicija>
+<p>Omotač prima proizvoljne argumente kao <code>*args, **kwargs</code> i prosljeđuje ih izvornoj funkciji, a prije ili poslije poziva radi nešto korisno: mjeri vrijeme, broji pozive, pamti rezultate (<b>memoizacija</b>), isključuje računanje gradijenata. <code>@functools.wraps(f)</code> unutar dekoratora čuva ime i docstring izvorne funkcije. Ugrađeni <code>@functools.lru_cache</code> je gotov memoizacijski dekorator; <code>@staticmethod</code>, <code>@property</code> i <code>@dataclass</code> također su dekoratori.</p>
+
+<h3>Standardna biblioteka: random, collections, itertools, time</h3>
+<p><code>random</code>: <code>random.seed(0)</code> ili vlastiti generator <code>rng = random.Random(0)</code> (bolje – ne ovisi o tuđim pozivima), zatim <code>rng.random()</code> na $[0,1)$, <code>rng.randint(a, b)</code> (oba ruba uključena), <code>rng.choice(lista)</code>, <code>rng.sample(lista, k)</code> bez ponavljanja, <code>rng.shuffle(lista)</code> na mjestu, <code>rng.gauss(mu, sigma)</code>. Za polja brojeva koristi NumPy-jev generator (lekcija P3), ali za miješanje indeksa i izbor hiperparametara <code>random</code> je dovoljan.</p>
+<p><code>collections</code>: <code>Counter(iterable)</code> broji elemente i ima <code>most_common(k)</code>; <code>defaultdict(list)</code> je rječnik koji za nepostojeći ključ sam stvori zadanu vrijednost, idealan za grupiranje; <code>deque</code> je dvostrani red s $O(1)$ dodavanjem i uklanjanjem s oba kraja, a s <code>maxlen=k</code> postaje klizni prozor koji sam izbacuje najstariji element; <code>namedtuple</code> je lagana n-torka s imenovanim poljima.</p>
+<p><code>itertools</code>: <code>product(A, B)</code> je Kartezijev produkt (sve kombinacije hiperparametara), <code>combinations(a, 2)</code> svi parovi bez ponavljanja, <code>permutations</code>, <code>chain(a, b)</code> spaja iteratore, <code>islice(it, n)</code> uzima prvih $n$ elemenata (i iz beskonačnog generatora), <code>cycle</code> kruži beskonačno, <code>groupby</code> grupira <em>uzastopne</em> jednake elemente (prije toga sortiraj!).</p>
+<p><code>time.perf_counter()</code> vraća precizan monotoni sat u sekundama; razlika dvaju očitanja je trajanje. Mjeri uvijek više ponavljanja i gledaj <em>minimum</em> ili medijan (Primjer 2 u P1); za vrlo kratke komade koda postoji i modul <code>timeit</code>.</p>
+
+<h3>Tipizacija i organizacija koda</h3>
+<p><b>Type hints</b> (<code>def prosjek(a: list[float]) -&gt; float:</code>) dokumentiraju što funkcija očekuje i vraća; Python ih <em>ne provjerava</em> pri izvođenju (to rade alati poput <code>mypy</code> i urednici koda), ali čine kod daleko čitljivijim i hvataju greške dok tipkaš. Česti zapisi: <code>list[int]</code>, <code>dict[str, float]</code>, <code>tuple[int, int]</code>, <code>float | None</code> (vrijednost ili <code>None</code>), <code>Callable</code> i <code>Iterator</code> iz modula <code>typing</code> ili <code>collections.abc</code>.</p>
+<p>Organizacija: svaki logički korak (učitaj, predobradi, treniraj, ocijeni) neka bude funkcija s jasnim ulazom i izlazom, bez globalnog stanja; konstante (putanje, sjeme, hiperparametri) na vrh datoteke; glavni tijek u <code>main()</code> iza <code>if __name__ == "__main__":</code> da se modul može i uvesti i pokrenuti. Vanjske biblioteke instaliraj u <b>virtualno okruženje</b> da verzije ne kolidiraju između projekata:</p>
+<kod jezik="bash" pokreni="ne">
+python3 -m venv .venv                 # stvori okruženje u mapi .venv
+source .venv/bin/activate             # Windows: .venv\Scripts\activate
+pip install numpy pandas scikit-learn matplotlib
+pip freeze > requirements.txt         # zabilježi točne verzije
+pip install -r requirements.txt       # … i vrati ih na drugom računalu
+</kod>
+<p>Na natjecanju okruženje obično dobiješ gotovo (Jupyter ili Colab), ali <code>pip install</code> unutar bilježnice (<code>!pip install ime</code>) i provjera verzije (<code>ime.__version__</code>) moraju ti biti refleks.</p>
+
+@@ primjeri
+<primjer>
+<p>Napiši klasu <code>SkupPodataka</code> koja čuva uzorke (par: lista značajki, oznaka), ponaša se kao lista (duljina, indeksiranje, iteracija, čitljiv ispis) i ima metodu <code>podijeli(udio_test, sjeme)</code> koja vraća dva nova skupa – za učenje i za test – nakon reproducibilnog miješanja. Uzorak zapiši kao <code>dataclass</code>.</p>
+<rjesenje>
+<p><b>Korak 1: dataclass za uzorak.</b> Tri retka daju konstruktor, ispis i usporedbu. Type hints opisuju što polja sadrže.</p>
+<kod jezik="python">
+from dataclasses import dataclass
+import random
+
+@dataclass
+class Uzorak:
+    x: list[float]
+    y: int
+
+u = Uzorak([1.5, 2.0], 1)
+print(u)
+print(u.x, u.y, u == Uzorak([1.5, 2.0], 1))
+</kod>
+<izlaz>
+Uzorak(x=[1.5, 2.0], y=1)
+[1.5, 2.0] 1 True
+</izlaz>
+<p><b>Korak 2: klasa koja glumi listu.</b> <code>__len__</code> i <code>__getitem__</code> dovoljni su da rade <code>len</code>, indeksiranje (i negativno, i rezanje – prosljeđujemo ih listi), petlja <code>for</code> i <code>list(skup)</code>. Ipak dodajemo <code>__iter__</code> jer je eksplicitnije i brže.</p>
+<kod jezik="python">
+class SkupPodataka:
+    def __init__(self, uzorci: list[Uzorak], ime: str = "skup"):
+        self.uzorci = list(uzorci)
+        self.ime = ime
+
+    def __len__(self) -> int:
+        return len(self.uzorci)
+
+    def __getitem__(self, i):
+        return self.uzorci[i]
+
+    def __iter__(self):
+        return iter(self.uzorci)
+
+    def __repr__(self) -> str:
+        klase = sorted({u.y for u in self.uzorci})
+        return f"SkupPodataka({self.ime!r}, n={len(self)}, klase={klase})"
+
+    def podijeli(self, udio_test: float = 0.2, sjeme: int = 0):
+        rng = random.Random(sjeme)
+        indeksi = list(range(len(self)))
+        rng.shuffle(indeksi)
+        n_test = round(udio_test * len(self))
+        test = [self.uzorci[i] for i in indeksi[:n_test]]
+        trening = [self.uzorci[i] for i in indeksi[n_test:]]
+        return SkupPodataka(trening, "trening"), SkupPodataka(test, "test")
+
+rng = random.Random(42)
+uzorci = [Uzorak([round(rng.gauss(k, 1), 2), round(rng.gauss(-k, 1), 2)], k) for k in (0, 1, 2) for _ in range(5)]
+skup = SkupPodataka(uzorci, "sintetički")
+print(skup)
+print(len(skup), skup[0], skup[-1].y)
+print([u.y for u in skup])
+</kod>
+<izlaz>
+SkupPodataka('sintetički', n=15, klase=[0, 1, 2])
+15 Uzorak(x=[-0.14, -0.17], y=0) 2
+[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]
+</izlaz>
+<p><b>Korak 3: podjela.</b> Vlastiti <code>random.Random(sjeme)</code> jamči da će podjela biti ista pri svakom pokretanju, neovisno o tome tko je drugdje u programu zvao <code>random</code>. Provjeri da su skupovi disjunktni i da zajedno daju izvorni skup.</p>
+<kod jezik="python">
+trening, test = skup.podijeli(0.2, sjeme=0)
+print(trening)
+print(test)
+print("oznake testa:", [u.y for u in test])
+zajedno = sorted(trening.uzorci + test.uzorci, key=lambda u: (u.y, u.x))
+print("ništa izgubljeno:", zajedno == sorted(skup, key=lambda u: (u.y, u.x)))
+</kod>
+<izlaz>
+SkupPodataka('trening', n=12, klase=[0, 1, 2])
+SkupPodataka('test', n=3, klase=[0, 1, 2])
+oznake testa: [0, 2, 1]
+ništa izgubljeno: True
+</izlaz>
+<p>Ovo je u malom <code>train_test_split</code> iz scikit-learna i <code>torch.utils.data.Dataset</code>: oboje žive od <code>__len__</code> i <code>__getitem__</code>. Kad u lekciji D3 napišeš <code>class MojSkup(Dataset)</code>, bit će to ista klasa s drugim imenom roditelja.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Napiši generator <code>batchevi(skup, velicina, sjeme)</code> koji skup podataka vraća u izmiješanim komadima zadane veličine (zadnji komad smije biti manji) i generator <code>epohe(skup, velicina)</code> koji beskonačno kruži po epohama s novim miješanjem u svakoj. Pokaži kako se iz beskonačnog generatora uzima točno zadani broj koraka.</p>
+<rjesenje>
+<p><b>Korak 1: jedan prolaz.</b> <code>yield</code> predaje batch i zaustavlja funkciju do sljedećeg zahtjeva. Ništa se ne računa dok netko ne zatraži – <code>batchevi(...)</code> samo stvori generatorski objekt.</p>
+<kod jezik="python">
+def batchevi(skup, velicina: int, sjeme: int = 0):
+    indeksi = list(range(len(skup)))
+    random.Random(sjeme).shuffle(indeksi)
+    for pocetak in range(0, len(indeksi), velicina):
+        yield [skup[i] for i in indeksi[pocetak:pocetak + velicina]]
+
+g = batchevi(skup, 4)
+print(type(g).__name__)
+prvi = next(g)
+print(len(prvi), [u.y for u in prvi])
+print("preostali batchevi:", [len(b) for b in g])
+print("drugi prolaz:", list(g))
+</kod>
+<izlaz>
+generator
+4 [0, 2, 1, 1]
+preostali batchevi: [4, 4, 3]
+drugi prolaz: []
+</izlaz>
+<p>Petnaest uzoraka u batchevima po četiri daje $4,4,4,3$. Nakon što je generator iscrpljen, ponovni prolaz je prazan – to je najčešća greška s generatorima: spremiš ga u varijablu, jednom prođeš, a drugi put dobiješ ništa.</p>
+<p><b>Korak 2: beskonačne epohe.</b> Generator smije sadržavati beskonačnu petlju jer se izvršava samo onoliko koliko se traži. Svaka epoha dobiva novo sjeme pa je redoslijed drukčiji, ali reproducibilan.</p>
+<kod jezik="python">
+from itertools import islice
+
+def epohe(skup, velicina: int, sjeme: int = 0):
+    epoha = 0
+    while True:
+        for b in batchevi(skup, velicina, sjeme + epoha):
+            yield epoha, b
+        epoha += 1
+
+for epoha, b in islice(epohe(skup, 6), 7):
+    print(epoha, [u.y for u in b])
+</kod>
+<izlaz>
+0 [0, 2, 1, 1, 2, 0]
+0 [0, 1, 1, 0, 0, 2]
+0 [2, 1, 2]
+1 [2, 2, 0, 2, 1, 1]
+1 [0, 1, 1, 2, 0, 0]
+1 [2, 1, 0]
+2 [1, 0, 1, 2, 2, 1]
+</izlaz>
+<p><code>islice</code> uzima točno sedam koraka: tri batcha prve epohe ($6,6,3$), tri druge i prvi treće. Petlje za učenje neuronskih mreža (D4) rade upravo ovako – broj koraka, ne broj epoha, određuje kad stati.</p>
+<p><b>Korak 3: lijenost se isplati.</b> Generatorski izraz ne gradi listu; za zbroj kvadrata milijun brojeva lista zauzima oko $8$ MB, generator stotinjak bajtova. Modul <code>sys</code> pokazuje veličinu objekta u bajtovima.</p>
+<kod jezik="python">
+import sys
+
+n = 10 ** 6
+lista = [i * i for i in range(n)]
+gen = (i * i for i in range(n))
+print(sys.getsizeof(lista) // 1024, "KB za listu;", sys.getsizeof(gen), "B za generator")
+print(sum(lista) == sum(gen))
+</kod>
+<izlaz>
+8250 KB za listu; 104 B za generator
+True
+</izlaz>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Napiši tri dekoratora: <code>broji_pozive</code> (pamti koliko je puta funkcija pozvana), <code>memoiziraj</code> (pamti rezultate za već viđene argumente) i <code>mjeri_vrijeme</code> (ispisuje trajanje poziva). Primijeni ih na rekurzivnu funkciju za Fibonaccijeve brojeve i objasni razliku u broju poziva.</p>
+<rjesenje>
+<p><b>Korak 1: brojanje poziva.</b> Omotač povećava brojač koji čuvamo kao atribut same funkcije. <code>functools.wraps</code> prenosi ime izvorne funkcije na omotač.</p>
+<kod jezik="python">
+import functools
+
+def broji_pozive(f):
+    @functools.wraps(f)
+    def omotac(*args, **kwargs):
+        omotac.pozivi += 1
+        return f(*args, **kwargs)
+    omotac.pozivi = 0
+    return omotac
+
+@broji_pozive
+def fib(n: int) -> int:
+    """n-ti Fibonaccijev broj, naivna rekurzija."""
+    return n if n < 2 else fib(n - 1) + fib(n - 2)
+
+print(fib(20), "uz", fib.pozivi, "poziva;", fib.__name__, "-", fib.__doc__)
+</kod>
+<izlaz>
+6765 uz 21891 poziva; fib - n-ti Fibonaccijev broj, naivna rekurzija.
+</izlaz>
+<p>Rekurzija bez pamćenja računa <code>fib(18)</code> dvaput, <code>fib(17)</code> triput … ukupno $21\,891$ poziva za $n=20$; broj poziva raste eksponencijalno, kao i sam Fibonaccijev niz.</p>
+<p><b>Korak 2: memoizacija.</b> Rječnik <code>args → rezultat</code> pretvara eksponencijalno vrijeme u linearno. Dekoratori se slažu: donji se primjenjuje prvi, pa <code>broji_pozive</code> ovdje broji samo pozive koji su <em>stvarno</em> računani.</p>
+<kod jezik="python">
+def memoiziraj(f):
+    memorija = {}
+    @functools.wraps(f)
+    def omotac(*args):
+        if args not in memorija:
+            memorija[args] = f(*args)
+        return memorija[args]
+    return omotac
+
+@memoiziraj
+@broji_pozive
+def fib_m(n: int) -> int:
+    return n if n < 2 else fib_m(n - 1) + fib_m(n - 2)
+
+print(fib_m(20), "uz", fib_m.__wrapped__.pozivi, "stvarnih poziva")
+print(fib_m(90), "uz", fib_m.__wrapped__.pozivi, "stvarnih poziva")
+
+@functools.lru_cache(maxsize=None)
+def fib_c(n: int) -> int:
+    return n if n < 2 else fib_c(n - 1) + fib_c(n - 2)
+
+print(fib_c(90) == fib_m(90), fib_c.cache_info().hits, "pogodaka u predmemoriji")
+</kod>
+<izlaz>
+6765 uz 21 stvarnih poziva
+2880067194370816120 uz 91 stvarnih poziva
+True 88 pogodaka u predmemoriji
+</izlaz>
+<p>Za $n=20$ računa se točno $21$ vrijednost ($0,\dots,20$), a <code>fib_m(90)</code> dodaje samo $70$ novih – ukupno $91$. Brojač čitamo preko <code>fib_m.__wrapped__</code>: <code>functools.wraps</code> na omotač sprema izvornu (ovdje: brojanu) funkciju, dok bi <code>fib_m.pozivi</code> bio samo zastarjeli primjerak atributa kopiran u trenutku omatanja. Ugrađeni <code>lru_cache</code> radi isto i još broji pogotke; koristi ga kad god rekurzija ponavlja iste podprobleme (dinamičko programiranje, Zadatak 8).</p>
+<p><b>Korak 3: mjerenje vremena.</b> Dekorator s <code>perf_counter</code> prije i poslije poziva. Ispis ovisi o računalu pa se ne uspoređuje; bitan je omjer – naivna verzija za $n=27$ treba stotine tisuća poziva i reda desetinke sekunde, memoizirana je trenutačna.</p>
+<kod jezik="python">
+import time
+
+def mjeri_vrijeme(f):
+    @functools.wraps(f)
+    def omotac(*args, **kwargs):
+        start = time.perf_counter()
+        rezultat = f(*args, **kwargs)
+        print(f"{f.__name__}{args}: {time.perf_counter() - start:.4f} s")
+        return rezultat
+    return omotac
+
+print(mjeri_vrijeme(fib)(27))
+print(mjeri_vrijeme(fib_m)(27))
+</kod>
+<izlaz provjera="ne">
+fib(27,): 0.1484 s
+196418
+fib_m(27,): 0.0000 s
+196418
+</izlaz>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Zadana je lista rezultata <code>[("Ana", 82, 3.1), ("Borna", 95, 2.4), ("Cvita", 82, 2.7), ("Dario", 70, 1.9)]</code> (ime, bodovi, vrijeme u satima). Sortiraj je po bodovima padajuće, a kod jednakih bodova po vremenu rastuće, pomoću <code>sorted</code> i lambde. Zatim isti popis imena onih s više od $75$ bodova napiši jednom s <code>filter</code> i <code>map</code>, a jednom comprehensionom.</p>
+<rjesenje>
+<kod jezik="python">
+rezultati = [("Ana", 82, 3.1), ("Borna", 95, 2.4), ("Cvita", 82, 2.7), ("Dario", 70, 1.9)]
+for r in sorted(rezultati, key=lambda r: (-r[1], r[2])):
+    print(r)
+a = list(map(lambda r: r[0], filter(lambda r: r[1] > 75, rezultati)))
+b = [r[0] for r in rezultati if r[1] > 75]
+print(a, a == b)
+</kod>
+<izlaz>
+('Borna', 95, 2.4)
+('Cvita', 82, 2.7)
+('Ana', 82, 3.1)
+('Dario', 70, 1.9)
+['Ana', 'Borna', 'Cvita'] True
+</izlaz>
+<p>Cvita je ispred Ane jer je uz iste bodove bila brža. Comprehension je čitljiviji od <code>map</code>+<code>filter</code>+lambda; isti rezultat, manje zagrada.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za listu predviđenih oznaka <code>["mačka", "pas", "mačka", "ptica", "pas", "mačka", "pas", "pas"]</code> pomoću <code>Counter</code> ispiši dvije najčešće klase s brojem pojavljivanja te udio najčešće klase. Zatim pomoću <code>defaultdict(list)</code> grupiraj riječi <code>["ananas", "banana", "avokado", "borovnica", "cikla"]</code> po prvom slovu.</p>
+<rjesenje>
+<kod jezik="python">
+from collections import Counter, defaultdict
+
+oznake = ["mačka", "pas", "mačka", "ptica", "pas", "mačka", "pas", "pas"]
+c = Counter(oznake)
+print(c.most_common(2))
+najcesca, k = c.most_common(1)[0]
+print(f"{najcesca}: {k / len(oznake):.1%}")
+
+grupe = defaultdict(list)
+for r in ["ananas", "banana", "avokado", "borovnica", "cikla"]:
+    grupe[r[0]].append(r)
+print(dict(grupe))
+</kod>
+<izlaz>
+[('pas', 4), ('mačka', 3)]
+pas: 50.0%
+{'a': ['ananas', 'avokado'], 'b': ['banana', 'borovnica'], 'c': ['cikla']}
+</izlaz>
+<p>Udio najčešće klase je točnost „modela” koji uvijek predviđa istu klasu – to je prva <em>osnovna linija</em> (engl. <i>baseline</i>) koju izračunaš u svakom klasifikacijskom zadatku (lekcija M3).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Napiši funkciju <code>tocnost(y: list[int], p: list[int]) -&gt; float</code> s type hintovima koja vraća udio jednakih elemenata, a za liste različitih duljina baca <code>ValueError</code>. Ispiši <code>tocnost.__annotations__</code>. Zatim pokaži da Python hintove ne provjerava: pozovi funkciju s n-torkama umjesto lista.</p>
+<rjesenje>
+<kod jezik="python">
+def tocnost(y: list[int], p: list[int]) -> float:
+    if len(y) != len(p):
+        raise ValueError(f"različite duljine: {len(y)} i {len(p)}")
+    return sum(a == b for a, b in zip(y, p)) / len(y)
+
+print(tocnost.__annotations__)
+print(tocnost([1, 0, 1, 1], [1, 0, 0, 1]))
+print(tocnost((1, 0, 1, 1), (1, 1, 1, 1)))
+</kod>
+<izlaz>
+{'y': list[int], 'p': list[int], 'return': <class 'float'>}
+0.75
+0.75
+</izlaz>
+<p>Hintovi su dokumentacija koju razumiju urednik i <code>mypy</code>, ne ograda pri izvođenju. Zbrajanje <code>True</code> vrijednosti radi jer je <code>bool</code> podtip <code>int</code>-a.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši klasu <code>Vektor</code> koja čuva listu brojeva i podržava: <code>len</code>, indeksiranje, zbrajanje i oduzimanje dvaju vektora, množenje skalarom s obje strane (<code>2 * v</code> i <code>v * 2</code>), skalarni produkt <code>v @ w</code>, normu <code>abs(v)</code>, usporedbu <code>==</code> i čitljiv <code>repr</code>. Zbrajanje vektora različitih duljina neka baci <code>ValueError</code>.</p>
+<naputak>Za <code>2 * v</code> Python prvo pita <code>int</code>, koji ne zna množiti <code>Vektor</code>, pa zatim poziva <code>v.__rmul__(2)</code>. Skalarni produkt je <code>__matmul__</code>, norma <code>__abs__</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+class Vektor:
+    def __init__(self, podaci):
+        self.p = list(podaci)
+
+    def __len__(self):
+        return len(self.p)
+
+    def __getitem__(self, i):
+        return self.p[i]
+
+    def __repr__(self):
+        return f"Vektor({self.p})"
+
+    def _provjeri(self, w):
+        if len(self) != len(w):
+            raise ValueError(f"duljine {len(self)} i {len(w)} se ne slažu")
+
+    def __add__(self, w):
+        self._provjeri(w)
+        return Vektor(a + b for a, b in zip(self.p, w.p))
+
+    def __sub__(self, w):
+        self._provjeri(w)
+        return Vektor(a - b for a, b in zip(self.p, w.p))
+
+    def __mul__(self, c):
+        return Vektor(a * c for a in self.p)
+
+    __rmul__ = __mul__
+
+    def __matmul__(self, w):
+        self._provjeri(w)
+        return sum(a * b for a, b in zip(self.p, w.p))
+
+    def __abs__(self):
+        return (self @ self) ** 0.5
+
+    def __eq__(self, w):
+        return isinstance(w, Vektor) and self.p == w.p
+
+v, w = Vektor([3, 4]), Vektor([1, -1])
+print(v + w, v - w, 2 * v, v * 0.5)
+print(v @ w, abs(v), len(v), v[0], v == Vektor([3, 4]), v == w)
+try:
+    v + Vektor([1, 2, 3])
+except ValueError as e:
+    print("greška:", e)
+</kod>
+<izlaz>
+Vektor([4, 3]) Vektor([2, 5]) Vektor([6, 8]) Vektor([1.5, 2.0])
+-1 5.0 2 3 True False
+greška: duljine 2 i 3 se ne slažu
+</izlaz>
+<p>Ovo je, u sićušnom, ono što NumPy-jev <code>ndarray</code> radi u C-u: svaki operator je dunder metoda. Kad u lekciji P3 napišeš <code>X @ w</code>, Python zove <code>X.__matmul__(w)</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši generator <code>prozori(niz, k)</code> koji redom daje sve uzastopne podnizove duljine $k$ (kao n-torke) i pomoću njega izračunaj <b>pomični prosjek</b> (engl. <i>moving average</i>) širine $3$ za niz <code>[4, 8, 6, 2, 10, 12, 8]</code>. Zatim isti pomični prosjek izračunaj „na letu” s <code>deque(maxlen=3)</code>, kao da brojevi stižu jedan po jedan.</p>
+<rjesenje>
+<kod jezik="python">
+from collections import deque
+
+def prozori(niz, k: int):
+    for i in range(len(niz) - k + 1):
+        yield tuple(niz[i:i + k])
+
+niz = [4, 8, 6, 2, 10, 12, 8]
+print(list(prozori(niz, 3)))
+print([round(sum(p) / 3, 2) for p in prozori(niz, 3)])
+
+prozor = deque(maxlen=3)
+na_letu = []
+for x in niz:
+    prozor.append(x)
+    if len(prozor) == 3:
+        na_letu.append(round(sum(prozor) / 3, 2))
+print(na_letu, len(prozor), prozor)
+</kod>
+<izlaz>
+[(4, 8, 6), (8, 6, 2), (6, 2, 10), (2, 10, 12), (10, 12, 8)]
+[6.0, 5.33, 6.0, 8.0, 10.0]
+[6.0, 5.33, 6.0, 8.0, 10.0] 3 deque([10, 12, 8], maxlen=3)
+</izlaz>
+<p><code>deque(maxlen=3)</code> pri svakom <code>append</code> sam izbacuje najstariji element, pa je uvijek u njemu zadnja tri broja. Pomični prosjek izglađuje šumovite krivulje – npr. gubitak po koracima tijekom treniranja (D4).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>(a) Monte Carlo procjena broja $\pi$: generiraj $N$ slučajnih točaka u kvadratu $[0,1]^2$ generatorom <code>random.Random(0)</code> i izbroji koliko ih pada u četvrtinu jediničnog kruga; procjena je $4\cdot\dfrac{\text{broj u krugu}}{N}$. Ispiši procjenu za $N=10^3,10^4,10^5$. (b) Iz liste indeksa <code>range(20)</code> pomoću <code>rng.sample</code> izaberi $5$ za test, ostale za trening; provjeri da su skupovi disjunktni i da pokrivaju sve indekse.</p>
+<rjesenje>
+<kod jezik="python">
+rng = random.Random(0)
+for N in (10 ** 3, 10 ** 4, 10 ** 5):
+    u_krugu = sum(1 for _ in range(N) if rng.random() ** 2 + rng.random() ** 2 <= 1)
+    print(f"N = {N:>6}: pi ≈ {4 * u_krugu / N:.4f}")
+
+rng = random.Random(1)
+svi = list(range(20))
+test = sorted(rng.sample(svi, 5))
+trening = [i for i in svi if i not in set(test)]
+print(test)
+print(len(trening), set(test).isdisjoint(trening), sorted(trening + test) == svi)
+</kod>
+<izlaz>
+N =   1000: pi ≈ 3.1280
+N =  10000: pi ≈ 3.1432
+N = 100000: pi ≈ 3.1484
+[2, 3, 4, 8, 18]
+15 True True
+</izlaz>
+<p>Greška Monte Carlo procjene pada kao $1/\sqrt N$: sto puta više točaka daje tek jednu decimalu više. U (b) <code>rng.sample</code> bira bez ponavljanja, što je upravo podjela na trening i test; <code>set(test)</code> čini provjeru <code>in</code> brzom.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Hiperparametri modela zadani su rječnikom <code>{"stopa": [0.1, 0.01, 0.001], "slojevi": [1, 2], "dropout": [0.0, 0.5]}</code>. Pomoću <code>itertools.product</code> prođi sve kombinacije (<b>pretraga po mreži</b>, engl. <i>grid search</i>), za svaku izračunaj „rezultat” zadanom funkcijom <code>rezultat(stopa, slojevi, dropout) = 1 - abs(log10(stopa) + 2) / 4 - 0.05 * abs(slojevi - 2) - 0.1 * dropout</code> i ispiši najbolju kombinaciju. Koliko kombinacija ima? Zatim s <code>combinations</code> ispiši sve parove hiperparametara.</p>
+<naputak><code>product(*vrijednosti)</code> raspakira listu listi; <code>zip(imena, kombinacija)</code> vraća parove ime–vrijednost iz kojih se gradi rječnik.</naputak>
+<rjesenje>
+<kod jezik="python">
+from itertools import product, combinations
+from math import log10, prod
+
+mreza = {"stopa": [0.1, 0.01, 0.001], "slojevi": [1, 2], "dropout": [0.0, 0.5]}
+
+def rezultat(stopa, slojevi, dropout):
+    return 1 - abs(log10(stopa) + 2) / 4 - 0.05 * abs(slojevi - 2) - 0.1 * dropout
+
+imena = list(mreza)
+kombinacije = [dict(zip(imena, vr)) for vr in product(*mreza.values())]
+print(len(kombinacije), "=", prod(len(v) for v in mreza.values()), "kombinacija")
+najbolja = max(kombinacije, key=lambda k: rezultat(**k))
+print(najbolja, round(rezultat(**najbolja), 3))
+print(list(combinations(imena, 2)))
+</kod>
+<izlaz>
+12 = 12 kombinacija
+{'stopa': 0.01, 'slojevi': 2, 'dropout': 0.0} 1.0
+[('stopa', 'slojevi'), ('stopa', 'dropout'), ('slojevi', 'dropout')]
+</izlaz>
+<p>Broj kombinacija je umnožak veličina – s pet hiperparametara po pet vrijednosti to je već $3125$ treniranja, zato se u praksi koristi slučajna pretraga (<code>rng.choice</code> za svaki hiperparametar) ili pametnije metode (lekcija M5). <code>rezultat(**k)</code> raspakira rječnik u imenovane argumente.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><b>Levenshteinova udaljenost</b> dvaju nizova je najmanji broj umetanja, brisanja i zamjena znakova kojima se jedan pretvara u drugi. Rekurzivno: $d(i,j)$ je udaljenost prefiksa duljine $i$ i $j$; $d(i,0)=i$, $d(0,j)=j$, a inače $d(i,j)=\min\big(d(i-1,j)+1,\ d(i,j-1)+1,\ d(i-1,j-1)+[a_i\ne b_j]\big)$. Napiši rekurzivnu funkciju, dekoriraj je s <code>broji_pozive</code> iz Primjera 3 bez i s memoizacijom i usporedi broj poziva za riječi <code>"inteligencija"</code> i <code>"inteligentan"</code>. Zatim napiši funkciju <code>ispravi(rijec, rjecnik)</code> koja vraća najbližu riječ iz rječnika.</p>
+<naputak>Memoiziraj po paru <code>(i, j)</code>; nizove <code>a</code> i <code>b</code> drži izvan rekurzivne funkcije (ugniježđena funkcija ih vidi).</naputak>
+<rjesenje>
+<kod jezik="python">
+def levenshtein(a: str, b: str, memo: bool = True) -> tuple[int, int]:
+    """Vraća (udaljenost, broj stvarno izračunanih podproblema)."""
+    @broji_pozive
+    def d(i, j):
+        if i == 0:
+            return j
+        if j == 0:
+            return i
+        zamjena = d(i - 1, j - 1) + (a[i - 1] != b[j - 1])
+        return min(d(i - 1, j) + 1, d(i, j - 1) + 1, zamjena)
+    if memo:
+        d = memoiziraj(d)
+    udaljenost = d(len(a), len(b))
+    return udaljenost, d.__wrapped__.pozivi if memo else d.pozivi
+
+print("memoizirano: ", levenshtein("inteligencija", "inteligentan"))
+print("naivno:      ", levenshtein("kuća", "kuhar", memo=False))
+print("naivno:      ", levenshtein("podaci", "podatak", memo=False))
+
+def ispravi(rijec: str, rjecnik: list[str]) -> str:
+    return min(rjecnik, key=lambda r: (levenshtein(rijec, r)[0], r))
+
+rjecnik = ["model", "podaci", "gubitak", "gradijent", "epoha", "mreža"]
+for r in ["gradjent", "epoja", "modle", "mreza"]:
+    print(r, "->", ispravi(r, rjecnik))
+</kod>
+<izlaz>
+memoizirano:  (4, 182)
+naivno:       (2, 1021)
+naivno:       (3, 29737)
+gradjent -> gradijent
+epoja -> epoha
+modle -> model
+mreza -> mreža
+</izlaz>
+<p>Memoizirana verzija računa svaki par $(i,j)$ jednom – najviše $(|a|+1)(|b|+1)$ podproblema – dok naivna rekurzija grana u tri smjera i broj poziva eksplodira već za riječi od desetak slova (zato naivnu verziju pozivamo na kraćim riječima). Brojač opet čitamo preko <code>__wrapped__</code> kao u Primjeru 3. Ispravljanje riječi najbližom iz rječnika osnovni je oblik <em>provjere pravopisa</em>; isti princip (udaljenost do najbližeg poznatog primjera) srest ćeš kao $k$-NN u lekciji M3.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Napiši klasu <code>Tokenizator</code> s metodama <code>fit(tekstovi, min_pojava=1)</code> (gradi vokabular od riječi koje se pojavljuju barem <code>min_pojava</code> puta, s posebnim tokenima <code>&lt;pad&gt;</code> na indeksu $0$ i <code>&lt;unk&gt;</code> na indeksu $1$, ostale riječi po padajućoj učestalosti pa abecedno), <code>encode(tekst) -&gt; list[int]</code>, <code>decode(indeksi) -&gt; str</code> i <code>__len__</code> (veličina vokabulara). Nepoznate riječi kodiraj kao <code>&lt;unk&gt;</code>. Dodaj metodu <code>encode_batch(tekstovi)</code> koja sve nizove dopuni tokenom <code>&lt;pad&gt;</code> do duljine najduljeg.</p>
+<naputak><code>Counter</code> daje učestalosti; sortiraj ključem <code>(-broj, riječ)</code>. Za dopunjavanje: <code>niz + [0] * (najdulji - len(niz))</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+class Tokenizator:
+    def __init__(self):
+        self.rijec_u_id: dict[str, int] = {}
+        self.id_u_rijec: list[str] = []
+
+    @staticmethod
+    def tokeni(tekst: str) -> list[str]:
+        return tekst.lower().replace(",", " ").replace(".", " ").split()
+
+    def fit(self, tekstovi: list[str], min_pojava: int = 1) -> "Tokenizator":
+        brojac = Counter(t for tekst in tekstovi for t in self.tokeni(tekst))
+        rijeci = sorted((r for r, k in brojac.items() if k >= min_pojava),
+                        key=lambda r: (-brojac[r], r))
+        self.id_u_rijec = ["<pad>", "<unk>"] + rijeci
+        self.rijec_u_id = {r: i for i, r in enumerate(self.id_u_rijec)}
+        return self
+
+    def __len__(self) -> int:
+        return len(self.id_u_rijec)
+
+    def encode(self, tekst: str) -> list[int]:
+        return [self.rijec_u_id.get(t, 1) for t in self.tokeni(tekst)]
+
+    def decode(self, indeksi: list[int]) -> str:
+        return " ".join(self.id_u_rijec[i] for i in indeksi if i != 0)
+
+    def encode_batch(self, tekstovi: list[str]) -> list[list[int]]:
+        nizovi = [self.encode(t) for t in tekstovi]
+        najdulji = max(len(n) for n in nizovi)
+        return [n + [0] * (najdulji - len(n)) for n in nizovi]
+
+korpus = ["Model uči iz podataka.", "Podataka nikad nije previše, ali loših podataka je uvijek previše.",
+          "Model, podaci, model."]
+tok = Tokenizator().fit(korpus, min_pojava=2)
+print(len(tok), tok.id_u_rijec)
+kod = tok.encode("Model uči iz loših podataka")
+print(kod, "->", tok.decode(kod))
+for n in tok.encode_batch(["model podataka", "previše loših podataka nije model"]):
+    print(n)
+</kod>
+<izlaz>
+5 ['<pad>', '<unk>', 'model', 'podataka', 'previše']
+[2, 1, 1, 1, 3] -> model <unk> <unk> <unk> podataka
+[2, 3, 0, 0, 0]
+[4, 1, 3, 1, 2]
+</izlaz>
+<p>Riječi koje se pojavljuju samo jednom (<code>uči</code>, <code>iz</code>, <code>nikad</code>, …) ispale su iz vokabulara i kodiraju se kao $1$ (<code>&lt;unk&gt;</code>), a <code>&lt;pad&gt;</code> izjednačava duljine da se batch može složiti u matricu. To je točno sučelje tokenizatora iz biblioteke Hugging Face (lekcija V3): <code>encode</code>, <code>decode</code>, <code>pad</code>, posebni tokeni – samo što tamo tokeni nisu riječi nego dijelovi riječi.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Klasa veže podatke i metode; dunder metode (<code>__len__</code>, <code>__getitem__</code>, <code>__iter__</code>, <code>__add__</code>, <code>__repr__</code>) čine da se objekt ponaša kao ugrađeni tip – tako rade <code>Dataset</code> i <code>ndarray</code>. Za „samo podatke” koristi <code>@dataclass</code>.</li>
+<li>Generator (<code>yield</code>) daje elemente lijeno i jednokratno: batchevi, čitanje velikih datoteka, beskonačne epohe uz <code>islice</code>.</li>
+<li><code>sorted</code>/<code>min</code>/<code>max</code> s <code>key</code> i lambdom rješavaju gotovo svako sortiranje; comprehension je obično čitljiviji od <code>map</code>/<code>filter</code>.</li>
+<li>Dekorator je <code>f = dek(f)</code>; s <code>*args, **kwargs</code> i <code>functools.wraps</code> pišeš mjerenje vremena, brojanje poziva i memoizaciju (<code>lru_cache</code>).</li>
+<li><code>random.Random(sjeme)</code> za reproducibilno miješanje i uzorkovanje; <code>Counter</code>, <code>defaultdict</code>, <code>deque(maxlen)</code>; <code>product</code> za pretragu po mreži; <code>perf_counter</code> za mjerenje.</li>
+<li>Type hints dokumentiraju, ne provjeravaju; kod dijeli u funkcije s jasnim ulazom i izlazom, ovisnosti drži u virtualnom okruženju.</li>
+</ul>
+
+@@ literatura
+<li>Službena dokumentacija Pythona: <a href="https://docs.python.org/3/reference/datamodel.html">Data model</a> (dunder metode), <a href="https://docs.python.org/3/library/collections.html">collections</a>, <a href="https://docs.python.org/3/library/itertools.html">itertools</a>, <a href="https://docs.python.org/3/library/functools.html">functools</a>.</li>
+<li>L. Ramalho, <i>Fluent Python</i>, 2. izd. (O'Reilly), poglavlja o modelu podataka, dekoratorima i generatorima.</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/data.html">torch.utils.data</a> – <code>Dataset</code> i <code>DataLoader</code> kao primjena <code>__getitem__</code> i iteratora iz ove lekcije.</li>

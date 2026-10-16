@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Duboko učenje 1: Perceptron i višeslojne mreže</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#duboko-ucenje">Duboko učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Duboko učenje · lekcija 1 od 6</p>
+            <h1><span class="broj-lekcije">D1</span> Perceptron i višeslojne mreže</h1>
+            <p class="meta">Od umjetnog neurona do višeslojnog perceptrona: što mreža računa i zašto skriveni sloj mijenja sve</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.0" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>perceptron</li>
+                <li>pravilo učenja</li>
+                <li>linearna razdvojivost</li>
+                <li>XOR</li>
+                <li>aktivacijska funkcija</li>
+                <li>ReLU</li>
+                <li>MLP</li>
+                <li>inicijalizacija težina</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Zapisati perceptron kao model i algoritam učenja, implementirati ga u NumPy-ju i objasniti zašto konvergira samo na linearno razdvojivim podacima (XOR kao protuprimjer).</li>
+<li>Poznavati sigmoid, tanh i ReLU, njihove derivacije i razloge zašto se koja koristi.</li>
+<li>Napisati unaprijedni prolaz višeslojne mreže kao niz matričnih množenja i aktivacija, prebrojiti parametre i izabrati inicijalizaciju težina.</li>
+<li>Intuitivno razumjeti univerzalnu aproksimaciju i istrenirati <code>MLPClassifier</code> na skupu <code>make_moons</code>.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Biološki neuron prima signale od tisuća drugih neurona preko sinapsi, zbraja ih s različitim „težinama” i, ako zbroj prijeđe prag, šalje vlastiti impuls dalje. McCulloch i Pitts (1943.) te Rosenblatt (1958.) sveli su tu sliku na matematički model – <b>umjetni neuron</b>: ulaz $x\in\mathbb R^d$, težine $w\in\mathbb R^d$, pomak $b$ i <b>aktivacijska funkcija</b> $\varphi$ koja iz zbroja $z=w^\top x+b$ računa izlaz $\varphi(z)$. Sve što slijedi u modulu D – od perceptrona do transformera – građeno je od ovog jednog elementa. Biološka analogija time i završava: mreže koje treniramo uče gradijentnim spustom, što mozak (koliko znamo) ne radi.</p>
+
+<h3>Perceptron</h3>
+<div class="pojam">
+<h4>Perceptron</h4>
+<p>Perceptron je binarni klasifikator s oznakama $y\in\{-1,+1\}$ i predikcijom
+$$\hat y=\operatorname{sign}(w^\top x+b),$$
+tj. neuron s aktivacijom „stepenica”. Skup $\{x: w^\top x+b=0\}$ je <b>hiperravnina odluke</b>; $w$ je njezina normala, a predznak od $w^\top x+b$ kaže na kojoj je strani točka.</p>
+</div>
+<p><b>Pravilo učenja perceptrona</b> prolazi primjerima i mijenja parametre samo kad pogriješi: ako je $y_i(w^\top x_i+b)\le0$, tada
+$$w\leftarrow w+\eta\,y_ix_i,\qquad b\leftarrow b+\eta\,y_i .$$
+Intuicija: ako je pozitivan primjer proglašen negativnim, $w$ se zakrene <em>prema</em> $x_i$, pa $w^\top x_i$ raste; za negativan primjer obrnuto. Stopa učenja $\eta$ ovdje nije bitna (skalira $w$ i $b$ zajedno, a predznak ne ovisi o skaliranju), pa se uzima $\eta=1$. Jedan prolaz kroz sve primjere zove se <b>epoha</b>; algoritam staje kad u epohi nema pogrešaka.</p>
+<div class="pojam">
+<h4>Linearna razdvojivost</h4>
+<p>Skup podataka je <b>linearno razdvojiv</b> ako postoje $w,b$ takvi da je $y_i(w^\top x_i+b)\gt0$ za sve $i$. <b>Margina</b> takvog razdvajanja je $\gamma=\min_i \frac{y_i(w^\top x_i+b)}{\lVert w\rVert}$ – udaljenost najbliže točke do hiperravnine.</p>
+</div>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (Novikoff, konvergencija perceptrona).</strong> Ako su podaci linearno razdvojivi s marginom $\gamma$ i $\lVert x_i\rVert\le R$ za sve $i$, perceptron (počevši od $w=0$, $b=0$, uz ulaze proširene jedinicom) napravi najviše $\dfrac{R^2}{\gamma^2}$ ažuriranja, bez obzira na redoslijed primjera.</p>
+</div>
+<p>Dokaz (Zadatak 9) uspoređuje dva rasta: skalarni produkt $w$ s idealnim $w^*$ raste barem za $\gamma$ po ažuriranju, a $\lVert w\rVert^2$ najviše za $R^2$. Granica ne ovisi o dimenziji ni o broju primjera – samo o geometriji. Ako podaci <em>nisu</em> razdvojivi, algoritam nikad ne stane; najpoznatiji takav primjer ima četiri točke.</p>
+<div class="pojam">
+<h4>Problem XOR</h4>
+<p>Funkcija XOR na $\{0,1\}^2$: $(0,0)\mapsto0$, $(1,1)\mapsto0$, $(0,1)\mapsto1$, $(1,0)\mapsto1$. Nijedan pravac ne odvaja pozitivne točke $(0,1),(1,0)$ od negativnih $(0,0),(1,1)$ (dokaz u Zadatku 5), pa je perceptron ne može naučiti.</p>
+</div>
+<p>Minsky i Papert pokazali su to 1969. i zaključili da jednoslojni perceptroni ne mogu naučiti mnoge jednostavne funkcije. Rješenje je bilo poznato u principu – složiti neurone u <em>slojeve</em> – ali je trebalo pričekati algoritam koji takve mreže može trenirati (lekcija D2).</p>
+
+<h3>Aktivacijske funkcije</h3>
+<p>Stepenica ima dva nedostatka: derivacija joj je nula svugdje (gradijentni spust nema što koristiti) i izlaz nije stupnjevit. Zato se u mrežama koriste glatke ili barem po dijelovima glatke funkcije:</p>
+<ul>
+<li><b>Sigmoid</b> $\sigma(z)=\dfrac1{1+e^{-z}}\in(0,1)$, derivacija $\sigma'(z)=\sigma(z)(1-\sigma(z))\le\frac14$. Prirodna za izlaz koji je vjerojatnost (logistička regresija, M3); u skrivenim slojevima <em>zasićuje</em>: za $|z|\gt5$ derivacija je praktički nula.</li>
+<li><b>Tangens hiperbolni</b> $\tanh(z)=\dfrac{e^z-e^{-z}}{e^z+e^{-z}}=2\sigma(2z)-1\in(-1,1)$, derivacija $1-\tanh^2(z)\le1$. Centriran oko nule, pa je bolji od sigmoida u skrivenim slojevima, ali također zasićuje.</li>
+<li><b>ReLU</b> (engl. <i>rectified linear unit</i>) $\operatorname{ReLU}(z)=\max(0,z)$, derivacija $1$ za $z\gt0$, $0$ za $z\lt0$. Ne zasićuje za pozitivne ulaze, trivijalno se računa i zadani je izbor za skrivene slojeve dubokih mreža. Mana: neuron čiji je $z$ stalno negativan ima gradijent nula i „umire”; inačice Leaky ReLU $\max(\alpha z,z)$ i GELU to ublažavaju.</li>
+</ul>
+<div class="trener-umetak">
+<p>Bez nelinearne aktivacije slojevi se urušavaju: $W_2(W_1x+b_1)+b_2=(W_2W_1)x+(W_2b_1+b_2)$ je opet linearna funkcija, pa bi mreža od sto linearnih slojeva bila obična linearna regresija. Nelinearnost između slojeva je ono što mreži daje izražajnost.</p>
+</div>
+
+<h3>Višeslojni perceptron i unaprijedni prolaz</h3>
+<div class="pojam">
+<h4>MLP</h4>
+<p><b>Višeslojni perceptron</b> (engl. <i>multilayer perceptron</i>, MLP) sa slojevima širina $d=n_0,n_1,\dots,n_L$ računa za ulaz $x=h^{(0)}$
+$$z^{(\ell)}=W^{(\ell)}h^{(\ell-1)}+b^{(\ell)},\qquad h^{(\ell)}=\varphi\big(z^{(\ell)}\big),\qquad \ell=1,\dots,L,$$
+gdje su $W^{(\ell)}\in\mathbb R^{n_\ell\times n_{\ell-1}}$ i $b^{(\ell)}\in\mathbb R^{n_\ell}$ parametri, a $\varphi$ djeluje po komponentama. Slojevi $1,\dots,L-1$ su <b>skriveni</b>; zadnji sloj obično nema $\varphi$ (regresija) ili ima sigmoid/softmax (klasifikacija). Broj parametara je $\sum_{\ell}(n_{\ell-1}n_\ell+n_\ell)$.</p>
+</div>
+<p>Taj izračun zove se <b>unaprijedni prolaz</b> (engl. <i>forward pass</i>). U kodu se nikad ne radi po jednom primjeru: ulaz je matrica $X\in\mathbb R^{n\times d}$ s primjerima u redovima, pa je $H^{(\ell)}=\varphi\big(H^{(\ell-1)}W^{(\ell)\top}+b^{(\ell)}\big)$ jedno matrično množenje za sve primjere odjednom (pomak se dodaje emitiranjem po redovima). Za $K$ klasa zadnji sloj daje $K$ brojeva (<b>logiti</b>) koje <b>softmax</b> $p_k=e^{z_k}/\sum_j e^{z_j}$ pretvara u vjerojatnosti.</p>
+
+<h3>Univerzalna aproksimacija</h3>
+<div class="tvrdnja">
+<p><strong>Teorem 2 (univerzalna aproksimacija (Cybenko 1989., Hornik 1991.)).</strong> Za svaku neprekidnu funkciju $f$ na ograničenom zatvorenom skupu u $\mathbb R^d$ i svaki $\varepsilon\gt0$ postoji MLP s <em>jednim</em> skrivenim slojem (dovoljno širokim) i sigmoidnom ili ReLU aktivacijom čiji se izlaz od $f$ razlikuje za manje od $\varepsilon$ u svakoj točki.</p>
+</div>
+<p>Intuicija za $d=1$: razlika dvaju pomaknutih sigmoida, $\sigma(a(x-t_1))-\sigma(a(x-t_2))$ s velikim $a$, približno je pravokutni „brežuljak” na $[t_1,t_2]$. Zbroj mnogo takvih brežuljaka s odgovarajućim visinama je stubasta funkcija koja po volji dobro aproksimira $f$. S ReLU-om: svaki skriveni neuron je „koljeno” $\max(0,x-t)$, pa je mreža po dijelovima linearna funkcija s onoliko lomova koliko ima neurona (Zadatak 6). Teorem kaže da mreže <em>mogu</em> prikazati sve, ali ne kaže koliko neurona treba (može biti eksponencijalno mnogo u $d$) ni hoće li gradijentni spust tu funkciju <em>naći</em>. U praksi su <em>duboke</em> mreže (više užih slojeva) učinkovitije od jednog vrlo širokog sloja jer sastavljaju jednostavne značajke u složenije.</p>
+
+<h3>Inicijalizacija težina</h3>
+<p>Prije učenja težine se postavljaju slučajno – <em>sve nule</em> ne valjaju, jer bi svi neuroni sloja računali isto i primali isti gradijent (simetrija se nikad ne bi razbila). Ni bilo kakvi slučajni brojevi ne valjaju: ako je $W$ prevelik, aktivacije rastu iz sloja u sloj i zasićuju; ako je premalen, padaju prema nuli i signal nestane. Uz nezavisne težine varijance $v$ i $n_{\text{ul}}$ ulaza, varijanca od $z=\sum_j w_jh_j$ je približno $n_{\text{ul}}\,v\operatorname{Var}(h)$, pa varijancu čuva izbor $v=1/n_{\text{ul}}$. To daje standardne recepte: <b>Xavier/Glorot</b> $v=\dfrac{2}{n_{\text{ul}}+n_{\text{iz}}}$ (za tanh i sigmoid) i <b>He/Kaiming</b> $v=\dfrac{2}{n_{\text{ul}}}$ (za ReLU, koji „ubija” polovicu varijance). Pomaci se inicijaliziraju nulom. PyTorch i scikit-learn to rade automatski, ali kad ručno pišeš mrežu (Primjer 2, lekcija D2), ovo je prva stvar koju treba provjeriti.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Implementiraj perceptron u NumPy-ju. (a) Nauči ga na $200$ linearno razdvojivih točaka u ravnini, prebroji ažuriranja i provjeri Novikoffovu granicu. (b) Nauči logičke funkcije AND i OR. (c) Pokaži što se događa na XOR-u.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: algoritam.</b> Pomak ugrađujemo kao dodatnu težinu uz ulaz $1$. Funkcija vraća težine, broj ažuriranja i je li konvergirala (epoha bez pogreške).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">perceptron</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">max_epoha</span><span class="o">=</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">Xa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))])</span>      <span class="c1"># zadnji stupac = 1 (pomak)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">Xa</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">azuriranja</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_epoha</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">greske</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">xi</span><span class="p">,</span> <span class="n">yi</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Xa</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">yi</span> <span class="o">*</span> <span class="p">(</span><span class="n">w</span> <span class="o">@</span> <span class="n">xi</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">w</span> <span class="o">+=</span> <span class="n">yi</span> <span class="o">*</span> <span class="n">xi</span>
+                <span class="n">azuriranja</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">greske</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">greske</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">w</span><span class="p">,</span> <span class="n">azuriranja</span><span class="p">,</span> <span class="n">epoha</span>
+    <span class="k">return</span> <span class="n">w</span><span class="p">,</span> <span class="n">azuriranja</span><span class="p">,</span> <span class="kc">None</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_blobs</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">y01</span> <span class="o">=</span> <span class="n">make_blobs</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">centers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">cluster_std</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">y01</span> <span class="o">-</span> <span class="mi">1</span>                                      <span class="c1"># oznake u {-1, +1}</span>
+<span class="n">w</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">epoha</span> <span class="o">=</span> <span class="n">perceptron</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">tocnost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">200</span><span class="p">)])</span> <span class="o">@</span> <span class="n">w</span><span class="p">)</span> <span class="o">==</span> <span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"w ="</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">" ažuriranja:"</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="s2">" konvergirao u epohi:"</span><span class="p">,</span> <span class="n">epoha</span><span class="p">,</span> <span class="s2">" točnost:"</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>w = [-8.276 -5.334  1.   ]  ažuriranja: 13  konvergirao u epohi: 7  točnost: 1.0</code></pre>
+<p><b>Korak 2: Novikoffova granica.</b> Pravu marginu $\gamma$ ne znamo, ali svaki razdvajajući vektor – npr. upravo naučeni $w$ – daje donju ocjenu $\gamma_w\le\gamma$, pa je $R^2/\gamma_w^2$ gornja ocjena Novikoffove granice. Radimo na proširenim ulazima (stupac jedinica), kako teorem traži.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Xa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">200</span><span class="p">)])</span>
+<span class="n">gamma_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="p">(</span><span class="n">Xa</span> <span class="o">@</span> <span class="n">w</span><span class="p">))</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+<span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">Xa</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"R = </span><span class="si">%.2f</span><span class="s2">  gamma_w = </span><span class="si">%.3f</span><span class="s2">  R^2/gamma_w^2 = </span><span class="si">%.0f</span><span class="s2">  stvarno ažuriranja: </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="n">gamma_w</span><span class="p">,</span> <span class="n">R</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">gamma_w</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>R = 6.94  gamma_w = 0.030  R^2/gamma_w^2 = 53129  stvarno ažuriranja: 13</code></pre>
+<p>Granica je zadovoljena s ogromnom rezervom. Dio rezerve je naš: perceptron staje kod <em>prvog</em> razdvajanja koje nađe, pa je margina naučenog $w$ sitna (prava $\gamma$ je veća i granica stroža). Ostatak je u samom teoremu – kao većina granica iz teorije učenja, i ova je gruba (najgori slučaj), ali točno predviđa <em>o čemu</em> ovisi broj koraka: o omjeru veličine podataka $R$ i margine $\gamma$, ne o broju primjera ni o dimenziji (Zadatak 9).</p>
+<p><b>Korak 3: logičke funkcije.</b> AND i OR su linearno razdvojive; za XOR algoritam vrti $100$ epoha bez uspjeha.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">ulazi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">izlazi</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"AND"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="p">(</span><span class="s2">"OR"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="p">(</span><span class="s2">"XOR"</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])):</span>
+    <span class="n">yl</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">izlazi</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">w</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">epoha</span> <span class="o">=</span> <span class="n">perceptron</span><span class="p">(</span><span class="n">ulazi</span><span class="p">,</span> <span class="n">yl</span><span class="p">)</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">ulazi</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">4</span><span class="p">)])</span> <span class="o">@</span> <span class="n">w</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-3s</span><span class="s2">  w = </span><span class="si">%s</span><span class="s2">  epoha: </span><span class="si">%-4s</span><span class="s2">  točno </span><span class="si">%d</span><span class="s2">/4"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">epoha</span><span class="p">,</span> <span class="p">(</span><span class="n">pred</span> <span class="o">==</span> <span class="n">yl</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>AND  w = [ 3.  2. -4.]  epoha: 9     točno 4/4
+OR   w = [ 2.  2. -1.]  epoha: 6     točno 4/4
+XOR  w = [0. 0. 0.]  epoha: None  točno 0/4</code></pre>
+<p>Za AND naučeni pravac $3x_1+2x_2=4$ nije simetrični $x_1+x_2=1{,}5$ koji bismo napisali ručno – perceptron staje kod <em>prvog</em> razdvajanja koje nađe, a težine su cjelobrojne jer su takvi i ulazi. Kod XOR-a težine se vrte u krug: svaka epoha napravi četiri ispravka koji se međusobno ponište, pa su nakon $100$ epoha opet nule, a $\operatorname{sign}(0)=0$ ne pogađa nijednu oznaku. Jednostavna popravka je <em>pocket</em> algoritam koji pamti najbolje težine viđene tijekom učenja – ali ni on ne može ono što perceptron ne može: XOR traži drugi sloj.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>(a) Konstruiraj ručno (bez učenja) mrežu s jednim skrivenim slojem od dva neurona koja računa XOR. (b) Napiši općeniti unaprijedni prolaz MLP-a za matricu primjera i prebroji parametre. (c) Pokaži što loša inicijalizacija radi aktivacijama u dubokoj mreži.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: XOR s dva skrivena neurona.</b> Ideja: $h_1=\text{OR}(x_1,x_2)$, $h_2=\text{AND}(x_1,x_2)$, a izlaz je „$h_1$ i ne $h_2$”. Svaki od tih triju neurona je perceptron iz Primjera 1. S aktivacijom stepenica mreža je točna; sa sigmoidom $\sigma(10z)$ daje gotovo iste brojeve, ali je derivabilna.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">stepenica</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">sigmoid</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">z</span><span class="p">))</span>
+
+<span class="n">W1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>      <span class="c1"># h1 = OR : x1 + x2 - 0.5 &gt; 0</span>
+               <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]])</span>     <span class="c1"># h2 = AND: x1 + x2 - 1.5 &gt; 0</span>
+<span class="n">b1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.5</span><span class="p">])</span>
+<span class="n">W2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]])</span>    <span class="c1"># izlaz = h1 - h2 - 0.5 &gt; 0</span>
+<span class="n">b2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">0.5</span><span class="p">])</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">mreza_xor</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">skala</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">phi</span><span class="p">(</span><span class="n">skala</span> <span class="o">*</span> <span class="p">(</span><span class="n">X</span> <span class="o">@</span> <span class="n">W1</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">b1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">phi</span><span class="p">(</span><span class="n">skala</span> <span class="o">*</span> <span class="p">(</span><span class="n">H</span> <span class="o">@</span> <span class="n">W2</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">b2</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"stepenica:"</span><span class="p">,</span> <span class="n">mreza_xor</span><span class="p">(</span><span class="n">ulazi</span><span class="p">,</span> <span class="n">stepenica</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"sigmoid*10:"</span><span class="p">,</span> <span class="n">mreza_xor</span><span class="p">(</span><span class="n">ulazi</span><span class="p">,</span> <span class="n">sigmoid</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>stepenica: [0. 1. 1. 0.]
+sigmoid*10: [0.007 0.992 0.992 0.007]</code></pre>
+<p>Skriveni sloj je XOR preslikao u prostor $(h_1,h_2)$ u kojem su točke $(0,0),(1,0),(1,0),(1,1)$ – pozitivne obje padaju u $(1,0)$ i sad ih pravac lako odvaja. To je bit dubokog učenja: skriveni slojevi uče <em>reprezentaciju</em> u kojoj zadatak postaje linearan.</p>
+<p><b>Korak 2: općeniti unaprijedni prolaz.</b> Parametri su popis parova $(W^{(\ell)},b^{(\ell)})$; sve skrivene aktivacije su ReLU, a izlaz softmax. Provjeravamo oblike i da se vjerojatnosti zbrajaju u $1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">relu</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">softmax</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>     <span class="c1"># oduzimanje maksimuma: numerička stabilnost</span>
+    <span class="k">return</span> <span class="n">e</span> <span class="o">/</span> <span class="n">e</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">init_he</span><span class="p">(</span><span class="n">sirine</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">n_ul</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_iz</span><span class="p">,</span> <span class="n">n_ul</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_iz</span><span class="p">))</span>
+            <span class="k">for</span> <span class="n">n_ul</span><span class="p">,</span> <span class="n">n_iz</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sirine</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">sirine</span><span class="p">[</span><span class="mi">1</span><span class="p">:])]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">parametri</span><span class="p">):</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">X</span>
+    <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">parametri</span><span class="p">):</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">H</span> <span class="o">@</span> <span class="n">W</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">b</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="n">relu</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span> <span class="k">if</span> <span class="n">l</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">parametri</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">softmax</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">H</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sirine</span> <span class="o">=</span> <span class="p">[</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">10</span><span class="p">]</span>
+<span class="n">parametri</span> <span class="o">=</span> <span class="n">init_he</span><span class="p">(</span><span class="n">sirine</span><span class="p">,</span> <span class="n">rng</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">W</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">b</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">W</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">parametri</span><span class="p">),</span>
+      <span class="s2">"  formula:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">c</span> <span class="o">+</span> <span class="n">c</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">sirine</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">sirine</span><span class="p">[</span><span class="mi">1</span><span class="p">:])))</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">unaprijed</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">64</span><span class="p">)),</span> <span class="n">parametri</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"izlaz oblika"</span><span class="p">,</span> <span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">" zbroj po redu:"</span><span class="p">,</span> <span class="n">P</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>parametara: 2778   formula: 2778
+izlaz oblika (5, 10)  zbroj po redu: [1. 1. 1. 1. 1.]</code></pre>
+<p><b>Korak 3: inicijalizacija.</b> Mreža od $20$ slojeva širine $200$ s tanh aktivacijom (bez učenja); pratimo standardnu devijaciju aktivacija po slojevima za nekoliko izbora standardne devijacije težina.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X0</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">std</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"premala (0.01)"</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">),</span> <span class="p">(</span><span class="s2">"prevelika (1.0)"</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span>
+                 <span class="p">(</span><span class="s2">"Xavier 1/sqrt(n)"</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">200</span><span class="p">)),</span> <span class="p">(</span><span class="s2">"Xavier * 5/3"</span><span class="p">,</span> <span class="mi">5</span> <span class="o">/</span> <span class="mi">3</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">200</span><span class="p">))):</span>
+    <span class="n">H</span> <span class="o">=</span> <span class="n">X0</span>
+    <span class="n">stdovi</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">H</span> <span class="o">@</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">std</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">)))</span>
+        <span class="n">stdovi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">H</span><span class="o">.</span><span class="n">std</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-20s</span><span class="s2"> sloj 1: </span><span class="si">%.3f</span><span class="s2">  sloj 5: </span><span class="si">%.3f</span><span class="s2">  sloj 20: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">stdovi</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stdovi</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">stdovi</span><span class="p">[</span><span class="mi">19</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>premala (0.01)       sloj 1: 0.139  sloj 5: 0.000  sloj 20: 0.000
+prevelika (1.0)      sloj 1: 0.972  sloj 5: 0.971  sloj 20: 0.970
+Xavier 1/sqrt(n)     sloj 1: 0.628  sloj 5: 0.324  sloj 20: 0.152
+Xavier * 5/3         sloj 1: 0.758  sloj 5: 0.651  sloj 20: 0.648</code></pre>
+<p>S premalim težinama aktivacije u nekoliko slojeva padnu na nulu – u dubljim slojevima nema nikakvog signala, a gradijenti (D2) bit će još manji. S prevelikima tanh zasićuje na $\pm1$ (standardna devijacija blizu $1$, derivacija blizu $0$) – mreža je skup prekidača bez gradijenta. Xavier ($1/\sqrt n$) čuva varijancu linearnog dijela, ali tanh svaki sloj malo „stisne”, pa raspršenje polako pada; množenje dodatnim faktorom $5/3$ (tzv. <em>gain</em> za tanh, koji koristi i PyTorch) to nadoknađuje i raspršenje ostaje stabilno kroz svih $20$ slojeva. Ovo je jedan od razloga zašto su duboke mreže dugo bile teške za trenirati i zašto danas svaka biblioteka inicijalizira ovako.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3 <span class="izvor-oznaka">skup podataka make_moons</span></h3>
+<div class="zadatak">
+<p>Na skupu <code>make_moons</code> ($400$ točaka, šum $0{,}2$) usporedi logističku regresiju s <code>MLPClassifier</code> različitih arhitektura i aktivacija. Nacrtaj granicu odluke.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci i linearni model.</b> Polumjeseci nisu linearno razdvojivi, pa je logistička regresija gornja granica onoga što može pravac.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_moons</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.neural_network</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLPClassifier</span>
+
+<span class="n">Xm</span><span class="p">,</span> <span class="n">ym</span> <span class="o">=</span> <span class="n">make_moons</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Xm_tr</span><span class="p">,</span> <span class="n">Xm_te</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">,</span> <span class="n">ym_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xm</span><span class="p">,</span> <span class="n">ym</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">log</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xm_tr</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"logistička regresija: trening </span><span class="si">%.3f</span><span class="s2">  test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">log</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xm_tr</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">),</span> <span class="n">log</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xm_te</span><span class="p">,</span> <span class="n">ym_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>logistička regresija: trening 0.857  test 0.908</code></pre>
+<p><b>Korak 2: MLP.</b> <code>hidden_layer_sizes</code> zadaje širine skrivenih slojeva; <code>MLPClassifier</code> uči gradijentnim spustom (Adam), pa treba dovoljno iteracija, razumna stopa učenja i fiksiran <code>random_state</code>. Značajke su ovdje već na skali oko $1$; inače bi standardizacija bila obavezna.</p>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="s2">"arhitektura        aktivacija  trening  test   iteracija"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">skriveni</span> <span class="ow">in</span> <span class="p">((</span><span class="mi">4</span><span class="p">,),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,),</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">)):</span>
+    <span class="k">for</span> <span class="n">akt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"logistic"</span><span class="p">,</span> <span class="s2">"tanh"</span><span class="p">,</span> <span class="s2">"relu"</span><span class="p">):</span>
+        <span class="n">mlp</span> <span class="o">=</span> <span class="n">MLPClassifier</span><span class="p">(</span><span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="n">skriveni</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="n">akt</span><span class="p">,</span> <span class="n">learning_rate_init</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+                            <span class="n">max_iter</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xm_tr</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-18s</span><span class="s2"> </span><span class="si">%-10s</span><span class="s2">  </span><span class="si">%.3f</span><span class="s2">    </span><span class="si">%.3f</span><span class="s2">    </span><span class="si">%4d</span><span class="s2">"</span>
+              <span class="o">%</span> <span class="p">(</span><span class="n">skriveni</span><span class="p">,</span> <span class="n">akt</span><span class="p">,</span> <span class="n">mlp</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xm_tr</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">),</span> <span class="n">mlp</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xm_te</span><span class="p">,</span> <span class="n">ym_te</span><span class="p">),</span> <span class="n">mlp</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>arhitektura        aktivacija  trening  test   iteracija
+(4,)               logistic    0.875    0.908     204
+(4,)               tanh        0.875    0.908     110
+(4,)               relu        0.864    0.908     129
+(16,)              logistic    0.861    0.908     144
+(16,)              tanh        0.968    0.958     672
+(16,)              relu        0.979    0.967     818
+(16, 16)           logistic    0.864    0.908      91
+(16, 16)           tanh        0.971    0.958     252
+(16, 16)           relu        0.971    0.958     210</code></pre>
+<p>Mreže s $4$ skrivena neurona i sve sa sigmoidom zapele su na točnosti linearnog modela (oko $0{,}86$ na treningu, $0{,}91$ na testu) – pronašle su „pravac” i Adam je stao na platou. S $16$ neurona tanh i ReLU savijaju granicu i skaču na oko $0{,}96$–$0{,}97$ na treningu i testu; dodatni sloj ne pomaže jer šum od $0{,}2$ ne dopušta puno više. Dvije pouke: sigmoid u skrivenom sloju uči sporo i zapinje (zato ReLU), a hiperparametri optimizacije nisu ukras – sa zadanom stopom <code>learning_rate_init=0.001</code> i ovdje bi i $16$ neurona ostalo na platou, jer kriterij zaustavljanja <code>tol</code> prekine učenje prije nego što izađe iz njega (isprobaj). Tablicu uvijek čitaj zajedno s brojem iteracija: ako je jednak <code>max_iter</code>, model nije konvergirao.</p>
+<p><b>Korak 3: granica odluke.</b> Mrežu točaka u ravnini klasificiramo i obojimo – standardni način da se vidi što je model naučio.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">mlp</span> <span class="o">=</span> <span class="n">MLPClassifier</span><span class="p">(</span><span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,),</span> <span class="n">activation</span><span class="o">=</span><span class="s2">"relu"</span><span class="p">,</span> <span class="n">learning_rate_init</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+                    <span class="n">max_iter</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xm_tr</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">)</span>
+<span class="n">xx</span><span class="p">,</span> <span class="n">yy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">1.8</span><span class="p">,</span> <span class="mf">2.8</span><span class="p">,</span> <span class="mi">200</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">1.3</span><span class="p">,</span> <span class="mf">1.8</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span>
+<span class="n">mreza_t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">xx</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">yy</span><span class="o">.</span><span class="n">ravel</span><span class="p">()]</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">os_</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">naslov</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">osi</span><span class="p">,</span> <span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">mlp</span><span class="p">),</span> <span class="p">(</span><span class="s2">"logistička regresija"</span><span class="p">,</span> <span class="s2">"MLP (16 ReLU)"</span><span class="p">)):</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">mreza_t</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">xx</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">levels</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu"</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">Xm</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">Xm</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">ym</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu"</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">"k"</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">naslov</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"moons_granica.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno moons_granica.png  (zadnji gubitak: </span><span class="si">%.3f</span><span class="s2">, iteracija: </span><span class="si">%d</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">mlp</span><span class="o">.</span><span class="n">loss_curve_</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">mlp</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>spremljeno moons_granica.png  (zadnji gubitak: 0.076, iteracija: 818)</code></pre>
+<p>Lijevo je granica pravac koji nužno siječe oba polumjeseca; desno je zakrivljena vrpca koja slijedi oblik podataka, sastavljena od ravnih komada (ReLU mreža je po dijelovima linearna). <code>loss_curve_</code> je gubitak po iteraciji – pogledaj ga uvijek: treba glatko padati i izravnati se.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Koliko parametara ima MLP za slike $28\times28$ sa skrivenim slojevima širine $128$ i $64$ te $10$ izlaznih klasa? Koliko ih ima <code>MLPClassifier(hidden_layer_sizes=(16, 16))</code> iz Primjera 3 (ulaz $2$, izlaz $1$)? Provjeri preko <code>coefs_</code> i <code>intercepts_</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$784\cdot128+128+128\cdot64+64+64\cdot10+10=100\,480+8\,256+650=109\,386$. Za malu mrežu: $2\cdot16+16+16\cdot16+16+16\cdot1+1=48+272+17=337$ (binarna klasifikacija ima jedan izlazni neuron sa sigmoidom).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">m2</span> <span class="o">=</span> <span class="n">MLPClassifier</span><span class="p">(</span><span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">learning_rate_init</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xm_tr</span><span class="p">,</span> <span class="n">ym_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">W</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">W</span> <span class="ow">in</span> <span class="n">m2</span><span class="o">.</span><span class="n">coefs_</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">m2</span><span class="o">.</span><span class="n">intercepts_</span><span class="p">),</span>
+      <span class="p">[</span><span class="n">W</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">W</span> <span class="ow">in</span> <span class="n">m2</span><span class="o">.</span><span class="n">coefs_</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>337 [(2, 16), (16, 16), (16, 1)]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Ručno izračunaj izlaz mreže $h=\operatorname{ReLU}(W_1x+b_1)$, $\hat y=w_2^\top h+b_2$ za $x=(1,2)$, $W_1=\begin{pmatrix}1&amp;-1\\0&amp;1\end{pmatrix}$, $b_1=(0,-1)$, $w_2=(1,1)$, $b_2=0{,}5$. Zatim izračunaj isto za $x=(2,1)$ i objasni zašto se prvi skriveni neuron ponaša drukčije.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$W_1x+b_1=(1-2+0,\;0+2-1)=(-1,1)$, $h=(0,1)$, $\hat y=0+1+0{,}5=1{,}5$. Za $x=(2,1)$: $W_1x+b_1=(1,0)$, $h=(1,0)$, $\hat y=1{,}5$. Prvi neuron računa $x_1-x_2$: za prvi ulaz je negativan i ReLU ga „ugasi” (izlaz nula, i gradijent prema njegovim težinama bio bi nula), za drugi je aktivan.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">W1z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]]);</span> <span class="n">b1z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">]);</span> <span class="n">w2z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">xz</span> <span class="ow">in</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])):</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">relu</span><span class="p">(</span><span class="n">W1z</span> <span class="o">@</span> <span class="n">xz</span> <span class="o">+</span> <span class="n">b1z</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"x ="</span><span class="p">,</span> <span class="n">xz</span><span class="p">,</span> <span class="s2">" h ="</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="s2">" y ="</span><span class="p">,</span> <span class="n">w2z</span> <span class="o">@</span> <span class="n">h</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>x = [1. 2.]  h = [0. 1.]  y = 1.5
+x = [2. 1.]  h = [1. 0.]  y = 1.5</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Dokaži formule $\sigma'(z)=\sigma(z)(1-\sigma(z))$ i $\tanh'(z)=1-\tanh^2(z)$, pa ih numerički provjeri konačnim razlikama u točkama $z\in\{-3,0,2\}$. Gdje je sigmoid najstrmiji i koliki mu je tamo nagib?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$\sigma(z)=(1+e^{-z})^{-1}$, pa $\sigma'(z)=e^{-z}(1+e^{-z})^{-2}=\sigma(z)\cdot\dfrac{e^{-z}}{1+e^{-z}}=\sigma(z)(1-\sigma(z))$. Za $\tanh=\sinh/\cosh$: $\tanh'=\dfrac{\cosh^2-\sinh^2}{\cosh^2}=1-\tanh^2$. Sigmoid je najstrmiji u $z=0$, gdje je $\sigma'(0)=\frac14$ – zato u dubokoj mreži sa sigmoidima gradijent svakim slojem padne barem četiri puta.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">):</span>
+    <span class="n">num_s</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">z</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">sigmoid</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="n">num_t</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">z</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"z = </span><span class="si">%4.1f</span><span class="s2">  sigma': </span><span class="si">%.6f</span><span class="s2"> vs </span><span class="si">%.6f</span><span class="s2">   tanh': </span><span class="si">%.6f</span><span class="s2"> vs </span><span class="si">%.6f</span><span class="s2">"</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">sigmoid</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">sigmoid</span><span class="p">(</span><span class="n">z</span><span class="p">)),</span> <span class="n">num_s</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">num_t</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>z = -3.0  sigma': 0.045177 vs 0.045177   tanh': 0.009866 vs 0.009866
+z =  0.0  sigma': 0.250000 vs 0.250000   tanh': 1.000000 vs 1.000000
+z =  2.0  sigma': 0.104994 vs 0.104994   tanh': 0.070651 vs 0.070651</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Nauči perceptron iz Primjera 1 na funkcijama NAND i OR, zatim na njihove izlaze primijeni perceptron naučen na AND. Provjeri da ta trorazinska konstrukcija računa XOR. Što si upravo napravio?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">nauci</span><span class="p">(</span><span class="n">izlazi</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">perceptron</span><span class="p">(</span><span class="n">ulazi</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">izlazi</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">primijeni</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))])</span> <span class="o">@</span> <span class="n">w</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+<span class="n">w_nand</span><span class="p">,</span> <span class="n">w_or</span><span class="p">,</span> <span class="n">w_and</span> <span class="o">=</span> <span class="n">nauci</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">nauci</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">nauci</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">primijeni</span><span class="p">(</span><span class="n">w_nand</span><span class="p">,</span> <span class="n">ulazi</span><span class="p">),</span> <span class="n">primijeni</span><span class="p">(</span><span class="n">w_or</span><span class="p">,</span> <span class="n">ulazi</span><span class="p">)])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"skriveni sloj (NAND, OR):"</span><span class="p">,</span> <span class="n">H</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"XOR ="</span><span class="p">,</span> <span class="n">primijeni</span><span class="p">(</span><span class="n">w_and</span><span class="p">,</span> <span class="n">H</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>skriveni sloj (NAND, OR): [[1.0, 0.0], [1.0, 1.0], [1.0, 1.0], [0.0, 1.0]]
+XOR = [0. 1. 1. 0.]</code></pre>
+<p>Sastavio si MLP od perceptrona: skriveni sloj (NAND, OR) i izlazni AND. Svaki sloj naučen je zasebno jer znamo što skriveni neuroni <em>trebaju</em> računati – u pravim zadacima ne znamo, i to je upravo problem koji rješava backpropagation (D2): kako podijeliti krivnju za pogrešku među skrivene neurone.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Dokaži da XOR nije linearno razdvojiv. Zatim pokaži da dodavanje značajke $x_1x_2$ čini problem razdvojivim i da ga perceptron tada nauči.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Pretpostavi da postoje $w_1,w_2,b$ s traženim predznacima i zbroji nejednakosti za pozitivne, odnosno negativne točke.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Neka je $g(x)=w_1x_1+w_2x_2+b$. Trebalo bi $g(0,0)=b\lt0$, $g(1,1)=w_1+w_2+b\lt0$, $g(0,1)=w_2+b\gt0$, $g(1,0)=w_1+b\gt0$. Zbroj zadnjih dviju daje $w_1+w_2+2b\gt0$, zbroj prvih dviju $w_1+w_2+2b\lt0$ – kontradikcija. S trećom koordinatom $x_3=x_1x_2$ točke postaju $(0,0,0),(0,1,0),(1,0,0),(1,1,1)$ i funkcija $x_1+x_2-2x_3-0{,}5$ ih razdvaja. Ručno dodana nelinearna značajka radi isto što i skriveni sloj – ali skriveni sloj je <em>nauči</em>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">ulazi3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">ulazi</span><span class="p">,</span> <span class="n">ulazi</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">ulazi</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]])</span>
+<span class="n">w3</span><span class="p">,</span> <span class="n">k3</span><span class="p">,</span> <span class="n">ep3</span> <span class="o">=</span> <span class="n">perceptron</span><span class="p">(</span><span class="n">ulazi3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"w ="</span><span class="p">,</span> <span class="n">w3</span><span class="p">,</span> <span class="s2">" konvergirao u epohi"</span><span class="p">,</span> <span class="n">ep3</span><span class="p">,</span> <span class="s2">" predikcije:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">ulazi3</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">4</span><span class="p">)])</span> <span class="o">@</span> <span class="n">w3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>w = [ 2.  2. -5. -1.]  konvergirao u epohi 12  predikcije: [-1.  1.  1. -1.]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Ilustriraj univerzalnu aproksimaciju bez treniranja: za $f(x)=\sin(2\pi x)$ na $[0,1]$ napravi skriveni sloj od $H$ ReLU neurona $\operatorname{ReLU}(x-t_j)$ s koljenima $t_j$ ravnomjerno na $[0,1]$ i izlazne težine odredi <em>linearnom regresijom</em> (lekcija M1) na $200$ točaka. Ispiši MSE za $H\in\{2,4,8,16,64\}$. Koliko linearnih komada ima dobivena funkcija?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Skrivene aktivacije su matrica dizajna; izlazni sloj je linearna regresija na njoj.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">xs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xs</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">H_</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">64</span><span class="p">):</span>
+    <span class="n">koljena</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">H_</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span> <span class="n">xs</span><span class="p">,</span> <span class="n">relu</span><span class="p">(</span><span class="n">xs</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">-</span> <span class="n">koljena</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])])</span>
+    <span class="n">w_iz</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"H = </span><span class="si">%2d</span><span class="s2">  MSE = </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">H_</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">A</span> <span class="o">@</span> <span class="n">w_iz</span> <span class="o">-</span> <span class="n">f</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>H =  2  MSE = 0.199612
+H =  4  MSE = 0.005839
+H =  8  MSE = 0.000296
+H = 16  MSE = 0.000017
+H = 64  MSE = 0.000000</code></pre>
+<p>Funkcija je po dijelovima linearna s najviše $H+1$ komada (lom u svakom koljenu), i greška pada s brojem neurona otprilike kao $1/H^4$ za glatku funkciju – to je univerzalna aproksimacija „na dlanu”. Pravo treniranje radi dvije stvari više: uči i <em>položaje</em> koljena (težine i pomaci skrivenog sloja), pa ih može zgusnuti tamo gdje funkcija brzo mijenja nagib, i radi to u više dimenzija, gdje ravnomjerna mreža koljena nije moguća.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>XOR s učenjem: generiraj $300$ točaka $x\in[-1,1]^2$ s oznakom $y=[x_1x_2\gt0]$ (šahovnica $2\times2$). Treniraj <code>MLPClassifier</code> sa skrivenim slojem širine $2$, $4$ i $8$ (tanh, <code>max_iter=5000</code>) za deset različitih <code>random_state</code> i prebroji u koliko pokretanja točnost na treningu prelazi $0{,}95$. Zašto najmanja mreža, iako teorijski dovoljna, često ne uspije?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Xx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">300</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">yx</span> <span class="o">=</span> <span class="p">(</span><span class="n">Xx</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">Xx</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
+    <span class="n">uspjeha</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">MLPClassifier</span><span class="p">(</span><span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="n">h</span><span class="p">,),</span> <span class="n">activation</span><span class="o">=</span><span class="s2">"tanh"</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xx</span><span class="p">,</span> <span class="n">yx</span><span class="p">)</span>
+        <span class="n">uspjeha</span> <span class="o">+=</span> <span class="n">m</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xx</span><span class="p">,</span> <span class="n">yx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.95</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"širina </span><span class="si">%d</span><span class="s2">: uspjelo </span><span class="si">%2d</span><span class="s2">/10"</span> <span class="o">%</span> <span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">uspjeha</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>širina 2: uspjelo  0/10
+širina 4: uspjelo  4/10
+širina 8: uspjelo 10/10</code></pre>
+<p>Dva skrivena neurona <em>mogu</em> prikazati XOR (Primjer 2), ali gradijentni spust iz slučajnog početka ovdje ni jednom nije uspio – zapne u lokalnom minimumu u kojem oba neurona nauče istu stranu ili jedan „umre”. S više neurona od potrebnog ima mnogo više dobrih rješenja i gotovo svaki početak vodi u jedno od njih. Zato se u praksi mreže <em>prevelike</em> za zadatak treniraju lakše od minimalnih – a prenaučenost se zatim kontrolira regularizacijom (D4).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Skup <code>make_circles(n_samples=400, noise=0.1, factor=0.4, random_state=0)</code> ima klasu unutar kruga i klasu izvan njega. (a) Usporedi logističku regresiju na $(x_1,x_2)$, logističku regresiju s ručno dodanom značajkom $x_1^2+x_2^2$ i MLP s $8$ ReLU neurona. (b) Za MLP ispiši skrivene aktivacije nekoliko točaka i objasni geometrijski kako $8$ ReLU neurona aproksimira krug.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Krug je presjek poluravnina kad ga aproksimiraš mnogokutom.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_circles</span>
+
+<span class="n">Xc</span><span class="p">,</span> <span class="n">yc</span> <span class="o">=</span> <span class="n">make_circles</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Xc_tr</span><span class="p">,</span> <span class="n">Xc_te</span><span class="p">,</span> <span class="n">yc_tr</span><span class="p">,</span> <span class="n">yc_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">r2</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">X_</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">X_</span><span class="p">,</span> <span class="p">(</span><span class="n">X_</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)])</span>
+<span class="n">log_c</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xc_tr</span><span class="p">,</span> <span class="n">yc_tr</span><span class="p">)</span>
+<span class="n">log_r</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">r2</span><span class="p">(</span><span class="n">Xc_tr</span><span class="p">),</span> <span class="n">yc_tr</span><span class="p">)</span>
+<span class="n">mlp_c</span> <span class="o">=</span> <span class="n">MLPClassifier</span><span class="p">(</span><span class="n">hidden_layer_sizes</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,),</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xc_tr</span><span class="p">,</span> <span class="n">yc_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"logistička (x1, x2):      test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">log_c</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xc_te</span><span class="p">,</span> <span class="n">yc_te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"logistička + x1^2+x2^2:   test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">log_r</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">r2</span><span class="p">(</span><span class="n">Xc_te</span><span class="p">),</span> <span class="n">yc_te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MLP 8 ReLU:               test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">mlp_c</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xc_te</span><span class="p">,</span> <span class="n">yc_te</span><span class="p">))</span>
+
+<span class="n">W1c</span><span class="p">,</span> <span class="n">b1c</span> <span class="o">=</span> <span class="n">mlp_c</span><span class="o">.</span><span class="n">coefs_</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">mlp_c</span><span class="o">.</span><span class="n">intercepts_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">kutovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">W1c</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">W1c</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"smjerovi skrivenih neurona (stupnjevi):"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">kutovi</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"aktivacije za (0,0):   "</span><span class="p">,</span> <span class="n">relu</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">@</span> <span class="n">W1c</span> <span class="o">+</span> <span class="n">b1c</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"aktivacije za (1,0):   "</span><span class="p">,</span> <span class="n">relu</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">@</span> <span class="n">W1c</span> <span class="o">+</span> <span class="n">b1c</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>logistička (x1, x2):      test 0.425
+logistička + x1^2+x2^2:   test 1.000
+MLP 8 ReLU:               test 1.000
+smjerovi skrivenih neurona (stupnjevi): [-176. -174. -127. -126.  -77.   -5.   45.  135.]
+aktivacije za (0,0):    [0.   0.   0.   0.   0.   2.27 0.   0.  ]
+aktivacije za (1,0):    [0.   0.   0.   0.   0.   0.21 0.31 1.86]</code></pre>
+<p>Pravac u $(x_1,x_2)$ ne može odvojiti unutrašnjost kruga od vanjštine (točnost oko $0{,}5$). Jedna dobro odabrana značajka, $r^2=x_1^2+x_2^2$, čini problem linearnim: granica $r^2=c$ je krug, i logistička regresija postaje gotovo savršena. MLP do sličnog rezultata dolazi bez našeg znanja o krugu: svaki skriveni ReLU neuron je poluravnina koja se „pali” kad točka prijeđe neki pravac, smjerovi tih pravaca raspoređeni su oko kruga, pa je unutrašnjost približno <em>mnogokut</em> na kojem je malo neurona aktivno, a izvan njega aktivnih je sve više. Ručna značajka je ovdje bolja i jeftinija – pouka za natjecanje: kad znaš geometriju problema, iskoristi je; mreža je za slučajeve kad je ne znaš.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Dokaži Novikoffov teorem. Zatim eksperimentalno provjeri ovisnost o margini: generiraj točke u kvadratu $[-1,1]^2$ bez trake $|x_1|\le\gamma$, označi ih predznakom od $x_1$, slučajno zarotiraj i pomakni, pa izmjeri prosječan broj ažuriranja perceptrona za nekoliko margina $\gamma$ i usporedi s $1/\gamma^2$.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Neka je $w^*$ jedinični vektor koji razdvaja s marginom $\gamma$. Nakon $k$ ažuriranja ocijeni $w^\top w^*$ odozdo i $\lVert w\rVert^2$ odozgo, pa upotrijebi Cauchy–Schwarzovu nejednakost.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Radimo s proširenim ulazima (pomak u $w$), $\lVert x_i\rVert\le R$, $y_i\,w^{*\top}x_i\ge\gamma$, $\lVert w^*\rVert=1$. Pri svakom ažuriranju na pogrešno klasificiranom $(x_i,y_i)$: (1) $w_{\text{novi}}^\top w^*=w^\top w^*+y_ix_i^\top w^*\ge w^\top w^*+\gamma$, pa je nakon $k$ ažuriranja $w_k^\top w^*\ge k\gamma$. (2) $\lVert w_{\text{novi}}\rVert^2=\lVert w\rVert^2+2y_iw^\top x_i+\lVert x_i\rVert^2\le\lVert w\rVert^2+R^2$, jer je $y_iw^\top x_i\le0$ (primjer je bio pogrešan); dakle $\lVert w_k\rVert^2\le kR^2$. Cauchy–Schwarz: $k\gamma\le w_k^\top w^*\le\lVert w_k\rVert\le\sqrt k\,R$, odakle $k\le R^2/\gamma^2$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gamma   prosj. ažuriranja   medijan   1/gamma^2"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gamma</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">):</span>
+    <span class="n">brojevi</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ponav</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">P</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">&gt;</span> <span class="n">gamma</span><span class="p">][:</span><span class="mi">200</span><span class="p">]</span>                 <span class="c1"># izbaci traku oko granice x1 = 0</span>
+        <span class="n">yg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">kut</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+        <span class="n">Rot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">kut</span><span class="p">),</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">kut</span><span class="p">)],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">kut</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">kut</span><span class="p">)]])</span>
+        <span class="n">Xg</span> <span class="o">=</span> <span class="n">P</span> <span class="o">@</span> <span class="n">Rot</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>      <span class="c1"># slučajna rotacija i pomak</span>
+        <span class="n">brojevi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">perceptron</span><span class="p">(</span><span class="n">Xg</span><span class="p">,</span> <span class="n">yg</span><span class="p">,</span> <span class="n">max_epoha</span><span class="o">=</span><span class="mi">2000</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%.2f</span><span class="s2">   </span><span class="si">%12.1f</span><span class="s2">   </span><span class="si">%10.1f</span><span class="s2">   </span><span class="si">%9.0f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">gamma</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">brojevi</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">brojevi</span><span class="p">),</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">gamma</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>gamma   prosj. ažuriranja   medijan   1/gamma^2
+0.01           89.0         56.0       10000
+0.03           37.4         30.0        1111
+0.10           11.2          7.5         100
+0.30            4.7          5.0          11</code></pre>
+<p>Broj ažuriranja raste kad margina pada – u ovom pokusu otprilike kao $1/\gamma$, dakle sporije od najgoreg slučaja $1/\gamma^2$ koji teorem jamči (a $R^2$ je ovdje oko $4$–$5$, pa je granica još nekoliko puta veća). Granica je gruba, ali ovisnost o margini je stvarna: pri $\gamma=0{,}01$ treba oko dvadeset puta više ispravaka nego pri $\gamma=0{,}3$. Isti zaključak vrijedi i za moderne mreže: dobro razdvojeni podaci uče se brzo, a sav napor ide na primjere blizu granice – što je ideja iza SVM-a (M3) i, kasnije, iza mnogih trikova treniranja.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Umjetni neuron: $\varphi(w^\top x+b)$. Perceptron (aktivacija sign) uči pravilom $w\leftarrow w+y_ix_i$ na pogreškama i konvergira u najviše $R^2/\gamma^2$ koraka ako su podaci linearno razdvojivi; na XOR-u nikad.</li>
+<li>Aktivacije: sigmoid $(0,1)$ za vjerojatnosti, tanh centriran, ReLU zadani izbor za skrivene slojeve; bez nelinearnosti svi se slojevi urušavaju u jedan linearan.</li>
+<li>MLP: $H^{(\ell)}=\varphi(H^{(\ell-1)}W^{(\ell)\top}+b^{(\ell)})$ za sve primjere odjednom; softmax na kraju za klase; parametara $\sum(n_{\ell-1}n_\ell+n_\ell)$.</li>
+<li>Jedan dovoljno širok skriveni sloj aproksimira svaku neprekidnu funkciju, ali teorem ne kaže koliko neurona treba ni kako ih naučiti; skriveni sloj uči reprezentaciju u kojoj problem postaje linearan.</li>
+<li>Inicijalizacija: slučajna, varijance $\approx1/n_{\text{ul}}$ (Xavier za tanh, He $=2/n_{\text{ul}}$ za ReLU); nule i prevelike vrijednosti ubijaju signal.</li>
+<li>Scikit-learn: <code>MLPClassifier(hidden_layer_sizes, activation, max_iter, random_state)</code>; gledaj <code>n_iter_</code> i <code>loss_curve_</code>.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>M. Nielsen, <a href="http://neuralnetworksanddeeplearning.com/">Neural Networks and Deep Learning</a>, poglavlja 1 i 4 (vizualni dokaz univerzalne aproksimacije).</li>
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press, poglavlje 6 (Deep Feedforward Networks); besplatno na <a href="https://www.deeplearningbook.org/">deeplearningbook.org</a>.</li>
+<li>X. Glorot, Y. Bengio, <i>Understanding the difficulty of training deep feedforward neural networks</i>, AISTATS 2010; K. He i dr., <i>Delving Deep into Rectifiers</i>, ICCV 2015 (inicijalizacije).</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/neural_networks_supervised.html">Neural network models (supervised)</a>.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <span class="lekcija-nav-prazno prethodna"></span>
+                <a class="sljedeca" href="02-backpropagation.html"><small>Sljedeća lekcija →</small>D2 · Backpropagation: kako mreža uči</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

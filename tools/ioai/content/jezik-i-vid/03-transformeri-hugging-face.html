@@ -1,0 +1,688 @@
+@@ meta
+naslov = Pretrenirani jezični modeli i Hugging Face
+podnaslov = BERT i GPT kao gotovi „čitači” teksta: tokenizatori, biblioteka transformers, embeddinzi rečenica, fine-tuning i zero-shot – sve što stane na procesor
+oznake = pretreniranje, maskirani jezični model, autoregresivni model, WordPiece, Hugging Face transformers, AutoTokenizer, fine-tuning, zero-shot, višejezični modeli
+
+@@ ciljevi
+<li>Objasniti što je pretrenirani transformer, čime se razlikuju maskirani (BERT) i autoregresivni (GPT) cilj učenja i zašto pretreniranje pomaže zadatku s malo podataka.</li>
+<li>Razumjeti što tokenizator radi s rečenicom (podriječi, posebni tokeni, <code>input_ids</code>, <code>attention_mask</code>) i istrenirati vlastiti WordPiece tokenizator.</li>
+<li>Koristiti biblioteku <code>transformers</code>: <code>pipeline</code>, <code>AutoTokenizer</code>/<code>AutoModel</code>, embeddinzi rečenica, fine-tuning klasifikatora ručnom petljom ili <code>Trainer</code>-om.</li>
+<li>Znati što je realno na procesoru tijekom natjecanja: mali modeli, kratki nizovi, zamrznuti embeddinzi + linearni model, zero-shot kao prva procjena.</li>
+
+@@ teorija
+<p>U lekciji V2 vektor riječi naučili smo iz konteksta, ali svaka je riječ dobila jedan vektor. Lekcija D6 opisala je arhitekturu transformera – slojeve pažnje koji svaki token predstavljaju <em>ovisno o svim ostalima</em>. Ovdje spajamo to dvoje: <b>pretrenirani jezični model</b> je transformer koji je netko već istrenirao na golemom tekstu, a mi ga preuzmemo i upotrijebimo kao gotov pretvarač teksta u kontekstualne vektore. Na natjecanju to znači da se NLP zadatak s par tisuća označenih primjera rješava u jednom poslijepodnevu – bez pretreniranog modela isti zadatak zahtijevao bi milijune primjera.</p>
+
+<h3>Pretreniranje: učenje bez oznaka</h3>
+<p>Ključna ideja je <b>samonadzirano učenje</b> (engl. <i>self-supervised</i>): oznake se stvaraju iz samog teksta, pa je podataka koliko i teksta na internetu. Dva su glavna cilja:</p>
+<definicija naslov="Maskirani jezični model (MLM)">
+Nasumično odabranih (tipično $15\,\%$) tokena ulaza zamijeni se posebnim tokenom <code>[MASK]</code>, a model mora iz <em>cijelog</em> ostatka rečenice (lijevo i desno) pogoditi izvorne tokene:
+$$L_{\mathrm{MLM}}=-\sum_{i\in\mathcal M}\ln P(x_i\mid x_{\setminus\mathcal M}),$$
+gdje je $\mathcal M$ skup maskiranih pozicija. Tako uči <b>BERT</b> (<i>Bidirectional Encoder Representations from Transformers</i>) i njegovi nasljednici (RoBERTa, DistilBERT, XLM-R). Arhitektura je <b>enkoder</b>: svaki token vidi sve ostale.
+</definicija>
+<definicija naslov="Autoregresivni jezični model">
+Model predviđa sljedeći token iz prethodnih,
+$$L_{\mathrm{AR}}=-\sum_{t=1}^{T}\ln P(x_t\mid x_1,\dots,x_{t-1}),$$
+pa token na poziciji $t$ smije gledati samo pozicije $\lt t$ (kauzalna maska pažnje). Tako uče <b>GPT</b> modeli i svi današnji „veliki jezični modeli” za generiranje. Arhitektura je <b>dekoder</b>; isti model generira tekst tako da uzorkuje token po token.
+</definicija>
+<p>Razlika u cilju odražava se u uporabi: enkoderi daju najbolje reprezentacije za <em>razumijevanje</em> (klasifikacija, označavanje tokena, sličnost rečenica) i manji su; dekoderi <em>generiraju</em> (prevođenje, sažimanje, odgovaranje) i mogu rješavati zadatke iz samog opisa u promptu, ali su za istu kvalitetu reprezentacija puno veći. Na natjecanju s ograničenim računalom klasifikaciju gotovo uvijek radiš enkoderom.</p>
+<napomena>Pretreniranje je skupo (tjedni na stotinama GPU-a) i to <em>nikad</em> ne radiš sam. Tvoj posao počinje poslije: odabrati model, pripremiti ulaz i <b>prilagoditi</b> ga zadatku (engl. <i>fine-tuning</i>) ili ga koristiti zamrznutog. Ta podjela rada – netko pretrenira, mnogi prilagođavaju – zove se <b>transfer učenja</b> i isti obrazac vidjet ćeš za slike u lekciji V5.</napomena>
+
+<h3>Tokenizatori</h3>
+<p>Transformer ne vidi riječi, nego indekse iz fiksnog rječnika podriječi (V1: BPE). Svaki pretrenirani model dolazi s <em>vlastitim</em> tokenizatorom i mora se koristiti baš s njim – isti indeks u drugom rječniku znači drugu podriječ. Tri su obitelji: <b>WordPiece</b> (BERT; nastavak riječi označen s <code>##</code>, npr. „golmanu” → „golman”, „##u”), <b>BPE na bajtovima</b> (GPT, RoBERTa; razmak je dio tokena, prikazan kao „Ġ”) i <b>SentencePiece/Unigram</b> (XLM-R, T5; razmak kao „▁”, radi izravno na sirovom tekstu). Sva tri algoritma dijele riječ koje nema u rječniku na manje poznate komade, pa nepoznatih riječi praktički nema – ali hrvatske riječi u modelu učenom pretežno na engleskom raspadaju se na $2$–$4$ komada, što skraćuje efektivnu duljinu ulaza i slabi reprezentacije.</p>
+<p>Tokenizator uz indekse (<code>input_ids</code>) vraća i <code>attention_mask</code> (jedinice za prave tokene, nule za nadopunu <code>[PAD]</code> kojom se rečenice u batchu izjednačuju po duljini) te dodaje <b>posebne tokene</b>: BERT stavlja <code>[CLS]</code> na početak (njegov izlazni vektor služi kao sažetak rečenice) i <code>[SEP]</code> na kraj (i između dviju rečenica u paru). Duljina ulaza ograničena je brojem pozicijskih embeddinga, kod BERT-a $512$ tokena; dulji tekst se reže (<code>truncation=True</code>) ili dijeli na prozore.</p>
+
+<h3>Biblioteka transformers</h3>
+<p>Hugging Face <b>Hub</b> je repozitorij s desecima tisuća pretreniranih modela, a <code>transformers</code> je biblioteka koja ih učitava jednom naredbom. Tri su razine sučelja:</p>
+<ul>
+<li><code>pipeline("zadatak", model=...)</code> – najviša razina: tekst unutra, rezultat van (<code>sentiment-analysis</code>, <code>zero-shot-classification</code>, <code>fill-mask</code>, <code>text-generation</code>, <code>translation</code>, …). Idealno za prvu procjenu.</li>
+<li><code>AutoTokenizer.from_pretrained(ime)</code> i <code>AutoModel.from_pretrained(ime)</code> – tokenizator i „goli” model koji vraća <code>last_hidden_state</code> oblika <code>(batch, tokeni, d)</code>; iz toga sam gradiš što trebaš.</li>
+<li><code>AutoModelForSequenceClassification</code>, <code>…ForTokenClassification</code>, <code>…ForMaskedLM</code> itd. – isti trup s dodanom <b>glavom</b> za zadatak; za klasifikaciju glava je linearni sloj nad vektorom <code>[CLS]</code> koji se inicijalizira slučajno i uči fine-tuningom.</li>
+</ul>
+<p>Pri prvom pozivu <code>from_pretrained</code> preuzima težine s Huba (BERT-base je oko $440$ MB) i sprema ih u lokalni cache; svaki sljedeći poziv je lokalan. Isti pozivi s <code>config</code> umjesto imena stvaraju model iste arhitekture sa <em>slučajnim</em> težinama – to ćemo iskoristiti u primjerima da sve pokrenemo bez preuzimanja.</p>
+
+<h3>Embeddinzi rečenica</h3>
+<p>Izlaz enkodera je po jedan vektor dimenzije $d$ ($768$ za base modele) za svaki token. Za cijelu rečenicu treba jedan vektor: ili vektor tokena <code>[CLS]</code>, ili <b>prosjek po tokenima uz masku</b> (engl. <i>mean pooling</i>), koji ignorira <code>[PAD]</code> pozicije. Kod modela koji nisu posebno učeni za sličnost rečenica prosjek je u pravilu bolji od <code>[CLS]</code>. Modeli iz obitelji <i>sentence-transformers</i> (npr. višejezični <code>paraphrase-multilingual-MiniLM-L12-v2</code>) dodatno su učeni tako da kosinus između vektora rečenica odgovara njihovoj značenjskoj sličnosti; to je najbrži put do pretraživanja, grupiranja i klasifikacije s malo podataka.</p>
+
+<h3>Fine-tuning</h3>
+<p><b>Fine-tuning</b> znači nastaviti učiti <em>cijeli</em> pretrenirani model (plus novu glavu) na svojim označenim podacima, ali vrlo oprezno: stopa učenja $2\cdot10^{-5}$ do $5\cdot10^{-5}$ (stotinu puta manja nego za mrežu od nule), $2$–$4$ epohe, AdamW s padom težina, linearno smanjivanje stope učenja uz kratko zagrijavanje (engl. <i>warm-up</i>), batch $16$–$32$. Prevelika stopa „zaboravi” pretrenirano znanje (engl. <i>catastrophic forgetting</i>). Praktične varijante kad je računalo slabo:</p>
+<ul>
+<li><b>Zamrznuti trup + linearni model</b> (engl. <i>linear probe</i>): jednom izračunaj embedding svake rečenice, spremi ga i treniraj logističku regresiju iz M3. Nema backpropagacije kroz transformer, pa je deset puta brže i radi i s nekoliko stotina primjera.</li>
+<li><b>Djelomični fine-tuning</b>: uči samo zadnjih nekoliko slojeva ili male dodatne module (LoRA, adapteri).</li>
+<li><b>Puni fine-tuning</b> s <code>Trainer</code>-om ili ručnom petljom iz D3 – najbolji rezultat, ali na CPU-u s base modelom i $2000$ rečenica računaj na desetke minuta po epohi.</li>
+</ul>
+
+<h3>Zero-shot i višejezični modeli</h3>
+<p><b>Zero-shot klasifikacija</b> određuje klasu bez ijednog označenog primjera. Najčešća izvedba koristi model učen za <em>zaključivanje</em> (NLI): rečenica je premisa, a za svaku klasu hipoteza „Ovaj tekst govori o {klasa}.”; klasa s najvećom vjerojatnošću <em>entailmenta</em> pobjeđuje. Alternativa je kosinus između embeddinga rečenice i embeddinga opisa klase. Zero-shot je slabiji od modela treniranog na podacima, ali daje polaznu točku u pet minuta i dobar je način da se provjeri jesu li klase uopće jezično razlučive.</p>
+<p>Za hrvatski tekst biraj <b>višejezične</b> modele: <code>xlm-roberta-base</code> (100 jezika, SentencePiece, znatno bolja tokenizacija hrvatskog od engleskog BERT-a), <code>bert-base-multilingual-cased</code> i višejezični sentence-transformers. Na Hubu postoje i modeli učeni posebno na hrvatskom i srodnim jezicima, npr. <b>BERTić</b> (<code>classla/bcms-bertic</code>) i <b>CroSloEngual BERT</b> (<code>EMBEDDIA/crosloengual-bert</code>); za zadatke na hrvatskom tekstu oni u pravilu daju bolje rezultate od općih višejezičnih modela iste veličine. Uvijek pogledaj karticu modela (<i>model card</i>) na Hubu: na kojim je jezicima učen, koji tokenizator koristi, ima li već fine-tunanu inačicu za tvoj zadatak.</p>
+<napomena>Ograničenja procesora u brojkama koje vrijedi zapamtiti: base model ($\approx110$ M parametara) obradi na CPU-u reda desetak rečenica od $64$ tokena u sekundi pri zaključivanju, a fine-tuning je $3$–$5$ puta sporiji po rečenici i množi se brojem epoha. Zato: (1) počni s malim modelom (DistilBERT, MiniLM) ili zamrznutim embeddinzima; (2) ograniči <code>max_length</code> na najkraće što zadatak podnosi – trošak pažnje raste kvadratno s duljinom; (3) embeddinge računaj jednom i spremi (<code>np.save</code>); (4) <code>torch.no_grad()</code> pri zaključivanju; (5) veliki model pokreni tek kad imaš radni mali cjevovod.</napomena>
+
+@@ primjeri
+<primjer>
+<p>Pokaži što tokenizator radi: (a) ručno implementiraj WordPiece s malim zadanim rječnikom; (b) istreniraj pravi WordPiece tokenizator bibliotekom <code>tokenizers</code> na malom hrvatskom korpusu i umotaj ga u Hugging Face sučelje s posebnim tokenima i nadopunom; (c) napiši kôd kojim bi isto napravio s tokenizatorom pretreniranog višejezičnog modela.</p>
+<rjesenje>
+<p><b>Korak 1: WordPiece ručno.</b> Algoritam je pohlepan: od početka riječi uzmi najdulji komad koji postoji u rječniku, ostatak nastavi s prefiksom <code>##</code>; ako nijedan komad ne odgovara, cijela riječ postaje <code>[UNK]</code>.</p>
+<kod jezik="python">
+import os
+os.environ["HF_HUB_OFFLINE"] = "1"          # primjeri rade bez preuzimanja
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+import re
+import unicodedata
+
+RJECNIK = {"[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]", "golman", "##u", "##a", "##i", "je", "su",
+           "utakmic", "##e", "##om", "obranio", "jedanaest", "##erac", "##erca", "na", "u"}
+
+def wordpiece(rijec, rjecnik=RJECNIK):
+    komadi, pocetak = [], 0
+    while pocetak < len(rijec):
+        kraj = len(rijec)
+        while kraj > pocetak:
+            komad = rijec[pocetak:kraj] if pocetak == 0 else "##" + rijec[pocetak:kraj]
+            if komad in rjecnik:
+                break
+            kraj -= 1
+        if kraj == pocetak:                      # nijedan komad ne odgovara
+            return ["[UNK]"]
+        komadi.append(komad)
+        pocetak = kraj
+    return komadi
+
+for r in ("golmanu", "utakmice", "jedanaesterca", "trener"):
+    print("%-14s ->" % r, wordpiece(r))
+</kod>
+<izlaz>
+golmanu        -> ['golman', '##u']
+utakmice       -> ['utakmic', '##e']
+jedanaesterca  -> ['jedanaest', '##erca']
+trener         -> ['[UNK]']
+</izlaz>
+<p>Riječi s poznatom osnovom raspadaju se na osnovu i nastavak – padež je postao zaseban token, što je točno ono što želimo za hrvatski. Riječ bez ijednog poznatog komada postaje <code>[UNK]</code>; pravi rječnici sadrže sve pojedinačne znakove, pa se to u praksi ne događa.</p>
+<p><b>Korak 2: učenje WordPiece rječnika.</b> Rječnik učimo kao BPE u lekciji V1 – spajamo najčešći par susjednih simbola – samo što simboli unutar riječi nose prefiks <code>##</code>, pa isti niz slova na početku i u sredini riječi daje različite tokene. (Izvorni WordPiece par bira po rezultatu $\frac{f(ab)}{f(a)\,f(b)}$, koji na ovako sićušnom korpusu prvo spaja rijetke riječi i ostavlja česte razbijene na slova; na milijardama tokena razlika je mala.) Korpus je šezdeset rečenica iz tri teme koje ćemo koristiti i u Primjeru 3; rječnik ograničavamo na $300$ tokena. (Biblioteka <code>tokenizers</code> ima i gotov <code>WordPieceTrainer</code> koji to radi brže, ali izjednačene parove razrješava nedeterministički, pa bi se indeksi mijenjali iz pokretanja u pokretanje; za lekciju je važnije da sve bude ponovljivo.)</p>
+<kod jezik="python">
+from collections import Counter
+from tokenizers import Tokenizer, models, normalizers, pre_tokenizers, processors
+from transformers import PreTrainedTokenizerFast
+
+tekstovi = [
+    # sport
+    "Vatreni su sinoć pobijedili 2:1 i plasirali se u polufinale.",
+    "Golman je obranio jedanaesterac u posljednjoj minuti utakmice.",
+    "Trener je nakon poraza najavio promjene u momčadi.",
+    "Košarkaši su slavili nakon produžetka, a najbolji strijelac ubacio je 30 koševa.",
+    "Maraton je startao u osam sati, a pobjednik je stigao na cilj nakon nešto više od dva sata.",
+    "Sudac je pokazao crveni karton braniču zbog grubog starta.",
+    "Tenisačica je osvojila turnir bez izgubljenog seta.",
+    "Navijači su ispunili stadion i pjevali cijelo drugo poluvrijeme.",
+    "Rukometaši imaju tri utakmice u skupini prije četvrtfinala.",
+    "Skijaš je u drugoj vožnji slaloma pao i ostao bez medalje.",
+    "Napadač je zabio dva gola i momčad je pobijedila 3:0.",
+    "Utakmica je završila bez golova, pa su navijači otišli razočarani.",
+    "Trener je na poluvremenu zamijenio golmana i dva braniča.",
+    "Plivačica je oborila državni rekord na 200 metara leptir.",
+    "Momčad je nakon pobjede skočila na vrh ljestvice prvenstva.",
+    "Igrač je ozlijedio koljeno i propušta ostatak sezone.",
+    "Reprezentacija trenira dvaput dnevno uoči kvalifikacijske utakmice.",
+    "Biciklisti su prošli brdsku etapu, a vodeći je zadržao žutu majicu.",
+    "Sudac je dosudio jedanaesterac u sudačkoj nadoknadi, a golman ga je obranio.",
+    "Klub je potpisao novog napadača koji je prošle sezone zabio 20 golova.",
+    # kuhanje
+    "Za ovaj recept trebaš 200 g brašna, dva jaja i prstohvat soli.",
+    "Tijesto ostavi da se diže sat vremena, pa ga peci 25 minuta.",
+    "Juha od rajčice najbolja je sa svježim bosiljkom i maslinovim uljem.",
+    "Luk nasjeckaj sitno i prži na laganoj vatri dok ne postane staklast.",
+    "Pećnicu zagrij na 180 stupnjeva prije nego što staviš kolač.",
+    "Rižoto miješaj stalno i dodaj temeljac kutlaču po kutlaču.",
+    "Palačinke poslužujemo s džemom od marelica ili s čokoladom.",
+    "Meso mariniraj preko noći u ulju, češnjaku i ružmarinu.",
+    "Salatu začini octom, uljem i malo šećera da ne bude kisela.",
+    "Kruh je gotov kad pri kucanju po dnu zvuči šuplje.",
+    "U tijesto za kruh dodaj kvasac, brašno i mlaku vodu, pa mijesi deset minuta.",
+    "Kolač peci 40 minuta na 170 stupnjeva i ostavi da se ohladi prije rezanja.",
+    "Umak od češnjaka i vrhnja odlično ide uz tjesteninu.",
+    "Juhu začini solju, paprom i svježim peršinom.",
+    "Meso peci u pećnici sat i pol i povremeno ga zalijevaj sokom.",
+    "Za palačinke umuti jaja, mlijeko i brašno u glatko tijesto.",
+    "Povrće kuhaj kratko da ostane hrskavo i zadrži boju.",
+    "Umjesto šećera u kolač možeš dodati med ili zrele banane.",
+    "Riža mora upiti svu vodu, a zatim je ostavi poklopljenu pet minuta.",
+    "Maslinovo ulje dodaj na kraju kuhanja da zadrži okus.",
+    # tehnologija
+    "Novi procesor ima 16 jezgri i troši manje energije od prethodnika.",
+    "Ažuriranje sustava popravlja sigurnosni propust u pregledniku.",
+    "Baterija mobitela traje dva dana uz uključen Wi-Fi i Bluetooth.",
+    "Programer je pronašao grešku u kodu koja je rušila aplikaciju.",
+    "Grafička kartica s 12 GB memorije pokreće igre u 4K rezoluciji.",
+    "Podaci se sinkroniziraju u oblaku čim se laptop spoji na internet.",
+    "Nova verzija Pythona donosi brži interpreter i bolje poruke o greškama.",
+    "Server je pao zbog preopterećenja nakon objave ažuriranja.",
+    "Tipkovnica se spaja bežično, a punjenje traje dva sata.",
+    "Algoritam preporuka uči iz povijesti pregledavanja korisnika.",
+    "Aplikacija se nakon ažuriranja sporije pokreće na starijim mobitelima.",
+    "Programeri su objavili zakrpu za grešku u sigurnosnom modulu softvera.",
+    "Laptop s novim procesorom i 32 GB memorije stiže u trgovine idući mjesec.",
+    "Lozinke čuvaj u upravitelju lozinki i uključi dvofaktorsku provjeru.",
+    "Internet je bio spor jer je ruter trebao ažuriranje softvera.",
+    "Mobitel ima zaslon od 6,5 inča i bateriju koja se puni za pola sata.",
+    "Kod je otvoren na GitHubu pa svatko može prijaviti grešku ili poslati zakrpu.",
+    "Operacijski sustav automatski preuzima sigurnosna ažuriranja preko interneta.",
+    "Procesor se pregrijava kad aplikacija koristi sve jezgre istodobno.",
+    "Podaci korisnika šifriraju se prije slanja na server u oblaku.",
+]
+oznake = [0] * 20 + [1] * 20 + [2] * 20
+IMENA = ["sport", "kuhanje", "tehnologija"]
+
+POSEBNI = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]"]
+
+def nauci_wordpiece(korpus, velicina):
+    rijeci = Counter(re.findall(r"\w+|[^\w\s]", unicodedata.normalize("NFC", " ".join(korpus)).lower()))
+    zapis = {r: [r[0]] + ["##" + z for z in r[1:]] for r in rijeci}          # riječ -> simboli
+    rjecnik = list(POSEBNI) + sorted({z for simboli in zapis.values() for z in simboli})
+    while len(rjecnik) < velicina:
+        f_par = Counter()
+        for r, simboli in zapis.items():
+            for a, b in zip(simboli, simboli[1:]):
+                f_par[(a, b)] += rijeci[r]
+        if not f_par:
+            break
+        a, b = max(f_par, key=lambda p: (f_par[p], p))               # najčešći par; izjednačenje abecedno
+        novi = a + b[2:]                                                     # "gol" + "##man" -> "golman"
+        rjecnik.append(novi)
+        for r, simboli in zapis.items():
+            i = 0
+            while i < len(simboli) - 1:
+                if simboli[i] == a and simboli[i + 1] == b:
+                    simboli[i:i + 2] = [novi]
+                i += 1
+    return {t: j for j, t in enumerate(rjecnik)}
+
+vocab = nauci_wordpiece(tekstovi, 300)
+tok = Tokenizer(models.WordPiece(vocab, unk_token="[UNK]"))
+tok.normalizer = normalizers.Sequence([normalizers.NFC(), normalizers.Lowercase()])
+tok.pre_tokenizer = pre_tokenizers.BertPreTokenizer()          # razmaci + interpunkcija
+tok.post_processor = processors.TemplateProcessing(
+    single="[CLS] $A [SEP]", pair="[CLS] $A [SEP] $B [SEP]",
+    special_tokens=[("[CLS]", tok.token_to_id("[CLS]")), ("[SEP]", tok.token_to_id("[SEP]"))])
+
+tokenizator = PreTrainedTokenizerFast(tokenizer_object=tok, unk_token="[UNK]", pad_token="[PAD]",
+                                      cls_token="[CLS]", sep_token="[SEP]", mask_token="[MASK]")
+print("veličina rječnika:", tokenizator.vocab_size, " zadnja naučena spajanja:", list(vocab)[-5:])
+print(tokenizator.tokenize("Golmanu su navijači pljeskali nakon utakmice."))
+</kod>
+<izlaz>
+veličina rječnika: 300  zadnja naučena spajanja: ['vat', 'uljem', 'uz', 'um', 'uk']
+['golma', '##nu', 'su', 'na', '##vi', '##ja', '##či', 'p', '##lje', '##sk', '##a', '##li', 'nakon', 'utakmice', '.']
+</izlaz>
+<p>Rječnik od $300$ tokena naučen na šezdeset rečenica sadrži sve znakove, česte riječi kao cijele tokene („su”, „nakon”, „utakmice”) i komadiće. „Golmanu” se dijeli na „golma” + „##nu” – granica <em>nije</em> morfološka (osnova je „golman”), jer algoritam gleda samo frekvencije, ne gramatiku; riječ „pljeskali”, koje u korpusu nema, raspada se na pet komada. Nema <code>[UNK]</code>, jer su svi znakovi u rječniku. S pravim rječnikom od $30\,000$ tokena učenim na gigabajtima teksta komadi su dulji i češće se poklapaju s morfemima, ali načelo je isto.</p>
+<p><b>Korak 3: batch s nadopunom.</b> Hugging Face tokenizator za popis rečenica vraća rječnik tenzora; <code>padding=True</code> nadopunjuje do najdulje rečenice, a <code>attention_mask</code> kaže modelu koje pozicije ignorirati.</p>
+<kod jezik="python">
+batch = tokenizator(["Trener je zamijenio golmana.", "Kruh je gotov."],
+                    padding=True, truncation=True, max_length=32, return_tensors="pt")
+print(batch["input_ids"])
+print(batch["attention_mask"])
+print(tokenizator.convert_ids_to_tokens(batch["input_ids"][1]))
+</kod>
+<izlaz>
+tensor([[  2, 155, 268,  78,  89,  23, 113,  83,  25, 239, 104,  40,   3],
+        [  2,  59, 123,  18,  78,  55,  25,  91,  31,  40,   3,   0,   0]])
+tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]])
+['[CLS]', 'k', '##ru', '##h', 'je', 'g', '##o', '##to', '##v', '.', '[SEP]', '[PAD]', '[PAD]']
+</izlaz>
+<p>Druga rečenica je kraća pa je nadopunjena nulama (<code>[PAD]</code> ima indeks $0$) i njezina maska ima nule na tim mjestima. Indeksi $2$ i $3$ su <code>[CLS]</code> i <code>[SEP]</code>.</p>
+<p><b>Korak 4: tokenizator pretreniranog modela.</b> Isto sučelje vrijedi za svaki model s Huba; jedina razlika je <code>from_pretrained</code>, koji pri prvom pozivu preuzima datoteke rječnika. Blok nije pokrenut (zahtijeva internet).</p>
+<kod jezik="python" pokreni="ne">
+from transformers import AutoTokenizer
+
+tok_xlmr = AutoTokenizer.from_pretrained("xlm-roberta-base")
+tok_bert = AutoTokenizer.from_pretrained("bert-base-cased")
+r = "Golmanu su navijači pljeskali nakon utakmice."
+print(len(tok_xlmr.tokenize(r)), tok_xlmr.tokenize(r))
+print(len(tok_bert.tokenize(r)), tok_bert.tokenize(r))
+print(tok_xlmr(r)["input_ids"])
+</kod>
+<p>Očekivani ispis: XLM-R (SentencePiece, učen na 100 jezika) tokene označava znakom „▁” za početak riječi i hrvatsku rečenicu od šest riječi podijeli na otprilike desetak tokena, dok engleski BERT (WordPiece, rječnik pretežno engleski) istu rečenicu rasprši na znatno više komada od po dva-tri slova. <code>input_ids</code> počinju i završavaju posebnim tokenima (kod XLM-R-a to su <code>&lt;s&gt;</code> i <code>&lt;/s&gt;</code>, indeksi $0$ i $2$). Broj tokena po rečenici dobar je brzi pokazatelj koliko model „razumije” jezik: što manje komada, to bolje.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Provuci batch kroz enkoder i iz izlaza napravi embeddinge rečenica. Koristi mali BERT sa slučajnim težinama (bez preuzimanja) da se vide oblici tenzora i mehanika prosjeka s maskom, a zatim napiši isti kod za pravi pretrenirani model i <code>pipeline</code>.</p>
+<rjesenje>
+<p><b>Korak 1: mali BERT iz konfiguracije.</b> <code>BertConfig</code> opisuje arhitekturu; <code>BertModel(config)</code> stvara model sa slučajnim težinama. Konfiguracija ispod je „BERT u malom”: $2$ sloja, $d=64$, $4$ glave pažnje.</p>
+<kod jezik="python">
+import torch
+import torch.nn.functional as F
+from transformers import BertConfig, BertModel
+
+torch.manual_seed(0)
+konfig = BertConfig(vocab_size=tokenizator.vocab_size, hidden_size=64, num_hidden_layers=2,
+                    num_attention_heads=4, intermediate_size=128, max_position_embeddings=64)
+enkoder = BertModel(konfig)
+print("parametara: %d  (BERT-base ima oko 110 milijuna)" % sum(p.numel() for p in enkoder.parameters()))
+
+with torch.no_grad():
+    izlaz = enkoder(**batch)
+H = izlaz.last_hidden_state
+print("last_hidden_state:", tuple(H.shape), "  pooler_output:", tuple(izlaz.pooler_output.shape))
+</kod>
+<izlaz>
+parametara: 94656  (BERT-base ima oko 110 milijuna)
+last_hidden_state: (2, 13, 64)   pooler_output: (2, 64)
+</izlaz>
+<p>Izlaz je po jedan vektor dimenzije $64$ za svaki od tokena obiju rečenica (uključujući posebne i <code>[PAD]</code>); <code>pooler_output</code> je transformirani vektor tokena <code>[CLS]</code>.</p>
+<p><b>Korak 2: prosjek s maskom.</b> Prosjek po tokenima mora isključiti nadopunu – inače kraća rečenica dobiva vektor „razvodnjen” <code>[PAD]</code> vektorima. Masku proširimo na dimenziju $d$ i dijelimo zbroj brojem pravih tokena.</p>
+<kod jezik="python">
+def prosjek_s_maskom(H, maska):
+    m = maska.unsqueeze(-1).float()                     # (B, T, 1)
+    return (H * m).sum(1) / m.sum(1)
+
+E = prosjek_s_maskom(H, batch["attention_mask"])
+E_naivno = H.mean(1)
+print("oblik embeddinga rečenica:", tuple(E.shape))
+print("razlika za rečenicu bez nadopune: %.4f" % (E[0] - E_naivno[0]).abs().max())
+print("razlika za nadopunjenu rečenicu:  %.4f" % (E[1] - E_naivno[1]).abs().max())
+print("cos(r1, r2) = %.3f" % F.cosine_similarity(E[0], E[1], dim=0))
+</kod>
+<izlaz>
+oblik embeddinga rečenica: (2, 64)
+razlika za rečenicu bez nadopune: 0.0000
+razlika za nadopunjenu rečenicu:  0.2206
+cos(r1, r2) = 0.942
+</izlaz>
+<p>Za prvu rečenicu (bez nadopune) oba su prosjeka jednaka, za drugu se razlikuju. Kosinus između rečenica je ovdje besmislen – težine su slučajne – ali cjevovod je identičan onom s pravim modelom.</p>
+<p><b>Korak 3: pravi model.</b> Jedina razlika: <code>from_pretrained</code> umjesto konfiguracije. Blok preuzima model (višejezični MiniLM, oko $470$ MB) pa nije pokrenut.</p>
+<kod jezik="python" pokreni="ne">
+from transformers import AutoTokenizer, AutoModel
+
+ime = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+tok_st = AutoTokenizer.from_pretrained(ime)
+model_st = AutoModel.from_pretrained(ime).eval()
+
+recenice = ["Golman je obranio jedanaesterac.", "Vratar je zaustavio penal.",
+            "Pećnicu zagrij na 180 stupnjeva."]
+ulaz = tok_st(recenice, padding=True, truncation=True, max_length=64, return_tensors="pt")
+with torch.no_grad():
+    H_st = model_st(**ulaz).last_hidden_state
+E_st = F.normalize(prosjek_s_maskom(H_st, ulaz["attention_mask"]), dim=1)
+print(E_st.shape)                        # torch.Size([3, 384])
+print((E_st @ E_st.T).round(decimals=2))
+</kod>
+<p>Očekivani ispis: matrica $3\times3$ kosinusnih sličnosti s jedinicama na dijagonali, u kojoj su prve dvije rečenice (isto značenje, različite riječi: „golman”/„vratar”, „jedanaesterac”/„penal”) znatno sličnije jedna drugoj nego trećoj. To je ono što TF-IDF iz V1 nije mogao (nijedna zajednička riječ) ni statični embedding iz V2 (prosjek riječi ne zna da je „obranio jedanaesterac” jedna radnja).</p>
+<p><b>Korak 4: pipeline.</b> Za brzu procjenu ne treba ni tokenizator ni model dirati. Blok nije pokrenut (preuzimanje).</p>
+<kod jezik="python" pokreni="ne">
+from transformers import pipeline
+
+popuni = pipeline("fill-mask", model="xlm-roberta-base")
+for k in popuni("Golman je obranio <mask> u posljednjoj minuti.", top_k=3):
+    print("%-12s %.3f" % (k["token_str"], k["score"]))
+
+sentiment = pipeline("sentiment-analysis",
+                     model="nlptown/bert-base-multilingual-uncased-sentiment")
+print(sentiment(["Film je bio sjajan, preporučujem svima.", "Užasna usluga, nikad više."]))
+</kod>
+<p>Očekivani ispis: za maskirano mjesto tri najvjerojatnija tokena s vjerojatnostima – smisleni kandidati su nogometni pojmovi („udarac”, „loptu”, „penal”), što pokazuje da višejezični model razumije hrvatski kontekst; model za sentiment vraća oznake u obliku zvjezdica (<code>1 star</code> … <code>5 stars</code>) s pouzdanošću, visoku za prvu i nisku za drugu rečenicu. Napomena: <code>fill-mask</code> traži token maske <em>tog</em> modela (<code>&lt;mask&gt;</code> za RoBERTa obitelj, <code>[MASK]</code> za BERT); <code>tokenizer.mask_token</code> ga vraća bez pogađanja.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Fine-tuning za klasifikaciju. Na korpusu iz Primjera 1 istreniraj <code>BertForSequenceClassification</code> ručnom petljom (mali model sa slučajnim težinama, da se vide svi koraci), usporedi puni fine-tuning sa zamrznutim trupom, a zatim napiši isti postupak za pretrenirani model s <code>Trainer</code>-om.</p>
+<rjesenje>
+<p><b>Korak 1: podjela i tokenizacija.</b> Rečenice tokeniziramo jednom, unaprijed; oznake su cijeli brojevi $0,1,2$.</p>
+<kod jezik="python">
+from sklearn.model_selection import train_test_split
+from transformers import BertForSequenceClassification
+
+tr_i, te_i = train_test_split(range(len(tekstovi)), test_size=15, stratify=oznake, random_state=0)
+def tokeniziraj(ind):
+    b = tokenizator([tekstovi[i] for i in ind], padding=True, truncation=True, max_length=48,
+                    return_tensors="pt")
+    b["labels"] = torch.tensor([oznake[i] for i in ind])
+    return b
+
+batch_tr, batch_te = tokeniziraj(tr_i), tokeniziraj(te_i)
+print("trening:", tuple(batch_tr["input_ids"].shape), " test:", tuple(batch_te["input_ids"].shape))
+</kod>
+<izlaz>
+trening: (45, 46)  test: (15, 43)
+</izlaz>
+<p><b>Korak 2: ručna petlja.</b> Model s glavom za klasifikaciju vraća <code>loss</code> čim mu predamo <code>labels</code> – to je unakrsna entropija nad logitima glave. Petlja je ista kao u D3: AdamW, mini-batchevi, zatim ocjena uz <code>torch.no_grad()</code>. Ovdje je model slučajno inicijaliziran pa učimo s većom stopom učenja i više epoha nego kod pravog fine-tuninga.</p>
+<kod jezik="python">
+def ocijeni(model, b):
+    model.eval()
+    with torch.no_grad():
+        pred = model(input_ids=b["input_ids"], attention_mask=b["attention_mask"]).logits.argmax(1)
+    return (pred == b["labels"]).float().mean().item()
+
+def treniraj(model, b, epohe=30, lr=1e-3, velicina=16, seed=0):
+    torch.manual_seed(seed)
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=lr, weight_decay=0.01)
+    n = len(b["labels"])
+    for ep in range(epohe):
+        model.train()
+        perm = torch.randperm(n)
+        for s in range(0, n, velicina):
+            i = perm[s:s + velicina]
+            izlaz = model(input_ids=b["input_ids"][i], attention_mask=b["attention_mask"][i],
+                          labels=b["labels"][i])
+            opt.zero_grad(); izlaz.loss.backward(); opt.step()
+        if (ep + 1) % 10 == 0:
+            print("epoha %2d  gubitak = %.3f  točnost trening = %.2f  test = %.2f"
+                  % (ep + 1, izlaz.loss.item(), ocijeni(model, batch_tr), ocijeni(model, batch_te)))
+    return model
+
+torch.manual_seed(0)
+konfig_klf = BertConfig(**{**konfig.to_dict(), "num_labels": 3})
+klf = treniraj(BertForSequenceClassification(konfig_klf), batch_tr)
+</kod>
+<izlaz>
+epoha 10  gubitak = 0.985  točnost trening = 0.80  test = 0.60
+epoha 20  gubitak = 0.167  točnost trening = 1.00  test = 0.47
+epoha 30  gubitak = 0.025  točnost trening = 1.00  test = 0.60
+</izlaz>
+<p>Mali transformer od nule na $45$ rečenica nauči trening skup napamet (gubitak pada prema nuli), a na testu pogodi $9$ od $15$ rečenica – bolje od pogađanja ($0{,}33$), ali daleko od pouzdanog, i točnost na testu se između ispisa koleba, što je znak prenaučenosti. Nema pretreniranog znanja, a podataka je premalo da ga stekne. Upravo to je razlog postojanja pretreniranih modela: mehanika je identična, znanje dolazi iz težina.</p>
+<p><b>Korak 3: zamrznuti trup.</b> Postavimo <code>requires_grad=False</code> svim parametrima trupa (<code>klf.bert</code>) i učimo samo glavu. Kod pravog modela to je „linear probe”; ovdje, sa slučajnim trupom, očekujemo da bude lošije od punog treniranja – glava uči nad slučajnim značajkama.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+klf_zamrznut = BertForSequenceClassification(konfig_klf)
+for p in klf_zamrznut.bert.parameters():
+    p.requires_grad = False
+ucivih = sum(p.numel() for p in klf_zamrznut.parameters() if p.requires_grad)
+print("učivih parametara: %d od %d" % (ucivih, sum(p.numel() for p in klf_zamrznut.parameters())))
+klf_zamrznut = treniraj(klf_zamrznut, batch_tr, epohe=30, lr=1e-2)
+</kod>
+<izlaz>
+učivih parametara: 195 od 94851
+epoha 10  gubitak = 1.104  točnost trening = 0.33  test = 0.33
+epoha 20  gubitak = 1.092  točnost trening = 0.33  test = 0.33
+epoha 30  gubitak = 1.110  točnost trening = 0.33  test = 0.33
+</izlaz>
+<p>Glava ima samo $64\cdot3+3$ parametara i nad slučajnim trupom ne nauči <em>ništa</em>: gubitak ostaje na $\ln3\approx1{,}10$, točnost na $0{,}33$. Vektori <code>pooler_output</code> slučajnog modela gotovo su jednaki za sve rečenice, pa linearni sloj nema iz čega razlikovati klase. Kod pretreniranog modela omjer se obrće: trup već zna jezik, a glava od nekoliko tisuća parametara nad njim često postiže gotovo isti rezultat kao puni fine-tuning, u djeliću vremena.</p>
+<p><b>Korak 4: pretrenirani model s Trainer-om.</b> Cjelovit recept za pravi zadatak: tokenizacija u <code>Dataset</code>, <code>TrainingArguments</code> s malom stopom učenja i zagrijavanjem, <code>Trainer</code> koji odrađuje petlju, ocjenu i spremanje. Blok preuzima model pa nije pokrenut.</p>
+<kod jezik="python" pokreni="ne">
+import numpy as np
+from datasets import Dataset
+from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
+                          TrainingArguments, Trainer, DataCollatorWithPadding)
+
+ime = "xlm-roberta-base"
+tok_hf = AutoTokenizer.from_pretrained(ime)
+model_hf = AutoModelForSequenceClassification.from_pretrained(ime, num_labels=3)
+
+def kodiraj(primjer):
+    return tok_hf(primjer["text"], truncation=True, max_length=64)
+
+skup = Dataset.from_dict({"text": tekstovi, "label": oznake}).train_test_split(test_size=15, seed=0)
+skup = skup.map(kodiraj, batched=True)
+
+def tocnost(p):
+    return {"accuracy": float((p.predictions.argmax(-1) == p.label_ids).mean())}
+
+args = TrainingArguments(output_dir="izlaz_klf", learning_rate=3e-5, num_train_epochs=4,
+                         per_device_train_batch_size=16, warmup_ratio=0.1, weight_decay=0.01,
+                         eval_strategy="epoch", save_strategy="no", report_to="none", seed=0)
+trener = Trainer(model=model_hf, args=args, train_dataset=skup["train"], eval_dataset=skup["test"],
+                 data_collator=DataCollatorWithPadding(tok_hf), compute_metrics=tocnost)
+trener.train()
+print(trener.evaluate())
+</kod>
+<p>Očekivano ponašanje: <code>Trainer</code> ispisuje gubitak i točnost nakon svake epohe; s pretreniranim XLM-R-om točnost na $15$ testnih rečenica brzo dosegne visoke vrijednosti (teme su jezično jasno razdvojene), ali na ovako malom testu svaka rečenica vrijedi $0{,}067$, pa rezultat treba čitati uz M5. Na procesoru je svaka epoha s $45$ rečenica stvar sekundi, s pravim skupom od nekoliko tisuća rečenica desetke minuta. Upozorenje „<i>Some weights … newly initialized</i>” pri učitavanju je normalno – odnosi se na glavu za klasifikaciju koja se tek treba naučiti.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za svaki zadatak odluči je li prikladniji enkoder učen MLM ciljem (BERT) ili autoregresivni dekoder (GPT): (a) razvrstavanje recenzija po ocjeni; (b) pisanje sažetka članka; (c) označavanje imena osoba i mjesta u tekstu; (d) odgovor na pitanje u slobodnom obliku; (e) pronalaženje najsličnijeg pitanja u bazi često postavljanih pitanja.</p>
+<rjesenje>
+<p>(a) enkoder – klasifikacija nad <code>[CLS]</code>/prosjekom; (b) dekoder – generiranje teksta; (c) enkoder – klasifikacija svakog tokena (<i>token classification</i>), dvosmjerni kontekst je ključan; (d) dekoder (ili enkoder ako je odgovor isječak zadanog teksta, tzv. ekstraktivni QA); (e) enkoder – embeddinzi rečenica i kosinusna sličnost.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>BERT-base ima rječnik od $30\,522$ tokena, $d=768$, $12$ slojeva i ukupno oko $110$ milijuna parametara. Koliki udio parametara otpada na matricu embeddinga tokena? Koliko memorije zauzimaju sve težine u <code>float32</code>, a koliko u <code>float16</code>? Što to znači za pokretanje na računalu s $8$ GB radne memorije?</p>
+<rjesenje>
+<kod jezik="python">
+emb = 30522 * 768
+print("embedding tokena: %.1f M parametara (%.0f %% od 110 M)" % (emb / 1e6, 100 * emb / 110e6))
+print("float32: %.0f MB   float16: %.0f MB" % (110e6 * 4 / 2**20, 110e6 * 2 / 2**20))
+</kod>
+<izlaz>
+embedding tokena: 23.4 M parametara (21 % od 110 M)
+float32: 420 MB   float16: 210 MB
+</izlaz>
+<p>Petina modela je sama tablica embeddinga – zato višejezični modeli s velikim rječnicima (XLM-R: $250\,000$ tokena) imaju znatno više parametara uz istu dubinu. Težine u <code>float32</code> zauzimaju oko $420$ MB, što stane u $8$ GB; problem na procesoru nije memorija nego <em>vrijeme</em>: aktivacije pri fine-tuningu rastu s batchom i duljinom niza, a svaki korak je nekoliko stotina milijuna množenja po rečenici.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Bez pokretanja koda napiši koje će <code>input_ids</code> i <code>attention_mask</code> tokenizator iz Primjera 1 vratiti za batch od dvije rečenice ako prva ima $7$ tokena, a druga $4$ (bez posebnih tokena), uz <code>padding=True</code>. Koliko je redaka i stupaca? Zatim provjeri na stvarnim rečenicama po izboru.</p>
+<rjesenje>
+<p>Obje rečenice dobivaju <code>[CLS]</code> i <code>[SEP]</code>, pa imaju $9$ odnosno $6$ tokena; batch je matrica $2\times9$. Prvi redak je $[2,\dots,3]$ s maskom od samih jedinica; drugi je $[2,\dots,3,0,0,0]$ s maskom $[1,1,1,1,1,1,0,0,0]$.</p>
+<kod jezik="python">
+b = tokenizator(["Navijači su pjevali cijelo drugo poluvrijeme.", "Kruh je gotov."], padding=True,
+                return_tensors="pt")
+print(tuple(b["input_ids"].shape))
+print(b["attention_mask"].tolist())
+print(tokenizator.convert_ids_to_tokens(b["input_ids"][0]))
+</kod>
+<izlaz>
+(2, 22)
+[[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+['[CLS]', 'na', '##vi', '##ja', '##či', 'su', 'p', '##je', '##va', '##li', 'c', '##ije', '##lo', 'd', '##ru', '##go', 'polu', '##vr', '##ije', '##me', '.', '[SEP]']
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Proširi ručni WordPiece iz Primjera 1 u funkciju <code>kodiraj(recenica)</code> koja (a) normalizira tekst (NFC, mala slova), (b) odvaja interpunkciju kao zasebne tokene, (c) svaku riječ tokenizira pohlepno, (d) dodaje <code>[CLS]</code>/<code>[SEP]</code> i vraća popis tokena i njihove indekse prema <em>rječniku iz Primjera 1</em> (<code>tokenizator.get_vocab()</code>). Provjeri da se tvoj rezultat podudara s <code>tokenizator(recenica)["input_ids"]</code> na pet rečenica iz korpusa.</p>
+<naputak>Pravi rječnik sadrži sve pojedinačne znakove, pa <code>[UNK]</code> ne nastaje; kod pohlepnog podudaranja koristi isti prefiks <code>##</code>. Interpunkciju odvoji regularnim izrazom <code>\w+|[^\w\s]</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def kodiraj(recenica):
+    s = unicodedata.normalize("NFC", recenica).lower()
+    tokeni = ["[CLS]"]
+    for rijec in re.findall(r"\w+|[^\w\s]", s):
+        tokeni += wordpiece(rijec, vocab)
+    tokeni.append("[SEP]")
+    return tokeni, [vocab[t] for t in tokeni]
+
+sve_isto = True
+for r in tekstovi[:5]:
+    tokeni, ids = kodiraj(r)
+    sve_isto &= ids == tokenizator(r)["input_ids"]
+print("podudara se na 5 rečenica:", sve_isto)
+print(kodiraj("Golman je obranio jedanaesterac.")[0])
+</kod>
+<izlaz>
+podudara se na 5 rečenica: True
+['[CLS]', 'golma', '##n', 'je', 'ob', '##rani', '##o', 'je', '##da', '##na', '##e', '##ste', '##ra', '##c', '.', '[SEP]']
+</izlaz>
+<p>Pohlepno podudaranje najduljeg prefiksa upravo je algoritam kojim BERT-ovi tokenizatori kodiraju tekst; učenje rječnika (koji komadi postoje) je zaseban korak koji smo odradili funkcijom <code>nauci_wordpiece</code> (u praksi to radi <code>WordPieceTrainer</code> iz biblioteke <code>tokenizers</code>).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Simuliraj jedan korak maskiranog jezičnog modeliranja na malom modelu: uzmi <code>BertForMaskedLM</code> s konfiguracijom iz Primjera 2, u batchu iz Primjera 1 zamijeni treći token svake rečenice s <code>[MASK]</code>, pripremi <code>labels</code> tako da su sve nemaskirane pozicije $-100$ (zanemarene), i provjeri da je <code>loss</code> koji model vrati jednak ručno izračunatoj unakrsnoj entropiji na maskiranim pozicijama. Koliki je gubitak za slučajni model i zašto baš toliki?</p>
+<naputak>Za slučajni model logiti su približno jednaki za sve tokene, pa je $-\ln P\approx\ln|V|$.</naputak>
+<rjesenje>
+<kod jezik="python">
+from transformers import BertForMaskedLM
+import math
+
+torch.manual_seed(0)
+mlm = BertForMaskedLM(konfig).eval()
+ids = batch["input_ids"].clone()
+labels = torch.full_like(ids, -100)
+labels[:, 2] = ids[:, 2]                                  # pamtimo izvorni token
+ids[:, 2] = tokenizator.mask_token_id                     # i maskiramo ga
+print(tokenizator.convert_ids_to_tokens(ids[0]))
+
+with torch.no_grad():
+    out = mlm(input_ids=ids, attention_mask=batch["attention_mask"], labels=labels)
+rucno = F.cross_entropy(out.logits[:, 2], labels[:, 2])    # samo maskirane pozicije
+print("loss modela = %.4f   ručno = %.4f   ln|V| = %.4f" % (out.loss, rucno, math.log(konfig.vocab_size)))
+</kod>
+<izlaz>
+['[CLS]', 'tre', '[MASK]', 'je', 'za', '##m', '##ije', '##ni', '##o', 'golma', '##na', '.', '[SEP]']
+loss modela = 5.7258   ručno = 5.7258   ln|V| = 5.7038
+</izlaz>
+<p>Gubitak je blizu $\ln|V|=\ln300$: slučajni model raspodjeljuje vjerojatnost gotovo ravnomjerno po rječniku. Pretreniranje upravo tu veličinu spušta za red veličine: gubitak $L$ odgovara „perpleksnosti” $e^{L}$, broju ravnopravnih kandidata među kojima model bira, pa pad s $\ln|V|$ na $L\approx2$ znači da je model od $|V|$ kandidata došao na njih $e^2\approx7$. Isti račun (unakrsna entropija nad rječnikom, zanemarene pozicije označene s $-100$) koristi se i u autoregresivnim modelima, samo nad svim pozicijama.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Strategija „zamrznuti embeddinzi + linearni model”: izračunaj embeddinge svih $60$ rečenica prosjekom s maskom iz malog enkodera (Primjer 2), spremi ih u NumPy matricu i istreniraj <code>LogisticRegression</code> na trening indeksima iz Primjera 3. Izmjeri točnost na testu i vrijeme. Zatim isto napravi s TF-IDF značajkama iz lekcije V1 i usporedi. Koji bi rezultat očekivao s pretreniranim enkoderom i zašto?</p>
+<rjesenje>
+<kod jezik="python">
+import time
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+t0 = time.time()
+sve = tokenizator(tekstovi, padding=True, truncation=True, max_length=48, return_tensors="pt")
+with torch.no_grad():
+    Hs = enkoder(**sve).last_hidden_state
+X_emb = prosjek_s_maskom(Hs, sve["attention_mask"]).numpy()
+print("embeddinzi: oblik %s, trajanje ispod sekunde: %s" % (X_emb.shape, time.time() - t0 < 1))
+
+y = np.array(oznake)
+tr, te = np.array(tr_i), np.array(te_i)
+lr_emb = LogisticRegression(max_iter=2000).fit(X_emb[tr], y[tr])
+print("slučajni enkoder + LR: točnost test = %.2f" % lr_emb.score(X_emb[te], y[te]))
+
+tfidf = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4))
+X_tf = tfidf.fit_transform([tekstovi[i] for i in tr])
+lr_tf = LogisticRegression(max_iter=2000).fit(X_tf, y[tr])
+print("TF-IDF znakovi + LR:   točnost test = %.2f" % lr_tf.score(tfidf.transform([tekstovi[i] for i in te]), y[te]))
+</kod>
+<izlaz>
+embeddinzi: oblik (60, 64), trajanje ispod sekunde: True
+slučajni enkoder + LR: točnost test = 0.53
+TF-IDF znakovi + LR:   točnost test = 1.00
+</izlaz>
+<p>Slučajni enkoder daje značajke bez jezičnog znanja pa je logistička regresija nad njima osjetno slabija od TF-IDF-a; s pretreniranim višejezičnim enkoderom ista dva retka koda (zamijeni <code>enkoder</code> i <code>tokenizator</code> modelom s Huba) daju značajke koje znaju da su „golman” i „vratar” bliski, pa na ovakvom zadatku očekuješ točnost na razini TF-IDF-a ili bolju – i, važnije, znatno bolju generalizaciju na rečenice s riječima kojih u treningu nema. Cijeli postupak traje sekunde i nema backpropagacije kroz transformer; zato je to prvi recept koji isprobaš na natjecanju.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Stopa učenja pri fine-tuningu. Na malom klasifikatoru iz Primjera 3 usporedi tri stope učenja $\{10^{-4},10^{-3},10^{-2}\}$ uz $30$ epoha i ispiši točnost na treningu i testu. Zatim objasni zašto se za <em>pretrenirani</em> model preporučuje $2\cdot10^{-5}$ do $5\cdot10^{-5}$ iako ovdje najbolje radi puno veća vrijednost.</p>
+<naputak>Funkcija <code>treniraj</code> ispisuje svakih $10$ epoha; dovoljno je gledati zadnji redak.</naputak>
+<rjesenje>
+<kod jezik="python">
+for lr in (1e-4, 1e-3, 1e-2):
+    print("lr =", lr)
+    treniraj(BertForSequenceClassification(konfig_klf), batch_tr, epohe=30, lr=lr)
+</kod>
+<izlaz>
+lr = 0.0001
+epoha 10  gubitak = 1.100  točnost trening = 0.33  test = 0.33
+epoha 20  gubitak = 1.101  točnost trening = 0.33  test = 0.33
+epoha 30  gubitak = 1.094  točnost trening = 0.80  test = 0.53
+lr = 0.001
+epoha 10  gubitak = 0.977  točnost trening = 0.93  test = 0.53
+epoha 20  gubitak = 0.193  točnost trening = 1.00  test = 0.47
+epoha 30  gubitak = 0.036  točnost trening = 1.00  test = 0.47
+lr = 0.01
+epoha 10  gubitak = 1.068  točnost trening = 0.73  test = 0.53
+epoha 20  gubitak = 0.266  točnost trening = 0.96  test = 0.73
+epoha 30  gubitak = 0.726  točnost trening = 0.67  test = 0.33
+</izlaz>
+<p>Za model od nule premala stopa ($10^{-4}$) u $30$ epoha tek počne učiti (trening skup $0{,}80$ u zadnjem ispisu), $10^{-3}$ brzo zapamti trening skup, a $10^{-2}$ je nestabilna: između $20.$ i $30.$ epohe gubitak poraste, a točnost na treningu padne s $0{,}96$ na $0{,}67$ – model „iskače” iz minimuma. Pretrenirani model je drugačija situacija: njegove težine već su u dobrom minimumu i želimo ih <em>malo</em> pomaknuti – velika stopa u prvim koracima, dok je slučajno inicijalizirana glava još besmislena, šalje velike gradijente u trup i uništi naučeno (katastrofalno zaboravljanje). Zato mala stopa, zagrijavanje (stopa raste od nule prvih ~$10\,\%$ koraka, dok se glava ne „smiri”) i malo epoha.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><em>(Simulacija zadatka u stilu IOAI.)</em> Dobio si $300$ neoznačenih hrvatskih rečenica i popis od pet tema, bez ijednog označenog primjera, s dva sata na procesoru. Napiši (a) zero-shot klasifikaciju NLI cjevovodom s hrvatskim predloškom hipoteze, (b) zero-shot kosinusom između embeddinga rečenice i embeddinga <em>opisa</em> svake teme, i (c) kako bi s $20$ minuta ručnog označavanja prešao na nadzirani model. Kod za (a) i (b) napiši s pravim modelima (nije pokrenut); mehaniku (b) demonstriraj na malom enkoderu i rečenicama iz korpusa.</p>
+<naputak>U (b) opis teme smije biti dulji od jedne riječi – „recepti, kuhanje, sastojci i priprema jela” daje stabilniji embedding od same riječi „kuhanje”. Za (c) sjeti se lekcije M5: označi stratificirano i ostavi dio za test.</naputak>
+<rjesenje>
+<kod jezik="python" pokreni="ne">
+from transformers import pipeline, AutoTokenizer, AutoModel
+
+# (a) NLI zero-shot: višejezični model učen na XNLI
+zs = pipeline("zero-shot-classification", model="joeddav/xlm-roberta-large-xnli")
+teme = ["sport", "kuhanje", "tehnologija", "politika", "kultura"]
+rez = zs("Golman je obranio jedanaesterac u posljednjoj minuti.", candidate_labels=teme,
+         hypothesis_template="Ovaj tekst govori o temi {}.")
+print(list(zip(rez["labels"], [round(s, 3) for s in rez["scores"]])))
+
+# (b) kosinus s opisima tema
+ime = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+tok_st, model_st = AutoTokenizer.from_pretrained(ime), AutoModel.from_pretrained(ime).eval()
+opisi = ["sport, utakmice, igrači, treneri i rezultati", "recepti, kuhanje, sastojci i priprema jela",
+         "računala, programi, mobiteli i tehnologija", "politika, vlada, izbori i stranke",
+         "kultura, filmovi, knjige, glazba i kazalište"]
+
+def embed(recenice):
+    u = tok_st(recenice, padding=True, truncation=True, max_length=64, return_tensors="pt")
+    with torch.no_grad():
+        H = model_st(**u).last_hidden_state
+    return F.normalize(prosjek_s_maskom(H, u["attention_mask"]), dim=1)
+
+E_tema = embed(opisi)
+E_rec = embed(tekstovi)
+pred = (E_rec @ E_tema.T).argmax(1)
+print("zero-shot kosinusom, točnost na 60 označenih rečenica: %.2f"
+      % (pred.numpy() == np.array(oznake)).mean())
+</kod>
+<p>Očekivano: NLI cjevovod vraća teme poredane po vjerojatnosti sa „sport” uvjerljivo na vrhu; <code>xlm-roberta-large</code> je, međutim, model od $560$ M parametara i na procesoru obradi oko jednu rečenicu u sekundi <em>po temi</em> (NLI se računa za svaki par rečenica–hipoteza), pa je za $300$ rečenica i $5$ tema to desetak minuta – prihvatljivo, ali ne za ponavljanje. Kosinusni pristup (b) s MiniLM-om obradi svih $300$ rečenica u nekoliko sekundi i na jasno razdvojenim temama poput naših postiže visoku točnost; njegova je prednost i što embeddinge računaš jednom i zatim besplatno isprobavaš različite opise tema.</p>
+<p>Mehanika (b) na malom enkoderu – kod je identičan, samo su značajke besmislene jer model nije pretreniran, pa je točnost na razini slučajnog pogađanja:</p>
+<kod jezik="python">
+opisi3 = ["sport, utakmice, igrači, treneri i rezultati", "recepti, kuhanje, sastojci i priprema jela",
+          "računala, programi, mobiteli i tehnologija"]
+
+def embed_mali(recenice):
+    u = tokenizator(recenice, padding=True, truncation=True, max_length=48, return_tensors="pt")
+    with torch.no_grad():
+        H = enkoder(**u).last_hidden_state
+    return F.normalize(prosjek_s_maskom(H, u["attention_mask"]), dim=1)
+
+pred = (embed_mali(tekstovi) @ embed_mali(opisi3).T).argmax(1).numpy()
+print("slučajni enkoder, zero-shot točnost: %.2f  (slučajno pogađanje: 0.33)" % (pred == np.array(oznake)).mean())
+print("raspodjela predikcija:", np.bincount(pred, minlength=3))
+</kod>
+<izlaz>
+slučajni enkoder, zero-shot točnost: 0.28  (slučajno pogađanje: 0.33)
+raspodjela predikcija: [ 4 31 25]
+</izlaz>
+<p>Predikcije slučajnog enkodera nagomilane su u dvije klase – vektori svih rečenica leže u uskom stošcu i o kosinusu odlučuje šum, ne značenje. (c) Nakon zero-shot procjene: uzmi $20$ minuta i označi oko $100$ rečenica – po mogućnosti one za koje je zero-shot najmanje siguran (najmanja razlika između prve dvije teme), jer one najviše uče model. Stratificirano odvoji $30$ za test. Na preostalih $70$ treniraj logističku regresiju nad <em>istim</em> spremljenim embeddinzima iz (b) (sekunde) i usporedi s zero-shotom na tih $30$. Tek ako to nije dovoljno, a vremena ima, puni fine-tuning malog modela.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Pažnja u pretreniranom modelu „zna” sintaksu i semantiku, ali to ne znači da je model pošten ili točan. Napiši kod koji <code>fill-mask</code> cjevovodom provjerava što višejezični model predlaže za „<code>[MASK]</code> je radila kao …” prema „<code>[MASK]</code> je radio kao …” te za „Hrvati su <code>[MASK]</code>.” (nije pokrenut), i objasni: (a) odakle takve pristranosti dolaze, (b) zašto su za natjecateljski zadatak klasifikacije važne iako ne generiraš tekst, (c) kako ih izmjeriti na vlastitom fine-tunanom klasifikatoru. Na malom modelu demonstriraj mjerenje iz (c): točnost klasifikatora iz Primjera 3 odvojeno na rečenicama koje sadrže broj i na onima bez broja.</p>
+<rjesenje>
+<kod jezik="python" pokreni="ne">
+popuni = pipeline("fill-mask", model="bert-base-multilingual-cased")
+for r in ("[MASK] je radila kao medicinska sestra.", "[MASK] je radio kao inženjer.", "Hrvati su [MASK]."):
+    print(r, [k["token_str"] for k in popuni(r, top_k=5)])
+</kod>
+<p>Očekivano: za ženski oblik model predlaže ženska imena i imenice, za muški muška; za treću rečenicu nacionalne stereotipe i pridjeve koji odražavaju tekstove s interneta na kojima je učen. (a) Pristranosti su statistika korpusa: model vjerno uči koji se oblici pojavljuju zajedno, uključujući društvene stereotipe i zastarjele ili netočne tvrdnje. (b) Kad takav model fine-tunaš za klasifikaciju, iste korelacije postaju značajke: klasifikator životopisa može „naučiti” da ženski rod imenica znači drugu struku, klasifikator komentara da spominjanje određene skupine znači uvredu. Rezultat je model koji je točan u prosjeku, a sustavno griješi na podskupini – što na natjecanju znači slabiji rezultat na skrivenom testu, a u praksi štetu. (c) Mjerenje: točnost (ili matricu zabune, M3) izračunaj <em>odvojeno po podskupinama</em> koje su smisleno definirane (rod, duljina, prisutnost brojeva, dijalekt, dijakritici) i usporedi; zamijeni ciljani atribut u rečenici (npr. muško ime ženskim) i provjeri mijenja li se predikcija (<i>counterfactual</i> test). Lekcija N6 razrađuje pristranost i etiku; ovdje je dovoljno usvojiti naviku da uz ukupnu točnost uvijek ispišeš i točnost po podskupinama.</p>
+<kod jezik="python">
+ima_broj = np.array([bool(re.search(r"\d", tekstovi[i])) for i in te_i])
+with torch.no_grad():
+    pred_te = klf(input_ids=batch_te["input_ids"], attention_mask=batch_te["attention_mask"]).logits.argmax(1).numpy()
+tocno = pred_te == batch_te["labels"].numpy()
+for ime_g, m in (("s brojem", ima_broj), ("bez broja", ~ima_broj)):
+    print("%-10s n = %2d  točnost = %.2f" % (ime_g, m.sum(), tocno[m].mean()))
+</kod>
+<izlaz>
+s brojem   n =  3  točnost = 0.33
+bez broja  n = 12  točnost = 0.67
+</izlaz>
+<p>Na petnaest testnih rečenica razlika između podskupina nije statistički značajna (vidi M5), ali postupak je isti i na deset tisuća rečenica – i tada razlika od desetak postotnih bodova između podskupina znači da model koristi obilježje koje ne bi smio.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Pretrenirani transformer uči samonadzirano: enkoderi (BERT) maskiranim jezičnim modeliranjem, dekoderi (GPT) predviđanjem sljedećeg tokena. Za klasifikaciju i sličnost na procesoru koristi enkoder.</li>
+<li>Svaki model ima svoj tokenizator podriječi (WordPiece, BPE, SentencePiece); ulaz su <code>input_ids</code> i <code>attention_mask</code> s posebnim tokenima i nadopunom. Broj tokena po rečenici pokazuje koliko model „zna” jezik.</li>
+<li><code>transformers</code>: <code>pipeline</code> za brzu procjenu, <code>AutoTokenizer</code> + <code>AutoModel</code> za embeddinge (<code>last_hidden_state</code>, prosjek s maskom), <code>AutoModelFor…</code> za zadatke s glavom; <code>from_pretrained</code> preuzima težine, <code>config</code> daje slučajan model iste arhitekture.</li>
+<li>Fine-tuning: mala stopa učenja ($2$–$5\cdot10^{-5}$), $2$–$4$ epohe, zagrijavanje, AdamW; na slabom računalu prvo zamrznuti embeddinzi + logistička regresija, pa tek onda puni fine-tuning malog modela.</li>
+<li>Zero-shot (NLI ili kosinus s opisima klasa) daje polaznu točku bez oznaka; za hrvatski biraj višejezične (XLM-R) ili hrvatske modele (BERTić, CroSloEngual) i čitaj karticu modela.</li>
+<li>Pretrenirani model nasljeđuje pristranosti korpusa; uz ukupnu točnost uvijek ispiši točnost po podskupinama.</li>
+</ul>
+
+@@ literatura
+<li>J. Devlin i sur., <i>BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</i> (NAACL 2019).</li>
+<li>Hugging Face, <a href="https://huggingface.co/learn/nlp-course">NLP Course</a> (poglavlja 1–3: transformeri, korištenje i fine-tuning) i <a href="https://huggingface.co/docs/transformers">dokumentacija biblioteke transformers</a>.</li>
+<li>N. Reimers, I. Gurevych, <i>Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks</i> (EMNLP 2019) – embeddinzi rečenica i sentence-transformers.</li>
+<li>L. Tunstall, L. von Werra, T. Wolf, <i>Natural Language Processing with Transformers</i>, O'Reilly – praktični vodič kroz cijeli ekosustav.</li>

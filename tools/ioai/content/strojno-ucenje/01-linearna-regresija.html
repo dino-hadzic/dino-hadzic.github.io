@@ -1,0 +1,397 @@
+@@ meta
+naslov = Uvod u strojno učenje i linearna regresija
+podnaslov = Što znači „naučiti iz podataka”: podaci, model, gubitak i optimizacija na najjednostavnijem modelu
+oznake = nadzirano učenje, hipoteza, MSE, metoda najmanjih kvadrata, normalna jednadžba, $R^2$, train/test podjela, scikit-learn
+
+@@ ciljevi
+<li>Razlikovati nadzirano, nenadzirano i podržano učenje te prepoznati regresiju i klasifikaciju u tekstu zadatka.</li>
+<li>Zapisati linearni model u matričnom obliku, definirati gubitak MSE i izvesti normalnu jednadžbu $w^*=(X^\top X)^{-1}X^\top y$.</li>
+<li>Istrenirati linearnu regresiju ručno u NumPy-ju i u scikit-learnu, izmjeriti $R^2$ i MSE na odvojenom testnom skupu.</li>
+<li>Vidjeti na primjeru polinomijalne regresije zašto model koji je savršen na treningu može biti beskoristan na novim podacima.</li>
+
+@@ teorija
+<p>Klasično programiranje: čovjek napiše pravila, računalo ih primijeni na podatke. <b>Strojno učenje</b> (engl. <i>machine learning</i>, ML) okreće smjer: zadamo podatke i <em>obitelj</em> mogućih pravila (model), a algoritam iz podataka odabere ono pravilo koje najbolje odgovara. Svaki zadatak na IOAI – od predviđanja cijene do klasifikacije slika – može se opisati četirima sastojcima: <b>podaci</b>, <b>model</b>, <b>gubitak</b> (mjera koliko model griješi) i <b>algoritam učenja</b> (postupak koji smanjuje gubitak).</p>
+
+<h3>Vrste učenja</h3>
+<definicija naslov="Nadzirano učenje">
+Zadan je skup podataka $D=\{(x_1,y_1),\dots,(x_n,y_n)\}$ parova <b>ulaz</b> $x_i\in\mathbb R^d$ (vektor <b>značajki</b>, engl. <i>features</i>) i <b>ciljna vrijednost</b> $y_i$ (engl. <i>label, target</i>). Cilj je naći funkciju $f$ takvu da $f(x)\approx y$ i za <em>nove</em>, neviđene ulaze. Ako je $y\in\mathbb R$, zadatak je <b>regresija</b>; ako $y$ pripada konačnom skupu klasa, zadatak je <b>klasifikacija</b>.
+</definicija>
+<p>U <b>nenadziranom učenju</b> nema oznaka $y$ – tražimo strukturu u samim ulazima (grupiranje, smanjenje dimenzije; lekcija M6). U <b>podržanom učenju</b> (engl. <i>reinforcement learning</i>) agent uči iz nagrada koje dobiva za svoje poteze; na IOAI se pojavljuje rijetko, pa ga u ovom kurikulumu samo spominjemo.</p>
+
+<napomena>Prvo pitanje pri čitanju bilo kojeg zadatka: <em>što je $x$, što je $y$, a čime se mjeri uspjeh?</em> Ako znaš odgovor na ta tri pitanja, znaš i koju lekciju ovog kurikuluma otvoriti.</napomena>
+
+<h3>Linearni model</h3>
+<definicija naslov="Linearna regresija">
+Model (hipoteza) linearne regresije je
+$$\hat y = f_{w,b}(x) = w_1x_1+w_2x_2+\dots+w_dx_d + b = w^\top x + b,$$
+gdje su $w\in\mathbb R^d$ <b>težine</b> i $b\in\mathbb R$ <b>pomak</b> (engl. <i>bias, intercept</i>). Za $d=1$ to je pravac $\hat y=wx+b$.
+</definicija>
+<p>Pomak se najlakše obrađuje <b>trikom s jedinicom</b>: svakom ulazu dodamo nultu značajku $x_0=1$, pa je $b=w_0$ i model postaje $\hat y=w^\top x$ s $w\in\mathbb R^{d+1}$. Ako sve ulaze složimo u redove <b>matrice dizajna</b> $X\in\mathbb R^{n\times(d+1)}$ (prvi stupac su jedinice) i oznake u vektor $y\in\mathbb R^n$, sve predikcije odjednom su $\hat y = Xw$.</p>
+
+<h3>Gubitak: srednja kvadratna greška</h3>
+<definicija naslov="MSE">
+<b>Srednja kvadratna greška</b> (engl. <i>mean squared error</i>) modela s parametrima $w$ na skupu $D$ je
+$$L(w)=\frac1n\sum_{i=1}^n\left(\hat y_i-y_i\right)^2=\frac1n\lVert Xw-y\rVert^2 .$$
+Razlike $r_i=y_i-\hat y_i$ zovu se <b>reziduali</b>.
+</definicija>
+<p>Zašto baš kvadrat? Kvadrat je gladak (derivabilan), kažnjava velike greške jače od malih i – kako ćemo sad vidjeti – ima rješenje u zatvorenom obliku. Druga česta mjera je <b>MAE</b>, srednja apsolutna greška $\frac1n\sum|r_i|$, koja je otpornija na odstupajuće podatke (engl. <i>outliers</i>), ali nema zatvoreno rješenje. Izbor gubitka dio je dizajna modela: na natjecanju ga obično diktira metrika kojom se rješenje ocjenjuje.</p>
+
+<teorem naslov="normalna jednadžba">
+<p>Ako matrica $X^\top X$ ima inverz, MSE ima jedinstven minimum u
+$$w^*=\left(X^\top X\right)^{-1}X^\top y .$$
+Taj postupak zove se <b>metoda najmanjih kvadrata</b> (engl. <i>ordinary least squares</i>, OLS).</p>
+</teorem>
+<dokaz>
+<p>Raspišimo $nL(w)=(Xw-y)^\top(Xw-y)=w^\top X^\top Xw-2y^\top Xw+y^\top y$. Gradijent po $w$ (lekcija P6) je $\nabla_w\,nL=2X^\top Xw-2X^\top y$. U minimumu je gradijent nula, pa $X^\top Xw=X^\top y$; to su <em>normalne jednadžbe</em>, a uz invertibilnost slijedi formula. Minimum je jedinstven jer je Hesseova matrica $2X^\top X$ pozitivno definitna: za $v\ne0$ je $v^\top X^\top Xv=\lVert Xv\rVert^2\gt0$ (nula bi značila $Xv=0$, što invertibilnost isključuje).</p>
+</dokaz>
+
+<napomena>U praksi se $\left(X^\top X\right)^{-1}$ <em>ne računa</em>: inverz je numerički nestabilan kad su značajke gotovo linearno zavisne (npr. visina u cm i u m). Koristi <code>np.linalg.lstsq(X, y)</code> ili <code>np.linalg.solve(X.T @ X, X.T @ y)</code>; scikit-learn interno radi isto. Ako je $X^\top X$ singularna (više parametara nego podataka, duplicirane značajke), rješenja ima beskonačno mnogo – lijek je regularizacija iz lekcije M2.</napomena>
+
+<h3>Koliko je model dobar?</h3>
+<definicija naslov="Koeficijent determinacije $R^2$">
+Uz $\bar y=\frac1n\sum y_i$,
+$$R^2 = 1-\frac{\sum_i (y_i-\hat y_i)^2}{\sum_i (y_i-\bar y)^2}.$$
+Nazivnik je greška najglupljeg modela koji uvijek predviđa prosjek; $R^2=1$ znači savršene predikcije, $R^2=0$ da nismo bolji od prosjeka, a $R^2\lt0$ da smo gori od njega (na testnim podacima to je moguće!).
+</definicija>
+
+<h3>Generalizacija: trening i test</h3>
+<p>Mala greška na podacima na kojima smo učili ne znači ništa – model može jednostavno <em>zapamtiti</em> podatke. Zato se skup uvijek dijeli na <b>skup za učenje</b> (engl. <i>train</i>) na kojem biramo $w$ i <b>testni skup</b> koji model vidi tek na kraju, jednom. Razlika između greške na treningu i na testu zove se <b>jaz generalizacije</b>; velik jaz je znak <b>prenaučenosti</b> (engl. <i>overfitting</i>), a velika greška na oba skupa znak <b>podnaučenosti</b> (engl. <i>underfitting</i>). Primjer 3 pokazuje oboje, a lekcija M5 razrađuje kako to mjeriti pouzdano.</p>
+
+<h3>Linearno u parametrima, ne nužno u $x$</h3>
+<p>Model je linearan u <em>parametrima</em> $w$, a značajke smiju biti bilo kakve funkcije ulaza. Ako iz jedne varijable $x$ napravimo značajke $1,x,x^2,\dots,x^k$, dobivamo <b>polinomijalnu regresiju</b> – polinom stupnja $k$ u $x$, ali još uvijek linearna regresija s istom normalnom jednadžbom. Isto vrijedi za $\log x$, $\sin x$, umnoške $x_1x_2$ itd. Dobre značajke često vrijede više od složenijeg modela; to je „inženjerstvo značajki” iz lekcije N3.</p>
+
+@@ primjeri
+<primjer>
+<p>Generiraj $200$ točaka $y=3x+2+\varepsilon$ sa šumom $\varepsilon\sim\mathcal N(0,1)$ i $x\in[0,5]$. Nađi pravac najmanjih kvadrata (a) normalnom jednadžbom u NumPy-ju, (b) pomoću <code>sklearn.linear_model.LinearRegression</code>, pa usporedi.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> Uvijek fiksiraj sjeme generatora slučajnih brojeva da se eksperiment može ponoviti.</p>
+<kod jezik="python">
+import numpy as np
+
+rng = np.random.default_rng(0)
+n = 200
+x = rng.uniform(0, 5, size=n)
+y = 3 * x + 2 + rng.normal(0, 1, size=n)
+print(x[:4].round(3), y[:4].round(3))
+</kod>
+<izlaz>
+[3.185 1.349 0.205 0.083] [10.969  5.574  3.201  1.584]
+</izlaz>
+<p><b>Korak 2: matrica dizajna i normalna jednadžba.</b> Prvi stupac su jedinice (pomak), drugi je $x$. Umjesto inverza rješavamo sustav $X^\top Xw=X^\top y$.</p>
+<kod jezik="python">
+X = np.column_stack([np.ones(n), x])        # oblik (200, 2)
+w = np.linalg.solve(X.T @ X, X.T @ y)       # w[0] = b, w[1] = nagib
+print("b = %.4f, w = %.4f" % (w[0], w[1]))
+
+y_hat = X @ w
+mse = np.mean((y_hat - y) ** 2)
+print("MSE =", round(mse, 4))
+</kod>
+<izlaz>
+b = 2.0471, w = 2.9494
+MSE = 1.0421
+</izlaz>
+<p>Nagib i pomak su blizu pravih vrijednosti $3$ i $2$, a MSE je blizu varijance šuma $\sigma^2=1$ – bolje od toga nijedan model ne može, jer je šum nepredvidiv.</p>
+<p><b>Korak 3: isto u scikit-learnu.</b> Sučelje je uvijek isto: <code>fit(X, y)</code> uči, <code>predict(X)</code> predviđa. Scikit-learn očekuje 2D ulaz oblika <code>(n, d)</code> i sam dodaje pomak (<code>intercept_</code>), pa ne dodajemo stupac jedinica.</p>
+<kod jezik="python">
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression()
+model.fit(x.reshape(-1, 1), y)
+print("intercept_ = %.4f, coef_ = %s" % (model.intercept_, model.coef_.round(4)))
+print("isti rezultat:", np.allclose([model.intercept_, model.coef_[0]], w))
+</kod>
+<izlaz>
+intercept_ = 2.0471, coef_ = [2.9494]
+isti rezultat: True
+</izlaz>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka diabetes">
+<p>Skup <code>load_diabetes</code> (ugrađen u scikit-learn) ima $442$ pacijenta, $10$ standardiziranih značajki (dob, BMI, krvni tlak, …) i ciljnu vrijednost: mjeru napredovanja bolesti godinu dana kasnije. Podijeli podatke na trening i test, istreniraj linearnu regresiju i ocijeni je s MSE i $R^2$ na oba skupa. Koja značajka najviše utječe na predikciju?</p>
+<rjesenje>
+<p><b>Korak 1: podjela.</b> <code>train_test_split</code> miješa podatke i odvaja 20 % za test; <code>random_state</code> fiksira miješanje.</p>
+<kod jezik="python">
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+
+podaci = load_diabetes()
+X, y = podaci.data, podaci.target
+print(X.shape, y.shape, podaci.feature_names)
+
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42)
+print(len(X_tr), "za učenje,", len(X_te), "za test")
+</kod>
+<izlaz>
+(442, 10) (442,) ['age', 'sex', 'bmi', 'bp', 's1', 's2', 's3', 's4', 's5', 's6']
+353 za učenje, 89 za test
+</izlaz>
+<p><b>Korak 2: učenje i ocjena.</b> Metrike računamo odvojeno na podacima za učenje i na testu.</p>
+<kod jezik="python">
+model = LinearRegression().fit(X_tr, y_tr)
+for naziv, A, b in [("trening", X_tr, y_tr), ("test", X_te, y_te)]:
+    p = model.predict(A)
+    print("%-8s MSE = %7.1f   R^2 = %.3f" % (naziv, mean_squared_error(b, p), r2_score(b, p)))
+</kod>
+<izlaz>
+trening  MSE =  2868.5   R^2 = 0.528
+test     MSE =  2900.2   R^2 = 0.453
+</izlaz>
+<p>Linearni model objašnjava oko polovice varijance; greška na testu malo je drugačija nego na treningu, ali nema dramatičnog jaza – model nije prenaučen. Preostala greška znači da bolest ovisi i o onome što u ovih 10 brojeva nije zabilježeno.</p>
+<p><b>Korak 3: tumačenje koeficijenata.</b> Značajke su u ovom skupu već skalirane na isti raspon, pa su koeficijenti izravno usporedivi: veći $|w_j|$ znači veći utjecaj promjene te značajke na predikciju. Kad značajke nisu na istoj skali, prvo ih treba standardizirati (lekcija M2), inače koeficijent uz „visinu u metrima” izgleda sto puta važniji od istog uz „visinu u centimetrima”.</p>
+<kod jezik="python">
+poredak = np.argsort(-np.abs(model.coef_))
+for j in poredak[:4]:
+    print("%-4s %8.1f" % (podaci.feature_names[j], model.coef_[j]))
+</kod>
+<izlaz>
+s1     -931.5
+s5      736.2
+bmi     542.4
+s2      518.1
+</izlaz>
+<p>Najveći utjecaj imaju serumske mjere <code>s1</code> i <code>s5</code> te BMI. Oprez: koeficijent govori o <em>povezanosti</em> u ovom skupu, ne o uzročnosti, a kad su značajke međusobno korelirane (<code>s1</code> i <code>s2</code> jesu), pojedinačni koeficijenti mogu biti veliki i suprotnih predznaka iako je zajednički učinak umjeren.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Iz funkcije $y=\sin(2\pi x)$ uzmi $30$ točaka za učenje i $200$ za test na $[0,1]$, obje sa šumom $\sigma=0{,}2$. Prilagodi polinome stupnja $1$, $3$, $9$ i $15$ i usporedi MSE na treningu i na testu. Što se događa?</p>
+<rjesenje>
+<p><b>Korak 1: podaci i značajke.</b> Polinomijalne značajke $1,x,\dots,x^k$ generira <code>PolynomialFeatures</code>. Ovdje za fit koristimo <code>np.linalg.lstsq</code> jer je za visoke stupnjeve $X^\top X$ vrlo loše uvjetovana i <code>solve</code> bi vraćao numeričko smeće.</p>
+<kod jezik="python">
+from sklearn.preprocessing import PolynomialFeatures
+
+rng = np.random.default_rng(1)
+def uzorak(n):
+    x = np.sort(rng.uniform(0, 1, n))
+    return x, np.sin(2 * np.pi * x) + rng.normal(0, 0.2, n)
+
+xp_tr, yp_tr = uzorak(30)
+xp_te, yp_te = uzorak(200)
+
+def polinom_mse(k):
+    pf = PolynomialFeatures(degree=k)
+    A_tr = pf.fit_transform(xp_tr[:, None])
+    A_te = pf.transform(xp_te[:, None])
+    w, *_ = np.linalg.lstsq(A_tr, yp_tr, rcond=None)
+    return np.mean((A_tr @ w - yp_tr) ** 2), np.mean((A_te @ w - yp_te) ** 2)
+
+print("stupanj  MSE trening  MSE test")
+for k in (1, 3, 9, 15):
+    tr, te = polinom_mse(k)
+    print("%6d   %10.4f  %9.4f" % (k, tr, te))
+</kod>
+<izlaz>
+stupanj  MSE trening  MSE test
+     1       0.1982     0.2723
+     3       0.0296     0.0393
+     9       0.0246     0.0492
+    15       0.0110  1086.5208
+</izlaz>
+<p><b>Korak 2: čitanje tablice.</b> Pravac ($k=1$) je <em>podnaučen</em>: sinus se ne može opisati pravcem, pa su obje greške velike. Kubni polinom pogađa oblik: obje greške padaju blizu $\sigma^2=0{,}04$. Stupanj $9$ i $15$ i dalje smanjuju grešku na treningu (polinom prolazi sve bliže točkama, uključujući šum), ali greška na testu <em>raste</em> – za stupanj $15$ eksplodira na više od tisuću, jer polinom između rijetkih točaka za učenje i uz rubove intervala divlja. To je <em>prenaučenost</em>. Što je model fleksibilniji u odnosu na količinu podataka, to mu više treba kontrola iz lekcija M2 (regularizacija) i M5 (validacija).</p>
+<p><b>Korak 3: slika.</b> Na natjecanju uvijek nacrtaj što model radi – greška od tisuću zvuči apstraktno, a slika polinoma stupnja $15$ koji između točaka divlja odmah objašnjava problem.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+mreza = np.linspace(0, 1, 300)
+fig, osi = plt.subplots(1, 3, figsize=(12, 3.4), sharey=True)
+for os_, k in zip(osi, (1, 3, 15)):
+    pf = PolynomialFeatures(degree=k)
+    w, *_ = np.linalg.lstsq(pf.fit_transform(xp_tr[:, None]), yp_tr, rcond=None)
+    os_.scatter(xp_tr, yp_tr, s=18, label="trening")
+    os_.plot(mreza, np.sin(2 * np.pi * mreza), "k--", lw=1, label="istina")
+    os_.plot(mreza, pf.transform(mreza[:, None]) @ w, "r", label="polinom st. %d" % k)
+    os_.set_ylim(-1.6, 1.6)
+    os_.set_title("stupanj %d" % k)
+    os_.legend(fontsize=8)
+fig.tight_layout()
+fig.savefig("polinomi.png", dpi=120)
+print("spremljeno polinomi.png")
+</kod>
+<izlaz>
+spremljeno polinomi.png
+</izlaz>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za tri točke $(0,1)$, $(1,3)$ i $(2,4)$ ručno (bez računala) odredi pravac $\hat y=wx+b$ najmanjih kvadrata. Provjeri rezultat u NumPy-ju.</p>
+<rjesenje>
+<p>Za $d=1$ normalne jednadžbe daju poznate formule $w=\dfrac{\sum(x_i-\bar x)(y_i-\bar y)}{\sum(x_i-\bar x)^2}$ i $b=\bar y-w\bar x$. Ovdje je $\bar x=1$, $\bar y=\frac83$, $\sum(x_i-\bar x)(y_i-\bar y)=(-1)\left(1-\frac83\right)+0+1\cdot\left(4-\frac83\right)=\frac53+\frac43=3$ i $\sum(x_i-\bar x)^2=2$, pa je $w=\frac32$ i $b=\frac83-\frac32=\frac76$.</p>
+<kod jezik="python">
+X = np.array([[1, 0], [1, 1], [1, 2]], dtype=float)
+y = np.array([1, 3, 4], dtype=float)
+b, w = np.linalg.lstsq(X, y, rcond=None)[0]
+print("w = %.4f  b = %.4f  (7/6 = %.4f)" % (w, b, 7 / 6))
+</kod>
+<izlaz>
+w = 1.5000  b = 1.1667  (7/6 = 1.1667)
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za svaki od sljedećih zadataka reci je li riječ o nadziranom ili nenadziranom učenju te o regresiji ili klasifikaciji: (a) predviđanje vremena dolaska autobusa iz GPS podataka; (b) podjela kupaca web-trgovine u skupine sličnog ponašanja; (c) prepoznavanje je li e-mail neželjena pošta; (d) procjena starosti osobe sa fotografije; (e) određivanje jezika kojim je napisan tekst.</p>
+<rjesenje>
+<p>(a) nadzirano, regresija ($y$ je vrijeme); (b) nenadzirano – nema zadanih skupina, klasteriranje (M6); (c) nadzirano, binarna klasifikacija; (d) nadzirano, regresija (starost je broj; u praksi se zna rješavati i kao klasifikacija po dobnim skupinama); (e) nadzirano, višeklasna klasifikacija.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Jedan podatak u skupu je pogrešno unesen ($y=1000$ umjesto $y=10$). Koji će gubitak – MSE ili MAE – jače „povući” naučeni pravac prema toj točki? Zašto?</p>
+<rjesenje>
+<p>MSE. Rezidual te točke ulazi u MSE kvadriran (reda $10^6$), pa pomicanje pravca prema njoj smanjuje gubitak puno više nego što ga povećavaju mali pomaci na svim ostalim točkama. U MAE isti rezidual ulazi linearno, pa jedna točka ima utjecaj usporediv s ostalima. Zato je MAE (ili Huberov gubitak, kombinacija obaju) izbor kad se u podacima očekuju odstupajuće vrijednosti.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Dokaži: ako model sadrži pomak (stupac jedinica u $X$), reziduali rješenja najmanjih kvadrata zbrajaju se u nulu, $\sum_i r_i=0$, a pravac (hiperravnina) prolazi kroz točku $(\bar x,\bar y)$.</p>
+<naputak>Normalne jednadžbe glase $X^\top(Xw^*-y)=0$. Što kaže njihov prvi redak?</naputak>
+<rjesenje>
+<p>Vektor reziduala je $r=y-Xw^*$, a normalne jednadžbe su $X^\top r=0$: rezidual je okomit na svaki stupac matrice $X$. Prvi stupac je vektor jedinica $\mathbf 1$, pa je $\mathbf 1^\top r=\sum_i r_i=0$. Dijeljenjem s $n$: $\bar y-\frac1n\sum_i \hat y_i=0$, a $\frac1n\sum_i\hat y_i=\frac1n\sum_i (w^\top x_i+b)=w^\top\bar x+b$ je upravo predikcija modela u točki $\bar x$. Dakle $f(\bar x)=\bar y$.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši vlastitu funkciju <code>r2(y, y_hat)</code> prema definiciji i provjeri da na testnom skupu iz Primjera 2 daje isto što i <code>sklearn.metrics.r2_score</code>. Zatim izračunaj $R^2$ modela koji na testu uvijek predviđa <em>prosjek trening skupa</em> i objasni zašto nije točno $0$.</p>
+<rjesenje>
+<kod jezik="python">
+def r2(y, y_hat):
+    return 1 - np.sum((y - y_hat) ** 2) / np.sum((y - y.mean()) ** 2)
+
+p = model.predict(X_te)
+print(round(r2(y_te, p), 6), round(r2_score(y_te, p), 6))
+print("prosjek treninga:", round(r2(y_te, np.full_like(y_te, y_tr.mean())), 4))
+</kod>
+<izlaz>
+0.452603 0.452603
+prosjek treninga: -0.012
+</izlaz>
+<p>Nazivnik u $R^2$ koristi prosjek <em>testnog</em> skupa $\bar y_{te}$, a konstantna predikcija $\bar y_{tr}$ nije jednaka njemu, pa je brojnik malo veći od nazivnika i $R^2$ je malo negativan. Općenito: $R^2=0$ postiže upravo konstanta $\bar y$ skupa na kojem mjerimo, a sve lošije od toga daje negativan $R^2$.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Pokaži eksperimentom, a zatim i dokaži, da se <em>predikcije</em> linearne regresije ne mijenjaju ako neku značajku pomnožimo konstantom $c\ne0$ ili joj dodamo konstantu (uz pomak u modelu). Što se događa s koeficijentima?</p>
+<naputak>Nova matrica dizajna je $X'=XA$ za neku invertibilnu matricu $A$. Kako izgleda $w'^*$ u odnosu na $w^*$?</naputak>
+<rjesenje>
+<kod jezik="python">
+X2 = X_tr.copy()
+X2[:, 2] = 100 * X2[:, 2] + 7           # BMI u drugoj skali i pomaknut
+m2 = LinearRegression().fit(X2, y_tr)
+X2_te = X_te.copy()
+X2_te[:, 2] = 100 * X2_te[:, 2] + 7
+print("iste predikcije:", np.allclose(m2.predict(X2_te), model.predict(X_te)))
+print("koef. uz BMI: %.3f  ->  %.3f" % (model.coef_[2], m2.coef_[2]))
+</kod>
+<izlaz>
+iste predikcije: True
+koef. uz BMI: 542.429  ->  5.424
+</izlaz>
+<p>Dokaz: množenje stupca konstantom i dodavanje konstante (koja je višekratnik stupca jedinica) su stupčane operacije, pa je $X'=XA$ za invertibilnu $A$. Tada je $X'^\top X'w'=X'^\top y$ ekvivalentno s $A^\top X^\top XAw'=A^\top X^\top y$, odnosno (množenjem s $A^{-\top}$) $X^\top X(Aw')=X^\top y$. Dakle $Aw'^*=w^*$, tj. $w'^*=A^{-1}w^*$, a predikcije $X'w'^*=XAA^{-1}w^*=Xw^*$ su iste. Koeficijent uz skaliranu značajku dijeli se s $c$ (ovdje sa $100$), a pomak preuzima dodanu konstantu. Zaključak: skaliranje značajki ne mijenja OLS, ali mijenja <em>čitljivost koeficijenata</em>; kod regularizacije i gradijentnog spusta (M2) skaliranje mijenja i rješenje.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Reziduale $r_i$ modela iz Primjera 2 na testnom skupu nacrtaj u ovisnosti o predikciji $\hat y_i$. Što bi trebalo vidjeti ako je linearni model primjeren, a što vidiš? Izračunaj i korelaciju između $\hat y$ i $r$ te između $\hat y$ i $|r|$.</p>
+<rjesenje>
+<kod jezik="python">
+p = model.predict(X_te)
+r = y_te - p
+print("korelacija(y_hat, r)   = %.3f" % np.corrcoef(p, r)[0, 1])
+print("korelacija(y_hat, |r|) = %.3f" % np.corrcoef(p, np.abs(r))[0, 1])
+plt.figure(figsize=(5, 3.4))
+plt.scatter(p, r, s=16)
+plt.axhline(0, color="k", lw=1)
+plt.xlabel("predikcija"); plt.ylabel("rezidual")
+plt.tight_layout(); plt.savefig("reziduali.png", dpi=120)
+</kod>
+<izlaz>
+korelacija(y_hat, r)   = -0.087
+korelacija(y_hat, |r|) = 0.275
+</izlaz>
+<p>Za primjeren model reziduali su „oblak bez strukture” oko nule, podjednako široki za sve predikcije. Korelacija $\hat y$ s $r$ je na testu približno nula (na treningu je točno nula – to je Zadatak 1 primijenjen na sve stupce). Pozitivna korelacija $\hat y$ s $|r|$ znači da je raspršenje veće za velike predikcije (heteroskedastičnost): model je nesigurniji za teže bolesnike. Takav dijagram reziduala je jedan od najbržih načina da se na natjecanju odluči je li potrebna transformacija cilja (npr. $\log y$) ili nelinearni model.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Normalnoj jednadžbi dodaj „kaznu” za velike težine: minimiziraj $\lVert Xw-y\rVert^2+\lambda\lVert w\rVert^2$. Izvedi rješenje u zatvorenom obliku i primijeni ga na polinom stupnja $15$ iz Primjera 3 za $\lambda\in\{0,\,10^{-6},\,10^{-3},\,10^{-1}\}$. Kako se mijenjaju testna greška i veličina koeficijenata? (Ovo je <em>grebena regresija</em>, engl. <i>ridge</i>; sustavno u lekciji M2.)</p>
+<naputak>Gradijent dodanog člana je $2\lambda w$. Zbroji ga s gradijentom iz dokaza normalne jednadžbe.</naputak>
+<rjesenje>
+<p>Gradijent cilja je $2X^\top Xw-2X^\top y+2\lambda w$; izjednačavanje s nulom daje $(X^\top X+\lambda I)w=X^\top y$, pa je $w^*_\lambda=(X^\top X+\lambda I)^{-1}X^\top y$. Matrica $X^\top X+\lambda I$ je za $\lambda\gt0$ uvijek invertibilna (pozitivno definitna), pa rješenje postoji i kad je $X^\top X$ singularna – zato je ridge omiljeni popravak numeričkih problema iz napomene u teoriji.</p>
+<kod jezik="python">
+pf = PolynomialFeatures(degree=15)
+A_tr = pf.fit_transform(xp_tr[:, None])
+A_te = pf.transform(xp_te[:, None])
+I = np.eye(A_tr.shape[1])
+print("  lambda   MSE test   max|w|")
+for lam in (0, 1e-6, 1e-3, 1e-1):
+    w = np.linalg.solve(A_tr.T @ A_tr + lam * I, A_tr.T @ yp_tr)
+    print("%8g  %9.4f  %8.1f" % (lam, np.mean((A_te @ w - yp_te) ** 2), np.abs(w).max()))
+</kod>
+<izlaz>
+  lambda   MSE test   max|w|
+       0     1.6886  21406573.5
+   1e-06     0.0433      41.9
+   0.001     0.0455      12.4
+     0.1     0.1387       1.6
+</izlaz>
+<p>Već sićušna kazna obara koeficijente s reda desetaka milijuna na red desetaka i testna greška pada blizu razine kubnog polinoma iz Primjera 3; prevelika kazna ($\lambda=0{,}1$) počinje gušiti i korisne koeficijente, pa greška opet raste. (Za $\lambda=0$ <code>solve</code> na gotovo singularnoj matrici daje nestabilan rezultat – još jedan razlog da se u Primjeru 3 koristio <code>lstsq</code>.) Izbor $\lambda$ je tipičan <em>hiperparametar</em>: bira se na validacijskom skupu, nikad na testu.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Ne koristeći normalnu jednadžbu, numerički provjeri formulu za gradijent $\nabla_w L(w)=\frac2n X^\top(Xw-y)$ iz dokaza: za slučajni $w$ usporedi je s <b>konačnim razlikama</b> $\dfrac{L(w+\varepsilon e_j)-L(w-\varepsilon e_j)}{2\varepsilon}$. Zatim napravi $2000$ koraka $w\leftarrow w-\eta\nabla_w L(w)$ s $\eta=0{,}05$ na podacima iz Primjera 1 i usporedi s rješenjem normalne jednadžbe.</p>
+<rjesenje>
+<p>Provjera konačnim razlikama standardni je test svakog ručno izvedenog gradijenta (koristit ćemo ga opet u lekciji D2).</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+x = rng.uniform(0, 5, size=200)
+y = 3 * x + 2 + rng.normal(0, 1, size=200)
+X = np.column_stack([np.ones(200), x])
+
+def L(w):
+    return np.mean((X @ w - y) ** 2)
+
+def grad(w):
+    return 2 / len(y) * X.T @ (X @ w - y)
+
+w = rng.normal(size=2)
+eps = 1e-6
+numericki = np.array([(L(w + eps * e) - L(w - eps * e)) / (2 * eps) for e in np.eye(2)])
+print("analitički:", grad(w).round(6))
+print("numerički: ", numericki.round(6))
+
+w = np.zeros(2)
+for _ in range(2000):
+    w -= 0.05 * grad(w)
+w_ols = np.linalg.solve(X.T @ X, X.T @ y)
+print("gradijentni spust:", w.round(4), " normalna jednadžba:", w_ols.round(4))
+</kod>
+<izlaz>
+analitički: [-20.244828 -66.369742]
+numerički:  [-20.244828 -66.369742]
+gradijentni spust: [2.0471 2.9494]  normalna jednadžba: [2.0471 2.9494]
+</izlaz>
+<p>Gradijentni spust približava se istom minimumu, samo sporije (a s prevelikim $\eta$, npr. $0{,}1$, ovdje divergira – isprobaj!) – i radi i kad podataka ima milijune ili kad model nije linearan, gdje zatvorene formule nema. To je tema sljedeće lekcije.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Svaki ML zadatak = podaci $(x,y)$ + model $f_w$ + gubitak $L$ + algoritam koji smanjuje $L$. Prvo odredi što je $x$, što $y$ i koja je metrika.</li>
+<li>Linearna regresija: $\hat y=Xw$ (s stupcem jedinica za pomak), gubitak MSE, rješenje $w^*=(X^\top X)^{-1}X^\top y$ – ali računaj ga s <code>lstsq</code>/<code>solve</code>, ne inverzom.</li>
+<li>Ocjenjuj na podacima koje model nije vidio (train/test); $R^2$ i MSE na treningu ne govore ništa o generalizaciji.</li>
+<li>Polinomijalne i druge transformirane značajke čine model moćnijim, ali bez kontrole (regularizacija, validacija) vode u prenaučenost.</li>
+<li>Scikit-learn: <code>model.fit(X, y)</code>, <code>model.predict(X)</code>, <code>train_test_split</code>, <code>mean_squared_error</code>, <code>r2_score</code>.</li>
+</ul>
+
+@@ literatura
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 1 i 4.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/linear_model.html">Linear Models</a> i <a href="https://scikit-learn.org/stable/modules/cross_validation.html">Cross-validation</a>.</li>
+<li>Andrew Ng, <i>Machine Learning Specialization</i> (Coursera), tjedan 1–2: ista lekcija uz videozapise.</li>

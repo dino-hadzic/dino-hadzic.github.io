@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Jezik i vid 3: Pretrenirani jezični modeli i Hugging Face</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#jezik-i-vid">Jezik i vid</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Jezik i vid · lekcija 3 od 6</p>
+            <h1><span class="broj-lekcije">V3</span> Pretrenirani jezični modeli i Hugging Face</h1>
+            <p class="meta">BERT i GPT kao gotovi „čitači” teksta: tokenizatori, biblioteka transformers, embeddinzi rečenica, fine-tuning i zero-shot – sve što stane na procesor</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.4" title="razina nacionalnog izbora i kvalifikacija">Razina: Srednje</li>
+                <li>pretreniranje</li>
+                <li>maskirani jezični model</li>
+                <li>autoregresivni model</li>
+                <li>WordPiece</li>
+                <li>Hugging Face transformers</li>
+                <li>AutoTokenizer</li>
+                <li>fine-tuning</li>
+                <li>zero-shot</li>
+                <li>višejezični modeli</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Objasniti što je pretrenirani transformer, čime se razlikuju maskirani (BERT) i autoregresivni (GPT) cilj učenja i zašto pretreniranje pomaže zadatku s malo podataka.</li>
+<li>Razumjeti što tokenizator radi s rečenicom (podriječi, posebni tokeni, <code>input_ids</code>, <code>attention_mask</code>) i istrenirati vlastiti WordPiece tokenizator.</li>
+<li>Koristiti biblioteku <code>transformers</code>: <code>pipeline</code>, <code>AutoTokenizer</code>/<code>AutoModel</code>, embeddinzi rečenica, fine-tuning klasifikatora ručnom petljom ili <code>Trainer</code>-om.</li>
+<li>Znati što je realno na procesoru tijekom natjecanja: mali modeli, kratki nizovi, zamrznuti embeddinzi + linearni model, zero-shot kao prva procjena.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji V2 vektor riječi naučili smo iz konteksta, ali svaka je riječ dobila jedan vektor. Lekcija D6 opisala je arhitekturu transformera – slojeve pažnje koji svaki token predstavljaju <em>ovisno o svim ostalima</em>. Ovdje spajamo to dvoje: <b>pretrenirani jezični model</b> je transformer koji je netko već istrenirao na golemom tekstu, a mi ga preuzmemo i upotrijebimo kao gotov pretvarač teksta u kontekstualne vektore. Na natjecanju to znači da se NLP zadatak s par tisuća označenih primjera rješava u jednom poslijepodnevu – bez pretreniranog modela isti zadatak zahtijevao bi milijune primjera.</p>
+
+<h3>Pretreniranje: učenje bez oznaka</h3>
+<p>Ključna ideja je <b>samonadzirano učenje</b> (engl. <i>self-supervised</i>): oznake se stvaraju iz samog teksta, pa je podataka koliko i teksta na internetu. Dva su glavna cilja:</p>
+<div class="pojam">
+<h4>Maskirani jezični model (MLM)</h4>
+<p>Nasumično odabranih (tipično $15\,\%$) tokena ulaza zamijeni se posebnim tokenom <code>[MASK]</code>, a model mora iz <em>cijelog</em> ostatka rečenice (lijevo i desno) pogoditi izvorne tokene:
+$$L_{\mathrm{MLM}}=-\sum_{i\in\mathcal M}\ln P(x_i\mid x_{\setminus\mathcal M}),$$
+gdje je $\mathcal M$ skup maskiranih pozicija. Tako uči <b>BERT</b> (<i>Bidirectional Encoder Representations from Transformers</i>) i njegovi nasljednici (RoBERTa, DistilBERT, XLM-R). Arhitektura je <b>enkoder</b>: svaki token vidi sve ostale.</p>
+</div>
+<div class="pojam">
+<h4>Autoregresivni jezični model</h4>
+<p>Model predviđa sljedeći token iz prethodnih,
+$$L_{\mathrm{AR}}=-\sum_{t=1}^{T}\ln P(x_t\mid x_1,\dots,x_{t-1}),$$
+pa token na poziciji $t$ smije gledati samo pozicije $\lt t$ (kauzalna maska pažnje). Tako uče <b>GPT</b> modeli i svi današnji „veliki jezični modeli” za generiranje. Arhitektura je <b>dekoder</b>; isti model generira tekst tako da uzorkuje token po token.</p>
+</div>
+<p>Razlika u cilju odražava se u uporabi: enkoderi daju najbolje reprezentacije za <em>razumijevanje</em> (klasifikacija, označavanje tokena, sličnost rečenica) i manji su; dekoderi <em>generiraju</em> (prevođenje, sažimanje, odgovaranje) i mogu rješavati zadatke iz samog opisa u promptu, ali su za istu kvalitetu reprezentacija puno veći. Na natjecanju s ograničenim računalom klasifikaciju gotovo uvijek radiš enkoderom.</p>
+<div class="trener-umetak">
+<p>Pretreniranje je skupo (tjedni na stotinama GPU-a) i to <em>nikad</em> ne radiš sam. Tvoj posao počinje poslije: odabrati model, pripremiti ulaz i <b>prilagoditi</b> ga zadatku (engl. <i>fine-tuning</i>) ili ga koristiti zamrznutog. Ta podjela rada – netko pretrenira, mnogi prilagođavaju – zove se <b>transfer učenja</b> i isti obrazac vidjet ćeš za slike u lekciji V5.</p>
+</div>
+
+<h3>Tokenizatori</h3>
+<p>Transformer ne vidi riječi, nego indekse iz fiksnog rječnika podriječi (V1: BPE). Svaki pretrenirani model dolazi s <em>vlastitim</em> tokenizatorom i mora se koristiti baš s njim – isti indeks u drugom rječniku znači drugu podriječ. Tri su obitelji: <b>WordPiece</b> (BERT; nastavak riječi označen s <code>##</code>, npr. „golmanu” → „golman”, „##u”), <b>BPE na bajtovima</b> (GPT, RoBERTa; razmak je dio tokena, prikazan kao „Ġ”) i <b>SentencePiece/Unigram</b> (XLM-R, T5; razmak kao „▁”, radi izravno na sirovom tekstu). Sva tri algoritma dijele riječ koje nema u rječniku na manje poznate komade, pa nepoznatih riječi praktički nema – ali hrvatske riječi u modelu učenom pretežno na engleskom raspadaju se na $2$–$4$ komada, što skraćuje efektivnu duljinu ulaza i slabi reprezentacije.</p>
+<p>Tokenizator uz indekse (<code>input_ids</code>) vraća i <code>attention_mask</code> (jedinice za prave tokene, nule za nadopunu <code>[PAD]</code> kojom se rečenice u batchu izjednačuju po duljini) te dodaje <b>posebne tokene</b>: BERT stavlja <code>[CLS]</code> na početak (njegov izlazni vektor služi kao sažetak rečenice) i <code>[SEP]</code> na kraj (i između dviju rečenica u paru). Duljina ulaza ograničena je brojem pozicijskih embeddinga, kod BERT-a $512$ tokena; dulji tekst se reže (<code>truncation=True</code>) ili dijeli na prozore.</p>
+
+<h3>Biblioteka transformers</h3>
+<p>Hugging Face <b>Hub</b> je repozitorij s desecima tisuća pretreniranih modela, a <code>transformers</code> je biblioteka koja ih učitava jednom naredbom. Tri su razine sučelja:</p>
+<ul>
+<li><code>pipeline("zadatak", model=...)</code> – najviša razina: tekst unutra, rezultat van (<code>sentiment-analysis</code>, <code>zero-shot-classification</code>, <code>fill-mask</code>, <code>text-generation</code>, <code>translation</code>, …). Idealno za prvu procjenu.</li>
+<li><code>AutoTokenizer.from_pretrained(ime)</code> i <code>AutoModel.from_pretrained(ime)</code> – tokenizator i „goli” model koji vraća <code>last_hidden_state</code> oblika <code>(batch, tokeni, d)</code>; iz toga sam gradiš što trebaš.</li>
+<li><code>AutoModelForSequenceClassification</code>, <code>…ForTokenClassification</code>, <code>…ForMaskedLM</code> itd. – isti trup s dodanom <b>glavom</b> za zadatak; za klasifikaciju glava je linearni sloj nad vektorom <code>[CLS]</code> koji se inicijalizira slučajno i uči fine-tuningom.</li>
+</ul>
+<p>Pri prvom pozivu <code>from_pretrained</code> preuzima težine s Huba (BERT-base je oko $440$ MB) i sprema ih u lokalni cache; svaki sljedeći poziv je lokalan. Isti pozivi s <code>config</code> umjesto imena stvaraju model iste arhitekture sa <em>slučajnim</em> težinama – to ćemo iskoristiti u primjerima da sve pokrenemo bez preuzimanja.</p>
+
+<h3>Embeddinzi rečenica</h3>
+<p>Izlaz enkodera je po jedan vektor dimenzije $d$ ($768$ za base modele) za svaki token. Za cijelu rečenicu treba jedan vektor: ili vektor tokena <code>[CLS]</code>, ili <b>prosjek po tokenima uz masku</b> (engl. <i>mean pooling</i>), koji ignorira <code>[PAD]</code> pozicije. Kod modela koji nisu posebno učeni za sličnost rečenica prosjek je u pravilu bolji od <code>[CLS]</code>. Modeli iz obitelji <i>sentence-transformers</i> (npr. višejezični <code>paraphrase-multilingual-MiniLM-L12-v2</code>) dodatno su učeni tako da kosinus između vektora rečenica odgovara njihovoj značenjskoj sličnosti; to je najbrži put do pretraživanja, grupiranja i klasifikacije s malo podataka.</p>
+
+<h3>Fine-tuning</h3>
+<p><b>Fine-tuning</b> znači nastaviti učiti <em>cijeli</em> pretrenirani model (plus novu glavu) na svojim označenim podacima, ali vrlo oprezno: stopa učenja $2\cdot10^{-5}$ do $5\cdot10^{-5}$ (stotinu puta manja nego za mrežu od nule), $2$–$4$ epohe, AdamW s padom težina, linearno smanjivanje stope učenja uz kratko zagrijavanje (engl. <i>warm-up</i>), batch $16$–$32$. Prevelika stopa „zaboravi” pretrenirano znanje (engl. <i>catastrophic forgetting</i>). Praktične varijante kad je računalo slabo:</p>
+<ul>
+<li><b>Zamrznuti trup + linearni model</b> (engl. <i>linear probe</i>): jednom izračunaj embedding svake rečenice, spremi ga i treniraj logističku regresiju iz M3. Nema backpropagacije kroz transformer, pa je deset puta brže i radi i s nekoliko stotina primjera.</li>
+<li><b>Djelomični fine-tuning</b>: uči samo zadnjih nekoliko slojeva ili male dodatne module (LoRA, adapteri).</li>
+<li><b>Puni fine-tuning</b> s <code>Trainer</code>-om ili ručnom petljom iz D3 – najbolji rezultat, ali na CPU-u s base modelom i $2000$ rečenica računaj na desetke minuta po epohi.</li>
+</ul>
+
+<h3>Zero-shot i višejezični modeli</h3>
+<p><b>Zero-shot klasifikacija</b> određuje klasu bez ijednog označenog primjera. Najčešća izvedba koristi model učen za <em>zaključivanje</em> (NLI): rečenica je premisa, a za svaku klasu hipoteza „Ovaj tekst govori o {klasa}.”; klasa s najvećom vjerojatnošću <em>entailmenta</em> pobjeđuje. Alternativa je kosinus između embeddinga rečenice i embeddinga opisa klase. Zero-shot je slabiji od modela treniranog na podacima, ali daje polaznu točku u pet minuta i dobar je način da se provjeri jesu li klase uopće jezično razlučive.</p>
+<p>Za hrvatski tekst biraj <b>višejezične</b> modele: <code>xlm-roberta-base</code> (100 jezika, SentencePiece, znatno bolja tokenizacija hrvatskog od engleskog BERT-a), <code>bert-base-multilingual-cased</code> i višejezični sentence-transformers. Na Hubu postoje i modeli učeni posebno na hrvatskom i srodnim jezicima, npr. <b>BERTić</b> (<code>classla/bcms-bertic</code>) i <b>CroSloEngual BERT</b> (<code>EMBEDDIA/crosloengual-bert</code>); za zadatke na hrvatskom tekstu oni u pravilu daju bolje rezultate od općih višejezičnih modela iste veličine. Uvijek pogledaj karticu modela (<i>model card</i>) na Hubu: na kojim je jezicima učen, koji tokenizator koristi, ima li već fine-tunanu inačicu za tvoj zadatak.</p>
+<div class="trener-umetak">
+<p>Ograničenja procesora u brojkama koje vrijedi zapamtiti: base model ($\approx110$ M parametara) obradi na CPU-u reda desetak rečenica od $64$ tokena u sekundi pri zaključivanju, a fine-tuning je $3$–$5$ puta sporiji po rečenici i množi se brojem epoha. Zato: (1) počni s malim modelom (DistilBERT, MiniLM) ili zamrznutim embeddinzima; (2) ograniči <code>max_length</code> na najkraće što zadatak podnosi – trošak pažnje raste kvadratno s duljinom; (3) embeddinge računaj jednom i spremi (<code>np.save</code>); (4) <code>torch.no_grad()</code> pri zaključivanju; (5) veliki model pokreni tek kad imaš radni mali cjevovod.</p>
+</div>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Pokaži što tokenizator radi: (a) ručno implementiraj WordPiece s malim zadanim rječnikom; (b) istreniraj pravi WordPiece tokenizator bibliotekom <code>tokenizers</code> na malom hrvatskom korpusu i umotaj ga u Hugging Face sučelje s posebnim tokenima i nadopunom; (c) napiši kôd kojim bi isto napravio s tokenizatorom pretreniranog višejezičnog modela.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: WordPiece ručno.</b> Algoritam je pohlepan: od početka riječi uzmi najdulji komad koji postoji u rječniku, ostatak nastavi s prefiksom <code>##</code>; ako nijedan komad ne odgovara, cijela riječ postaje <code>[UNK]</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HF_HUB_OFFLINE"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>          <span class="c1"># primjeri rade bez preuzimanja</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"TRANSFORMERS_VERBOSITY"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"error"</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">unicodedata</span>
+
+<span class="n">RJECNIK</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"[UNK]"</span><span class="p">,</span> <span class="s2">"[CLS]"</span><span class="p">,</span> <span class="s2">"[SEP]"</span><span class="p">,</span> <span class="s2">"[PAD]"</span><span class="p">,</span> <span class="s2">"[MASK]"</span><span class="p">,</span> <span class="s2">"golman"</span><span class="p">,</span> <span class="s2">"##u"</span><span class="p">,</span> <span class="s2">"##a"</span><span class="p">,</span> <span class="s2">"##i"</span><span class="p">,</span> <span class="s2">"je"</span><span class="p">,</span> <span class="s2">"su"</span><span class="p">,</span>
+           <span class="s2">"utakmic"</span><span class="p">,</span> <span class="s2">"##e"</span><span class="p">,</span> <span class="s2">"##om"</span><span class="p">,</span> <span class="s2">"obranio"</span><span class="p">,</span> <span class="s2">"jedanaest"</span><span class="p">,</span> <span class="s2">"##erac"</span><span class="p">,</span> <span class="s2">"##erca"</span><span class="p">,</span> <span class="s2">"na"</span><span class="p">,</span> <span class="s2">"u"</span><span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">wordpiece</span><span class="p">(</span><span class="n">rijec</span><span class="p">,</span> <span class="n">rjecnik</span><span class="o">=</span><span class="n">RJECNIK</span><span class="p">):</span>
+    <span class="n">komadi</span><span class="p">,</span> <span class="n">pocetak</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">pocetak</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">rijec</span><span class="p">):</span>
+        <span class="n">kraj</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rijec</span><span class="p">)</span>
+        <span class="k">while</span> <span class="n">kraj</span> <span class="o">&gt;</span> <span class="n">pocetak</span><span class="p">:</span>
+            <span class="n">komad</span> <span class="o">=</span> <span class="n">rijec</span><span class="p">[</span><span class="n">pocetak</span><span class="p">:</span><span class="n">kraj</span><span class="p">]</span> <span class="k">if</span> <span class="n">pocetak</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">"##"</span> <span class="o">+</span> <span class="n">rijec</span><span class="p">[</span><span class="n">pocetak</span><span class="p">:</span><span class="n">kraj</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">komad</span> <span class="ow">in</span> <span class="n">rjecnik</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">kraj</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">kraj</span> <span class="o">==</span> <span class="n">pocetak</span><span class="p">:</span>                      <span class="c1"># nijedan komad ne odgovara</span>
+            <span class="k">return</span> <span class="p">[</span><span class="s2">"[UNK]"</span><span class="p">]</span>
+        <span class="n">komadi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">komad</span><span class="p">)</span>
+        <span class="n">pocetak</span> <span class="o">=</span> <span class="n">kraj</span>
+    <span class="k">return</span> <span class="n">komadi</span>
+
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"golmanu"</span><span class="p">,</span> <span class="s2">"utakmice"</span><span class="p">,</span> <span class="s2">"jedanaesterca"</span><span class="p">,</span> <span class="s2">"trener"</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-14s</span><span class="s2"> -&gt;"</span> <span class="o">%</span> <span class="n">r</span><span class="p">,</span> <span class="n">wordpiece</span><span class="p">(</span><span class="n">r</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>golmanu        -&gt; ['golman', '##u']
+utakmice       -&gt; ['utakmic', '##e']
+jedanaesterca  -&gt; ['jedanaest', '##erca']
+trener         -&gt; ['[UNK]']</code></pre>
+<p>Riječi s poznatom osnovom raspadaju se na osnovu i nastavak – padež je postao zaseban token, što je točno ono što želimo za hrvatski. Riječ bez ijednog poznatog komada postaje <code>[UNK]</code>; pravi rječnici sadrže sve pojedinačne znakove, pa se to u praksi ne događa.</p>
+<p><b>Korak 2: učenje WordPiece rječnika.</b> Rječnik učimo kao BPE u lekciji V1 – spajamo najčešći par susjednih simbola – samo što simboli unutar riječi nose prefiks <code>##</code>, pa isti niz slova na početku i u sredini riječi daje različite tokene. (Izvorni WordPiece par bira po rezultatu $\frac{f(ab)}{f(a)\,f(b)}$, koji na ovako sićušnom korpusu prvo spaja rijetke riječi i ostavlja česte razbijene na slova; na milijardama tokena razlika je mala.) Korpus je šezdeset rečenica iz tri teme koje ćemo koristiti i u Primjeru 3; rječnik ograničavamo na $300$ tokena. (Biblioteka <code>tokenizers</code> ima i gotov <code>WordPieceTrainer</code> koji to radi brže, ali izjednačene parove razrješava nedeterministički, pa bi se indeksi mijenjali iz pokretanja u pokretanje; za lekciju je važnije da sve bude ponovljivo.)</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tokenizers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tokenizer</span><span class="p">,</span> <span class="n">models</span><span class="p">,</span> <span class="n">normalizers</span><span class="p">,</span> <span class="n">pre_tokenizers</span><span class="p">,</span> <span class="n">processors</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreTrainedTokenizerFast</span>
+
+<span class="n">tekstovi</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># sport</span>
+    <span class="s2">"Vatreni su sinoć pobijedili 2:1 i plasirali se u polufinale."</span><span class="p">,</span>
+    <span class="s2">"Golman je obranio jedanaesterac u posljednjoj minuti utakmice."</span><span class="p">,</span>
+    <span class="s2">"Trener je nakon poraza najavio promjene u momčadi."</span><span class="p">,</span>
+    <span class="s2">"Košarkaši su slavili nakon produžetka, a najbolji strijelac ubacio je 30 koševa."</span><span class="p">,</span>
+    <span class="s2">"Maraton je startao u osam sati, a pobjednik je stigao na cilj nakon nešto više od dva sata."</span><span class="p">,</span>
+    <span class="s2">"Sudac je pokazao crveni karton braniču zbog grubog starta."</span><span class="p">,</span>
+    <span class="s2">"Tenisačica je osvojila turnir bez izgubljenog seta."</span><span class="p">,</span>
+    <span class="s2">"Navijači su ispunili stadion i pjevali cijelo drugo poluvrijeme."</span><span class="p">,</span>
+    <span class="s2">"Rukometaši imaju tri utakmice u skupini prije četvrtfinala."</span><span class="p">,</span>
+    <span class="s2">"Skijaš je u drugoj vožnji slaloma pao i ostao bez medalje."</span><span class="p">,</span>
+    <span class="s2">"Napadač je zabio dva gola i momčad je pobijedila 3:0."</span><span class="p">,</span>
+    <span class="s2">"Utakmica je završila bez golova, pa su navijači otišli razočarani."</span><span class="p">,</span>
+    <span class="s2">"Trener je na poluvremenu zamijenio golmana i dva braniča."</span><span class="p">,</span>
+    <span class="s2">"Plivačica je oborila državni rekord na 200 metara leptir."</span><span class="p">,</span>
+    <span class="s2">"Momčad je nakon pobjede skočila na vrh ljestvice prvenstva."</span><span class="p">,</span>
+    <span class="s2">"Igrač je ozlijedio koljeno i propušta ostatak sezone."</span><span class="p">,</span>
+    <span class="s2">"Reprezentacija trenira dvaput dnevno uoči kvalifikacijske utakmice."</span><span class="p">,</span>
+    <span class="s2">"Biciklisti su prošli brdsku etapu, a vodeći je zadržao žutu majicu."</span><span class="p">,</span>
+    <span class="s2">"Sudac je dosudio jedanaesterac u sudačkoj nadoknadi, a golman ga je obranio."</span><span class="p">,</span>
+    <span class="s2">"Klub je potpisao novog napadača koji je prošle sezone zabio 20 golova."</span><span class="p">,</span>
+    <span class="c1"># kuhanje</span>
+    <span class="s2">"Za ovaj recept trebaš 200 g brašna, dva jaja i prstohvat soli."</span><span class="p">,</span>
+    <span class="s2">"Tijesto ostavi da se diže sat vremena, pa ga peci 25 minuta."</span><span class="p">,</span>
+    <span class="s2">"Juha od rajčice najbolja je sa svježim bosiljkom i maslinovim uljem."</span><span class="p">,</span>
+    <span class="s2">"Luk nasjeckaj sitno i prži na laganoj vatri dok ne postane staklast."</span><span class="p">,</span>
+    <span class="s2">"Pećnicu zagrij na 180 stupnjeva prije nego što staviš kolač."</span><span class="p">,</span>
+    <span class="s2">"Rižoto miješaj stalno i dodaj temeljac kutlaču po kutlaču."</span><span class="p">,</span>
+    <span class="s2">"Palačinke poslužujemo s džemom od marelica ili s čokoladom."</span><span class="p">,</span>
+    <span class="s2">"Meso mariniraj preko noći u ulju, češnjaku i ružmarinu."</span><span class="p">,</span>
+    <span class="s2">"Salatu začini octom, uljem i malo šećera da ne bude kisela."</span><span class="p">,</span>
+    <span class="s2">"Kruh je gotov kad pri kucanju po dnu zvuči šuplje."</span><span class="p">,</span>
+    <span class="s2">"U tijesto za kruh dodaj kvasac, brašno i mlaku vodu, pa mijesi deset minuta."</span><span class="p">,</span>
+    <span class="s2">"Kolač peci 40 minuta na 170 stupnjeva i ostavi da se ohladi prije rezanja."</span><span class="p">,</span>
+    <span class="s2">"Umak od češnjaka i vrhnja odlično ide uz tjesteninu."</span><span class="p">,</span>
+    <span class="s2">"Juhu začini solju, paprom i svježim peršinom."</span><span class="p">,</span>
+    <span class="s2">"Meso peci u pećnici sat i pol i povremeno ga zalijevaj sokom."</span><span class="p">,</span>
+    <span class="s2">"Za palačinke umuti jaja, mlijeko i brašno u glatko tijesto."</span><span class="p">,</span>
+    <span class="s2">"Povrće kuhaj kratko da ostane hrskavo i zadrži boju."</span><span class="p">,</span>
+    <span class="s2">"Umjesto šećera u kolač možeš dodati med ili zrele banane."</span><span class="p">,</span>
+    <span class="s2">"Riža mora upiti svu vodu, a zatim je ostavi poklopljenu pet minuta."</span><span class="p">,</span>
+    <span class="s2">"Maslinovo ulje dodaj na kraju kuhanja da zadrži okus."</span><span class="p">,</span>
+    <span class="c1"># tehnologija</span>
+    <span class="s2">"Novi procesor ima 16 jezgri i troši manje energije od prethodnika."</span><span class="p">,</span>
+    <span class="s2">"Ažuriranje sustava popravlja sigurnosni propust u pregledniku."</span><span class="p">,</span>
+    <span class="s2">"Baterija mobitela traje dva dana uz uključen Wi-Fi i Bluetooth."</span><span class="p">,</span>
+    <span class="s2">"Programer je pronašao grešku u kodu koja je rušila aplikaciju."</span><span class="p">,</span>
+    <span class="s2">"Grafička kartica s 12 GB memorije pokreće igre u 4K rezoluciji."</span><span class="p">,</span>
+    <span class="s2">"Podaci se sinkroniziraju u oblaku čim se laptop spoji na internet."</span><span class="p">,</span>
+    <span class="s2">"Nova verzija Pythona donosi brži interpreter i bolje poruke o greškama."</span><span class="p">,</span>
+    <span class="s2">"Server je pao zbog preopterećenja nakon objave ažuriranja."</span><span class="p">,</span>
+    <span class="s2">"Tipkovnica se spaja bežično, a punjenje traje dva sata."</span><span class="p">,</span>
+    <span class="s2">"Algoritam preporuka uči iz povijesti pregledavanja korisnika."</span><span class="p">,</span>
+    <span class="s2">"Aplikacija se nakon ažuriranja sporije pokreće na starijim mobitelima."</span><span class="p">,</span>
+    <span class="s2">"Programeri su objavili zakrpu za grešku u sigurnosnom modulu softvera."</span><span class="p">,</span>
+    <span class="s2">"Laptop s novim procesorom i 32 GB memorije stiže u trgovine idući mjesec."</span><span class="p">,</span>
+    <span class="s2">"Lozinke čuvaj u upravitelju lozinki i uključi dvofaktorsku provjeru."</span><span class="p">,</span>
+    <span class="s2">"Internet je bio spor jer je ruter trebao ažuriranje softvera."</span><span class="p">,</span>
+    <span class="s2">"Mobitel ima zaslon od 6,5 inča i bateriju koja se puni za pola sata."</span><span class="p">,</span>
+    <span class="s2">"Kod je otvoren na GitHubu pa svatko može prijaviti grešku ili poslati zakrpu."</span><span class="p">,</span>
+    <span class="s2">"Operacijski sustav automatski preuzima sigurnosna ažuriranja preko interneta."</span><span class="p">,</span>
+    <span class="s2">"Procesor se pregrijava kad aplikacija koristi sve jezgre istodobno."</span><span class="p">,</span>
+    <span class="s2">"Podaci korisnika šifriraju se prije slanja na server u oblaku."</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">oznake</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">+</span> <span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">IMENA</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"sport"</span><span class="p">,</span> <span class="s2">"kuhanje"</span><span class="p">,</span> <span class="s2">"tehnologija"</span><span class="p">]</span>
+
+<span class="n">POSEBNI</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"[PAD]"</span><span class="p">,</span> <span class="s2">"[UNK]"</span><span class="p">,</span> <span class="s2">"[CLS]"</span><span class="p">,</span> <span class="s2">"[SEP]"</span><span class="p">,</span> <span class="s2">"[MASK]"</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">nauci_wordpiece</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">velicina</span><span class="p">):</span>
+    <span class="n">rijeci</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\w+|[^\w\s]"</span><span class="p">,</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">"NFC"</span><span class="p">,</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">korpus</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()))</span>
+    <span class="n">zapis</span> <span class="o">=</span> <span class="p">{</span><span class="n">r</span><span class="p">:</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"##"</span> <span class="o">+</span> <span class="n">z</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rijeci</span><span class="p">}</span>          <span class="c1"># riječ -&gt; simboli</span>
+    <span class="n">rjecnik</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">POSEBNI</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">z</span> <span class="k">for</span> <span class="n">simboli</span> <span class="ow">in</span> <span class="n">zapis</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">simboli</span><span class="p">})</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">velicina</span><span class="p">:</span>
+        <span class="n">f_par</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">simboli</span> <span class="ow">in</span> <span class="n">zapis</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">simboli</span><span class="p">,</span> <span class="n">simboli</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+                <span class="n">f_par</span><span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)]</span> <span class="o">+=</span> <span class="n">rijeci</span><span class="p">[</span><span class="n">r</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">f_par</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">f_par</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="n">f_par</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">p</span><span class="p">))</span>               <span class="c1"># najčešći par; izjednačenje abecedno</span>
+        <span class="n">novi</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">[</span><span class="mi">2</span><span class="p">:]</span>                                                     <span class="c1"># "gol" + "##man" -&gt; "golman"</span>
+        <span class="n">rjecnik</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">novi</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">simboli</span> <span class="ow">in</span> <span class="n">zapis</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">simboli</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">simboli</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">a</span> <span class="ow">and</span> <span class="n">simboli</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">b</span><span class="p">:</span>
+                    <span class="n">simboli</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">novi</span><span class="p">]</span>
+                <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">)}</span>
+
+<span class="n">vocab</span> <span class="o">=</span> <span class="n">nauci_wordpiece</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+<span class="n">tok</span> <span class="o">=</span> <span class="n">Tokenizer</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">WordPiece</span><span class="p">(</span><span class="n">vocab</span><span class="p">,</span> <span class="n">unk_token</span><span class="o">=</span><span class="s2">"[UNK]"</span><span class="p">))</span>
+<span class="n">tok</span><span class="o">.</span><span class="n">normalizer</span> <span class="o">=</span> <span class="n">normalizers</span><span class="o">.</span><span class="n">Sequence</span><span class="p">([</span><span class="n">normalizers</span><span class="o">.</span><span class="n">NFC</span><span class="p">(),</span> <span class="n">normalizers</span><span class="o">.</span><span class="n">Lowercase</span><span class="p">()])</span>
+<span class="n">tok</span><span class="o">.</span><span class="n">pre_tokenizer</span> <span class="o">=</span> <span class="n">pre_tokenizers</span><span class="o">.</span><span class="n">BertPreTokenizer</span><span class="p">()</span>          <span class="c1"># razmaci + interpunkcija</span>
+<span class="n">tok</span><span class="o">.</span><span class="n">post_processor</span> <span class="o">=</span> <span class="n">processors</span><span class="o">.</span><span class="n">TemplateProcessing</span><span class="p">(</span>
+    <span class="n">single</span><span class="o">=</span><span class="s2">"[CLS] $A [SEP]"</span><span class="p">,</span> <span class="n">pair</span><span class="o">=</span><span class="s2">"[CLS] $A [SEP] $B [SEP]"</span><span class="p">,</span>
+    <span class="n">special_tokens</span><span class="o">=</span><span class="p">[(</span><span class="s2">"[CLS]"</span><span class="p">,</span> <span class="n">tok</span><span class="o">.</span><span class="n">token_to_id</span><span class="p">(</span><span class="s2">"[CLS]"</span><span class="p">)),</span> <span class="p">(</span><span class="s2">"[SEP]"</span><span class="p">,</span> <span class="n">tok</span><span class="o">.</span><span class="n">token_to_id</span><span class="p">(</span><span class="s2">"[SEP]"</span><span class="p">))])</span>
+
+<span class="n">tokenizator</span> <span class="o">=</span> <span class="n">PreTrainedTokenizerFast</span><span class="p">(</span><span class="n">tokenizer_object</span><span class="o">=</span><span class="n">tok</span><span class="p">,</span> <span class="n">unk_token</span><span class="o">=</span><span class="s2">"[UNK]"</span><span class="p">,</span> <span class="n">pad_token</span><span class="o">=</span><span class="s2">"[PAD]"</span><span class="p">,</span>
+                                      <span class="n">cls_token</span><span class="o">=</span><span class="s2">"[CLS]"</span><span class="p">,</span> <span class="n">sep_token</span><span class="o">=</span><span class="s2">"[SEP]"</span><span class="p">,</span> <span class="n">mask_token</span><span class="o">=</span><span class="s2">"[MASK]"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"veličina rječnika:"</span><span class="p">,</span> <span class="n">tokenizator</span><span class="o">.</span><span class="n">vocab_size</span><span class="p">,</span> <span class="s2">" zadnja naučena spajanja:"</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">vocab</span><span class="p">)[</span><span class="o">-</span><span class="mi">5</span><span class="p">:])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tokenizator</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="s2">"Golmanu su navijači pljeskali nakon utakmice."</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>veličina rječnika: 300  zadnja naučena spajanja: ['vat', 'uljem', 'uz', 'um', 'uk']
+['golma', '##nu', 'su', 'na', '##vi', '##ja', '##či', 'p', '##lje', '##sk', '##a', '##li', 'nakon', 'utakmice', '.']</code></pre>
+<p>Rječnik od $300$ tokena naučen na šezdeset rečenica sadrži sve znakove, česte riječi kao cijele tokene („su”, „nakon”, „utakmice”) i komadiće. „Golmanu” se dijeli na „golma” + „##nu” – granica <em>nije</em> morfološka (osnova je „golman”), jer algoritam gleda samo frekvencije, ne gramatiku; riječ „pljeskali”, koje u korpusu nema, raspada se na pet komada. Nema <code>[UNK]</code>, jer su svi znakovi u rječniku. S pravim rječnikom od $30\,000$ tokena učenim na gigabajtima teksta komadi su dulji i češće se poklapaju s morfemima, ali načelo je isto.</p>
+<p><b>Korak 3: batch s nadopunom.</b> Hugging Face tokenizator za popis rečenica vraća rječnik tenzora; <code>padding=True</code> nadopunjuje do najdulje rečenice, a <code>attention_mask</code> kaže modelu koje pozicije ignorirati.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">batch</span> <span class="o">=</span> <span class="n">tokenizator</span><span class="p">([</span><span class="s2">"Trener je zamijenio golmana."</span><span class="p">,</span> <span class="s2">"Kruh je gotov."</span><span class="p">],</span>
+                    <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tokenizator</span><span class="o">.</span><span class="n">convert_ids_to_tokens</span><span class="p">(</span><span class="n">batch</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">][</span><span class="mi">1</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>tensor([[  2, 155, 268,  78,  89,  23, 113,  83,  25, 239, 104,  40,   3],
+        [  2,  59, 123,  18,  78,  55,  25,  91,  31,  40,   3,   0,   0]])
+tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]])
+['[CLS]', 'k', '##ru', '##h', 'je', 'g', '##o', '##to', '##v', '.', '[SEP]', '[PAD]', '[PAD]']</code></pre>
+<p>Druga rečenica je kraća pa je nadopunjena nulama (<code>[PAD]</code> ima indeks $0$) i njezina maska ima nule na tim mjestima. Indeksi $2$ i $3$ su <code>[CLS]</code> i <code>[SEP]</code>.</p>
+<p><b>Korak 4: tokenizator pretreniranog modela.</b> Isto sučelje vrijedi za svaki model s Huba; jedina razlika je <code>from_pretrained</code>, koji pri prvom pozivu preuzima datoteke rječnika. Blok nije pokrenut (zahtijeva internet).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoTokenizer</span>
+
+<span class="n">tok_xlmr</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">"xlm-roberta-base"</span><span class="p">)</span>
+<span class="n">tok_bert</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">"bert-base-cased"</span><span class="p">)</span>
+<span class="n">r</span> <span class="o">=</span> <span class="s2">"Golmanu su navijači pljeskali nakon utakmice."</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tok_xlmr</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">r</span><span class="p">)),</span> <span class="n">tok_xlmr</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tok_bert</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">r</span><span class="p">)),</span> <span class="n">tok_bert</span><span class="o">.</span><span class="n">tokenize</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tok_xlmr</span><span class="p">(</span><span class="n">r</span><span class="p">)[</span><span class="s2">"input_ids"</span><span class="p">])</span></code></pre></div>
+<p>Očekivani ispis: XLM-R (SentencePiece, učen na 100 jezika) tokene označava znakom „▁” za početak riječi i hrvatsku rečenicu od šest riječi podijeli na otprilike desetak tokena, dok engleski BERT (WordPiece, rječnik pretežno engleski) istu rečenicu rasprši na znatno više komada od po dva-tri slova. <code>input_ids</code> počinju i završavaju posebnim tokenima (kod XLM-R-a to su <code>&lt;s&gt;</code> i <code>&lt;/s&gt;</code>, indeksi $0$ i $2$). Broj tokena po rečenici dobar je brzi pokazatelj koliko model „razumije” jezik: što manje komada, to bolje.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Provuci batch kroz enkoder i iz izlaza napravi embeddinge rečenica. Koristi mali BERT sa slučajnim težinama (bez preuzimanja) da se vide oblici tenzora i mehanika prosjeka s maskom, a zatim napiši isti kod za pravi pretrenirani model i <code>pipeline</code>.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: mali BERT iz konfiguracije.</b> <code>BertConfig</code> opisuje arhitekturu; <code>BertModel(config)</code> stvara model sa slučajnim težinama. Konfiguracija ispod je „BERT u malom”: $2$ sloja, $d=64$, $4$ glave pažnje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">BertConfig</span><span class="p">,</span> <span class="n">BertModel</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">konfig</span> <span class="o">=</span> <span class="n">BertConfig</span><span class="p">(</span><span class="n">vocab_size</span><span class="o">=</span><span class="n">tokenizator</span><span class="o">.</span><span class="n">vocab_size</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">num_hidden_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                    <span class="n">num_attention_heads</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">intermediate_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">max_position_embeddings</span><span class="o">=</span><span class="mi">64</span><span class="p">)</span>
+<span class="n">enkoder</span> <span class="o">=</span> <span class="n">BertModel</span><span class="p">(</span><span class="n">konfig</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara: </span><span class="si">%d</span><span class="s2">  (BERT-base ima oko 110 milijuna)"</span> <span class="o">%</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">enkoder</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span>
+
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">izlaz</span> <span class="o">=</span> <span class="n">enkoder</span><span class="p">(</span><span class="o">**</span><span class="n">batch</span><span class="p">)</span>
+<span class="n">H</span> <span class="o">=</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">last_hidden_state</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"last_hidden_state:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">H</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="s2">"  pooler_output:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">izlaz</span><span class="o">.</span><span class="n">pooler_output</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>parametara: 94656  (BERT-base ima oko 110 milijuna)
+last_hidden_state: (2, 13, 64)   pooler_output: (2, 64)</code></pre>
+<p>Izlaz je po jedan vektor dimenzije $64$ za svaki od tokena obiju rečenica (uključujući posebne i <code>[PAD]</code>); <code>pooler_output</code> je transformirani vektor tokena <code>[CLS]</code>.</p>
+<p><b>Korak 2: prosjek s maskom.</b> Prosjek po tokenima mora isključiti nadopunu – inače kraća rečenica dobiva vektor „razvodnjen” <code>[PAD]</code> vektorima. Masku proširimo na dimenziju $d$ i dijelimo zbroj brojem pravih tokena.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">prosjek_s_maskom</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">maska</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">maska</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>                     <span class="c1"># (B, T, 1)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">H</span> <span class="o">*</span> <span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">m</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">E</span> <span class="o">=</span> <span class="n">prosjek_s_maskom</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span>
+<span class="n">E_naivno</span> <span class="o">=</span> <span class="n">H</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oblik embeddinga rečenica:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"razlika za rečenicu bez nadopune: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">E_naivno</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"razlika za nadopunjenu rečenicu:  </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">E_naivno</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"cos(r1, r2) = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">F</span><span class="o">.</span><span class="n">cosine_similarity</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>oblik embeddinga rečenica: (2, 64)
+razlika za rečenicu bez nadopune: 0.0000
+razlika za nadopunjenu rečenicu:  0.2206
+cos(r1, r2) = 0.942</code></pre>
+<p>Za prvu rečenicu (bez nadopune) oba su prosjeka jednaka, za drugu se razlikuju. Kosinus između rečenica je ovdje besmislen – težine su slučajne – ali cjevovod je identičan onom s pravim modelom.</p>
+<p><b>Korak 3: pravi model.</b> Jedina razlika: <code>from_pretrained</code> umjesto konfiguracije. Blok preuzima model (višejezični MiniLM, oko $470$ MB) pa nije pokrenut.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">AutoModel</span>
+
+<span class="n">ime</span> <span class="o">=</span> <span class="s2">"sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"</span>
+<span class="n">tok_st</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">ime</span><span class="p">)</span>
+<span class="n">model_st</span> <span class="o">=</span> <span class="n">AutoModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">ime</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+<span class="n">recenice</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"Golman je obranio jedanaesterac."</span><span class="p">,</span> <span class="s2">"Vratar je zaustavio penal."</span><span class="p">,</span>
+            <span class="s2">"Pećnicu zagrij na 180 stupnjeva."</span><span class="p">]</span>
+<span class="n">ulaz</span> <span class="o">=</span> <span class="n">tok_st</span><span class="p">(</span><span class="n">recenice</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">H_st</span> <span class="o">=</span> <span class="n">model_st</span><span class="p">(</span><span class="o">**</span><span class="n">ulaz</span><span class="p">)</span><span class="o">.</span><span class="n">last_hidden_state</span>
+<span class="n">E_st</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">prosjek_s_maskom</span><span class="p">(</span><span class="n">H_st</span><span class="p">,</span> <span class="n">ulaz</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">]),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">E_st</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>                        <span class="c1"># torch.Size([3, 384])</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">E_st</span> <span class="o">@</span> <span class="n">E_st</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">decimals</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<p>Očekivani ispis: matrica $3\times3$ kosinusnih sličnosti s jedinicama na dijagonali, u kojoj su prve dvije rečenice (isto značenje, različite riječi: „golman”/„vratar”, „jedanaesterac”/„penal”) znatno sličnije jedna drugoj nego trećoj. To je ono što TF-IDF iz V1 nije mogao (nijedna zajednička riječ) ni statični embedding iz V2 (prosjek riječi ne zna da je „obranio jedanaesterac” jedna radnja).</p>
+<p><b>Korak 4: pipeline.</b> Za brzu procjenu ne treba ni tokenizator ni model dirati. Blok nije pokrenut (preuzimanje).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span>
+
+<span class="n">popuni</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">"fill-mask"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"xlm-roberta-base"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">popuni</span><span class="p">(</span><span class="s2">"Golman je obranio &lt;mask&gt; u posljednjoj minuti."</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-12s</span><span class="s2"> </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">[</span><span class="s2">"token_str"</span><span class="p">],</span> <span class="n">k</span><span class="p">[</span><span class="s2">"score"</span><span class="p">]))</span>
+
+<span class="n">sentiment</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">"sentiment-analysis"</span><span class="p">,</span>
+                     <span class="n">model</span><span class="o">=</span><span class="s2">"nlptown/bert-base-multilingual-uncased-sentiment"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sentiment</span><span class="p">([</span><span class="s2">"Film je bio sjajan, preporučujem svima."</span><span class="p">,</span> <span class="s2">"Užasna usluga, nikad više."</span><span class="p">]))</span></code></pre></div>
+<p>Očekivani ispis: za maskirano mjesto tri najvjerojatnija tokena s vjerojatnostima – smisleni kandidati su nogometni pojmovi („udarac”, „loptu”, „penal”), što pokazuje da višejezični model razumije hrvatski kontekst; model za sentiment vraća oznake u obliku zvjezdica (<code>1 star</code> … <code>5 stars</code>) s pouzdanošću, visoku za prvu i nisku za drugu rečenicu. Napomena: <code>fill-mask</code> traži token maske <em>tog</em> modela (<code>&lt;mask&gt;</code> za RoBERTa obitelj, <code>[MASK]</code> za BERT); <code>tokenizer.mask_token</code> ga vraća bez pogađanja.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Fine-tuning za klasifikaciju. Na korpusu iz Primjera 1 istreniraj <code>BertForSequenceClassification</code> ručnom petljom (mali model sa slučajnim težinama, da se vide svi koraci), usporedi puni fine-tuning sa zamrznutim trupom, a zatim napiši isti postupak za pretrenirani model s <code>Trainer</code>-om.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podjela i tokenizacija.</b> Rečenice tokeniziramo jednom, unaprijed; oznake su cijeli brojevi $0,1,2$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">BertForSequenceClassification</span>
+
+<span class="n">tr_i</span><span class="p">,</span> <span class="n">te_i</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">)),</span> <span class="n">test_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">oznake</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">tokeniziraj</span><span class="p">(</span><span class="n">ind</span><span class="p">):</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">tokenizator</span><span class="p">([</span><span class="n">tekstovi</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ind</span><span class="p">],</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span>
+                    <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+    <span class="n">b</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">oznake</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">ind</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">b</span>
+
+<span class="n">batch_tr</span><span class="p">,</span> <span class="n">batch_te</span> <span class="o">=</span> <span class="n">tokeniziraj</span><span class="p">(</span><span class="n">tr_i</span><span class="p">),</span> <span class="n">tokeniziraj</span><span class="p">(</span><span class="n">te_i</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"trening:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">batch_tr</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="s2">" test:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">batch_te</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>trening: (45, 46)  test: (15, 43)</code></pre>
+<p><b>Korak 2: ručna petlja.</b> Model s glavom za klasifikaciju vraća <code>loss</code> čim mu predamo <code>labels</code> – to je unakrsna entropija nad logitima glave. Petlja je ista kao u D3: AdamW, mini-batchevi, zatim ocjena uz <code>torch.no_grad()</code>. Ovdje je model slučajno inicijaliziran pa učimo s većom stopom učenja i više epoha nego kod pravog fine-tuninga.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">ocijeni</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">pred</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_ids</span><span class="o">=</span><span class="n">b</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">],</span> <span class="n">attention_mask</span><span class="o">=</span><span class="n">b</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span><span class="o">.</span><span class="n">logits</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">pred</span> <span class="o">==</span> <span class="n">b</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">])</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">treniraj</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">velicina</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">AdamW</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">],</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">velicina</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">s</span> <span class="o">+</span> <span class="n">velicina</span><span class="p">]</span>
+            <span class="n">izlaz</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">input_ids</span><span class="o">=</span><span class="n">b</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">attention_mask</span><span class="o">=</span><span class="n">b</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                          <span class="n">labels</span><span class="o">=</span><span class="n">b</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">();</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">ep</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"epoha </span><span class="si">%2d</span><span class="s2">  gubitak = </span><span class="si">%.3f</span><span class="s2">  točnost trening = </span><span class="si">%.2f</span><span class="s2">  test = </span><span class="si">%.2f</span><span class="s2">"</span>
+                  <span class="o">%</span> <span class="p">(</span><span class="n">ep</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">loss</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">ocijeni</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">batch_tr</span><span class="p">),</span> <span class="n">ocijeni</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">batch_te</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">model</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">konfig_klf</span> <span class="o">=</span> <span class="n">BertConfig</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="n">konfig</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(),</span> <span class="s2">"num_labels"</span><span class="p">:</span> <span class="mi">3</span><span class="p">})</span>
+<span class="n">klf</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">BertForSequenceClassification</span><span class="p">(</span><span class="n">konfig_klf</span><span class="p">),</span> <span class="n">batch_tr</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>epoha 10  gubitak = 0.985  točnost trening = 0.80  test = 0.60
+epoha 20  gubitak = 0.167  točnost trening = 1.00  test = 0.47
+epoha 30  gubitak = 0.025  točnost trening = 1.00  test = 0.60</code></pre>
+<p>Mali transformer od nule na $45$ rečenica nauči trening skup napamet (gubitak pada prema nuli), a na testu pogodi $9$ od $15$ rečenica – bolje od pogađanja ($0{,}33$), ali daleko od pouzdanog, i točnost na testu se između ispisa koleba, što je znak prenaučenosti. Nema pretreniranog znanja, a podataka je premalo da ga stekne. Upravo to je razlog postojanja pretreniranih modela: mehanika je identična, znanje dolazi iz težina.</p>
+<p><b>Korak 3: zamrznuti trup.</b> Postavimo <code>requires_grad=False</code> svim parametrima trupa (<code>klf.bert</code>) i učimo samo glavu. Kod pravog modela to je „linear probe”; ovdje, sa slučajnim trupom, očekujemo da bude lošije od punog treniranja – glava uči nad slučajnim značajkama.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">klf_zamrznut</span> <span class="o">=</span> <span class="n">BertForSequenceClassification</span><span class="p">(</span><span class="n">konfig_klf</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">klf_zamrznut</span><span class="o">.</span><span class="n">bert</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">ucivih</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">klf_zamrznut</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"učivih parametara: </span><span class="si">%d</span><span class="s2"> od </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ucivih</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">klf_zamrznut</span><span class="o">.</span><span class="n">parameters</span><span class="p">())))</span>
+<span class="n">klf_zamrznut</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">klf_zamrznut</span><span class="p">,</span> <span class="n">batch_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>učivih parametara: 195 od 94851
+epoha 10  gubitak = 1.104  točnost trening = 0.33  test = 0.33
+epoha 20  gubitak = 1.092  točnost trening = 0.33  test = 0.33
+epoha 30  gubitak = 1.110  točnost trening = 0.33  test = 0.33</code></pre>
+<p>Glava ima samo $64\cdot3+3$ parametara i nad slučajnim trupom ne nauči <em>ništa</em>: gubitak ostaje na $\ln3\approx1{,}10$, točnost na $0{,}33$. Vektori <code>pooler_output</code> slučajnog modela gotovo su jednaki za sve rečenice, pa linearni sloj nema iz čega razlikovati klase. Kod pretreniranog modela omjer se obrće: trup već zna jezik, a glava od nekoliko tisuća parametara nad njim često postiže gotovo isti rezultat kao puni fine-tuning, u djeliću vremena.</p>
+<p><b>Korak 4: pretrenirani model s Trainer-om.</b> Cjelovit recept za pravi zadatak: tokenizacija u <code>Dataset</code>, <code>TrainingArguments</code> s malom stopom učenja i zagrijavanjem, <code>Trainer</code> koji odrađuje petlju, ocjenu i spremanje. Blok preuzima model pa nije pokrenut.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dataset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span><span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">AutoModelForSequenceClassification</span><span class="p">,</span>
+                          <span class="n">TrainingArguments</span><span class="p">,</span> <span class="n">Trainer</span><span class="p">,</span> <span class="n">DataCollatorWithPadding</span><span class="p">)</span>
+
+<span class="n">ime</span> <span class="o">=</span> <span class="s2">"xlm-roberta-base"</span>
+<span class="n">tok_hf</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">ime</span><span class="p">)</span>
+<span class="n">model_hf</span> <span class="o">=</span> <span class="n">AutoModelForSequenceClassification</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">num_labels</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">kodiraj</span><span class="p">(</span><span class="n">primjer</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">tok_hf</span><span class="p">(</span><span class="n">primjer</span><span class="p">[</span><span class="s2">"text"</span><span class="p">],</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">64</span><span class="p">)</span>
+
+<span class="n">skup</span> <span class="o">=</span> <span class="n">Dataset</span><span class="o">.</span><span class="n">from_dict</span><span class="p">({</span><span class="s2">"text"</span><span class="p">:</span> <span class="n">tekstovi</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="n">oznake</span><span class="p">})</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span><span class="n">test_size</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">skup</span> <span class="o">=</span> <span class="n">skup</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">kodiraj</span><span class="p">,</span> <span class="n">batched</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">tocnost</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">"accuracy"</span><span class="p">:</span> <span class="nb">float</span><span class="p">((</span><span class="n">p</span><span class="o">.</span><span class="n">predictions</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">p</span><span class="o">.</span><span class="n">label_ids</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())}</span>
+
+<span class="n">args</span> <span class="o">=</span> <span class="n">TrainingArguments</span><span class="p">(</span><span class="n">output_dir</span><span class="o">=</span><span class="s2">"izlaz_klf"</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">3e-5</span><span class="p">,</span> <span class="n">num_train_epochs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                         <span class="n">per_device_train_batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">warmup_ratio</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span>
+                         <span class="n">eval_strategy</span><span class="o">=</span><span class="s2">"epoch"</span><span class="p">,</span> <span class="n">save_strategy</span><span class="o">=</span><span class="s2">"no"</span><span class="p">,</span> <span class="n">report_to</span><span class="o">=</span><span class="s2">"none"</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">trener</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model_hf</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">args</span><span class="p">,</span> <span class="n">train_dataset</span><span class="o">=</span><span class="n">skup</span><span class="p">[</span><span class="s2">"train"</span><span class="p">],</span> <span class="n">eval_dataset</span><span class="o">=</span><span class="n">skup</span><span class="p">[</span><span class="s2">"test"</span><span class="p">],</span>
+                 <span class="n">data_collator</span><span class="o">=</span><span class="n">DataCollatorWithPadding</span><span class="p">(</span><span class="n">tok_hf</span><span class="p">),</span> <span class="n">compute_metrics</span><span class="o">=</span><span class="n">tocnost</span><span class="p">)</span>
+<span class="n">trener</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">trener</span><span class="o">.</span><span class="n">evaluate</span><span class="p">())</span></code></pre></div>
+<p>Očekivano ponašanje: <code>Trainer</code> ispisuje gubitak i točnost nakon svake epohe; s pretreniranim XLM-R-om točnost na $15$ testnih rečenica brzo dosegne visoke vrijednosti (teme su jezično jasno razdvojene), ali na ovako malom testu svaka rečenica vrijedi $0{,}067$, pa rezultat treba čitati uz M5. Na procesoru je svaka epoha s $45$ rečenica stvar sekundi, s pravim skupom od nekoliko tisuća rečenica desetke minuta. Upozorenje „<i>Some weights … newly initialized</i>” pri učitavanju je normalno – odnosi se na glavu za klasifikaciju koja se tek treba naučiti.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za svaki zadatak odluči je li prikladniji enkoder učen MLM ciljem (BERT) ili autoregresivni dekoder (GPT): (a) razvrstavanje recenzija po ocjeni; (b) pisanje sažetka članka; (c) označavanje imena osoba i mjesta u tekstu; (d) odgovor na pitanje u slobodnom obliku; (e) pronalaženje najsličnijeg pitanja u bazi često postavljanih pitanja.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) enkoder – klasifikacija nad <code>[CLS]</code>/prosjekom; (b) dekoder – generiranje teksta; (c) enkoder – klasifikacija svakog tokena (<i>token classification</i>), dvosmjerni kontekst je ključan; (d) dekoder (ili enkoder ako je odgovor isječak zadanog teksta, tzv. ekstraktivni QA); (e) enkoder – embeddinzi rečenica i kosinusna sličnost.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>BERT-base ima rječnik od $30\,522$ tokena, $d=768$, $12$ slojeva i ukupno oko $110$ milijuna parametara. Koliki udio parametara otpada na matricu embeddinga tokena? Koliko memorije zauzimaju sve težine u <code>float32</code>, a koliko u <code>float16</code>? Što to znači za pokretanje na računalu s $8$ GB radne memorije?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">emb</span> <span class="o">=</span> <span class="mi">30522</span> <span class="o">*</span> <span class="mi">768</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"embedding tokena: </span><span class="si">%.1f</span><span class="s2"> M parametara (</span><span class="si">%.0f</span><span class="s2"> </span><span class="si">%%</span><span class="s2"> od 110 M)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">emb</span> <span class="o">/</span> <span class="mf">1e6</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">emb</span> <span class="o">/</span> <span class="mf">110e6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"float32: </span><span class="si">%.0f</span><span class="s2"> MB   float16: </span><span class="si">%.0f</span><span class="s2"> MB"</span> <span class="o">%</span> <span class="p">(</span><span class="mf">110e6</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">,</span> <span class="mf">110e6</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>embedding tokena: 23.4 M parametara (21 % od 110 M)
+float32: 420 MB   float16: 210 MB</code></pre>
+<p>Petina modela je sama tablica embeddinga – zato višejezični modeli s velikim rječnicima (XLM-R: $250\,000$ tokena) imaju znatno više parametara uz istu dubinu. Težine u <code>float32</code> zauzimaju oko $420$ MB, što stane u $8$ GB; problem na procesoru nije memorija nego <em>vrijeme</em>: aktivacije pri fine-tuningu rastu s batchom i duljinom niza, a svaki korak je nekoliko stotina milijuna množenja po rečenici.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Bez pokretanja koda napiši koje će <code>input_ids</code> i <code>attention_mask</code> tokenizator iz Primjera 1 vratiti za batch od dvije rečenice ako prva ima $7$ tokena, a druga $4$ (bez posebnih tokena), uz <code>padding=True</code>. Koliko je redaka i stupaca? Zatim provjeri na stvarnim rečenicama po izboru.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Obje rečenice dobivaju <code>[CLS]</code> i <code>[SEP]</code>, pa imaju $9$ odnosno $6$ tokena; batch je matrica $2\times9$. Prvi redak je $[2,\dots,3]$ s maskom od samih jedinica; drugi je $[2,\dots,3,0,0,0]$ s maskom $[1,1,1,1,1,1,0,0,0]$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">b</span> <span class="o">=</span> <span class="n">tokenizator</span><span class="p">([</span><span class="s2">"Navijači su pjevali cijelo drugo poluvrijeme."</span><span class="p">,</span> <span class="s2">"Kruh je gotov."</span><span class="p">],</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tokenizator</span><span class="o">.</span><span class="n">convert_ids_to_tokens</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">][</span><span class="mi">0</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>(2, 22)
+[[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]]
+['[CLS]', 'na', '##vi', '##ja', '##či', 'su', 'p', '##je', '##va', '##li', 'c', '##ije', '##lo', 'd', '##ru', '##go', 'polu', '##vr', '##ije', '##me', '.', '[SEP]']</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Proširi ručni WordPiece iz Primjera 1 u funkciju <code>kodiraj(recenica)</code> koja (a) normalizira tekst (NFC, mala slova), (b) odvaja interpunkciju kao zasebne tokene, (c) svaku riječ tokenizira pohlepno, (d) dodaje <code>[CLS]</code>/<code>[SEP]</code> i vraća popis tokena i njihove indekse prema <em>rječniku iz Primjera 1</em> (<code>tokenizator.get_vocab()</code>). Provjeri da se tvoj rezultat podudara s <code>tokenizator(recenica)["input_ids"]</code> na pet rečenica iz korpusa.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Pravi rječnik sadrži sve pojedinačne znakove, pa <code>[UNK]</code> ne nastaje; kod pohlepnog podudaranja koristi isti prefiks <code>##</code>. Interpunkciju odvoji regularnim izrazom <code>\w+|[^\w\s]</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">kodiraj</span><span class="p">(</span><span class="n">recenica</span><span class="p">):</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">"NFC"</span><span class="p">,</span> <span class="n">recenica</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">tokeni</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"[CLS]"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">rijec</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\w+|[^\w\s]"</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+        <span class="n">tokeni</span> <span class="o">+=</span> <span class="n">wordpiece</span><span class="p">(</span><span class="n">rijec</span><span class="p">,</span> <span class="n">vocab</span><span class="p">)</span>
+    <span class="n">tokeni</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">"[SEP]"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tokeni</span><span class="p">,</span> <span class="p">[</span><span class="n">vocab</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tokeni</span><span class="p">]</span>
+
+<span class="n">sve_isto</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">tekstovi</span><span class="p">[:</span><span class="mi">5</span><span class="p">]:</span>
+    <span class="n">tokeni</span><span class="p">,</span> <span class="n">ids</span> <span class="o">=</span> <span class="n">kodiraj</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">sve_isto</span> <span class="o">&amp;=</span> <span class="n">ids</span> <span class="o">==</span> <span class="n">tokenizator</span><span class="p">(</span><span class="n">r</span><span class="p">)[</span><span class="s2">"input_ids"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"podudara se na 5 rečenica:"</span><span class="p">,</span> <span class="n">sve_isto</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">kodiraj</span><span class="p">(</span><span class="s2">"Golman je obranio jedanaesterac."</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>podudara se na 5 rečenica: True
+['[CLS]', 'golma', '##n', 'je', 'ob', '##rani', '##o', 'je', '##da', '##na', '##e', '##ste', '##ra', '##c', '.', '[SEP]']</code></pre>
+<p>Pohlepno podudaranje najduljeg prefiksa upravo je algoritam kojim BERT-ovi tokenizatori kodiraju tekst; učenje rječnika (koji komadi postoje) je zaseban korak koji smo odradili funkcijom <code>nauci_wordpiece</code> (u praksi to radi <code>WordPieceTrainer</code> iz biblioteke <code>tokenizers</code>).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Simuliraj jedan korak maskiranog jezičnog modeliranja na malom modelu: uzmi <code>BertForMaskedLM</code> s konfiguracijom iz Primjera 2, u batchu iz Primjera 1 zamijeni treći token svake rečenice s <code>[MASK]</code>, pripremi <code>labels</code> tako da su sve nemaskirane pozicije $-100$ (zanemarene), i provjeri da je <code>loss</code> koji model vrati jednak ručno izračunatoj unakrsnoj entropiji na maskiranim pozicijama. Koliki je gubitak za slučajni model i zašto baš toliki?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za slučajni model logiti su približno jednaki za sve tokene, pa je $-\ln P\approx\ln|V|$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">BertForMaskedLM</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mlm</span> <span class="o">=</span> <span class="n">BertForMaskedLM</span><span class="p">(</span><span class="n">konfig</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">ids</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">]</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+<span class="n">labels</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="o">-</span><span class="mi">100</span><span class="p">)</span>
+<span class="n">labels</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">ids</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span>                                  <span class="c1"># pamtimo izvorni token</span>
+<span class="n">ids</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">tokenizator</span><span class="o">.</span><span class="n">mask_token_id</span>                     <span class="c1"># i maskiramo ga</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tokenizator</span><span class="o">.</span><span class="n">convert_ids_to_tokens</span><span class="p">(</span><span class="n">ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">mlm</span><span class="p">(</span><span class="n">input_ids</span><span class="o">=</span><span class="n">ids</span><span class="p">,</span> <span class="n">attention_mask</span><span class="o">=</span><span class="n">batch</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">],</span> <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">)</span>
+<span class="n">rucno</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">logits</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">labels</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])</span>    <span class="c1"># samo maskirane pozicije</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"loss modela = </span><span class="si">%.4f</span><span class="s2">   ručno = </span><span class="si">%.4f</span><span class="s2">   ln|V| = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">rucno</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">konfig</span><span class="o">.</span><span class="n">vocab_size</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>['[CLS]', 'tre', '[MASK]', 'je', 'za', '##m', '##ije', '##ni', '##o', 'golma', '##na', '.', '[SEP]']
+loss modela = 5.7258   ručno = 5.7258   ln|V| = 5.7038</code></pre>
+<p>Gubitak je blizu $\ln|V|=\ln300$: slučajni model raspodjeljuje vjerojatnost gotovo ravnomjerno po rječniku. Pretreniranje upravo tu veličinu spušta za red veličine: gubitak $L$ odgovara „perpleksnosti” $e^{L}$, broju ravnopravnih kandidata među kojima model bira, pa pad s $\ln|V|$ na $L\approx2$ znači da je model od $|V|$ kandidata došao na njih $e^2\approx7$. Isti račun (unakrsna entropija nad rječnikom, zanemarene pozicije označene s $-100$) koristi se i u autoregresivnim modelima, samo nad svim pozicijama.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Strategija „zamrznuti embeddinzi + linearni model”: izračunaj embeddinge svih $60$ rečenica prosjekom s maskom iz malog enkodera (Primjer 2), spremi ih u NumPy matricu i istreniraj <code>LogisticRegression</code> na trening indeksima iz Primjera 3. Izmjeri točnost na testu i vrijeme. Zatim isto napravi s TF-IDF značajkama iz lekcije V1 i usporedi. Koji bi rezultat očekivao s pretreniranim enkoderom i zašto?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.feature_extraction.text</span><span class="w"> </span><span class="kn">import</span> <span class="n">TfidfVectorizer</span>
+
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<span class="n">sve</span> <span class="o">=</span> <span class="n">tokenizator</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">Hs</span> <span class="o">=</span> <span class="n">enkoder</span><span class="p">(</span><span class="o">**</span><span class="n">sve</span><span class="p">)</span><span class="o">.</span><span class="n">last_hidden_state</span>
+<span class="n">X_emb</span> <span class="o">=</span> <span class="n">prosjek_s_maskom</span><span class="p">(</span><span class="n">Hs</span><span class="p">,</span> <span class="n">sve</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"embeddinzi: oblik </span><span class="si">%s</span><span class="s2">, trajanje ispod sekunde: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">X_emb</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">))</span>
+
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">oznake</span><span class="p">)</span>
+<span class="n">tr</span><span class="p">,</span> <span class="n">te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">tr_i</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">te_i</span><span class="p">)</span>
+<span class="n">lr_emb</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_emb</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">tr</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"slučajni enkoder + LR: točnost test = </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">lr_emb</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_emb</span><span class="p">[</span><span class="n">te</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">te</span><span class="p">]))</span>
+
+<span class="n">tfidf</span> <span class="o">=</span> <span class="n">TfidfVectorizer</span><span class="p">(</span><span class="n">analyzer</span><span class="o">=</span><span class="s2">"char_wb"</span><span class="p">,</span> <span class="n">ngram_range</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">X_tf</span> <span class="o">=</span> <span class="n">tfidf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">([</span><span class="n">tekstovi</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">tr</span><span class="p">])</span>
+<span class="n">lr_tf</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tf</span><span class="p">,</span> <span class="n">y</span><span class="p">[</span><span class="n">tr</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"TF-IDF znakovi + LR:   točnost test = </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">lr_tf</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">tfidf</span><span class="o">.</span><span class="n">transform</span><span class="p">([</span><span class="n">tekstovi</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">te</span><span class="p">]),</span> <span class="n">y</span><span class="p">[</span><span class="n">te</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>embeddinzi: oblik (60, 64), trajanje ispod sekunde: True
+slučajni enkoder + LR: točnost test = 0.53
+TF-IDF znakovi + LR:   točnost test = 1.00</code></pre>
+<p>Slučajni enkoder daje značajke bez jezičnog znanja pa je logistička regresija nad njima osjetno slabija od TF-IDF-a; s pretreniranim višejezičnim enkoderom ista dva retka koda (zamijeni <code>enkoder</code> i <code>tokenizator</code> modelom s Huba) daju značajke koje znaju da su „golman” i „vratar” bliski, pa na ovakvom zadatku očekuješ točnost na razini TF-IDF-a ili bolju – i, važnije, znatno bolju generalizaciju na rečenice s riječima kojih u treningu nema. Cijeli postupak traje sekunde i nema backpropagacije kroz transformer; zato je to prvi recept koji isprobaš na natjecanju.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Stopa učenja pri fine-tuningu. Na malom klasifikatoru iz Primjera 3 usporedi tri stope učenja $\{10^{-4},10^{-3},10^{-2}\}$ uz $30$ epoha i ispiši točnost na treningu i testu. Zatim objasni zašto se za <em>pretrenirani</em> model preporučuje $2\cdot10^{-5}$ do $5\cdot10^{-5}$ iako ovdje najbolje radi puno veća vrijednost.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Funkcija <code>treniraj</code> ispisuje svakih $10$ epoha; dovoljno je gledati zadnji redak.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">lr</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"lr ="</span><span class="p">,</span> <span class="n">lr</span><span class="p">)</span>
+    <span class="n">treniraj</span><span class="p">(</span><span class="n">BertForSequenceClassification</span><span class="p">(</span><span class="n">konfig_klf</span><span class="p">),</span> <span class="n">batch_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>lr = 0.0001
+epoha 10  gubitak = 1.100  točnost trening = 0.33  test = 0.33
+epoha 20  gubitak = 1.101  točnost trening = 0.33  test = 0.33
+epoha 30  gubitak = 1.094  točnost trening = 0.80  test = 0.53
+lr = 0.001
+epoha 10  gubitak = 0.977  točnost trening = 0.93  test = 0.53
+epoha 20  gubitak = 0.193  točnost trening = 1.00  test = 0.47
+epoha 30  gubitak = 0.036  točnost trening = 1.00  test = 0.47
+lr = 0.01
+epoha 10  gubitak = 1.068  točnost trening = 0.73  test = 0.53
+epoha 20  gubitak = 0.266  točnost trening = 0.96  test = 0.73
+epoha 30  gubitak = 0.726  točnost trening = 0.67  test = 0.33</code></pre>
+<p>Za model od nule premala stopa ($10^{-4}$) u $30$ epoha tek počne učiti (trening skup $0{,}80$ u zadnjem ispisu), $10^{-3}$ brzo zapamti trening skup, a $10^{-2}$ je nestabilna: između $20.$ i $30.$ epohe gubitak poraste, a točnost na treningu padne s $0{,}96$ na $0{,}67$ – model „iskače” iz minimuma. Pretrenirani model je drugačija situacija: njegove težine već su u dobrom minimumu i želimo ih <em>malo</em> pomaknuti – velika stopa u prvim koracima, dok je slučajno inicijalizirana glava još besmislena, šalje velike gradijente u trup i uništi naučeno (katastrofalno zaboravljanje). Zato mala stopa, zagrijavanje (stopa raste od nule prvih ~$10\,\%$ koraka, dok se glava ne „smiri”) i malo epoha.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><em>(Simulacija zadatka u stilu IOAI.)</em> Dobio si $300$ neoznačenih hrvatskih rečenica i popis od pet tema, bez ijednog označenog primjera, s dva sata na procesoru. Napiši (a) zero-shot klasifikaciju NLI cjevovodom s hrvatskim predloškom hipoteze, (b) zero-shot kosinusom između embeddinga rečenice i embeddinga <em>opisa</em> svake teme, i (c) kako bi s $20$ minuta ručnog označavanja prešao na nadzirani model. Kod za (a) i (b) napiši s pravim modelima (nije pokrenut); mehaniku (b) demonstriraj na malom enkoderu i rečenicama iz korpusa.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>U (b) opis teme smije biti dulji od jedne riječi – „recepti, kuhanje, sastojci i priprema jela” daje stabilniji embedding od same riječi „kuhanje”. Za (c) sjeti se lekcije M5: označi stratificirano i ostavi dio za test.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span><span class="p">,</span> <span class="n">AutoTokenizer</span><span class="p">,</span> <span class="n">AutoModel</span>
+
+<span class="c1"># (a) NLI zero-shot: višejezični model učen na XNLI</span>
+<span class="n">zs</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">"zero-shot-classification"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"joeddav/xlm-roberta-large-xnli"</span><span class="p">)</span>
+<span class="n">teme</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"sport"</span><span class="p">,</span> <span class="s2">"kuhanje"</span><span class="p">,</span> <span class="s2">"tehnologija"</span><span class="p">,</span> <span class="s2">"politika"</span><span class="p">,</span> <span class="s2">"kultura"</span><span class="p">]</span>
+<span class="n">rez</span> <span class="o">=</span> <span class="n">zs</span><span class="p">(</span><span class="s2">"Golman je obranio jedanaesterac u posljednjoj minuti."</span><span class="p">,</span> <span class="n">candidate_labels</span><span class="o">=</span><span class="n">teme</span><span class="p">,</span>
+         <span class="n">hypothesis_template</span><span class="o">=</span><span class="s2">"Ovaj tekst govori o temi </span><span class="si">{}</span><span class="s2">."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">rez</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">],</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">rez</span><span class="p">[</span><span class="s2">"scores"</span><span class="p">]])))</span>
+
+<span class="c1"># (b) kosinus s opisima tema</span>
+<span class="n">ime</span> <span class="o">=</span> <span class="s2">"sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"</span>
+<span class="n">tok_st</span><span class="p">,</span> <span class="n">model_st</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">ime</span><span class="p">),</span> <span class="n">AutoModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">ime</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">opisi</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"sport, utakmice, igrači, treneri i rezultati"</span><span class="p">,</span> <span class="s2">"recepti, kuhanje, sastojci i priprema jela"</span><span class="p">,</span>
+         <span class="s2">"računala, programi, mobiteli i tehnologija"</span><span class="p">,</span> <span class="s2">"politika, vlada, izbori i stranke"</span><span class="p">,</span>
+         <span class="s2">"kultura, filmovi, knjige, glazba i kazalište"</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">embed</span><span class="p">(</span><span class="n">recenice</span><span class="p">):</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">tok_st</span><span class="p">(</span><span class="n">recenice</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="n">model_st</span><span class="p">(</span><span class="o">**</span><span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">last_hidden_state</span>
+    <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">prosjek_s_maskom</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">u</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">]),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">E_tema</span> <span class="o">=</span> <span class="n">embed</span><span class="p">(</span><span class="n">opisi</span><span class="p">)</span>
+<span class="n">E_rec</span> <span class="o">=</span> <span class="n">embed</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">)</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">E_rec</span> <span class="o">@</span> <span class="n">E_tema</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"zero-shot kosinusom, točnost na 60 označenih rečenica: </span><span class="si">%.2f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">oznake</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<p>Očekivano: NLI cjevovod vraća teme poredane po vjerojatnosti sa „sport” uvjerljivo na vrhu; <code>xlm-roberta-large</code> je, međutim, model od $560$ M parametara i na procesoru obradi oko jednu rečenicu u sekundi <em>po temi</em> (NLI se računa za svaki par rečenica–hipoteza), pa je za $300$ rečenica i $5$ tema to desetak minuta – prihvatljivo, ali ne za ponavljanje. Kosinusni pristup (b) s MiniLM-om obradi svih $300$ rečenica u nekoliko sekundi i na jasno razdvojenim temama poput naših postiže visoku točnost; njegova je prednost i što embeddinge računaš jednom i zatim besplatno isprobavaš različite opise tema.</p>
+<p>Mehanika (b) na malom enkoderu – kod je identičan, samo su značajke besmislene jer model nije pretreniran, pa je točnost na razini slučajnog pogađanja:</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">opisi3</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"sport, utakmice, igrači, treneri i rezultati"</span><span class="p">,</span> <span class="s2">"recepti, kuhanje, sastojci i priprema jela"</span><span class="p">,</span>
+          <span class="s2">"računala, programi, mobiteli i tehnologija"</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">embed_mali</span><span class="p">(</span><span class="n">recenice</span><span class="p">):</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">tokenizator</span><span class="p">(</span><span class="n">recenice</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">truncation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">48</span><span class="p">,</span> <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"pt"</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">H</span> <span class="o">=</span> <span class="n">enkoder</span><span class="p">(</span><span class="o">**</span><span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">last_hidden_state</span>
+    <span class="k">return</span> <span class="n">F</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="n">prosjek_s_maskom</span><span class="p">(</span><span class="n">H</span><span class="p">,</span> <span class="n">u</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">]),</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">embed_mali</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">)</span> <span class="o">@</span> <span class="n">embed_mali</span><span class="p">(</span><span class="n">opisi3</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"slučajni enkoder, zero-shot točnost: </span><span class="si">%.2f</span><span class="s2">  (slučajno pogađanje: 0.33)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">pred</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">oznake</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"raspodjela predikcija:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>slučajni enkoder, zero-shot točnost: 0.28  (slučajno pogađanje: 0.33)
+raspodjela predikcija: [ 4 31 25]</code></pre>
+<p>Predikcije slučajnog enkodera nagomilane su u dvije klase – vektori svih rečenica leže u uskom stošcu i o kosinusu odlučuje šum, ne značenje. (c) Nakon zero-shot procjene: uzmi $20$ minuta i označi oko $100$ rečenica – po mogućnosti one za koje je zero-shot najmanje siguran (najmanja razlika između prve dvije teme), jer one najviše uče model. Stratificirano odvoji $30$ za test. Na preostalih $70$ treniraj logističku regresiju nad <em>istim</em> spremljenim embeddinzima iz (b) (sekunde) i usporedi s zero-shotom na tih $30$. Tek ako to nije dovoljno, a vremena ima, puni fine-tuning malog modela.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Pažnja u pretreniranom modelu „zna” sintaksu i semantiku, ali to ne znači da je model pošten ili točan. Napiši kod koji <code>fill-mask</code> cjevovodom provjerava što višejezični model predlaže za „<code>[MASK]</code> je radila kao …” prema „<code>[MASK]</code> je radio kao …” te za „Hrvati su <code>[MASK]</code>.” (nije pokrenut), i objasni: (a) odakle takve pristranosti dolaze, (b) zašto su za natjecateljski zadatak klasifikacije važne iako ne generiraš tekst, (c) kako ih izmjeriti na vlastitom fine-tunanom klasifikatoru. Na malom modelu demonstriraj mjerenje iz (c): točnost klasifikatora iz Primjera 3 odvojeno na rečenicama koje sadrže broj i na onima bez broja.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">popuni</span> <span class="o">=</span> <span class="n">pipeline</span><span class="p">(</span><span class="s2">"fill-mask"</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="s2">"bert-base-multilingual-cased"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"[MASK] je radila kao medicinska sestra."</span><span class="p">,</span> <span class="s2">"[MASK] je radio kao inženjer."</span><span class="p">,</span> <span class="s2">"Hrvati su [MASK]."</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="p">[</span><span class="n">k</span><span class="p">[</span><span class="s2">"token_str"</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">popuni</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">5</span><span class="p">)])</span></code></pre></div>
+<p>Očekivano: za ženski oblik model predlaže ženska imena i imenice, za muški muška; za treću rečenicu nacionalne stereotipe i pridjeve koji odražavaju tekstove s interneta na kojima je učen. (a) Pristranosti su statistika korpusa: model vjerno uči koji se oblici pojavljuju zajedno, uključujući društvene stereotipe i zastarjele ili netočne tvrdnje. (b) Kad takav model fine-tunaš za klasifikaciju, iste korelacije postaju značajke: klasifikator životopisa može „naučiti” da ženski rod imenica znači drugu struku, klasifikator komentara da spominjanje određene skupine znači uvredu. Rezultat je model koji je točan u prosjeku, a sustavno griješi na podskupini – što na natjecanju znači slabiji rezultat na skrivenom testu, a u praksi štetu. (c) Mjerenje: točnost (ili matricu zabune, M3) izračunaj <em>odvojeno po podskupinama</em> koje su smisleno definirane (rod, duljina, prisutnost brojeva, dijalekt, dijakritici) i usporedi; zamijeni ciljani atribut u rečenici (npr. muško ime ženskim) i provjeri mijenja li se predikcija (<i>counterfactual</i> test). Lekcija N6 razrađuje pristranost i etiku; ovdje je dovoljno usvojiti naviku da uz ukupnu točnost uvijek ispišeš i točnost po podskupinama.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">ima_broj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\d"</span><span class="p">,</span> <span class="n">tekstovi</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">te_i</span><span class="p">])</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">pred_te</span> <span class="o">=</span> <span class="n">klf</span><span class="p">(</span><span class="n">input_ids</span><span class="o">=</span><span class="n">batch_te</span><span class="p">[</span><span class="s2">"input_ids"</span><span class="p">],</span> <span class="n">attention_mask</span><span class="o">=</span><span class="n">batch_te</span><span class="p">[</span><span class="s2">"attention_mask"</span><span class="p">])</span><span class="o">.</span><span class="n">logits</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">tocno</span> <span class="o">=</span> <span class="n">pred_te</span> <span class="o">==</span> <span class="n">batch_te</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">ime_g</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">"s brojem"</span><span class="p">,</span> <span class="n">ima_broj</span><span class="p">),</span> <span class="p">(</span><span class="s2">"bez broja"</span><span class="p">,</span> <span class="o">~</span><span class="n">ima_broj</span><span class="p">)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-10s</span><span class="s2"> n = </span><span class="si">%2d</span><span class="s2">  točnost = </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime_g</span><span class="p">,</span> <span class="n">m</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">tocno</span><span class="p">[</span><span class="n">m</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>s brojem   n =  3  točnost = 0.33
+bez broja  n = 12  točnost = 0.67</code></pre>
+<p>Na petnaest testnih rečenica razlika između podskupina nije statistički značajna (vidi M5), ali postupak je isti i na deset tisuća rečenica – i tada razlika od desetak postotnih bodova između podskupina znači da model koristi obilježje koje ne bi smio.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Pretrenirani transformer uči samonadzirano: enkoderi (BERT) maskiranim jezičnim modeliranjem, dekoderi (GPT) predviđanjem sljedećeg tokena. Za klasifikaciju i sličnost na procesoru koristi enkoder.</li>
+<li>Svaki model ima svoj tokenizator podriječi (WordPiece, BPE, SentencePiece); ulaz su <code>input_ids</code> i <code>attention_mask</code> s posebnim tokenima i nadopunom. Broj tokena po rečenici pokazuje koliko model „zna” jezik.</li>
+<li><code>transformers</code>: <code>pipeline</code> za brzu procjenu, <code>AutoTokenizer</code> + <code>AutoModel</code> za embeddinge (<code>last_hidden_state</code>, prosjek s maskom), <code>AutoModelFor…</code> za zadatke s glavom; <code>from_pretrained</code> preuzima težine, <code>config</code> daje slučajan model iste arhitekture.</li>
+<li>Fine-tuning: mala stopa učenja ($2$–$5\cdot10^{-5}$), $2$–$4$ epohe, zagrijavanje, AdamW; na slabom računalu prvo zamrznuti embeddinzi + logistička regresija, pa tek onda puni fine-tuning malog modela.</li>
+<li>Zero-shot (NLI ili kosinus s opisima klasa) daje polaznu točku bez oznaka; za hrvatski biraj višejezične (XLM-R) ili hrvatske modele (BERTić, CroSloEngual) i čitaj karticu modela.</li>
+<li>Pretrenirani model nasljeđuje pristranosti korpusa; uz ukupnu točnost uvijek ispiši točnost po podskupinama.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>J. Devlin i sur., <i>BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</i> (NAACL 2019).</li>
+<li>Hugging Face, <a href="https://huggingface.co/learn/nlp-course">NLP Course</a> (poglavlja 1–3: transformeri, korištenje i fine-tuning) i <a href="https://huggingface.co/docs/transformers">dokumentacija biblioteke transformers</a>.</li>
+<li>N. Reimers, I. Gurevych, <i>Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks</i> (EMNLP 2019) – embeddinzi rečenica i sentence-transformers.</li>
+<li>L. Tunstall, L. von Werra, T. Wolf, <i>Natural Language Processing with Transformers</i>, O'Reilly – praktični vodič kroz cijeli ekosustav.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="02-vektorske-reprezentacije-rijeci.html"><small>← Prethodna lekcija</small>V2 · Vektorske reprezentacije riječi (embeddings)</a>
+                <a class="sljedeca" href="04-slike-kao-podaci.html"><small>Sljedeća lekcija →</small>V4 · Slike kao podaci: obrada i augmentacija</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

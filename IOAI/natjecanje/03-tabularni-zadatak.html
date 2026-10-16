@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Natjecanje 3: Riješeni zadatak: tabularna klasifikacija (simulacija u stilu IOAI)</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#natjecanje">Natjecanje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Natjecanje · lekcija 3 od 6</p>
+            <h1><span class="broj-lekcije">N3</span> Riješeni zadatak: tabularna klasifikacija (simulacija u stilu IOAI)</h1>
+            <p class="meta">Cijeli put na jednom zadatku: pregled i čišćenje, cjevovod s ColumnTransformerom, baseline → slučajna šuma → boosting, validacija, podešavanje, važnost značajki, analiza grešaka i predaja</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.4" title="razina nacionalnog izbora i kvalifikacija">Razina: Srednje</li>
+                <li>tabularni podaci</li>
+                <li>ColumnTransformer</li>
+                <li>slučajna šuma</li>
+                <li>HistGradientBoosting</li>
+                <li>$F_1$ i AUC</li>
+                <li>permutacijska važnost</li>
+                <li>analiza grešaka</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Riješiti od početka do kraja jedan zadatak tabularne klasifikacije u stilu IOAI, s nedostajućim vrijednostima i kategoričkim značajkama, na CPU-u u manje od sat vremena računanja.</li>
+<li>Sastaviti cjevovod predobrade s <code>ColumnTransformer</code>-om tako da se imputacija, skaliranje i kodiranje uče samo na foldu za učenje.</li>
+<li>Usporediti logističku regresiju, slučajnu šumu i gradijentni boosting istom validacijom, podesiti pobjednika i izabrati prag za $F_1$.</li>
+<li>Protumačiti model permutacijskom važnošću značajki, pregledati pogreške i napisati zaključak kakav tim predaje uz rješenje.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<div class="trener-umetak">
+<p><b>Ovo je simulacija.</b> Zadatak u nastavku sastavljen je za vježbu u stilu zadataka kakvi se pojavljuju na natjecanjima iz strojnog učenja; nije službeni zadatak IOAI-ja i ne tvrdi ništa o sadržaju stvarnih natjecanja. Podaci su ugrađeni skup <code>load_breast_cancer</code> iz scikit-learna, u koji smo <em>sami</em> ubacili nedostajuće vrijednosti i dvije kategoričke značajke da bi zadatak sličio stvarnim, „prljavim” podacima.</p>
+</div>
+
+<h3>Tekst zadatka</h3>
+<div class="pojam">
+<h4>Zadatak (simulacija)</h4>
+<p>Dane su mjere stanica iz $569$ uzoraka tkiva: $30$ numeričkih značajki (polumjer, tekstura, površina, glatkoća, … – srednja vrijednost, standardna greška i „najgora” vrijednost svake mjere), kategorička oznaka <code>bolnica</code> (A–D) i <code>uredaj</code> (U1–U3) te cilj <code>cilj</code> ($1$ = zloćudan, $0$ = dobroćudan). Neki unosi nedostaju. Skup je podijeljen na <code>train.csv</code> (s ciljem) i <code>test.csv</code> (bez cilja). Predaja je CSV sa stupcima <code>id</code> i <code>cilj</code> (0 ili 1). <b>Metrika</b>: $F_1$ zloćudne klase; AUC se prikazuje informativno. <b>Ograničenja</b>: samo CPU, bez interneta, dva sata.</p>
+</div>
+
+<h3>Plan</h3>
+<p>Slijedimo recept iz lekcije N2 i raspored iz N1: (1) pregled i čišćenje – 10 min; (2) cjevovod predobrade, ljestvica baselinea i validacija – 20 min; (3) podešavanje pobjednika i prag – 30 min; (4) važnost značajki i analiza grešaka – 20 min; (5) konačni model, predaja, zaključak – 15 min. Ostatak je rezerva. Metrika $F_1=\frac{2PR}{P+R}$ (lekcija N1) ovisi o pragu, pa već u planu znamo da ćemo prag birati na izvanuzoračkim vjerojatnostima.</p>
+
+<h3>Predobrada s ColumnTransformerom</h3>
+<p>Numeričke i kategoričke značajke zahtijevaju različite korake: numeričkima treba imputacija (medijan) i, za linearne modele, standardizacija; kategoričkima imputacija najčešće vrijednosti i one-hot kodiranje. <code>ColumnTransformer</code> primjenjuje različite transformacije na različite stupce i spaja rezultate; u <code>Pipeline</code>-u s modelom sve se parametre (medijani, srednje vrijednosti, skup kategorija) <em>uči na foldu za učenje</em>, pa validacija ostaje bez protjecanja. Stabla i boosting skaliranje ne trebaju – dijele po pragu, a prag se skalira zajedno s podacima (Zagrijavanje 2).</p>
+
+<h3>Tri obitelji modela</h3>
+<ul>
+<li><b>Logistička regresija</b> (lekcija M3): linearna granica u prostoru standardiziranih značajki; na medicinskim mjerenjima koja su već „dobre” značajke često iznenađujuće jaka i najbrža.</li>
+<li><b>Slučajna šuma</b> (engl. <i>random forest</i>, M4): prosjek mnogo dubokih stabala treniranih na slučajnim poduzorcima redaka i značajki. Smanjuje varijancu pojedinog stabla, gotovo se ne može prenaučiti dodavanjem stabala, malo hiperparametara. Ne podnosi <code>NaN</code> bez imputacije.</li>
+<li><b>Gradijentni boosting</b> (<code>HistGradientBoostingClassifier</code>, M4): stabla se dodaju redom, svako ispravlja greške prethodnih. Obično najjači, ali osjetljiv na <code>learning_rate</code>, broj iteracija i veličinu stabala; sam zna raditi s <code>NaN</code>.</li>
+</ul>
+
+<h3>Važnost značajki</h3>
+<div class="pojam">
+<h4>Permutacijska važnost</h4>
+<p>Za istrenirani model i skup na kojem mjerimo s rezultatom $s$ (npr. $F_1$ ili AUC), permutacijska važnost značajke $j$ je
+$$I_j = s - \frac1K\sum_{k=1}^{K} s_{k,j},$$
+gdje je $s_{k,j}$ rezultat nakon $k$-tog slučajnog miješanja stupca $j$ (ostali stupci netaknuti). Velik $I_j$ znači da model bez te značajke gubi; $I_j\approx0$ da je ne koristi <em>ili</em> da njezinu informaciju ima i u drugoj, koreliranoj značajki.</p>
+</div>
+<p>Prednost nad ugrađenom važnošću stabala (<code>feature_importances_</code>) je da se mjeri na podacima koje model nije vidio i da vrijedi za svaki model. Mana: korelirane značajke dijele važnost – zamijeni li se „polumjer” „opsegom”, model ne gubi gotovo ništa, pa obje izgledaju nevažno iako je jedna od njih presudna.</p>
+
+<h3>Analiza grešaka</h3>
+<p>Nakon što se brojke stabiliziraju, pogledaj <em>koje</em> primjere model griješi: matricu zabune na OOF predikcijama, vjerojatnosti pogrešno klasificiranih (griješi li samouvjereno ili na granici?), značajke tih primjera u odnosu na prosjek njihove klase. Primjeri na granici su normalni; samouvjerene greške upućuju na pogrešno označene podatke ili podskupinu koju model ne razumije – obje su prilika ili za čišćenje ili za novu značajku. U medicinskom zadatku bitno je i <em>koja</em> greška više boli: propušten zloćudan nalaz (lažno negativno) teži je od lažne uzbune, što utječe na izbor praga (Zadatak 4).</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p><b>Učitavanje, pregled i čišćenje.</b> Sastavi simulirani zadatak iz <code>load_breast_cancer</code> (nedostajuće vrijednosti, kategorije <code>bolnica</code> i <code>uredaj</code>, skriveni test), napravi pregled i odluči što s čime raditi.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci.</b> U skupu je izvorno $1$ = dobroćudan; preokrećemo ga da pozitivna klasa (ona koju $F_1$ mjeri) bude zloćudna. <code>bolnica</code> blago ovisi o cilju (različite bolnice primaju različite pacijente), <code>uredaj</code> je čisti šum; u tri stupca brišemo vrijednosti s vjerojatnošću 8 % (ispadne 8–10 %). Na natjecanju bi ovaj blok zamijenilo <code>pd.read_csv</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_breast_cancer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">load_breast_cancer</span><span class="p">(</span><span class="n">as_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">frame</span>
+<span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">" "</span><span class="p">,</span> <span class="s2">"_"</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">df</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"target"</span><span class="p">)</span>                      <span class="c1"># 1 = zloćudan</span>
+<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="n">p_bolnica</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">],</span> <span class="mi">1</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]}</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"bolnica"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="s2">"ABCD"</span><span class="p">),</span> <span class="n">p</span><span class="o">=</span><span class="n">p_bolnica</span><span class="p">[</span><span class="n">c</span><span class="p">]))</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]]</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">"uredaj"</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="s2">"U1"</span><span class="p">,</span> <span class="s2">"U2"</span><span class="p">,</span> <span class="s2">"U3"</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">stupac</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"mean_area"</span><span class="p">,</span> <span class="s2">"worst_texture"</span><span class="p">,</span> <span class="s2">"mean_smoothness"</span><span class="p">):</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.08</span><span class="p">,</span> <span class="n">stupac</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+<span class="n">df</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+
+<span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">df</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">],</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">test</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">y_skriveni</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"cilj"</span><span class="p">)</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>               <span class="c1"># „službeni” cilj, model ga ne vidi</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">test</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"udio zloćudnih u treningu: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">train</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>(455, 34) (114, 33)
+udio zloćudnih u treningu: 0.374</code></pre>
+<p><b>Korak 2: pregled.</b> Vrste stupaca, nedostajuće vrijednosti, kategorije i njihova veza s ciljem te najjače korelacije značajki s ciljem – to je sve što trebamo za odluke o predobradi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">NUM</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">train</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">train</span><span class="p">[</span><span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="nb">float</span><span class="p">]</span>
+<span class="n">KAT</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"bolnica"</span><span class="p">,</span> <span class="s2">"uredaj"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">NUM</span><span class="p">),</span> <span class="s2">"numeričkih,"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">KAT</span><span class="p">),</span> <span class="s2">"kategoričke"</span><span class="p">)</span>
+<span class="n">nan</span> <span class="o">=</span> <span class="n">train</span><span class="p">[</span><span class="n">NUM</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"NaN (%):"</span><span class="p">,</span> <span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">nan</span><span class="p">[</span><span class="n">nan</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">KAT</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"udio zloćudnih po </span><span class="si">%s</span><span class="s2">:"</span> <span class="o">%</span> <span class="n">k</span><span class="p">,</span> <span class="n">train</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">k</span><span class="p">)[</span><span class="s2">"cilj"</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="n">kor</span> <span class="o">=</span> <span class="n">train</span><span class="p">[</span><span class="n">NUM</span><span class="p">]</span><span class="o">.</span><span class="n">corrwith</span><span class="p">(</span><span class="n">train</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">])</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najjače korelirane s ciljem:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">kor</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+<span class="n">visoke</span> <span class="o">=</span> <span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">NUM</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">NUM</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:]</span>
+          <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">train</span><span class="p">[</span><span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">corr</span><span class="p">(</span><span class="n">train</span><span class="p">[</span><span class="n">b</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mf">0.98</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parovi značajki s |r| &gt; 0.98:"</span><span class="p">,</span> <span class="n">visoke</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>30 numeričkih, 2 kategoričke
+NaN (%): {'mean_area': 9.5, 'mean_smoothness': 8.1, 'worst_texture': 9.7}
+udio zloćudnih po bolnica: {'A': 0.24, 'B': 0.35, 'C': 0.42, 'D': 0.59}
+udio zloćudnih po uredaj: {'U1': 0.34, 'U2': 0.43, 'U3': 0.35}
+najjače korelirane s ciljem:
+worst_concave_points    0.800
+mean_concave_points     0.783
+worst_perimeter         0.774
+worst_radius            0.767
+mean_perimeter          0.728
+parovi značajki s |r| &gt; 0.98: [('mean_radius', 'mean_perimeter'), ('mean_radius', 'mean_area'), ('mean_perimeter', 'mean_area'), ('worst_radius', 'worst_perimeter'), ('worst_radius', 'worst_area')]</code></pre>
+<p><b>Korak 3: odluke.</b> Klase su umjereno neuravnotežene (oko 37 % pozitivnih) – $F_1$ ima smisla, prag ćemo podešavati. Nedostajućih vrijednosti je malo (8–10 % u tri stupca) i, koliko znamo, slučajne su: imputacija medijanom, bez indikatora. <code>bolnica</code> nosi slab signal (udjeli se razlikuju po bolnicama), <code>uredaj</code> očito ne – ostavljamo oba, model će sam odlučiti, a važnost značajki poslije to provjeri. Gotovo savršeno korelirani parovi (polumjer–opseg) ne smetaju stablima, a za logističku regresiju ih regularizacija drži pod kontrolom (Zadatak 2).</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p><b>Cjevovod, ljestvica modela, podešavanje i prag.</b> Napravi predobradu s <code>ColumnTransformer</code>-om i stratificiranu petostruku validaciju koja vraća OOF vjerojatnosti. Usporedi trivijalni model, logističku regresiju, slučajnu šumu i boosting po $F_1$ i AUC-u, podesi boosting slučajnim pretraživanjem i odaberi prag.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: predobrada i validacija.</b> Jedna funkcija <code>cjevovod(model, skaliraj)</code> gradi cijeli cjevovod; <code>validiraj</code> vraća OOF vjerojatnosti, pa $F_1$ (uz prag $0{,}5$) i AUC računamo na njima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.compose</span><span class="w"> </span><span class="kn">import</span> <span class="n">ColumnTransformer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.dummy</span><span class="w"> </span><span class="kn">import</span> <span class="n">DummyClassifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">HistGradientBoostingClassifier</span><span class="p">,</span> <span class="n">RandomForestClassifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.impute</span><span class="w"> </span><span class="kn">import</span> <span class="n">SimpleImputer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">f1_score</span><span class="p">,</span> <span class="n">roc_auc_score</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">StratifiedKFold</span><span class="p">,</span> <span class="n">cross_val_predict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span><span class="p">,</span> <span class="n">make_pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">OneHotEncoder</span><span class="p">,</span> <span class="n">StandardScaler</span>
+
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"cilj"</span><span class="p">]),</span> <span class="n">train</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<span class="n">X_te</span> <span class="o">=</span> <span class="n">test</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="s2">"id"</span><span class="p">)</span>
+<span class="n">foldovi</span> <span class="o">=</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">cjevovod</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">skaliraj</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">num_koraci</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimpleImputer</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"median"</span><span class="p">)]</span> <span class="o">+</span> <span class="p">([</span><span class="n">StandardScaler</span><span class="p">()]</span> <span class="k">if</span> <span class="n">skaliraj</span> <span class="k">else</span> <span class="p">[])</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">ColumnTransformer</span><span class="p">([</span>
+        <span class="p">(</span><span class="s2">"num"</span><span class="p">,</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="o">*</span><span class="n">num_koraci</span><span class="p">),</span> <span class="n">NUM</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">"kat"</span><span class="p">,</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">SimpleImputer</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"most_frequent"</span><span class="p">),</span>
+                              <span class="n">OneHotEncoder</span><span class="p">(</span><span class="n">handle_unknown</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">sparse_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)),</span> <span class="n">KAT</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"pred"</span><span class="p">,</span> <span class="n">pred</span><span class="p">),</span> <span class="p">(</span><span class="s2">"model"</span><span class="p">,</span> <span class="n">model</span><span class="p">)])</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">validiraj</span><span class="p">(</span><span class="n">cjev</span><span class="p">,</span> <span class="n">X</span><span class="o">=</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y_tr</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">cross_val_predict</span><span class="p">(</span><span class="n">cjev</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">foldovi</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"predict_proba"</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+
+<span class="n">dnevnik</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">eksperiment</span><span class="p">(</span><span class="n">opis</span><span class="p">,</span> <span class="n">cjev</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+    <span class="n">oof</span> <span class="o">=</span> <span class="n">validiraj</span><span class="p">(</span><span class="n">cjev</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+    <span class="n">f1</span><span class="p">,</span> <span class="n">auc</span> <span class="o">=</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="n">oof</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">kw</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="n">oof</span><span class="p">)</span>
+    <span class="n">dnevnik</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"br"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">dnevnik</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"opis"</span><span class="p">:</span> <span class="n">opis</span><span class="p">,</span> <span class="s2">"F1"</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">f1</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="s2">"AUC"</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">auc</span><span class="p">,</span> <span class="mi">4</span><span class="p">)})</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%2d</span><span class="s2">. </span><span class="si">%-28s</span><span class="s2"> F1 = </span><span class="si">%.4f</span><span class="s2">   AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">dnevnik</span><span class="p">),</span> <span class="n">opis</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">auc</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">oof</span>
+
+<span class="n">oof</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">oof</span><span class="p">[</span><span class="s2">"dummy"</span><span class="p">]</span> <span class="o">=</span> <span class="n">eksperiment</span><span class="p">(</span><span class="s2">"trivijalni (prior)"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">DummyClassifier</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"prior"</span><span class="p">)))</span>
+<span class="n">oof</span><span class="p">[</span><span class="s2">"lr"</span><span class="p">]</span> <span class="o">=</span> <span class="n">eksperiment</span><span class="p">(</span><span class="s2">"logistička regresija"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">),</span> <span class="n">skaliraj</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+<span class="n">oof</span><span class="p">[</span><span class="s2">"rf"</span><span class="p">]</span> <span class="o">=</span> <span class="n">eksperiment</span><span class="p">(</span><span class="s2">"slučajna šuma (300)"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">RandomForestClassifier</span><span class="p">(</span><span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span>
+<span class="n">oof</span><span class="p">[</span><span class="s2">"hgb"</span><span class="p">]</span> <span class="o">=</span> <span class="n">eksperiment</span><span class="p">(</span><span class="s2">"boosting (zadano)"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code> 1. trivijalni (prior)           F1 = 0.0000   AUC = 0.5000
+ 2. logistička regresija         F1 = 0.9702   AUC = 0.9918
+ 3. slučajna šuma (300)          F1 = 0.9341   AUC = 0.9935
+ 4. boosting (zadano)            F1 = 0.9429   AUC = 0.9910</code></pre>
+<p><b>Korak 2: čitanje ljestvice.</b> Trivijalni model uz prag $0{,}5$ nikad ne predviđa pozitivnu klasu, pa mu je $F_1=0$. Tri prava modela po AUC-u su gotovo nerazlučiva ($0{,}991$–$0{,}994$): značajke su vrlo informativne i zadatak je u tom smislu „lagan”. Po $F_1$ uz prag $0{,}5$ razlike su veće, ali $F_1$ ovisi o pragu koji još nismo podesili (Korak 4), pa po njemu još ne rangiramo. Razlučivost validacije: na $455$ primjera sa $170$ pozitivnih jedna pogreška pomiče OOF $F_1$ za oko $0{,}003$, a tri-četiri pogreške razlike lako su posljedica slučajne podjele.</p>
+<p><b>Korak 3: podešavanje boostinga.</b> <code>RandomizedSearchCV</code> s dvanaest kombinacija na <em>istim</em> foldovima; biramo po AUC-u jer ne ovisi o pragu, a prag podešavamo poslije. Prefiks <code>model__</code> adresira parametre modela unutar cjevovoda.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomizedSearchCV</span>
+
+<span class="n">mreza</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"model__learning_rate"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.03</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">],</span>
+         <span class="s2">"model__max_iter"</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">],</span>
+         <span class="s2">"model__max_leaf_nodes"</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">15</span><span class="p">],</span>
+         <span class="s2">"model__min_samples_leaf"</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">],</span>
+         <span class="s2">"model__l2_regularization"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]}</span>
+<span class="n">pretraga</span> <span class="o">=</span> <span class="n">RandomizedSearchCV</span><span class="p">(</span><span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span> <span class="n">mreza</span><span class="p">,</span>
+                              <span class="n">n_iter</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">foldovi</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">"roc_auc"</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">pretraga</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="n">najbolji_param</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"model__"</span><span class="p">,</span> <span class="s2">""</span><span class="p">):</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">pretraga</span><span class="o">.</span><span class="n">best_params_</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najbolji parametri:"</span><span class="p">,</span> <span class="n">najbolji_param</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"AUC najbolje: </span><span class="si">%.4f</span><span class="s2">, najlošije: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">pretraga</span><span class="o">.</span><span class="n">cv_results_</span><span class="p">[</span><span class="s2">"mean_test_score"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+                                            <span class="n">pretraga</span><span class="o">.</span><span class="n">cv_results_</span><span class="p">[</span><span class="s2">"mean_test_score"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span>
+<span class="n">oof</span><span class="p">[</span><span class="s2">"hgb2"</span><span class="p">]</span> <span class="o">=</span> <span class="n">eksperiment</span><span class="p">(</span><span class="s2">"boosting (podešen)"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span>
+    <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">najbolji_param</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>najbolji parametri: {'min_samples_leaf': 20, 'max_leaf_nodes': 3, 'max_iter': 400, 'learning_rate': 0.2, 'l2_regularization': 0.0}
+AUC najbolje: 0.9936, najlošije: 0.9906
+ 5. boosting (podešen)           F1 = 0.9614   AUC = 0.9945</code></pre>
+<p>Pobijedila su vrlo mala stabla (3 lista, gotovo aditivan model) s jakom regularizacijom listova – na 455 primjera složenija stabla nemaju od čega učiti. Cijela mreža stane u raspon AUC-a od $0{,}003$: podešavanje donosi malo, ali podešen model ipak nadmaši podrazumijevani i po $F_1$ i po AUC-u.</p>
+<p><b>Korak 4: prag za $F_1$ i jednostavan ansambl.</b> Prag biramo na OOF vjerojatnostima (lekcija N1, Zadatak 5). Usporedimo i prosjek vjerojatnosti logističke regresije, šume i podešenog boostinga – tri modela različitih obitelji, upravo ono što ansambl voli.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pragovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.91</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">najbolji_prag</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y_tr</span><span class="p">):</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">f1_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pragovi</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">pragovi</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">argmax</span><span class="p">()],</span> <span class="n">f</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+<span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="s2">"lr"</span><span class="p">]</span> <span class="o">+</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"rf"</span><span class="p">]</span> <span class="o">+</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"hgb2"</span><span class="p">])</span> <span class="o">/</span> <span class="mi">3</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-20s</span><span class="s2"> </span><span class="si">%-12s</span><span class="s2"> </span><span class="si">%-12s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="s2">"model"</span><span class="p">,</span> <span class="s2">"F1 (0.5)"</span><span class="p">,</span> <span class="s2">"F1 (prag)"</span><span class="p">,</span> <span class="s2">"prag"</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">ime</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"lr"</span><span class="p">,</span> <span class="s2">"rf"</span><span class="p">,</span> <span class="s2">"hgb2"</span><span class="p">,</span> <span class="s2">"ansambl"</span><span class="p">):</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">najbolji_prag</span><span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="n">ime</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-20s</span><span class="s2"> </span><span class="si">%.4f</span><span class="s2">       </span><span class="si">%.4f</span><span class="s2">       </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">oof</span><span class="p">[</span><span class="n">ime</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">f</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"AUC ansambla: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>model                F1 (0.5)     F1 (prag)    prag
+lr                   0.9702       0.9765       0.42
+rf                   0.9341       0.9565       0.37
+hgb2                 0.9614       0.9647       0.21
+ansambl              0.9674       0.9708       0.31
+AUC ansambla: 0.9960</code></pre>
+<p>Prag ispod $0{,}5$ pomaže svim modelima – najviše šumi, čije su vjerojatnosti „stisnute” prema sredini. Logistička regresija ima najveći $F_1$ uz svoj prag ($0{,}9765$), ansambl najveći AUC ($0{,}9960$); razlika od $0{,}006$ u $F_1$ odgovara dvjema pogreškama od $455$ i unutar je razlučivosti validacije. Biramo po robusnosti: ansambl triju različitih obitelji s pragom $0{,}31$, uz zabilješku u dnevniku da je logistička regresija sama ravnopravan kandidat. Prag zapisujemo – on je dio modela i mora se primijeniti i na testu.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p><b>Važnost značajki, analiza grešaka, predaja i zaključak.</b> Izračunaj permutacijsku važnost značajki podešenog boostinga na validacijskim foldovima, pregledaj pogrešno klasificirane primjere ansambla, istreniraj konačne modele na svim podacima za učenje, napravi i provjeri predaju te – budući da u simulaciji imamo skriveni cilj – usporedi lokalni i „službeni” rezultat.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: permutacijska važnost na validacijskim foldovima.</b> Za svaki fold model treniramo na ostatku i važnost mjerimo na foldu (podaci koje model nije vidio), a zatim važnosti usrednjimo. Mjerimo AUC-om da ne ovisi o pragu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.inspection</span><span class="w"> </span><span class="kn">import</span> <span class="n">permutation_importance</span>
+
+<span class="n">vaznost</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">X_tr</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">uci</span><span class="p">,</span> <span class="n">va</span> <span class="ow">in</span> <span class="n">foldovi</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">najbolji_param</span><span class="p">))</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">uci</span><span class="p">],</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">uci</span><span class="p">])</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">permutation_importance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">"roc_auc"</span><span class="p">,</span>
+                               <span class="n">n_repeats</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">vaznost</span> <span class="o">+=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">importances_mean</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">X_tr</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">/</span> <span class="n">foldovi</span><span class="o">.</span><span class="n">get_n_splits</span><span class="p">()</span>
+<span class="n">vaznost</span> <span class="o">=</span> <span class="n">vaznost</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najvažnije (pad AUC-a nakon miješanja):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">vaznost</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"kategoričke:"</span><span class="p">,</span> <span class="n">vaznost</span><span class="p">[</span><span class="n">KAT</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"broj značajki s važnošću &lt; 0.001:"</span><span class="p">,</span> <span class="nb">int</span><span class="p">((</span><span class="n">vaznost</span> <span class="o">&lt;</span> <span class="mf">0.001</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="s2">"od"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">vaznost</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>najvažnije (pad AUC-a nakon miješanja):
+worst_concave_points    0.0067
+area_error              0.0031
+mean_texture            0.0026
+worst_perimeter         0.0024
+worst_area              0.0023
+worst_texture           0.0019
+kategoričke: {'bolnica': 0.0015, 'uredaj': 0.0001}
+broj značajki s važnošću &lt; 0.001: 23 od 32</code></pre>
+<p>Model se oslanja na nepravilnost stanica (<code>worst_concave_points</code>, daleko najvažnija), veličinu („najgore”, tj. najveće vrijednosti opsega i površine te <code>area_error</code>) i teksturu – u skladu s korelacijama iz Primjera 1. Apsolutni iznosi su mali jer je AUC blizu $1$ i gubitak jedne značajke model nadoknadi drugima. Većina od 32 značajke pojedinačno gotovo ništa ne znači ($23$ ispod $0{,}001$): dio zato što ih model ne koristi, dio zato što su korelirane s onima koje koristi (vidi definiciju i Zadatak 2). <code>uredaj</code> je, očekivano, bez važnosti; <code>bolnica</code> nosi malo, ali više od većine numeričkih – model ju je prepoznao kao slab signal.</p>
+<p><b>Korak 2: analiza grešaka.</b> Matrica zabune ansambla uz odabrani prag, pa pogled na pogrešne primjere: koliko ih je, koliko je model bio siguran i po čemu se razlikuju od svoje klase.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">confusion_matrix</span>
+
+<span class="n">prag</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">najbolji_prag</span><span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">])</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">prag</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prag = </span><span class="si">%.2f</span><span class="s2">, matrica zabune [[TN, FP], [FN, TP]]:"</span> <span class="o">%</span> <span class="n">prag</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">confusion_matrix</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">pred</span><span class="p">))</span>
+<span class="n">greske</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">pred</span> <span class="o">!=</span> <span class="n">y_tr</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"pogrešno: </span><span class="si">%d</span><span class="s2"> od </span><span class="si">%d</span><span class="s2">; vjerojatnosti: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">greske</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_tr</span><span class="p">),</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">][</span><span class="n">greske</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
+<span class="n">samouvjerene</span> <span class="o">=</span> <span class="n">greske</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">][</span><span class="n">greske</span><span class="p">]</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.3</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"samouvjerenih pogrešaka (|p - 0.5| &gt; 0.3):"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">samouvjerene</span><span class="p">))</span>
+<span class="n">top</span> <span class="o">=</span> <span class="n">vaznost</span><span class="o">.</span><span class="n">index</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span>
+<span class="n">usporedba</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"pogrešni"</span><span class="p">:</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">greske</span><span class="p">,</span> <span class="n">top</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span>
+                          <span class="s2">"prosjek zloćudnih"</span><span class="p">:</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">y_tr</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="n">top</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span>
+                          <span class="s2">"prosjek dobroćudnih"</span><span class="p">:</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">y_tr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">top</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()})</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">usporedba</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>prag = 0.31, matrica zabune [[TN, FP], [FN, TP]]:
+[[279   6]
+ [  4 166]]
+pogrešno: 10 od 455; vjerojatnosti: [0.56 0.57 0.71 0.29 0.39 0.03 0.02 0.29 0.45 0.51]
+samouvjerenih pogrešaka (|p - 0.5| &gt; 0.3): 2
+                      pogrešni  prosjek zloćudnih  prosjek dobroćudnih
+worst_concave_points      0.12               0.18                 0.07
+area_error               28.63              72.27                21.13
+mean_texture             17.83              21.62                17.98</code></pre>
+<p>Deset pogrešaka od $455$: šest lažnih uzbuna i četiri propuštena zloćudna nalaza. Osam ih ima vjerojatnost u širokoj okolini praga – uzorci koji su stvarno na granici i po najvažnijim značajkama leže <em>između</em> prosjeka dviju klasa. Takve greške novi model teško popravlja; smanjuju ih tek nove informacije (značajke), kojih u zadatku nema. Dvije su, međutim, samouvjerene: zloćudni uzorci kojima je ansambl dao vjerojatnost $0{,}02$–$0{,}03$. Na natjecanju bi se upravo oni ručno pogledali (pogrešna oznaka? neobična podskupina?) – ako nisu objašnjivi, to je znak da smo blizu plafona i da je vrijeme za predaju.</p>
+<p><b>Korak 3: konačni modeli, predaja i „službeni” rezultat.</b> Tri modela treniramo na svim podacima za učenje, spajamo ih istim prosjekom i primjenjujemo isti prag; predaju zapisujemo i provjeravamo.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">modeli</span> <span class="o">=</span> <span class="p">[</span><span class="n">cjevovod</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">),</span> <span class="n">skaliraj</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+          <span class="n">cjevovod</span><span class="p">(</span><span class="n">RandomForestClassifier</span><span class="p">(</span><span class="n">n_estimators</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+          <span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">najbolji_param</span><span class="p">))]</span>
+<span class="n">p_te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X_te</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">modeli</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">predaja</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">test</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span> <span class="s2">"cilj"</span><span class="p">:</span> <span class="p">(</span><span class="n">p_te</span> <span class="o">&gt;=</span> <span class="n">prag</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)})</span>
+<span class="n">predaja</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"predaja_05_ansambl.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="n">u</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">"predaja_05_ansambl.csv"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="nb">list</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="p">[</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"cilj"</span><span class="p">]</span> <span class="ow">and</span> <span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">test</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">u</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"predaja OK: </span><span class="si">%d</span><span class="s2"> redaka, udio predviđenih zloćudnih </span><span class="si">%.3f</span><span class="s2"> (u treningu </span><span class="si">%.3f</span><span class="s2">)"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">u</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">y_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"lokalno (OOF):  F1 = </span><span class="si">%.4f</span><span class="s2">   AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">pred</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">])))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"'službeno':     F1 = </span><span class="si">%.4f</span><span class="s2">   AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">f1_score</span><span class="p">(</span><span class="n">y_skriveni</span><span class="p">,</span> <span class="n">u</span><span class="p">[</span><span class="s2">"cilj"</span><span class="p">]),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_skriveni</span><span class="p">,</span> <span class="n">p_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>predaja OK: 114 redaka, udio predviđenih zloćudnih 0.386 (u treningu 0.374)
+lokalno (OOF):  F1 = 0.9708   AUC = 0.9960
+'službeno':     F1 = 0.9535   AUC = 0.9917</code></pre>
+<p><b>Korak 4: zaključak kakav se predaje uz rješenje.</b> Zadatak: binarna klasifikacija, metrika $F_1$ zloćudne klase, 455 primjera za učenje. Predobrada: imputacija medijanom i najčešćom vrijednošću, one-hot za dvije kategorije, standardizacija samo za linearni model. Modeli: logistička regresija, slučajna šuma i podešeni boosting daju OOF $F_1$ u istom rasponu; predan je prosjek njihovih vjerojatnosti s pragom odabranim na OOF-u. Najvažnije značajke su „najgore” mjere veličine i nepravilnosti stanica; <code>uredaj</code> ne nosi informaciju. Preostale pogreške su granični slučajevi. Lokalni $F_1$ ($0{,}971$) i skriveni ($0{,}954$) razlikuju se za jednu-dvije pogreške na $43$ zloćudna testna uzorka – unutar šuma koji se očekuje na $114$ primjera. Što bismo radili s više vremena: indikatori nedostajanja, kalibracija praga po trošku pogrešaka (Zadatak 4), više raznovrsnih modela u ansamblu.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Model na $100$ uzoraka daje matricu zabune $TN=58$, $FP=5$, $FN=4$, $TP=33$. Izračunaj ručno točnost, preciznost, odziv i $F_1$ pozitivne klase. Koju bi od dviju grešaka ($FP$ ili $FN$) u ovom zadatku radije smanjio i u kojem smjeru bi zato pomaknuo prag?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Točnost $=\frac{58+33}{100}=0{,}91$; $P=\frac{33}{38}\approx0{,}868$; $R=\frac{33}{37}\approx0{,}892$; $F_1=\frac{2\cdot0{,}868\cdot0{,}892}{0{,}868+0{,}892}\approx0{,}880$. Lažno negativan nalaz (propušten zloćudan tumor) teži je od lažne uzbune, pa bismo prag <em>spustili</em>: više uzoraka proglašava se zloćudnima, $FN$ pada, $FP$ raste. $F_1$ ta dva troška vrednuje jednako, pa metrika zadatka i stvarni cilj nisu isto – to se u zaključku napiše.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Provjeri tvrdnju iz teorije da stabla ne trebaju skaliranje, a logistička regresija treba: validiraj logističku regresiju i boosting iz Primjera 2 sa standardizacijom i bez nje. Objasni razliku.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">model</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"LR"</span><span class="p">,</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">)),</span>
+                   <span class="p">(</span><span class="s2">"HGB"</span><span class="p">,</span> <span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))]:</span>
+    <span class="k">for</span> <span class="n">sk</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">validiraj</span><span class="p">(</span><span class="n">cjevovod</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">skaliraj</span><span class="o">=</span><span class="n">sk</span><span class="p">))</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-4s</span><span class="s2"> skaliranje=</span><span class="si">%-5s</span><span class="s2">  F1 = </span><span class="si">%.4f</span><span class="s2">  AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">sk</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>LR   skaliranje=False  F1 = 0.9290  AUC = 0.9900
+LR   skaliranje=True   F1 = 0.9702  AUC = 0.9918
+HGB  skaliranje=False  F1 = 0.9429  AUC = 0.9910
+HGB  skaliranje=True   F1 = 0.9429  AUC = 0.9910</code></pre>
+<p>Boosting daje <em>identične</em> brojke: stablo dijeli po pragu („površina $\gt 700$”), a standardizacija pretvara prag u „$z\gt 1{,}2$” – ista podjela. Logistička regresija bez skaliranja gubi: optimizacija s regularizacijom ovisi o skali (kazna $\lVert w\rVert^2$ jednako kažnjava koeficijent uz površinu reda tisuću i uz glatkoću reda stotinke), a rješavač sporije konvergira. Pravilo: linearni modeli, SVM i $k$ najbližih susjeda – skaliraj; stabla – ne treba.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>U izvornom skupu je $1$ = dobroćudan. Da smo zaboravili preokrenuti cilj, model bi bio jednako dobar, ali bi se $F_1$ računao za krivu klasu. Na OOF vjerojatnostima ansambla izračunaj $F_1$ za obje klase i $F_1$ koji bi dala predaja s zamijenjenim oznakama. Koja pogreška je gora i kako bi je otkrio prije predaje?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">p1</span> <span class="o">=</span> <span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"F1 zloćudne klase (pos_label=1): </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"F1 dobroćudne klase (pos_label=0): </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">pos_label</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"F1 ako predamo zamijenjene oznake:  </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">p1</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>F1 zloćudne klase (pos_label=1): 0.9674
+F1 dobroćudne klase (pos_label=0): 0.9808
+F1 ako predamo zamijenjene oznake:  0.0306</code></pre>
+<p>Krivo odabrana klasa pri <em>računanju</em> metrike daje malo drukčiji (ovdje veći) broj – lokalni rezultat bi bio precijenjen, a sve odluke o pragu bile bi krive jer bi se optimizirao $F_1$ većinske klase. Zamijenjene oznake u <em>predaji</em> su katastrofa: $F_1$ pada gotovo na nulu. Obje se otkrivaju istom provjerom iz lekcije N1: udio predviđenih pozitivnih u predaji usporedi s udjelom pozitivnih u treningu (oko $0{,}37$) i ručno pogledaj nekoliko redaka s poznatim nalazom.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p><code>HistGradientBoostingClassifier</code> zna sam raditi s <code>NaN</code>: pri svakom dijeljenju nauči na koju stranu šalje nedostajuće vrijednosti. Napravi varijantu cjevovoda u kojoj numeričke značajke idu u boosting <em>bez</em> imputacije i usporedi s imputacijom medijanom. Zatim učini nedostajanje informativnim – u skupu za učenje izbriši <code>worst_area</code> u 40 % zloćudnih i 5 % dobroćudnih – i ponovi usporedbu. Kad je ugrađena obrada <code>NaN</code> bolja od imputacije?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>ColumnTransformer</code> s <code>("num", "passthrough", NUM)</code> propušta stupce netaknute. Za drugi dio napravi kopiju <code>X_tr</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">cjevovod_nan</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">ColumnTransformer</span><span class="p">([</span>
+        <span class="p">(</span><span class="s2">"num"</span><span class="p">,</span> <span class="s2">"passthrough"</span><span class="p">,</span> <span class="n">NUM</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">"kat"</span><span class="p">,</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">SimpleImputer</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"most_frequent"</span><span class="p">),</span>
+                              <span class="n">OneHotEncoder</span><span class="p">(</span><span class="n">handle_unknown</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">sparse_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)),</span> <span class="n">KAT</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"pred"</span><span class="p">,</span> <span class="n">pred</span><span class="p">),</span> <span class="p">(</span><span class="s2">"model"</span><span class="p">,</span> <span class="n">model</span><span class="p">)])</span>
+
+<span class="n">hgb</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="o">**</span><span class="n">najbolji_param</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">X</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"slučajni NaN"</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">),</span> <span class="p">(</span><span class="s2">"informativni NaN"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)]:</span>
+    <span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">rng2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">brisi</span> <span class="o">=</span> <span class="n">rng2</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">))</span> <span class="o">&lt;</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">y_tr</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.40</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">)</span>
+        <span class="n">X</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">brisi</span><span class="p">,</span> <span class="s2">"worst_area"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+    <span class="n">p_imp</span><span class="p">,</span> <span class="n">p_nan</span> <span class="o">=</span> <span class="n">validiraj</span><span class="p">(</span><span class="n">cjevovod</span><span class="p">(</span><span class="n">hgb</span><span class="p">()),</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">),</span> <span class="n">validiraj</span><span class="p">(</span><span class="n">cjevovod_nan</span><span class="p">(</span><span class="n">hgb</span><span class="p">()),</span> <span class="n">X</span><span class="o">=</span><span class="n">X</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-17s</span><span class="s2"> imputacija: F1 = </span><span class="si">%.4f</span><span class="s2"> AUC = </span><span class="si">%.4f</span><span class="s2"> | ugrađeno: F1 = </span><span class="si">%.4f</span><span class="s2"> AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">ime</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p_imp</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p_imp</span><span class="p">),</span>
+        <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p_nan</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p_nan</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>slučajni NaN      imputacija: F1 = 0.9614 AUC = 0.9945 | ugrađeno: F1 = 0.9614 AUC = 0.9944
+informativni NaN  imputacija: F1 = 0.9639 AUC = 0.9942 | ugrađeno: F1 = 0.9670 AUC = 0.9945</code></pre>
+<p>Kad vrijednosti nedostaju slučajno, obje varijante su praktički jednake – informacije nema, pa je svejedno kako se rupa popuni. Kad nedostajanje ovisi o cilju, ugrađena obrada je bolja, ali ovdje tek za jednu pogrešku ($F_1$ $0{,}967$ nasuprot $0{,}964$): boosting nauči da „<code>worst_area</code> nedostaje” upućuje na zloćudnost, no model i bez toga ima AUC $0{,}994$ i gotovo nema što dobiti – informacija o veličini stanice ionako je u koreliranim stupcima. Na težem zadatku, gdje je značajka koja nedostaje nezamjenjiva, razlika zna biti velika; imputacija medijanom tu informaciju izbriše (osim ako dodaš indikator, lekcija N2). Pravilo: za boosting <code>NaN</code> propusti, nikad nije lošije; za slučajnu šumu i linearne modele imputacija je nužna.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>U Primjeru 1 našli smo parove značajki s $|r|\gt0{,}98$. Iz svakog para izbaci drugu značajku i validiraj logističku regresiju i boosting na smanjenom skupu. Mijenja li se rezultat? Što se mijenja u permutacijskoj važnosti preostalih značajki i zašto?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">izbaci</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">b</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">visoke</span><span class="p">})</span>
+<span class="n">NUM_SAZETO</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">NUM</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">izbaci</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"izbačeno </span><span class="si">%d</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">izbaci</span><span class="p">),</span> <span class="n">izbaci</span><span class="p">))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">cjevovod_sazeto</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">skaliraj</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">num_koraci</span> <span class="o">=</span> <span class="p">[</span><span class="n">SimpleImputer</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"median"</span><span class="p">)]</span> <span class="o">+</span> <span class="p">([</span><span class="n">StandardScaler</span><span class="p">()]</span> <span class="k">if</span> <span class="n">skaliraj</span> <span class="k">else</span> <span class="p">[])</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">ColumnTransformer</span><span class="p">([</span>
+        <span class="p">(</span><span class="s2">"num"</span><span class="p">,</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="o">*</span><span class="n">num_koraci</span><span class="p">),</span> <span class="n">NUM_SAZETO</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">"kat"</span><span class="p">,</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">SimpleImputer</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">"most_frequent"</span><span class="p">),</span>
+                              <span class="n">OneHotEncoder</span><span class="p">(</span><span class="n">handle_unknown</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">sparse_output</span><span class="o">=</span><span class="kc">False</span><span class="p">)),</span> <span class="n">KAT</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">Pipeline</span><span class="p">([(</span><span class="s2">"pred"</span><span class="p">,</span> <span class="n">pred</span><span class="p">),</span> <span class="p">(</span><span class="s2">"model"</span><span class="p">,</span> <span class="n">model</span><span class="p">)])</span>
+
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">puni</span><span class="p">,</span> <span class="n">sazeti</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">"LR"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">),</span> <span class="kc">True</span><span class="p">),</span>
+         <span class="n">cjevovod_sazeto</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">),</span> <span class="kc">True</span><span class="p">)),</span>
+        <span class="p">(</span><span class="s2">"HGB"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">hgb</span><span class="p">()),</span> <span class="n">cjevovod_sazeto</span><span class="p">(</span><span class="n">hgb</span><span class="p">()))]:</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">validiraj</span><span class="p">(</span><span class="n">puni</span><span class="p">),</span> <span class="n">validiraj</span><span class="p">(</span><span class="n">sazeti</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-4s</span><span class="s2"> AUC sve značajke = </span><span class="si">%.4f</span><span class="s2">   bez koreliranih = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">b</span><span class="p">)))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">perm_vaznost</span><span class="p">(</span><span class="n">graditelj</span><span class="p">,</span> <span class="n">znacajka</span><span class="p">):</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">uci</span><span class="p">,</span> <span class="n">va</span> <span class="ow">in</span> <span class="n">foldovi</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">):</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">graditelj</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">uci</span><span class="p">],</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">uci</span><span class="p">])</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">permutation_importance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">"roc_auc"</span><span class="p">,</span>
+                                   <span class="n">n_repeats</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">+=</span> <span class="n">r</span><span class="o">.</span><span class="n">importances_mean</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">znacajka</span><span class="p">)]</span> <span class="o">/</span> <span class="n">foldovi</span><span class="o">.</span><span class="n">get_n_splits</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">v</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"permutacijska važnost worst_radius: sa svim značajkama </span><span class="si">%.4f</span><span class="s2">, bez opsega i površine </span><span class="si">%.4f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">vaznost</span><span class="p">[</span><span class="s2">"worst_radius"</span><span class="p">],</span> <span class="n">perm_vaznost</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">cjevovod_sazeto</span><span class="p">(</span><span class="n">hgb</span><span class="p">()),</span> <span class="s2">"worst_radius"</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>izbačeno 4: ['mean_area', 'mean_perimeter', 'worst_area', 'worst_perimeter']
+LR   AUC sve značajke = 0.9918   bez koreliranih = 0.9916
+HGB  AUC sve značajke = 0.9945   bez koreliranih = 0.9950
+permutacijska važnost worst_radius: sa svim značajkama -0.0001, bez opsega i površine 0.0204</code></pre>
+<p>Rezultat se ne mijenja bitno: informacija iz izbačenih značajki ostaje u njihovim gotovo identičnim parnjacima. Mijenja se <em>važnost</em>: dok su polumjer, opseg i površina svi prisutni, model ih međusobno zamjenjuje i svaki pojedinačno izgleda nevažno (<code>worst_radius</code>: $-0{,}0001$, tj. nula); kad ostane samo jedan, cijela važnost „veličine stanice” pripadne njemu ($0{,}020$ – tri puta više od dosad najvažnije značajke). Pouka za tumačenje: niska permutacijska važnost ne znači da značajka nije informativna – možda samo nije <em>jedina</em> koja nosi tu informaciju. Grupiraj korelirane značajke prije nego što o njima zaključuješ.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Umjesto fiksnog broja iteracija upotrijebi <b>rano zaustavljanje</b> u boostingu (<code>early_stopping=True</code>, <code>validation_fraction=0.15</code>, <code>n_iter_no_change=20</code>, veliki <code>max_iter</code>) i za svaki fold ispiši koliko je iteracija stvarno iskorišteno. Usporedi rezultat s podešenim boostingom. Koji broj iteracija bi uzeo za konačni model na svim podacima i zašto rano zaustavljanje u konačnom modelu treba isključiti?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Broj iteracija nakon učenja je atribut <code>n_iter_</code> modela; do modela unutar cjevovoda dolaziš s <code>cjev.named_steps["model"]</code>. Validaciju napravi ručno petljom po <code>foldovi.split</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">param_es</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">najbolji_param</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">early_stopping</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">validation_fraction</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span> <span class="n">n_iter_no_change</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">p_es</span><span class="p">,</span> <span class="n">iteracije</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_tr</span><span class="p">)),</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">uci</span><span class="p">,</span> <span class="n">va</span> <span class="ow">in</span> <span class="n">foldovi</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span><span class="o">**</span><span class="n">param_es</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">uci</span><span class="p">],</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">uci</span><span class="p">])</span>
+    <span class="n">p_es</span><span class="p">[</span><span class="n">va</span><span class="p">]</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">va</span><span class="p">])[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">iteracije</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">named_steps</span><span class="p">[</span><span class="s2">"model"</span><span class="p">]</span><span class="o">.</span><span class="n">n_iter_</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"iteracije po foldu:"</span><span class="p">,</span> <span class="n">iteracije</span><span class="p">,</span> <span class="s2">" prosjek:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">iteracije</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"rano zaustavljanje: F1 = </span><span class="si">%.4f</span><span class="s2">  AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p_es</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">p_es</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"podešen (fiksno </span><span class="si">%d</span><span class="s2">): F1 = </span><span class="si">%.4f</span><span class="s2">  AUC = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">najbolji_param</span><span class="p">[</span><span class="s2">"max_iter"</span><span class="p">],</span>
+      <span class="n">dnevnik</span><span class="p">[</span><span class="mi">4</span><span class="p">][</span><span class="s2">"F1"</span><span class="p">],</span> <span class="n">dnevnik</span><span class="p">[</span><span class="mi">4</span><span class="p">][</span><span class="s2">"AUC"</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>iteracije po foldu: [47, 63, 75, 151, 179]  prosjek: 103
+rano zaustavljanje: F1 = 0.9436  AUC = 0.9902
+podešen (fiksno 400): F1 = 0.9614  AUC = 0.9945</code></pre>
+<p>Rano zaustavljanje odreže 15 % podataka za vlastitu validaciju, pa na malom skupu model uči na manje primjera, a odluku o zaustavljanju donosi na pedesetak redaka – zato broj iteracija skače od $47$ do $179$ među foldovima. Rezultat je <em>lošiji</em> od podešenog modela (AUC $0{,}990$ nasuprot $0{,}9945$): na 455 redaka šum te male validacije košta više nego što precizno određivanje broja iteracija donosi. Za konačni model uzmi prosječan broj iteracija s foldova (zaokružen, eventualno malo uvećan jer uči na više podataka) i <em>isključi</em> rano zaustavljanje: inače bi konačni model opet odbacio 15 % podataka i zaustavio se na broju koji ovisi o slučajnom poduzorku, čime gubiš ponovljivost. Na velikim skupovima (desetci tisuća redaka) rano zaustavljanje je, naprotiv, standardan i brz način da se broj iteracija ne pogađa.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Pretpostavi da propušten zloćudan nalaz (lažno negativno) „košta” pet puta više od lažne uzbune. Na OOF vjerojatnostima ansambla nađi prag koji minimizira očekivani trošak $5\,FN+FP$ i usporedi ga s pragom koji maksimizira $F_1$: kako se mijenjaju $FN$, $FP$ i $F_1$? Što bi predao ako zadatak ocjenjuje $F_1$, a što ako bi ga koristila klinika?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">trosak</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="n">tn</span><span class="p">,</span> <span class="n">fp</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">tp</span> <span class="o">=</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="k">return</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">fn</span> <span class="o">+</span> <span class="n">fp</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fp</span>
+
+<span class="n">troskovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">trosak</span><span class="p">(</span><span class="n">t</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pragovi</span><span class="p">])</span>
+<span class="n">t_trosak</span> <span class="o">=</span> <span class="n">pragovi</span><span class="p">[</span><span class="n">troskovi</span><span class="o">.</span><span class="n">argmin</span><span class="p">()]</span>
+<span class="n">t_f1</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">najbolji_prag</span><span class="p">(</span><span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"prag za F1"</span><span class="p">,</span> <span class="n">t_f1</span><span class="p">),</span> <span class="p">(</span><span class="s2">"prag za trošak"</span><span class="p">,</span> <span class="n">t_trosak</span><span class="p">)]:</span>
+    <span class="n">c</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fp</span> <span class="o">=</span> <span class="n">trosak</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-15s</span><span class="s2"> t = </span><span class="si">%.2f</span><span class="s2">  FN = </span><span class="si">%2d</span><span class="s2">  FP = </span><span class="si">%2d</span><span class="s2">  trošak = </span><span class="si">%3d</span><span class="s2">  F1 = </span><span class="si">%.4f</span><span class="s2">"</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">fp</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">oof</span><span class="p">[</span><span class="s2">"ansambl"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">t</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>prag za F1      t = 0.31  FN =  4  FP =  6  trošak =  26  F1 = 0.9708
+prag za trošak  t = 0.27  FN =  2  FP =  9  trošak =  19  F1 = 0.9683</code></pre>
+<p>Niži prag smanjuje broj propuštenih zloćudnih nalaza na račun više lažnih uzbuna; $F_1$ pri tome malo padne jer ravnopravno vrednuje obje greške. Na natjecanju predaješ ono što metrika nagrađuje – prag za $F_1$ – ali u zaključku napišeš da je model za kliničku upotrebu potrebno pomaknuti prema većem odzivu i koliko to košta u lažnim uzbunama. Razlika između „metrike zadatka” i „stvarnog cilja” tema je lekcije N6.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Stvarni probirni skupovi su mnogo neuravnoteženiji od ovoga. Simuliraj to: u skupu za učenje zadrži samo svaki peti zloćudan uzorak (oko 10 % pozitivnih), pa usporedi $F_1$ uz prag $0{,}5$ i uz prag odabran na OOF-u za (a) podešeni boosting, (b) boosting s <code>class_weight="balanced"</code> i (c) logističku regresiju s <code>class_weight="balanced"</code>. Koja mjera protiv neuravnoteženosti najviše pomaže i zašto je AUC gotovo nepromijenjen?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Poduzorak napravi deterministički: indeksi zloćudnih <code>np.where(y_tr == 1)[0][::5]</code> plus svi dobroćudni. Za novi skup napravi i novi <code>StratifiedKFold</code> – stratifikacija je sad još važnija.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">y_tr</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">y_tr</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">][::</span><span class="mi">5</span><span class="p">]])</span>
+<span class="n">X_n</span><span class="p">,</span> <span class="n">y_n</span> <span class="o">=</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+<span class="n">cv_n</span> <span class="o">=</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"primjera: </span><span class="si">%d</span><span class="s2">, udio zloćudnih: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y_n</span><span class="p">),</span> <span class="n">y_n</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+<span class="n">kandidati</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">"HGB podešen"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">hgb</span><span class="p">())),</span>
+             <span class="p">(</span><span class="s2">"HGB balanced"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">HistGradientBoostingClassifier</span><span class="p">(</span>
+                 <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">class_weight</span><span class="o">=</span><span class="s2">"balanced"</span><span class="p">,</span> <span class="o">**</span><span class="n">najbolji_param</span><span class="p">))),</span>
+             <span class="p">(</span><span class="s2">"LR balanced"</span><span class="p">,</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">class_weight</span><span class="o">=</span><span class="s2">"balanced"</span><span class="p">),</span> <span class="kc">True</span><span class="p">))]</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">cjev</span> <span class="ow">in</span> <span class="n">kandidati</span><span class="p">:</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">cross_val_predict</span><span class="p">(</span><span class="n">cjev</span><span class="p">,</span> <span class="n">X_n</span><span class="p">,</span> <span class="n">y_n</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv_n</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"predict_proba"</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">f</span> <span class="o">=</span> <span class="n">najbolji_prag</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y_n</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-13s</span><span class="s2"> F1(0.5) = </span><span class="si">%.4f</span><span class="s2">   F1(prag </span><span class="si">%.2f</span><span class="s2">) = </span><span class="si">%.4f</span><span class="s2">   AUC = </span><span class="si">%.4f</span><span class="s2">   udio predviđenih poz. (0.5) = </span><span class="si">%.3f</span><span class="s2">"</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y_n</span><span class="p">,</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">t</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y_n</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="p">(</span><span class="n">p</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>primjera: 319, udio zloćudnih: 0.107
+HGB podešen   F1(0.5) = 0.8889   F1(prag 0.43) = 0.8889   AUC = 0.9902   udio predviđenih poz. (0.5) = 0.091
+HGB balanced  F1(0.5) = 0.8750   F1(prag 0.22) = 0.8750   AUC = 0.9896   udio predviđenih poz. (0.5) = 0.094
+LR balanced   F1(0.5) = 0.9091   F1(prag 0.46) = 0.9254   AUC = 0.9937   udio predviđenih poz. (0.5) = 0.100</code></pre>
+<p>S 10 % pozitivnih $F_1$ pada s $0{,}96$ na oko $0{,}89$–$0{,}93$, a AUC ostaje $0{,}99$: AUC mjeri <em>poredak</em> vjerojatnosti, a neuravnoteženost (i <code>class_weight</code>, i prag) pomiče njihovu <em>razinu</em>, ne poredak. Rezultati su gruba mjera – s $34$ pozitivna primjera jedna pogreška pomiče $F_1$ za oko $0{,}03$: <code>class_weight="balanced"</code> boostingu „oduzima” jednu pogrešku, prag odabran na OOF-u boostingu ne mijenja ništa, a logistička regresija s težinama i pragom najbolja je za jednu-dvije pogreške. Pouka nije „koja mjera pobjeđuje” – na ovako malom skupu to se ne može izmjeriti – nego: <code>class_weight</code> i prag su dva načina da se pomakne ista razina odluke (težine kroz gubitak pri učenju, prag poslije), od oba očekuj dobitak u odzivu, ne u AUC-u, a uzorkovanje (SMOTE i slično) rijetko donosi više. Za neuravnotežene zadatke s $F_1$ metrikom prag je uvijek dio modela, a odluku donosi OOF, ne pretpostavka.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Riješeni zadatak slijedi recept: pregled (NaN, kategorije, korelacije, udio klasa) → <code>ColumnTransformer</code> + <code>Pipeline</code> → ljestvica logistička regresija / šuma / boosting na istim foldovima → podešavanje po metrici neovisnoj o pragu (AUC) → prag za $F_1$ na OOF-u → ansambl → predaja s provjerom.</li>
+<li>Na malom skupu razlučivost validacije je gruba (jedna pogreška u foldu pomiče $F_1$ za stotinku); modele unutar te razlučivosti ne rangiraj, nego spoji.</li>
+<li>Stabla ne trebaju skaliranje; boosting zna raditi s <code>NaN</code> i to je prednost kad nedostajanje ovisi o cilju; linearnim modelima treba standardizacija i imputacija.</li>
+<li>Permutacijska važnost mjeri pad rezultata na neviđenim podacima; korelirane značajke dijele važnost, pa ih tumači kao skupinu.</li>
+<li>Analiza grešaka razlikuje granične slučajeve (plafon podataka) od samouvjerenih pogrešaka (krive oznake, podskupina); prag je dio modela i u zaključku se navodi i trošak pogrešaka koji metrika ne vidi.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/compose.html">Pipelines and composite estimators</a> (ColumnTransformer), <a href="https://scikit-learn.org/stable/modules/ensemble.html#histogram-based-gradient-boosting">Histogram-Based Gradient Boosting</a> i <a href="https://scikit-learn.org/stable/modules/permutation_importance.html">Permutation feature importance</a>.</li>
+<li>Skup podataka: W. N. Street, W. H. Wolberg, O. L. Mangasarian, <i>Nuclear feature extraction for breast tumor diagnosis</i> (1993) – Breast Cancer Wisconsin (Diagnostic), dostupan u <code>sklearn.datasets.load_breast_cancer</code>.</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 2, 3 i 7.</li>
+<li>C. Molnar, <i>Interpretable Machine Learning</i>, poglavlje o permutacijskoj važnosti – slobodno dostupno na mreži.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="02-natjecateljski-tijek-rada.html"><small>← Prethodna lekcija</small>N2 · Natjecateljski tijek rada: od baselinea do predaje</a>
+                <a class="sljedeca" href="04-nlp-zadatak.html"><small>Sljedeća lekcija →</small>N4 · Riješeni zadatak: klasifikacija teksta (simulacija u stilu IOAI)</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

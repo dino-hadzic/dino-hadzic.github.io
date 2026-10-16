@@ -1,0 +1,510 @@
+@@ meta
+naslov = Klasifikacija: logistička regresija i metrike
+podnaslov = Od vjerojatnosti do odluke: sigmoid, unakrsna entropija, prag odluke i kako pošteno izmjeriti klasifikator
+oznake = sigmoid, unakrsna entropija, logistička regresija, softmax, preciznost i odziv, $F_1$, ROC i AUC, neuravnoteženi razredi
+
+@@ ciljevi
+<li>Zapisati logističku regresiju kao model vjerojatnosti $P(y=1\mid x)=\sigma(w^\top x+b)$, izvesti log-gubitak i njegov gradijent te istrenirati model ručno u NumPy-ju.</li>
+<li>Proširiti model na više razreda softmaxom ili pristupom jedan-protiv-ostalih.</li>
+<li>Iz matrice zabune izračunati točnost, preciznost, odziv i $F_1$, nacrtati ROC krivulju i izračunati AUC – ručno i sa scikit-learnom.</li>
+<li>Prepoznati neuravnotežene razrede, upotrijebiti <code>class_weight</code> i odabrati prag odluke prema cijeni pogrešaka umjesto slijepog $0{,}5$.</li>
+
+@@ teorija
+<p>U M1 i M2 ciljna je vrijednost bila broj. Većina zadataka na IOAI ipak traži <b>razred</b>: je li tumor zloćudan, koja je životinja na slici, je li recenzija pozitivna. Linearnu regresiju za to ne vrijedi rabiti: predikcije $w^\top x+b$ izlaze iz $[0,1]$, pa se ne mogu tumačiti kao vjerojatnosti, a MSE kažnjava „previše sigurne” točne odgovore. Treba nam model čiji je izlaz vjerojatnost i gubitak koji tu vjerojatnost pošteno ocjenjuje.</p>
+
+<h3>Sigmoid i logistička regresija</h3>
+<definicija naslov="Sigmoid">
+$$\sigma(z)=\frac1{1+e^{-z}},\qquad \sigma(-z)=1-\sigma(z),\qquad \sigma'(z)=\sigma(z)\bigl(1-\sigma(z)\bigr).$$
+Sigmoid preslikava $\mathbb R$ na $(0,1)$; $\sigma(0)=\frac12$. Njegov inverz $\operatorname{logit}(p)=\ln\frac p{1-p}$ zove se <b>logit</b> ili log-omjer izgleda.
+</definicija>
+<definicija naslov="Logistička regresija">
+Za binarni razred $y\in\{0,1\}$ model je
+$$p_w(x)=P(y=1\mid x)=\sigma(w^\top x+b).$$
+Linearna funkcija $z=w^\top x+b$ zove se <b>logit</b> ili <em>score</em>; model tvrdi da log-omjer izgleda $\ln\frac{P(y=1\mid x)}{P(y=0\mid x)}=z$ ovisi linearno o značajkama. Granica odluke $z=0$ je hiperravnina, pa je logistička regresija <em>linearni klasifikator</em> unatoč imenu.
+</definicija>
+<p>Kao i u M1, pomak $b$ obrađujemo stupcem jedinica u $X$ i pišemo $z=Xw$, $p=\sigma(Xw)$ po komponentama.</p>
+
+<h3>Log-gubitak (unakrsna entropija)</h3>
+<definicija naslov="Log-gubitak">
+$$L(w)=-\frac1n\sum_{i=1}^n\Bigl[y_i\ln p_i+(1-y_i)\ln(1-p_i)\Bigr],\qquad p_i=\sigma(w^\top x_i).$$
+</definicija>
+<p>Za primjer s $y_i=1$ gubitak je $-\ln p_i$: nula ako je model siguran i u pravu, a teži u beskonačnost ako je siguran i u krivu. To je upravo negativna log-izglednost podataka pod modelom, pa je minimizacija log-gubitka isto što i procjena najveće izglednosti (engl. <i>maximum likelihood</i>). Isti gubitak u dubokom učenju zove se <b>binarna unakrsna entropija</b> (engl. <i>binary cross-entropy</i>).</p>
+<teorem naslov="gradijent log-gubitka">
+<p>$$\nabla_wL(w)=\frac1n\sum_{i=1}^n\bigl(p_i-y_i\bigr)x_i=\frac1nX^\top(p-y).$$
+Gubitak je konveksan, pa gradijentni spust iz M2 konvergira u globalni minimum; zatvorene formule nema.</p>
+</teorem>
+<dokaz>
+<p>Za jedan primjer $\ell=-y\ln\sigma(z)-(1-y)\ln(1-\sigma(z))$ uz $z=w^\top x$. Iz $\sigma'=\sigma(1-\sigma)$ slijedi $\frac{d}{dz}\ln\sigma(z)=1-\sigma(z)$ i $\frac{d}{dz}\ln(1-\sigma(z))=-\sigma(z)$, pa je $\frac{\partial\ell}{\partial z}=-y(1-\sigma)+(1-y)\sigma=\sigma(z)-y$. Lančano pravilo daje $\nabla_w\ell=(\sigma(z)-y)\,x$; usrednjavanje po primjerima daje tvrdnju. Oblik „(predikcija − istina) × ulaz” isti je kao kod MSE-a u M1, što nije slučajnost (D2). Hesseova matrica $\frac1nX^\top DX$ s $D=\operatorname{diag}(p_i(1-p_i))$ pozitivno je semidefinitna, odakle konveksnost (Zadatak 8).</p>
+</dokaz>
+<napomena>Scikit-learnov <code>LogisticRegression</code> zadano koristi $L_2$ regularizaciju s parametrom <code>C</code>$=1/\lambda$ (<em>veći</em> <code>C</code> = slabija regularizacija) i rješava optimizaciju kvazi-Newtonovom metodom <code>lbfgs</code>. Kad uspoređuješ s ručnom implementacijom bez kazne, postavi <code>penalty=None</code>. Regularizacija je ovdje i praktična nužnost: na linearno odvojivim podacima bez nje težine rastu u beskonačnost (Zadatak 8).</napomena>
+
+<h3>Od vjerojatnosti do odluke</h3>
+<p>Model daje vjerojatnost; odluku donosi <b>prag</b> $\tau$: predvidi $1$ ako je $p_w(x)\ge\tau$. Zadano $\tau=0{,}5$ odgovara granici $z=0$ i minimizira očekivani broj pogrešaka <em>ako</em> su obje pogreške jednako skupe i vjerojatnosti točne. Kad propustiti bolest košta deset puta više od lažnog alarma, prag treba spustiti; kad je lažna optužba za plagijat skupa, podići. Prag je stoga poslovna, a ne statistička odluka, i bira se nakon treniranja, na validacijskim podacima.</p>
+
+<h3>Više razreda</h3>
+<definicija naslov="Softmax regresija">
+Za $K$ razreda model ima matricu težina $W\in\mathbb R^{(d+1)\times K}$, logite $z=W^\top x\in\mathbb R^K$ i vjerojatnosti
+$$P(y=k\mid x)=\operatorname{softmax}(z)_k=\frac{e^{z_k}}{\sum_{j=1}^Ke^{z_j}},$$
+a gubitak je <b>unakrsna entropija</b> $L=-\frac1n\sum_i\ln P(y=y_i\mid x_i)$. Gradijent je $\nabla_WL=\frac1nX^\top(P-Y)$, gdje je $Y$ matrica s jedinicom na mjestu točnog razreda (<em>one-hot</em>), a $P$ matrica predviđenih vjerojatnosti.
+</definicija>
+<p>Za $K=2$ softmax se svodi na sigmoid. Alternativa je <b>jedan protiv ostalih</b> (engl. <i>one-vs-rest</i>, OvR): $K$ binarnih modela „razred $k$ ili ne”, odluka je razred s najvećom vjerojatnošću. OvR radi s bilo kojim binarnim klasifikatorom, softmax daje konzistentne vjerojatnosti koje se zbrajaju u $1$; u praksi daju slične točnosti. U kodu softmax uvijek računaj uz oduzimanje maksimuma, $e^{z_k-\max_jz_j}$, inače $e^{z}$ prelije.</p>
+
+<h3>Metrike klasifikacije</h3>
+<definicija naslov="Matrica zabune i osnovne metrike">
+Za binarni klasifikator s pozitivnim razredom $1$ razlikujemo <b>TP</b> (točno pozitivni), <b>FP</b> (lažno pozitivni), <b>FN</b> (lažno negativni) i <b>TN</b> (točno negativni); njihova $2\times2$ tablica je <b>matrica zabune</b> (engl. <i>confusion matrix</i>). Tada je
+$$\text{točnost}=\frac{TP+TN}{n},\quad \text{preciznost}=\frac{TP}{TP+FP},\quad \text{odziv}=\frac{TP}{TP+FN},\quad F_1=\frac{2\cdot\text{prec}\cdot\text{odz}}{\text{prec}+\text{odz}}=\frac{2TP}{2TP+FP+FN}.$$
+</definicija>
+<p><b>Preciznost</b> (engl. <i>precision</i>) odgovara na „koliko je onih koje sam proglasio pozitivnima doista pozitivno”, <b>odziv</b> (engl. <i>recall</i>, osjetljivost) na „koliki sam dio pozitivnih uhvatio”. Podizanjem praga preciznost obično raste, a odziv pada; $F_1$ je njihova harmonijska sredina i kažnjava kad je ijedno malo. <b>Točnost</b> (engl. <i>accuracy</i>) vara čim su razredi <b>neuravnoteženi</b>: ako je $1\,\%$ transakcija prijevara, model koji sve proglasi poštenima ima točnost $99\,\%$ i nulu koristi. Zato se na natjecanjima metrika redovito bira među $F_1$, AUC ili uravnoteženom točnošću, a tekst zadatka uvijek kaže koja.</p>
+<definicija naslov="ROC krivulja i AUC">
+Mijenjajući prag $\tau$ od $1$ do $0$ dobivamo točke $(\text{FPR},\text{TPR})$ s $\text{TPR}=\frac{TP}{TP+FN}$ (odziv) i $\text{FPR}=\frac{FP}{FP+TN}$; spojene daju <b>ROC krivulju</b>. <b>AUC</b> je površina ispod nje: $1$ za savršen poredak, $0{,}5$ za slučajno pogađanje. AUC je jednak vjerojatnosti da slučajno odabran pozitivan primjer dobije veći score od slučajno odabranog negativnog, pa ovisi samo o <em>poretku</em> primjera, ne o pragu ni o skali scoreova.
+</definicija>
+<p><b>Neuravnoteženi razredi</b> popravljaju se na tri razine: podacima (poduzorkovanje većinskog ili naduzorkovanje manjinskog razreda), gubitkom (<code>class_weight="balanced"</code> množi gubitak svakog primjera s $\frac{n}{K\,n_k}$, pa manjinski razred „vrijedi” više) i odlukom (pomicanje praga). <b>Kalibracija praga</b> znači nacrtati preciznost, odziv ili očekivani trošak kao funkciju $\tau$ na validacijskom skupu i odabrati $\tau$ koji optimizira ono što zadatak traži. Ako zadatak ocjenjuje same vjerojatnosti (log-gubitak, Brierov rezultat), gleda se i <em>kalibriranost</em> modela: među primjerima s $p\approx0{,}7$ treba doista biti oko $70\,\%$ pozitivnih (<code>CalibratedClassifierCV</code>).</p>
+
+@@ primjeri
+<primjer>
+<p>Na sintetičkom skupu <code>make_classification</code> s $1000$ primjera i $5$ značajki istreniraj logističku regresiju gradijentnim spustom u NumPy-ju, prati log-gubitak, izmjeri točnost i usporedi težine sa <code>sklearn.linear_model.LogisticRegression</code>.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> <code>stratify=y</code> čuva omjer razreda u obje polovice. Standardiziramo kao u M2 i dodajemo stupac jedinica.</p>
+<kod jezik="python">
+import numpy as np
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+
+X, y = make_classification(n_samples=1000, n_features=5, n_informative=3, n_redundant=0,
+                           flip_y=0.05, class_sep=1.5, random_state=0)
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0, stratify=y)
+mu, sd = X_tr.mean(axis=0), X_tr.std(axis=0)
+Z_tr, Z_te = (X_tr - mu) / sd, (X_te - mu) / sd
+A_tr = np.column_stack([np.ones(len(Z_tr)), Z_tr])
+A_te = np.column_stack([np.ones(len(Z_te)), Z_te])
+print(X.shape, " udio razreda 1: %.3f" % y.mean())
+</kod>
+<izlaz>
+(1000, 5)  udio razreda 1: 0.503
+</izlaz>
+<p><b>Korak 2: model, gubitak, gradijent, spust.</b> Vjerojatnosti u logaritmu odsijecamo na $[10^{-12},1-10^{-12}]$ da $\ln0$ ne da <code>-inf</code>. Gradijent je točno formula iz teorema.</p>
+<kod jezik="python">
+def sigmoid(z):
+    return 1 / (1 + np.exp(-z))
+
+def log_gubitak(A, y, w, eps=1e-12):
+    p = np.clip(sigmoid(A @ w), eps, 1 - eps)
+    return -np.mean(y * np.log(p) + (1 - y) * np.log(1 - p))
+
+def gradijent(A, y, w):
+    return A.T @ (sigmoid(A @ w) - y) / len(y)
+
+w = np.zeros(A_tr.shape[1])
+print("korak  log-gubitak")
+for t in range(1, 2001):
+    w -= 0.5 * gradijent(A_tr, y_tr, w)
+    if t in (1, 10, 100, 1000, 2000):
+        print("%5d  %.4f" % (t, log_gubitak(A_tr, y_tr, w)))
+print("w =", w.round(3))
+</kod>
+<izlaz>
+korak  log-gubitak
+    1  0.6641
+   10  0.5503
+  100  0.4661
+ 1000  0.4648
+ 2000  0.4648
+w = [ 0.087 -0.921  2.253  0.059  0.203  1.041]
+</izlaz>
+<p>Gubitak kreće od $\ln2\approx0{,}693$ (model koji svima daje $p=\frac12$) i nakon stotinjak koraka praktički stane: za konveksan gubitak to znači da smo blizu globalnog minimuma. Preostala vrijednost nije nula jer je $5\,\%$ oznaka namjerno pogrešno (<code>flip_y</code>) i jer razredi nisu savršeno odvojivi.</p>
+<p><b>Korak 3: odluka, točnost i usporedba sa scikit-learnom.</b> Prag $0{,}5$ na vjerojatnosti isto je što i prag $0$ na logitu. <code>penalty=None</code> isključuje zadanu $L_2$ kaznu; scikit-learn sam dodaje pomak, pa mu dajemo <code>Z_tr</code> bez stupca jedinica.</p>
+<kod jezik="python">
+from sklearn.linear_model import LogisticRegression
+
+y_hat = (sigmoid(A_te @ w) >= 0.5).astype(int)
+print("točnost na testu (ručno): %.3f" % np.mean(y_hat == y_te))
+
+lr = LogisticRegression(penalty=None, max_iter=1000).fit(Z_tr, y_tr)
+print("točnost na testu (sklearn): %.3f" % lr.score(Z_te, y_te))
+print("intercept_ = %.3f, coef_ = %s" % (lr.intercept_[0], lr.coef_[0].round(3)))
+print("max |razlika težina| = %.4f" % np.abs(np.r_[lr.intercept_, lr.coef_[0]] - w).max())
+</kod>
+<izlaz>
+točnost na testu (ručno): 0.804
+točnost na testu (sklearn): 0.804
+intercept_ = 0.087, coef_ = [-0.921  2.252  0.059  0.203  1.041]
+max |razlika težina| = 0.0005
+</izlaz>
+<p>Težine se podudaraju na tri decimale (ostatak je tolerancija optimizatora), a točnost je ista. Primijeti da dvije značajke (treća i četvrta) imaju osjetno manje težine od ostalih: <code>make_classification</code> s <code>n_informative=3</code> generira upravo dvije značajke čistog šuma, a model im sam ne pridaje puno važnosti.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka breast_cancer">
+<p>Skup <code>load_breast_cancer</code> ima $569$ tumora opisanih s $30$ značajki i oznaku zloćudan/dobroćudan. Istreniraj logističku regresiju, ispiši matricu zabune i izračunaj točnost, preciznost, odziv i $F_1$ ručno i scikit-learnom. Nacrtaj ROC krivulju i izračunaj AUC ručno. Zatim odaberi prag tako da odziv za zloćudne tumore bude barem $0{,}98$.</p>
+<rjesenje>
+<p><b>Korak 1: tko je „pozitivan”?</b> U ovom je skupu oznaka $1$ <em>dobroćudan</em> tumor. Za medicinski smisao metrika pozitivan razred mora biti onaj koji tražimo – zloćudan – pa oznake obrćemo. Ovaj korak (provjera što znači $1$) spasio je mnoge natjecatelje od naopakih metrika. <code>Pipeline</code> veže standardizaciju i model, pa se statistike skaliranja uče samo na treningu.</p>
+<kod jezik="python">
+from sklearn.datasets import load_breast_cancer
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import (confusion_matrix, accuracy_score, precision_score,
+                             recall_score, f1_score, roc_auc_score)
+
+bc = load_breast_cancer()
+Xb, yb = bc.data, 1 - bc.target          # 1 = zloćudan (pozitivan), 0 = dobroćudan
+print(Xb.shape, " zloćudnih: %d, dobroćudnih: %d" % (yb.sum(), len(yb) - yb.sum()))
+Xb_tr, Xb_te, yb_tr, yb_te = train_test_split(Xb, yb, test_size=0.25, random_state=0, stratify=yb)
+klf = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000)).fit(Xb_tr, yb_tr)
+p_te = klf.predict_proba(Xb_te)[:, 1]
+y_hat = (p_te >= 0.5).astype(int)
+M = confusion_matrix(yb_te, y_hat)
+print("matrica zabune [[TN FP] [FN TP]]:\n", M)
+</kod>
+<izlaz>
+(569, 30)  zloćudnih: 212, dobroćudnih: 357
+matrica zabune [[TN FP] [FN TP]]:
+ [[90  0]
+ [ 2 51]]
+</izlaz>
+<p><b>Korak 2: metrike iz matrice.</b> Iste brojeve daju funkcije iz <code>sklearn.metrics</code>; ručni račun služi da ih više nikad ne pomiješaš.</p>
+<kod jezik="python">
+TN, FP, FN, TP = M.ravel()
+print("ručno:   točnost %.3f  preciznost %.3f  odziv %.3f  F1 %.3f"
+      % ((TP + TN) / M.sum(), TP / (TP + FP), TP / (TP + FN), 2 * TP / (2 * TP + FP + FN)))
+print("sklearn: točnost %.3f  preciznost %.3f  odziv %.3f  F1 %.3f"
+      % (accuracy_score(yb_te, y_hat), precision_score(yb_te, y_hat),
+         recall_score(yb_te, y_hat), f1_score(yb_te, y_hat)))
+</kod>
+<izlaz>
+ručno:   točnost 0.986  preciznost 1.000  odziv 0.962  F1 0.981
+sklearn: točnost 0.986  preciznost 1.000  odziv 0.962  F1 0.981
+</izlaz>
+<p>Model je vrlo dobar, ali pogledaj što znače FN: zloćudni tumori proglašeni dobroćudnima. Za probir je upravo taj broj jedini koji pacijenta zanima, a točnost ga skriva.</p>
+<p><b>Korak 3: ROC krivulja i AUC ručno.</b> Poredamo primjere po scoreu silazno; spuštajući prag primjer po primjer, svaki pozitivan primjer podiže TPR za $1/n_+$, a svaki negativan pomiče FPR za $1/n_-$. Površinu računamo trapeznom formulom.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+def roc_rucno(y, s):
+    poredak = np.argsort(-s)
+    y = y[poredak]
+    tpr = np.r_[0, np.cumsum(y) / y.sum()]
+    fpr = np.r_[0, np.cumsum(1 - y) / (1 - y).sum()]
+    return fpr, tpr, np.trapezoid(tpr, fpr)
+
+fpr, tpr, auc = roc_rucno(yb_te, p_te)
+print("AUC ručno = %.4f   sklearn = %.4f" % (auc, roc_auc_score(yb_te, p_te)))
+plt.figure(figsize=(4, 4))
+plt.plot(fpr, tpr, label="logistička regresija")
+plt.plot([0, 1], [0, 1], "k--", lw=1, label="slučajno")
+plt.xlabel("FPR"); plt.ylabel("TPR (odziv)"); plt.legend()
+plt.tight_layout(); plt.savefig("roc.png", dpi=120)
+</kod>
+<izlaz>
+AUC ručno = 0.9958   sklearn = 0.9958
+</izlaz>
+<p>Krivulja se gotovo lijepi uz lijevi i gornji rub: gotovo svi zloćudni tumori imaju veći score od gotovo svih dobroćudnih. AUC blizu $1$ govori o kvaliteti <em>poretka</em>; koju točku krivulje odabrati, odlučuje prag.</p>
+<p><b>Korak 4: kalibracija praga.</b> Prag ne smijemo birati na testu. Umjesto toga vjerojatnosti za trening dobivamo <em>izvan uzorka</em> petostrukom unakrsnom validacijom (<code>cross_val_predict</code>, M5): svaki je primjer predviđen modelom koji ga nije vidio. Tražimo najveći prag uz koji je odziv barem $0{,}98$ i primjenjujemo ga na test.</p>
+<kod jezik="python">
+from sklearn.model_selection import cross_val_predict
+
+p_cv = cross_val_predict(klf, Xb_tr, yb_tr, cv=5, method="predict_proba")[:, 1]
+kandidati = np.sort(p_cv[yb_tr == 1])              # pragovi na scoreovima pozitivnih
+odzivi = 1 - np.arange(len(kandidati)) / len(kandidati)
+tau = kandidati[odzivi >= 0.98].max()
+print("odabrani prag tau = %.3f" % tau)
+for naziv, prag in (("tau = 0.5", 0.5), ("tau = %.3f" % tau, tau)):
+    yh = (p_te >= prag).astype(int)
+    print("%-12s  FN = %d  FP = %d  odziv %.3f  preciznost %.3f"
+          % (naziv, ((yb_te == 1) & (yh == 0)).sum(), ((yb_te == 0) & (yh == 1)).sum(),
+             recall_score(yb_te, yh), precision_score(yb_te, yh)))
+</kod>
+<izlaz>
+odabrani prag tau = 0.101
+tau = 0.5     FN = 2  FP = 0  odziv 0.962  preciznost 1.000
+tau = 0.101   FN = 0  FP = 11  odziv 1.000  preciznost 0.828
+</izlaz>
+<p>Spuštanjem praga svi su zloćudni tumori na testu uhvaćeni, po cijeni jedanaest lažnih alarma koji se rješavaju dodatnom pretragom. To je tipična zamjena odziva za preciznost, i smjer u kojem je treba napraviti ovisi o zadatku, ne o algoritmu.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Generiraj skup s $5000$ primjera u kojem je samo $5\,\%$ pozitivnih. Pokaži paradoks točnosti, usporedi običnu logističku regresiju i onu s <code>class_weight="balanced"</code> te prođi kroz pragove i nađi onaj s najvećim $F_1$.</p>
+<rjesenje>
+<p><b>Korak 1: podaci i paradoks točnosti.</b></p>
+<kod jezik="python">
+Xn, yn = make_classification(n_samples=5000, n_features=10, n_informative=5, n_redundant=2,
+                             weights=[0.95, 0.05], flip_y=0.01, random_state=1)
+Xn_tr, Xn_te, yn_tr, yn_te = train_test_split(Xn, yn, test_size=0.3, random_state=1, stratify=yn)
+print("udio pozitivnih: %.3f   točnost modela 'uvijek 0': %.3f" % (yn.mean(), 1 - yn_te.mean()))
+</kod>
+<izlaz>
+udio pozitivnih: 0.055   točnost modela 'uvijek 0': 0.945
+</izlaz>
+<p><b>Korak 2: obična i uravnotežena logistička regresija.</b> <code>class_weight="balanced"</code> daje pozitivnim primjerima težinu oko $9$ u gubitku ($\frac{n}{2n_1}$), čime granicu odluke pomiče prema većinskom razredu.</p>
+<kod jezik="python">
+def metrike(y, p, prag=0.5):
+    yh = (p >= prag).astype(int)
+    return (accuracy_score(y, yh), precision_score(y, yh, zero_division=0),
+            recall_score(y, yh), f1_score(y, yh), roc_auc_score(y, p))
+
+print("%-22s %7s %10s %6s %6s %6s" % ("model", "točnost", "preciznost", "odziv", "F1", "AUC"))
+modeli = {"obična": LogisticRegression(max_iter=1000),
+          "class_weight=balanced": LogisticRegression(max_iter=1000, class_weight="balanced")}
+vjer = {}
+for naziv, m in modeli.items():
+    pipe = make_pipeline(StandardScaler(), m).fit(Xn_tr, yn_tr)
+    vjer[naziv] = pipe.predict_proba(Xn_te)[:, 1]
+    print("%-22s %7.3f %10.3f %6.3f %6.3f %6.3f" % (naziv, *metrike(yn_te, vjer[naziv])))
+</kod>
+<izlaz>
+model                  točnost preciznost  odziv     F1    AUC
+obična                   0.966      0.971  0.398  0.564  0.858
+class_weight=balanced    0.805      0.188  0.759  0.301  0.857
+</izlaz>
+<p>Obični model ima visoku točnost, ali hvata manje od polovice pozitivnih; uravnoteženi hvata većinu, uz nižu preciznost i točnost ispod one „uvijek 0” modela. AUC je gotovo isti: ponderiranje jedva mijenja <em>poredak</em> primjera, mijenja uglavnom gdje pada granica $0{,}5$. Zato je isti učinak moguće postići i samo pomicanjem praga običnog modela.</p>
+<p><b>Korak 3: prolaz kroz pragove.</b> Preciznost, odziv i $F_1$ običnog modela za niz pragova; prag s najboljim $F_1$ u pravilu nije $0{,}5$. (Odabir praga na testu ovdje služi samo ilustraciji; u stvarnom radu uzmi validacijski skup kao u Primjeru 2.)</p>
+<kod jezik="python">
+p = vjer["obična"]
+print(" prag  preciznost  odziv     F1")
+for prag in (0.05, 0.1, 0.2, 0.3, 0.5, 0.7):
+    _, prec, odz, f1, _ = metrike(yn_te, p, prag)
+    print("%5.2f  %10.3f  %5.3f  %5.3f" % (prag, prec, odz, f1))
+pragovi = np.linspace(0.01, 0.99, 99)
+f1s = [metrike(yn_te, p, t)[3] for t in pragovi]
+print("najveći F1 = %.3f pri pragu %.2f" % (max(f1s), pragovi[int(np.argmax(f1s))]))
+</kod>
+<izlaz>
+ prag  preciznost  odziv     F1
+ 0.05       0.169  0.783  0.278
+ 0.10       0.319  0.735  0.445
+ 0.20       0.551  0.590  0.570
+ 0.30       0.657  0.530  0.587
+ 0.50       0.971  0.398  0.564
+ 0.70       1.000  0.253  0.404
+najveći F1 = 0.613 pri pragu 0.42
+</izlaz>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Bez računala: koliko je $\sigma(0)$, $\sigma(\ln3)$ i $\sigma(-\ln3)$? Model daje logit $z=2$; kolika je vjerojatnost pozitivnog razreda i koliki je omjer izgleda $P(y=1)/P(y=0)$? Provjeri u NumPy-ju.</p>
+<rjesenje>
+<p>$\sigma(0)=\frac12$; $\sigma(\ln3)=\frac1{1+e^{-\ln3}}=\frac1{1+1/3}=\frac34$; $\sigma(-\ln3)=1-\frac34=\frac14$. Za $z=2$ omjer izgleda je $e^2\approx7{,}39$, a vjerojatnost $\sigma(2)=e^2/(1+e^2)\approx0{,}881$. Općenito: logit $z$ znači „izgledi $e^z:1$”, što je često zgodnije za tumačenje težina od same vjerojatnosti.</p>
+<kod jezik="python">
+print(sigmoid(np.array([0, np.log(3), -np.log(3), 2])).round(4), " omjer izgleda za z=2: %.3f" % np.exp(2))
+</kod>
+<izlaz>
+[0.5    0.75   0.25   0.8808]  omjer izgleda za z=2: 7.389
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Detektor prijevara na $1000$ transakcija dao je $TP=40$, $FP=10$, $FN=20$, $TN=930$. Izračunaj točnost, preciznost, odziv i $F_1$. Koliku točnost ima model koji sve proglasi poštenima? Koju metriku bi ti izvijestio?</p>
+<rjesenje>
+<p>Točnost $=970/1000=0{,}97$; preciznost $=40/50=0{,}8$; odziv $=40/60\approx0{,}667$; $F_1=80/(80+10+20)\approx0{,}727$. Model „sve pošteno” ima točnost $940/1000=0{,}94$, dakle samo tri postotna boda manje, iako ne otkriva nijednu prijevaru. Izvijestio bih preciznost i odziv (ili $F_1$) uz matricu zabune; točnost je ovdje gotovo besmislena.</p>
+<kod jezik="python">
+TP, FP, FN, TN = 40, 10, 20, 930
+print("točnost %.3f  preciznost %.3f  odziv %.3f  F1 %.3f" % ((TP + TN) / 1000, TP / 50, TP / 60, 2 * TP / (2 * TP + FP + FN)))
+</kod>
+<izlaz>
+točnost 0.970  preciznost 0.800  odziv 0.667  F1 0.727
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za svaki slučaj reci je li važnija preciznost ili odziv i treba li prag spustiti ili podići u odnosu na $0{,}5$: (a) probir za rijetku, ali izlječivu bolest; (b) filtar neželjene pošte koji premješta poruke u smeće; (c) automatsko označavanje plagijata u natjecateljskim rješenjima; (d) preporuka sadržaja na početnoj stranici.</p>
+<rjesenje>
+<p>(a) Odziv: propušten bolesnik je skup, lažni alarm znači dodatnu pretragu – prag dolje. (b) Preciznost: izgubljena važna poruka gora je od propuštene reklame – prag gore. (c) Preciznost: lažna optužba je neprihvatljiva, sumnjive slučajeve ionako pregledava čovjek – prag gore. (d) Nijedno nije kritično; obično se gleda poredak (AUC ili metrike rangiranja), a ne prag. Pravilo: pitaj se koja je pogreška skuplja, FP ili FN, pa prag pomakni tako da nju smanjiš.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Numerički provjeri formulu $\nabla_wL=\frac1nX^\top(p-y)$ konačnim razlikama na podacima iz Primjera 1, kao u M1. Zatim izvedi i provjeri formulu za gradijent <em>regulariziranog</em> gubitka $L+\frac\lambda2\lVert w_{1:}\rVert^2$ (pomak se ne kažnjava).</p>
+<rjesenje>
+<p>Gradijent kazne je $\lambda w$ za sve komponente osim pomaka, gdje je $0$. Provjera konačnim razlikama ista je kao u M1: $\partial L/\partial w_j\approx\frac{L(w+\varepsilon e_j)-L(w-\varepsilon e_j)}{2\varepsilon}$.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+w0 = rng.normal(size=A_tr.shape[1])
+lam, eps = 0.1, 1e-6
+maska = np.r_[0, np.ones(A_tr.shape[1] - 1)]
+
+def L_reg(w):
+    return log_gubitak(A_tr, y_tr, w) + lam / 2 * np.sum((maska * w) ** 2)
+
+analiticki = gradijent(A_tr, y_tr, w0) + lam * maska * w0
+numericki = np.array([(L_reg(w0 + eps * e) - L_reg(w0 - eps * e)) / (2 * eps) for e in np.eye(len(w0))])
+print("analitički:", analiticki.round(6))
+print("numerički: ", numericki.round(6))
+</kod>
+<izlaz>
+analitički: [ 0.025092  0.024059 -0.080191  0.034284 -0.201346  0.041756]
+numerički:  [ 0.025092  0.024059 -0.080191  0.034284 -0.201346  0.041756]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Na skupu <code>load_iris</code> (tri razreda, četiri značajke) izgradi klasifikator jedan-protiv-ostalih od tri binarne logističke regresije naučene funkcijama iz Primjera 1. Izmjeri točnost na testu i usporedi s <code>OneVsRestClassifier(LogisticRegression(C=100))</code> (slaba regularizacija, da bude usporediv s ručnim modelom bez kazne).</p>
+<rjesenje>
+<kod jezik="python">
+from sklearn.datasets import load_iris
+from sklearn.multiclass import OneVsRestClassifier
+
+iris = load_iris()
+Xi_tr, Xi_te, yi_tr, yi_te = train_test_split(iris.data, iris.target, test_size=0.3,
+                                              random_state=0, stratify=iris.target)
+mu_i, sd_i = Xi_tr.mean(axis=0), Xi_tr.std(axis=0)
+Ai_tr = np.column_stack([np.ones(len(Xi_tr)), (Xi_tr - mu_i) / sd_i])
+Ai_te = np.column_stack([np.ones(len(Xi_te)), (Xi_te - mu_i) / sd_i])
+
+def nauci_binarni(A, y, eta=0.5, koraka=3000):
+    w = np.zeros(A.shape[1])
+    for _ in range(koraka):
+        w -= eta * gradijent(A, y, w)
+    return w
+
+W_ovr = np.column_stack([nauci_binarni(Ai_tr, (yi_tr == k).astype(float)) for k in range(3)])
+pred = np.argmax(sigmoid(Ai_te @ W_ovr), axis=1)
+print("OvR ručno: točnost %.3f" % np.mean(pred == yi_te))
+ovr = make_pipeline(StandardScaler(), OneVsRestClassifier(LogisticRegression(C=100, max_iter=1000))).fit(Xi_tr, yi_tr)
+print("OvR sklearn: točnost %.3f" % ovr.score(Xi_te, yi_te))
+</kod>
+<izlaz>
+OvR ručno: točnost 0.978
+OvR sklearn: točnost 0.978
+</izlaz>
+<p>Tri binarna modela postavljaju tri hiperravnine „$k$ protiv ostalih”, a odluka je argmax njihovih vjerojatnosti. Vjerojatnosti se ne zbrajaju u $1$, što za točnost nije važno, ali jest ako zadatak ocjenjuje log-gubitak; tada je prirodniji softmax iz sljedećeg zadatka.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Implementiraj softmax regresiju u NumPy-ju (gradijent $\frac1nX^\top(P-Y)$) na skupu iris iz prethodnog zadatka. Ispiši unakrsnu entropiju tijekom učenja, točnost na testu i usporedi s <code>LogisticRegression</code> (koji za više razreda zadano uči softmax). Zašto se jedan stupac matrice $W$ može bez gubitka općenitosti fiksirati na nulu?</p>
+<naputak>Softmax je invarijantan na dodavanje iste konstante svim logitima: $\operatorname{softmax}(z+c\mathbf 1)=\operatorname{softmax}(z)$.</naputak>
+<rjesenje>
+<kod jezik="python">
+def softmax(S):
+    E = np.exp(S - S.max(axis=1, keepdims=True))
+    return E / E.sum(axis=1, keepdims=True)
+
+Y = np.eye(3)[yi_tr]
+W = np.zeros((Ai_tr.shape[1], 3))
+for t in range(1, 3001):
+    P = softmax(Ai_tr @ W)
+    W -= 0.5 * Ai_tr.T @ (P - Y) / len(Y)
+    if t in (1, 100, 1000, 3000):
+        print("korak %4d  unakrsna entropija %.4f" % (t, -np.mean(np.log(P[np.arange(len(Y)), yi_tr]))))
+print("softmax ručno: točnost %.3f" % np.mean(np.argmax(Ai_te @ W, axis=1) == yi_te))
+sm = make_pipeline(StandardScaler(), LogisticRegression(C=100, max_iter=1000)).fit(Xi_tr, yi_tr)
+print("softmax sklearn: točnost %.3f" % sm.score(Xi_te, yi_te))
+</kod>
+<izlaz>
+korak    1  unakrsna entropija 1.0986
+korak  100  unakrsna entropija 0.1790
+korak 1000  unakrsna entropija 0.0733
+korak 3000  unakrsna entropija 0.0598
+softmax ručno: točnost 1.000
+softmax sklearn: točnost 1.000
+</izlaz>
+<p>Ako svakom stupcu matrice $W$ dodamo isti vektor $v$, logiti svih razreda pomaknu se za istu vrijednost $v^\top x$, a softmax se ne mijenja. Model dakle ima $d+1$ suvišnih parametara i smije se, primjerice, uzeti $W_{\cdot K}=0$; tada za $K=2$ ostaje jedan vektor težina i softmax postaje točno sigmoid. Bez regularizacije ta sloboda znači da minimum nije jedinstven, što optimizaciji ne smeta, ali objašnjava zašto se težine ručnog i scikit-learnovog modela ne moraju podudarati iako su predikcije iste.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Provjeri eksperimentom tvrdnju da je AUC vjerojatnost da slučajan pozitivan primjer ima veći score od slučajnog negativnog: na testnim scoreovima iz Primjera 2 izračunaj udio takvih parova (svih $n_+n_-$) i usporedi s AUC-om. Zatim pokaži da se AUC ne mijenja ako scoreove transformiraš rastućom funkcijom (npr. $\operatorname{logit}$ ili $p^3$), a $F_1$ pri pragu $0{,}5$ mijenja.</p>
+<rjesenje>
+<kod jezik="python">
+poz, neg = p_te[yb_te == 1], p_te[yb_te == 0]
+parovi = (poz[:, None] > neg[None, :]).mean() + 0.5 * (poz[:, None] == neg[None, :]).mean()
+print("udio parova pozitivan > negativan: %.4f   AUC: %.4f" % (parovi, roc_auc_score(yb_te, p_te)))
+for naziv, s in (("p^3", p_te ** 3), ("logit", np.log(p_te / (1 - p_te)))):
+    print("%-6s AUC = %.4f   F1 pri pragu 0.5 = %.3f" % (naziv, roc_auc_score(yb_te, s), f1_score(yb_te, (s >= 0.5).astype(int))))
+</kod>
+<izlaz>
+udio parova pozitivan > negativan: 0.9958   AUC: 0.9958
+p^3    AUC = 0.9958   F1 pri pragu 0.5 = 0.940
+logit  AUC = 0.9958   F1 pri pragu 0.5 = 0.971
+</izlaz>
+<p>Udio parova jednak je AUC-u (uz pola boda za izjednačene scoreove, kojih ovdje nema). Rastuća transformacija ne mijenja poredak, pa ni ROC krivulju ni AUC, ali mijenja koji primjeri padnu iznad fiksnog praga: $p^3\ge0{,}5$ znači $p\ge0{,}794$, a $\operatorname{logit}(p)\ge0{,}5$ znači $p\ge0{,}622$, pa $F_1$ pada. Poruka: AUC mjeri model, $F_1$ mjeri model <em>zajedno s pragom</em>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>(a) Dokaži da je log-gubitak konveksan u $w$: izračunaj Hesseovu matricu i pokaži da je pozitivno semidefinitna. (b) Na linearno odvojivim podacima ($100$ točaka u ravnini, $y=1$ ako je $x_1+x_2\gt0$) pokreni gradijentni spust iz Primjera 1 i prati $\lVert w\rVert$ i gubitak nakon $10^2$, $10^3$, $10^4$ i $10^5$ koraka. Što se događa i zašto? Kako to popravlja $L_2$ regularizacija?</p>
+<naputak>Hesseova matrica je $\frac1nX^\top DX$ s dijagonalnom $D$. Za odvojive podatke postoji $w$ sa $y_i(w^\top x_i)\gt0$ za sve $i$; što se događa s gubitkom u točki $cw$ kad $c\to\infty$?</naputak>
+<rjesenje>
+<p>(a) Iz dokaza teorema, $\nabla L=\frac1nX^\top(p-y)$ s $p_i=\sigma(x_i^\top w)$; derivirajući još jednom, $\nabla^2L=\frac1n\sum_ip_i(1-p_i)x_ix_i^\top=\frac1nX^\top DX$, $D=\operatorname{diag}(p_i(1-p_i))$. Za svaki $v$ je $v^\top\nabla^2Lv=\frac1n\sum_ip_i(1-p_i)(x_i^\top v)^2\ge0$, dakle Hesseova matrica je pozitivno semidefinitna i $L$ je konveksan. (b) Ako hiperravnina $w$ savršeno razdvaja podatke, onda za $c\to\infty$ sve vjerojatnosti $\sigma(c\,w^\top x_i)$ teže u $0$ ili $1$ na pravoj strani i gubitak teži u $0$, ali ga nikad ne dosegne: minimum ne postoji, a gradijentni spust šalje $\lVert w\rVert$ u beskonačnost (sve sporije, jer gradijent trne). Model postaje apsurdno samouvjeren i vrlo osjetljiv na svaku novu točku. Kazna $\frac\lambda2\lVert w\rVert^2$ raste s $\lVert w\rVert$, pa regularizirani gubitak ima konačan minimum – zato scikit-learn regularizira zadano.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+Xs = rng.normal(size=(100, 2))
+ys = (Xs[:, 0] + Xs[:, 1] > 0).astype(float)
+As = np.column_stack([np.ones(100), Xs])
+print("      koraka   ||w||    gubitak   | s L2 (lam = 0.01):  ||w||   gubitak")
+w, w_reg = np.zeros(3), np.zeros(3)
+for t in range(1, 100001):
+    w -= 0.5 * gradijent(As, ys, w)
+    w_reg -= 0.5 * (gradijent(As, ys, w_reg) + 0.01 * np.r_[0, 1, 1] * w_reg)
+    if t in (100, 1000, 10000, 100000):
+        print("%12d  %6.1f  %9.6f   |  %18.3f  %8.4f" % (t, np.linalg.norm(w), log_gubitak(As, ys, w),
+                                                      np.linalg.norm(w_reg), log_gubitak(As, ys, w_reg)))
+</kod>
+<izlaz>
+      koraka   ||w||    gubitak   | s L2 (lam = 0.01):  ||w||   gubitak
+         100     4.0   0.149251   |               3.227    0.1781
+        1000     9.5   0.067996   |               3.670    0.1600
+       10000    21.9   0.026905   |               3.670    0.1600
+      100000    47.9   0.008483   |               3.670    0.1600
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><b>Prag prema cijeni pogrešaka.</b> Pretpostavi da u Primjeru 3 propušten pozitivan primjer (FN) košta $10$, a lažni alarm (FP) $1$. (a) Dokaži: ako su vjerojatnosti modela točne (kalibrirane), očekivani trošak minimizira prag $\tau^*=\dfrac{c_{FP}}{c_{FP}+c_{FN}}$. (b) Na vjerojatnostima običnog modela izračunaj prosječni trošak po primjeru za niz pragova (koristi <code>cross_val_predict</code> na treningu kao u Primjeru 2) i usporedi empirijski najbolji prag s $\tau^*=1/11$. Što bi razlika govorila o kalibraciji modela?</p>
+<naputak>Za primjer s vjerojatnošću $p$ usporedi očekivani trošak odluke „pozitivan” ($(1-p)\,c_{FP}$) i odluke „negativan” ($p\,c_{FN}$).</naputak>
+<rjesenje>
+<p>(a) Ako je $P(y=1\mid x)=p$, odluka „pozitivan” košta u očekivanju $(1-p)c_{FP}$ (plaćamo ako je zapravo negativan), a „negativan” $p\,c_{FN}$. Pozitivna je odluka bolja čim je $(1-p)c_{FP}\lt p\,c_{FN}$, tj. $p\gt\frac{c_{FP}}{c_{FP}+c_{FN}}=\tau^*$. Za $c_{FN}=10c_{FP}$ to je $\tau^*=1/11\approx0{,}091$: pozitivno proglašavamo sve s više od $9\,\%$ vjerojatnosti. Jednaki troškovi daju $\tau^*=0{,}5$, odakle i dolazi zadani prag.</p>
+<kod jezik="python">
+pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+p_cv = cross_val_predict(pipe, Xn_tr, yn_tr, cv=5, method="predict_proba")[:, 1]
+
+def trosak(y, p, prag, c_fn=10, c_fp=1):
+    yh = p >= prag
+    return (c_fn * ((y == 1) & ~yh).sum() + c_fp * ((y == 0) & yh).sum()) / len(y)
+
+pragovi = np.linspace(0.01, 0.6, 60)
+troskovi = np.array([trosak(yn_tr, p_cv, t) for t in pragovi])
+najbolji = pragovi[int(np.argmin(troskovi))]
+print("prag   trošak/primjer")
+for t in (0.05, 1 / 11, 0.2, 0.5):
+    print("%.3f  %.4f" % (t, trosak(yn_tr, p_cv, t)))
+print("empirijski najbolji prag: %.2f (trošak %.4f);  teorijski 1/11 = %.3f" % (najbolji, troskovi.min(), 1 / 11))
+pipe.fit(Xn_tr, yn_tr)
+p_test = pipe.predict_proba(Xn_te)[:, 1]
+print("na testu: trošak uz prag 0.5 = %.4f, uz 1/11 = %.4f" % (trosak(yn_te, p_test, 0.5), trosak(yn_te, p_test, 1 / 11)))
+</kod>
+<izlaz>
+prag   trošak/primjer
+0.050  0.3360
+0.091  0.2589
+0.200  0.2517
+0.500  0.3706
+empirijski najbolji prag: 0.15 (trošak 0.2371);  teorijski 1/11 = 0.091
+na testu: trošak uz prag 0.5 = 0.3340, uz 1/11 = 0.2460
+</izlaz>
+<p>Oba su praga, $1/11$ i empirijski najbolji $0{,}15$, daleko bolja od zadanog $0{,}5$, koji trošak gotovo udvostručuje. Krivulja troška plitka je oko minimuma, pa je razlika između njih mala, ali empirijski optimum ipak leži nešto desno od $\tau^*$: to znači da je među primjerima s $p$ između $0{,}09$ i $0{,}15$ pozitivnih manje nego što model tvrdi, tj. model u području malih vjerojatnosti blago precjenjuje manjinski razred. Kad je takav pomak velik, ili se prag bira empirijski, ili se vjerojatnosti najprije kalibriraju (<code>CalibratedClassifierCV</code>). U oba slučaja odluka se donosi na validacijskim podacima, a test ostaje netaknut do kraja.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Logistička regresija: $P(y=1\mid x)=\sigma(w^\top x+b)$, linearna granica odluke, log-gubitak (unakrsna entropija) $-\frac1n\sum[y\ln p+(1-y)\ln(1-p)]$, gradijent $\frac1nX^\top(p-y)$, konveksno, bez zatvorene formule.</li>
+<li>Više razreda: softmax s unakrsnom entropijom (gradijent $\frac1nX^\top(P-Y)$) ili jedan-protiv-ostalih; softmax računaj uz oduzimanje maksimuma.</li>
+<li>Matrica zabune daje točnost, preciznost ($TP/(TP+FP)$), odziv ($TP/(TP+FN)$) i $F_1$; točnost vara kod neuravnoteženih razreda.</li>
+<li>ROC krivulja i AUC mjere kvalitetu poretka neovisno o pragu; $F_1$, preciznost i odziv mjere model zajedno s pragom.</li>
+<li>Prag je odluka o cijeni pogrešaka: biraj ga na validacijskom skupu (<code>cross_val_predict</code>), prema metrici zadatka ili trošku ($\tau^*=c_{FP}/(c_{FP}+c_{FN})$ za kalibrirane vjerojatnosti); <code>class_weight="balanced"</code> je alternativa na razini gubitka.</li>
+<li>Scikit-learn: <code>LogisticRegression(C, penalty, class_weight)</code>, <code>predict_proba</code>, <code>confusion_matrix</code>, <code>precision_score</code>, <code>recall_score</code>, <code>f1_score</code>, <code>roc_auc_score</code>, <code>roc_curve</code>, <code>precision_recall_curve</code>.</li>
+</ul>
+
+@@ literatura
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 3 (Classification: metrike, ROC, višeklasna klasifikacija) i poglavlje 4 (Logistic Regression, Softmax Regression).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlje 4.4 (Logistic Regression).</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression">Logistic regression</a> i <a href="https://scikit-learn.org/stable/modules/model_evaluation.html#classification-metrics">Classification metrics</a>.</li>

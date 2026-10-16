@@ -1,0 +1,654 @@
+@@ meta
+naslov = Treniranje mreža u praksi
+podnaslov = Stopa učenja i scheduleri, Adam i momentum, mini-skupovi, dropout, weight decay, rano zaustavljanje, batch normalizacija, inicijalizacija, clipping i dijagnostika krivulja učenja
+oznake = stopa učenja, scheduler, Adam, momentum, dropout, weight decay, rano zaustavljanje, batch normalizacija
+
+@@ ciljevi
+<li>Prepoznati iz krivulja učenja preveliku i premalu stopu učenja, podnaučenost i prenaučenost te znati što promijeniti u svakom slučaju.</li>
+<li>Objasniti pravila ažuriranja SGD-a s momentumom i Adama, ulogu veličine mini-skupa i smisao schedulera stope učenja.</li>
+<li>Primijeniti dropout, weight decay, rano zaustavljanje i batch normalizaciju u PyTorchu te izmjeriti njihov učinak na validacijskom skupu.</li>
+<li>Usvojiti natjecateljsku rutinu: fiksna sjemena, test prenaučenja na jednom mini-skupu, praćenje normi gradijenata, spremanje najboljeg modela.</li>
+
+@@ teorija
+<p>Petlja iz lekcije D3 radi, ali hoće li mreža stvarno nešto naučiti ovisi o desetak odluka koje nisu u formulama: koliko velika stopa učenja, koji optimizator, koliki mini-skup, kako spriječiti da mreža zapamti trening, kada stati. To su <b>hiperparametri</b> – ne uče se iz podataka gradijentom nego ih biramo mi, a biramo ih isključivo prema <b>validacijskom skupu</b> (lekcija M5), nikad prema testu. Ova lekcija daje alate i rutinu; svaka tvrdnja provjerava se eksperimentom na <code>load_digits</code>.</p>
+
+<h3>Stopa učenja i scheduleri</h3>
+<p>Stopa učenja $\eta$ najvažniji je hiperparametar. Premala: gubitak pada sporo i pravocrtno, trening „ne stigne” u zadanom broju epoha. Prevelika: gubitak skače, zaravna se na visokoj razini ili eksplodira u <code>nan</code>. Dobra: brz početni pad pa glatko zaravnjenje. Pravo rješenje nije jedan broj nego <b>raspored</b> (engl. <i>learning-rate schedule</i>): velika stopa na početku za brzo napredovanje, mala na kraju za fino podešavanje. U PyTorchu to rade <code>torch.optim.lr_scheduler</code> razredi, a <code>scheduler.step()</code> poziva se jednom po epohi (ili po koraku, ovisno o razredu):</p>
+<ul>
+<li><code>StepLR(opt, step_size, gamma)</code> – svakih <code>step_size</code> epoha pomnoži $\eta$ s $\gamma$ (npr. $0{,}1$).</li>
+<li><code>CosineAnnealingLR(opt, T_max)</code> – glatko od $\eta_0$ do $\approx0$ po kosinusu: $\eta_t=\frac{\eta_0}{2}\left(1+\cos\frac{\pi t}{T}\right)$; zadani izbor kad je broj epoha unaprijed poznat.</li>
+<li><code>ReduceLROnPlateau(opt, factor, patience)</code> – smanji $\eta$ kad se validacijska metrika prestane poboljšavati; poziva se sa <code>scheduler.step(val_gubitak)</code>.</li>
+<li><code>OneCycleLR</code> – kratko zagrijavanje (engl. <i>warm-up</i>) od male do velike stope pa pad; popularan za brz trening u fiksnom broju epoha.</li>
+</ul>
+
+<h3>Momentum i Adam</h3>
+<definicija naslov="SGD s momentumom">
+Uz gradijent $g_t=\nabla L(\theta_t)$ na mini-skupu, SGD s momentumom pamti <b>brzinu</b> $v$:
+$$v_{t+1}=\beta v_t+g_t,\qquad \theta_{t+1}=\theta_t-\eta\,v_{t+1},$$
+tipično $\beta=0{,}9$. Brzina je eksponencijalno izglađen prosjek gradijenata: komponente koje se u uzastopnim koracima slažu se pojačavaju (do $1/(1-\beta)=10$ puta), a one koje mijenjaju predznak (šum mini-skupa, oscilacije u uskoj dolini) se poništavaju.
+</definicija>
+<definicija naslov="Adam">
+Adam (engl. <i>adaptive moment estimation</i>) uz prvi moment $m$ (kao momentum) pamti i drugi moment $v$ – prosjek <em>kvadrata</em> gradijenata po elementima – i normira korak svakog parametra njegovom tipičnom veličinom:
+$$m_t=\beta_1m_{t-1}+(1-\beta_1)g_t,\quad v_t=\beta_2v_{t-1}+(1-\beta_2)g_t^2,\quad
+\hat m_t=\frac{m_t}{1-\beta_1^t},\ \hat v_t=\frac{v_t}{1-\beta_2^t},\quad
+\theta_{t+1}=\theta_t-\eta\frac{\hat m_t}{\sqrt{\hat v_t}+\epsilon},$$
+sa zadanim $\beta_1=0{,}9$, $\beta_2=0{,}999$, $\epsilon=10^{-8}$. Dijeljenje s $1-\beta^t$ ispravlja pristranost prvih koraka (kad su $m,v$ još blizu početne nule).
+</definicija>
+<p>Posljedica normiranja: korak svakog parametra je reda $\eta$ bez obzira na veličinu gradijenta, pa Adam radi dobro s $\eta\approx10^{-3}$ na gotovo svakom problemu i puno je manje osjetljiv na skaliranje ulaza, dok SGD traži pažljiv izbor $\eta$. Zato je Adam (ili <b>AdamW</b>, vidi niže) prvi izbor na natjecanju; dobro podešen SGD s momentumom i rasporedom ponekad generalizira malo bolje na velikim vizualnim zadacima, ali to na IOAI rijetko vrijedi vremena.</p>
+
+<h3>Veličina mini-skupa</h3>
+<p>Gradijent na mini-skupu od $B$ primjera je nepristrana procjena pravog gradijenta sa šumom proporcionalnim $1/\sqrt B$. Mali $B$ (8–32): mnogo šumnih koraka po epohi, dobra generalizacija, slabo iskorišten GPU. Veliki $B$ (256+): malo preciznih koraka, brza epoha, ali pri istom broju epoha manje ažuriranja i često lošiji rezultat ako se $\eta$ ne poveća. Uobičajen početak je $B=32$ ili $64$; kad povećaš $B$ za $k$ puta, isprobaj i $\eta$ povećan (grubo) za $k$ puta uz SGD, odnosno za $\sqrt k$ uz Adam.</p>
+
+<h3>Prenaučenost i kako je obuzdati</h3>
+<p>Kad gubitak na treningu pada, a <b>validacijski gubitak</b> nakon nekog trenutka počne rasti, mreža pamti primjere umjesto da uči pravilo. Četiri standardna lijeka, koji se slobodno kombiniraju:</p>
+<definicija naslov="Weight decay (L2 regularizacija)">
+Gubitku se dodaje $\frac\lambda2\lVert\theta\rVert^2$, što u SGD-u znači $\theta\leftarrow\theta-\eta(g+\lambda\theta)$ – težine se u svakom koraku malo „stežu” prema nuli (odatle ime). U PyTorchu je to argument <code>weight_decay</code> optimizatora. Uz Adam, kazna dodana gradijentu prolazi kroz normiranje i gubi smisao; <code>AdamW</code> je primjenjuje izravno na težine (<em>decoupled</em>) i njega treba koristiti. Tipične vrijednosti $10^{-4}$–$10^{-2}$.
+</definicija>
+<definicija naslov="Dropout">
+Tijekom treninga svaki neuron sloja nezavisno se s vjerojatnošću $p$ postavi na nulu, a preostali se pomnože s $\frac1{1-p}$ da očekivana vrijednost ostane ista (<i>inverted dropout</i>). Pri ocjenjivanju (<code>model.eval()</code>) ništa se ne isključuje. Mreža tako ne može ovisiti o pojedinom neuronu i ponaša se kao prosjek mnogih manjih mreža. Tipično $p=0{,}2$–$0{,}5$ u potpuno povezanim slojevima; <code>nn.Dropout(p)</code> stavlja se nakon aktivacije.
+</definicija>
+<p><b>Rano zaustavljanje</b> (engl. <i>early stopping</i>): nakon svake epohe izmjeri validacijski gubitak, pamti kopiju parametara najboljeg modela i prekini kad se $k$ epoha zaredom (<em>strpljenje</em>) ništa ne poboljša; na kraju vrati najbolje parametre. Najjeftinija regularizacija i ujedno odgovor na pitanje „koliko epoha”. <b>Augmentacija podataka</b> (slike: rotacije, pomaci, zrcaljenja; lekcija V5) je često najučinkovitiji lijek od svih, jer efektivno povećava skup.</p>
+
+<h3>Batch normalizacija i inicijalizacija</h3>
+<definicija naslov="Batch normalizacija">
+Sloj <code>BatchNorm</code> svaku komponentu svog ulaza normira po mini-skupu i zatim je ponovno skalira naučenim parametrima $\gamma,\beta$:
+$$\hat x=\frac{x-\mu_B}{\sqrt{\sigma_B^2+\epsilon}},\qquad y=\gamma\hat x+\beta .$$
+Tijekom treninga koristi statistike trenutnog mini-skupa i usput održava njihov pomični prosjek; u načinu <code>eval()</code> koristi taj pomični prosjek, pa se ponaša deterministički i radi i za jedan primjer.
+</definicija>
+<p>Batch normalizacija drži aktivacije svakog sloja u razumnom rasponu bez obzira na prethodne slojeve, pa gradijent ne nestaje ni ne eksplodira kroz dubinu, trening podnosi veće stope učenja i manje ovisi o inicijalizaciji. U MLP-u i konvolucijskim mrežama ide između linearnog sloja i aktivacije (<code>Linear → BatchNorm1d → ReLU</code>).</p>
+<p><b>Inicijalizacija</b> mora držati varijancu signala približno stalnom kroz slojeve: ako je ulaz sloja širine $d$, za ReLU se težine biraju iz $\mathcal N(0,\,2/d)$ (<b>He</b>), a za $\tanh$/sigmoidu iz $\mathcal N(0,\,1/d)$ ili uniformno s varijancom $2/(d_{\text{ulaz}}+d_{\text{izlaz}})$ (<b>Xavier/Glorot</b>). PyTorch-ova zadana inicijalizacija <code>nn.Linear</code> je razumna za plitke mreže; za duboke bez normalizacije eksplicitno koristi <code>nn.init.kaiming_normal_</code> ili dodaj BatchNorm. Prevelike početne težine daju početni gubitak znatno iznad $\ln K$ – to je brz test.</p>
+
+<h3>Eksplodirajući gradijenti i clipping</h3>
+<p>U dubokim i rekurentnim mrežama (lekcija D6) norma gradijenta zna u pojedinom koraku skočiti stotinama puta i jedan korak uništi sve naučeno (gubitak skoči ili postane <code>nan</code>). <b>Rezanje gradijenta</b> (engl. <i>gradient clipping</i>) prije <code>step()</code> skalira cijeli gradijent tako da mu norma bude najviše $c$: <code>nn.utils.clip_grad_norm_(model.parameters(), c)</code>, tipično $c\in[0{,}5,\,5]$. Funkcija vraća normu prije rezanja – korisno za praćenje.</p>
+
+<h3>Dijagnostika i rutina</h3>
+<napomena>Rutina koja štedi sate na natjecanju: (1) fiksiraj sjemena (<code>torch.manual_seed</code>, <code>np.random.default_rng</code>, generator <code>DataLoadera</code>) da svaka promjena bude usporediva; (2) provjeri početni gubitak ($\approx\ln K$ za $K$ klasa); (3) <b>prenauči jedan mini-skup</b> – ako model ne može dovesti gubitak na $32$ primjera blizu nule, negdje je bug (dtype, pogrešne oznake, softmax prije gubitka, zaboravljen <code>zero_grad</code>) i nema smisla trenirati dalje; (4) crtaj gubitak na treningu i validaciji <em>zajedno</em>; (5) spremaj <code>state_dict</code> najboljeg modela po validaciji.</napomena>
+<p>Čitanje krivulja: obje visoke i blizu – <b>podnaučenost</b> (veći model, više epoha, veći $\eta$); trening pada, validacija raste – <b>prenaučenost</b> (regularizacija, više podataka, manji model, rano zaustavljanje); obje padaju a nisi stao – treniraj dulje; cik-cak ili skokovi – manji $\eta$, veći mini-skup ili clipping. Jaz između treninga i validacije nije sam po sebi loš sve dok validacija još pada.</p>
+
+@@ primjeri
+<primjer izvor="skup podataka load_digits">
+<p>Na <code>load_digits</code> (podjela trening/validacija/test) usporedi: (a) Adam sa stopama $10^{-4}$, $10^{-3}$, $10^{-2}$ i $10^{-1}$; (b) SGD bez i s momentumom naspram Adama; (c) stalnu stopu naspram kosinusnog rasporeda. Krivulje crtaj zajedno.</p>
+<rjesenje>
+<p><b>Korak 1: podaci i pomoćne funkcije.</b> Test odvajamo odmah i ne diramo ga do kraja lekcije; sve odluke donosimo na validaciji. Funkcija <code>treniraj</code> bilježi gubitak na treningu i validaciji te validacijsku točnost po epohi i prima neobavezni scheduler i granicu za clipping; <code>mlp</code> gradi mrežu zadanih širina s opcijama dropout i batch normalizacija, uvijek s istim sjemenom.</p>
+<kod jezik="python">
+import copy
+import numpy as np
+import torch
+import torch.nn as nn
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from torch.utils.data import TensorDataset, DataLoader
+
+znamenke = load_digits()
+X_ost, X_te, y_ost, y_te = train_test_split(znamenke.data / 16.0, znamenke.target,
+                                            test_size=0.2, random_state=0, stratify=znamenke.target)
+X_tr, X_va, y_tr, y_va = train_test_split(X_ost, y_ost, test_size=0.2, random_state=0, stratify=y_ost)
+X_tr, X_va, X_te = (torch.tensor(a, dtype=torch.float32) for a in (X_tr, X_va, X_te))
+y_tr, y_va, y_te = (torch.tensor(a) for a in (y_tr, y_va, y_te))
+print("trening %d, validacija %d, test %d" % (len(X_tr), len(X_va), len(X_te)))
+
+def loader(X, y, velicina=32, seed=0):
+    return DataLoader(TensorDataset(X, y), batch_size=velicina, shuffle=True,
+                      generator=torch.Generator().manual_seed(seed))
+
+def mlp(sirine, dropout=0.0, bn=False, aktivacija=nn.ReLU, seed=0):
+    torch.manual_seed(seed)
+    slojevi = []
+    for d_in, d_out in zip(sirine[:-2], sirine[1:-1]):
+        slojevi.append(nn.Linear(d_in, d_out))
+        if bn:
+            slojevi.append(nn.BatchNorm1d(d_out))
+        slojevi.append(aktivacija())
+        if dropout > 0:
+            slojevi.append(nn.Dropout(dropout))
+    slojevi.append(nn.Linear(sirine[-2], sirine[-1]))
+    return nn.Sequential(*slojevi)
+
+def ocijeni(model, X, y):
+    model.eval()
+    with torch.no_grad():
+        logiti = model(X)
+        rezultat = (nn.functional.cross_entropy(logiti, y).item(),
+                    (logiti.argmax(1) == y).float().mean().item())
+    model.train()
+    return rezultat
+
+def treniraj(model, opt, podaci, epohe, scheduler=None, clip=None):
+    kriterij = nn.CrossEntropyLoss()
+    pov = {"trening": [], "validacija": [], "tocnost": [], "lr": []}
+    for _ in range(epohe):
+        model.train()
+        zbroj = 0.0
+        for xb, yb in podaci:
+            opt.zero_grad()
+            gubitak = kriterij(model(xb), yb)
+            gubitak.backward()
+            if clip is not None:
+                nn.utils.clip_grad_norm_(model.parameters(), clip)
+            opt.step()
+            zbroj += gubitak.item() * len(yb)
+        pov["lr"].append(opt.param_groups[0]["lr"])
+        if scheduler is not None:
+            scheduler.step()
+        g_va, t_va = ocijeni(model, X_va, y_va)
+        pov["trening"].append(zbroj / len(podaci.dataset))
+        pov["validacija"].append(g_va)
+        pov["tocnost"].append(t_va)
+    return pov
+
+podaci_tr = loader(X_tr, y_tr)
+print("mini-skupova po epohi:", len(podaci_tr))
+</kod>
+<izlaz>
+trening 1149, validacija 288, test 360
+mini-skupova po epohi: 36
+</izlaz>
+<p><b>Korak 2: stopa učenja.</b> Ista mreža $64\to64\to10$, Adam, $30$ epoha, četiri stope. Gledamo gubitak na treningu i validaciji na kraju te najbolju validacijsku točnost.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+fig, osi = plt.subplots(1, 2, figsize=(10, 3.6))
+print("    lr   trening   validacija   najbolja točnost (epoha)")
+for lr in (1e-4, 1e-3, 1e-2, 1e-1):
+    m = mlp([64, 64, 10])
+    pov = treniraj(m, torch.optim.Adam(m.parameters(), lr=lr), podaci_tr, epohe=30)
+    naj = int(np.argmax(pov["tocnost"]))
+    print("%6g   %7.4f   %10.4f   %.3f (%d)" % (lr, pov["trening"][-1], pov["validacija"][-1], pov["tocnost"][naj], naj + 1))
+    osi[0].plot(pov["trening"], label="lr = %g" % lr)
+    osi[1].plot(pov["validacija"], label="lr = %g" % lr)
+for os_, naslov in zip(osi, ("gubitak na treningu", "gubitak na validaciji")):
+    os_.set_yscale("log"); os_.set_title(naslov); os_.set_xlabel("epoha"); os_.legend(fontsize=8)
+fig.tight_layout(); fig.savefig("lr_usporedba.png", dpi=120)
+</kod>
+<izlaz>
+    lr   trening   validacija   najbolja točnost (epoha)
+0.0001    1.2431       1.2282   0.906 (30)
+ 0.001    0.0998       0.1636   0.958 (29)
+  0.01    0.0028       0.1829   0.969 (14)
+   0.1    0.1563       0.3770   0.965 (15)
+</izlaz>
+<p>Stopa $10^{-4}$ je premala: nakon $30$ epoha gubitak je još visok i krivulja i dalje pravocrtno pada – podnaučenost zbog prekratkog treninga. Stope $10^{-3}$ i $10^{-2}$ dovode do niskog gubitka; kod $10^{-2}$ validacijska krivulja je izlomljena i počinje rasti dok trening pada – prvi znak prenaučenosti. Stopa $10^{-1}$ je prevelika za Adam: gubitak na treningu skače i nakon $30$ epoha veći je nego kod $10^{-3}$, a validacijski je dvostruko veći nego kod $10^{-2}$. Raspon razumnih stopa obično je širok oko dva reda veličine, i vrijedi ga pretražiti logaritamski ($10^{-4},10^{-3},\dots$), ne linearno.</p>
+<p><b>Korak 3: optimizatori.</b> Običan SGD, SGD s momentumom $0{,}9$ i Adam, svaki s uobičajenom stopom, $30$ epoha.</p>
+<kod jezik="python">
+varijante = {
+    "SGD lr=0.1": lambda p: torch.optim.SGD(p, lr=0.1),
+    "SGD+momentum 0.9, lr=0.1": lambda p: torch.optim.SGD(p, lr=0.1, momentum=0.9),
+    "Adam lr=1e-3": lambda p: torch.optim.Adam(p, lr=1e-3),
+}
+plt.figure(figsize=(5.5, 3.6))
+for ime, napravi in varijante.items():
+    m = mlp([64, 64, 10])
+    pov = treniraj(m, napravi(m.parameters()), podaci_tr, epohe=30)
+    plt.plot(pov["validacija"], label=ime)
+    print("%-26s validacija: gubitak %.4f  točnost %.3f  | trening gubitak %.4f" %
+          (ime, pov["validacija"][-1], pov["tocnost"][-1], pov["trening"][-1]))
+plt.yscale("log"); plt.xlabel("epoha"); plt.ylabel("validacijski gubitak"); plt.legend(fontsize=8)
+plt.tight_layout(); plt.savefig("optimizatori.png", dpi=120)
+</kod>
+<izlaz>
+SGD lr=0.1                 validacija: gubitak 0.1611  točnost 0.958  | trening gubitak 0.0883
+SGD+momentum 0.9, lr=0.1   validacija: gubitak 0.1786  točnost 0.965  | trening gubitak 0.0045
+Adam lr=1e-3               validacija: gubitak 0.1617  točnost 0.955  | trening gubitak 0.0986
+</izlaz>
+<p>Momentum pri istoj stopi spusti gubitak na treningu dvadesetak puta niže od običnog SGD-a – toliko brže da nakon $30$ epoha već počinje prenaučivati, pa mu je validacijski gubitak malo veći unatoč najvišoj točnosti. Adam sa zadanom stopom i bez ikakvog podešavanja dolazi na razinu SGD-a kojem smo stopu birali ručno. Na ovako malom problemu sva tri na kraju rade dobro – razlika je u tome koliko podešavanja treba da bi radili.</p>
+<p><b>Korak 4: scheduler.</b> Adam sa stalnom stopom $10^{-2}$ naspram iste početne stope uz <code>CosineAnnealingLR</code> kroz $30$ epoha. Ispisujemo stopu u nekoliko epoha i konačne metrike.</p>
+<kod jezik="python">
+m_const = mlp([64, 64, 10])
+pov_const = treniraj(m_const, torch.optim.Adam(m_const.parameters(), lr=1e-2), podaci_tr, epohe=30)
+
+m_cos = mlp([64, 64, 10])
+opt = torch.optim.Adam(m_cos.parameters(), lr=1e-2)
+sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=30)
+pov_cos = treniraj(m_cos, opt, podaci_tr, epohe=30, scheduler=sched)
+
+print("lr po epohama (kosinus):", ["%.5f" % pov_cos["lr"][i] for i in (0, 7, 14, 21, 29)])
+for ime, pov in (("stalna 1e-2", pov_const), ("kosinus 1e-2 -> 0", pov_cos)):
+    print("%-20s trening %.4f   validacija %.4f   točnost %.3f   (zadnjih 5 epoha val. gubitak: %s)" %
+          (ime, pov["trening"][-1], pov["validacija"][-1], pov["tocnost"][-1],
+           np.round(pov["validacija"][-5:], 3).tolist()))
+</kod>
+<izlaz>
+lr po epohama (kosinus): ['0.01000', '0.00872', '0.00552', '0.00206', '0.00003']
+stalna 1e-2          trening 0.0038   validacija 0.1811   točnost 0.965   (zadnjih 5 epoha val. gubitak: [0.178, 0.188, 0.179, 0.184, 0.181])
+kosinus 1e-2 -> 0    trening 0.0109   validacija 0.1615   točnost 0.962   (zadnjih 5 epoha val. gubitak: [0.161, 0.161, 0.161, 0.161, 0.161])
+</izlaz>
+<p>Sa stalnom, razmjerno velikom stopom validacijski gubitak u zadnjim epohama skače gore-dolje – model ne može „sletjeti” u minimum. Kosinusni raspored istu veliku stopu iskoristi za brz početak, a zatim je spusti gotovo do nule, pa se zadnje epohe smire i model završi s nižim i stabilnijim validacijskim gubitkom. Kad znaš koliko epoha imaš (a na natjecanju uvijek znaš, jer imaš vremensko ograničenje), kosinusni raspored je gotovo besplatno poboljšanje.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka load_digits">
+<p>Izazovi prenaučenost (velika mreža $64\to256\to256\to10$, samo $200$ primjera za učenje, $150$ epoha) i usporedi četiri lijeka: ništa, dropout $0{,}5$, weight decay $10^{-2}$ (AdamW) i rano zaustavljanje sa strpljenjem $10$. Za svaki ispiši najmanji validacijski gubitak i epohu u kojoj je postignut, konačni validacijski gubitak i točnost na testu.</p>
+<rjesenje>
+<p><b>Korak 1: mali skup i osnovna mreža.</b> $200$ primjera i više od $80\,000$ parametara – mreža može zapamtiti svaki primjer.</p>
+<kod jezik="python">
+podaci_mali = loader(X_tr[:200], y_tr[:200])
+m0 = mlp([64, 256, 256, 10])
+print("parametara:", sum(p.numel() for p in m0.parameters()))
+pov0 = treniraj(m0, torch.optim.Adam(m0.parameters(), lr=1e-3), podaci_mali, epohe=150)
+naj = int(np.argmin(pov0["validacija"]))
+print("trening gubitak na kraju %.5f" % pov0["trening"][-1])
+print("validacijski gubitak: najmanji %.4f u epohi %d, na kraju %.4f" % (pov0["validacija"][naj], naj + 1, pov0["validacija"][-1]))
+print("točnost na validaciji u epohi %d: %.3f, na kraju: %.3f" % (naj + 1, pov0["tocnost"][naj], pov0["tocnost"][-1]))
+</kod>
+<izlaz>
+parametara: 85002
+trening gubitak na kraju 0.00092
+validacijski gubitak: najmanji 0.3110 u epohi 27, na kraju 0.3963
+točnost na validaciji u epohi 27: 0.896, na kraju: 0.892
+</izlaz>
+<p>Klasična slika prenaučenosti: gubitak na treningu pada praktički na nulu, validacijski gubitak dosegne minimum rano i zatim raste. Zanimljivo je da točnost na validaciji pritom pada puno manje nego što gubitak raste – model postaje <em>pretjerano siguran</em> u svoje (i pogrešne) odgovore, što unakrsna entropija kažnjava, a točnost ne vidi. Zato prati gubitak, ne samo točnost.</p>
+<p><b>Korak 2: rano zaustavljanje.</b> Funkcija prati validacijski gubitak, pamti <code>state_dict</code> najboljeg modela (kopiju! inače pamtimo referencu koja se dalje mijenja) i prekida nakon <code>strpljenje</code> epoha bez poboljšanja.</p>
+<kod jezik="python">
+def treniraj_rano(model, opt, podaci, max_epohe=150, strpljenje=10):
+    najbolji, najbolja_epoha, najbolje_stanje = float("inf"), 0, None
+    pov = {"trening": [], "validacija": []}
+    kriterij = nn.CrossEntropyLoss()
+    for epoha in range(1, max_epohe + 1):
+        model.train()
+        for xb, yb in podaci:
+            opt.zero_grad()
+            kriterij(model(xb), yb).backward()
+            opt.step()
+        g_va, _ = ocijeni(model, X_va, y_va)
+        pov["validacija"].append(g_va)
+        if g_va < najbolji:
+            najbolji, najbolja_epoha = g_va, epoha
+            najbolje_stanje = copy.deepcopy(model.state_dict())
+        elif epoha - najbolja_epoha >= strpljenje:
+            break
+    model.load_state_dict(najbolje_stanje)
+    return najbolja_epoha, epoha, pov
+
+m_rano = mlp([64, 256, 256, 10])
+naj_ep, zadnja_ep, pov_rano = treniraj_rano(m_rano, torch.optim.Adam(m_rano.parameters(), lr=1e-3), podaci_mali)
+print("najbolja epoha %d, stalo nakon epohe %d, validacijski gubitak vraćenog modela %.4f" %
+      (naj_ep, zadnja_ep, ocijeni(m_rano, X_va, y_va)[0]))
+</kod>
+<izlaz>
+najbolja epoha 25, stalo nakon epohe 35, validacijski gubitak vraćenog modela 0.3056
+</izlaz>
+<p><b>Korak 3: usporedba lijekova.</b> Dropout i weight decay treniramo punih $150$ epoha, da vidimo mijenjaju li <em>oblik</em> krivulje, a ne samo trenutak zaustavljanja.</p>
+<kod jezik="python">
+m_do = mlp([64, 256, 256, 10], dropout=0.5)
+pov_do = treniraj(m_do, torch.optim.Adam(m_do.parameters(), lr=1e-3), podaci_mali, epohe=150)
+m_wd = mlp([64, 256, 256, 10])
+pov_wd = treniraj(m_wd, torch.optim.AdamW(m_wd.parameters(), lr=1e-3, weight_decay=1e-2), podaci_mali, epohe=150)
+
+print("%-22s %-22s %-10s %s" % ("varijanta", "min val. gubitak (ep.)", "val. kraj", "točnost test"))
+for ime, m, pov in (("ništa", m0, pov0), ("dropout 0.5", m_do, pov_do),
+                    ("weight decay 1e-2", m_wd, pov_wd), ("rano zaustavljanje", m_rano, pov_rano)):
+    naj = int(np.argmin(pov["validacija"]))
+    print("%-22s %.4f (%3d)           %.4f     %.3f" %
+          (ime, pov["validacija"][naj], naj + 1, pov["validacija"][-1], ocijeni(m, X_te, y_te)[1]))
+
+plt.figure(figsize=(5.5, 3.6))
+for ime, pov in (("ništa", pov0), ("dropout 0.5", pov_do), ("weight decay", pov_wd)):
+    plt.plot(pov["validacija"], label=ime)
+plt.xlabel("epoha"); plt.ylabel("validacijski gubitak"); plt.legend(); plt.tight_layout()
+plt.savefig("regularizacija.png", dpi=120)
+</kod>
+<izlaz>
+varijanta              min val. gubitak (ep.) val. kraj  točnost test
+ništa                  0.3110 ( 27)           0.3963     0.897
+dropout 0.5            0.2566 ( 62)           0.3094     0.919
+weight decay 1e-2      0.2984 ( 24)           0.3968     0.900
+rano zaustavljanje     0.3056 ( 25)           0.3269     0.889
+</izlaz>
+<p>Dropout mijenja oblik krivulje: validacijski gubitak pada dulje i sporije raste nakon minimuma, jer mreža s nasumično isključenim neuronima ne može zapamtiti pojedine primjere. Weight decay od $10^{-2}$ ovdje gotovo ništa ne mijenja – na $200$ primjera mreža i uz kaznu lako zapamti sve; tek znatno jača kazna (isprobaj $0{,}3$) usporava rast validacijskog gubitka, ali ga ne uklanja i počinje usporavati trening. Rano zaustavljanje ne mijenja krivulju, nego pametno bira trenutak na njoj – i daje model usporediv s osnovnim u njegovoj najboljoj epohi, uz četiri puta manje epoha. U praksi se kombiniraju: dropout i/ili weight decay <em>plus</em> rano zaustavljanje po validaciji.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka load_digits">
+<p>Tri dijagnostička alata iz rutine: (a) test prenaučenja jednog mini-skupa na ispravnom i na „pokvarenom” modelu; (b) duboka mreža sa sigmoidom ($8$ skrivenih slojeva) bez i s batch normalizacijom, uz ispis normi gradijenata po slojevima; (c) eksplodirajući trening s prevelikom stopom i što s njim radi clipping.</p>
+<rjesenje>
+<p><b>Korak 1: prenauči jedan mini-skup.</b> Uzmemo $32$ primjera i napravimo $300$ koraka. Ispravan model mora doći gotovo na nulu. Za „pokvareni” model namjerno stavljamo softmax prije <code>CrossEntropyLoss</code> – kod se izvršava bez greške, ali gubitak se ne može spustiti ispod neke granice, i test to odmah otkrije.</p>
+<kod jezik="python">
+xb, yb = X_tr[:32], y_tr[:32]
+
+def prenauci_jedan(model, koraka=300, lr=1e-2):
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    for _ in range(koraka):
+        opt.zero_grad()
+        gubitak = nn.functional.cross_entropy(model(xb), yb)
+        gubitak.backward()
+        opt.step()
+    return gubitak.item()
+
+ispravan = mlp([64, 64, 10])
+pokvaren = nn.Sequential(mlp([64, 64, 10]), nn.Softmax(dim=1))     # bug: softmax prije gubitka
+print("ispravan model, gubitak na 1 mini-skupu nakon 300 koraka: %.5f" % prenauci_jedan(ispravan))
+print("pokvaren model (softmax + CrossEntropyLoss):            %.5f" % prenauci_jedan(pokvaren))
+</kod>
+<izlaz>
+ispravan model, gubitak na 1 mini-skupu nakon 300 koraka: 0.00036
+pokvaren model (softmax + CrossEntropyLoss):            1.63928
+</izlaz>
+<p>Ispravan model zapamti $32$ primjera gotovo savršeno. Pokvareni ne može ispod $1{,}46$: ako su „logiti” vjerojatnosti u $[0,1]$, softmax od njih za točnu klasu najviše može dati $e/(e+9)\approx0{,}232$, pa je gubitak najmanje $-\ln0{,}232\approx1{,}46$ – i ostaje zaglavljen malo iznad toga. Bez testa na jednom mini-skupu ovakav bug bi izgledao kao „model slabo uči” i pojeo bi sat podešavanja hiperparametara.</p>
+<p><b>Korak 2: nestajući gradijent i batch normalizacija.</b> Osam skrivenih slojeva širine $32$ sa sigmoidom, SGD s momentumom, $15$ epoha; ispisujemo normu gradijenta prvog i zadnjeg sloja na jednom mini-skupu prije treninga.</p>
+<kod jezik="python">
+def norme_gradijenata(model):
+    model.zero_grad()
+    nn.functional.cross_entropy(model(xb), yb).backward()
+    linearni = [m for m in model if isinstance(m, nn.Linear)]
+    return linearni[0].weight.grad.norm().item(), linearni[-1].weight.grad.norm().item()
+
+for bn in (False, True):
+    m = mlp([64] + [32] * 8 + [10], bn=bn, aktivacija=nn.Sigmoid)
+    prvi, zadnji = norme_gradijenata(m)
+    pov = treniraj(m, torch.optim.SGD(m.parameters(), lr=0.1, momentum=0.9), podaci_tr, epohe=15)
+    print("%-7s |grad| prvi sloj %.1e, zadnji sloj %.1e   gubitak nakon 15 epoha: trening %.3f   točnost val. %.3f" %
+          ("s BN" if bn else "bez BN", prvi, zadnji, pov["trening"][-1], pov["tocnost"][-1]))
+print("ln 10 = %.3f" % np.log(10))
+</kod>
+<izlaz>
+bez BN  |grad| prvi sloj 1.7e-07, zadnji sloj 5.7e-01   gubitak nakon 15 epoha: trening 2.311   točnost val. 0.101
+s BN    |grad| prvi sloj 4.2e-01, zadnji sloj 6.2e-01   gubitak nakon 15 epoha: trening 0.164   točnost val. 0.944
+ln 10 = 2.303
+</izlaz>
+<p>Bez normalizacije gradijent prvog sloja je za više redova veličine manji od zadnjeg – svaki sloj sa sigmoidom množi ga faktorom $\le\frac14$ (lekcija D2) – pa donji slojevi praktički ne uče i gubitak ostaje blizu $\ln 10$: mreža nakon $15$ epoha nije bolja od nasumičnog pogađanja. S batch normalizacijom gradijenti su usporedivi kroz dubinu i ista mreža uči normalno. (Druga polovica lijeka je ReLU umjesto sigmoide; isprobaj.)</p>
+<p><b>Korak 3: eksplozija i clipping.</b> Najčešći uzrok eksplozije na natjecanju nisu duboke mreže nego <em>neskalirani ulazi</em>. Linearna regresija $y=3x+2+\varepsilon$ s $x\in[0,100]$ i SGD-om sa stopom $0{,}1$: gradijent po $w$ je reda $x^2$, dakle tisuće, i prvi korak odbaci težine u beskonačnost. Usporedimo bez rezanja, s rezanjem na normu $1$ i – pravi lijek – sa standardiziranim ulazom.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+xr = torch.tensor(rng.uniform(0, 100, (200, 1)), dtype=torch.float32)
+yr = 3 * xr + 2 + torch.tensor(rng.normal(0, 1, (200, 1)), dtype=torch.float32)
+
+def regresija(x, y, lr=0.1, clip=None, koraka=200):
+    torch.manual_seed(0)
+    sloj = nn.Linear(1, 1)
+    opt = torch.optim.SGD(sloj.parameters(), lr=lr)
+    najveca = 0.0
+    for _ in range(koraka):
+        opt.zero_grad()
+        gubitak = nn.functional.mse_loss(sloj(x), y)
+        gubitak.backward()
+        norma = nn.utils.clip_grad_norm_(sloj.parameters(), clip if clip else float("inf")).item()
+        najveca = max(najveca, norma)                 # norma PRIJE rezanja
+        opt.step()
+    return najveca, gubitak.item()
+
+xr_std = (xr - xr.mean()) / xr.std()
+for ime, x, clip in (("bez clippinga", xr, None), ("clip = 1", xr, 1.0), ("standardiziran x", xr_std, None)):
+    norma, gubitak = regresija(x, yr, clip=clip)
+    print("%-18s najveća norma gradijenta %9.3g   MSE nakon 200 koraka %.3g" % (ime, norma, gubitak))
+</kod>
+<izlaz>
+bez clippinga      najveća norma gradijenta       inf   MSE nakon 200 koraka nan
+clip = 1           najveća norma gradijenta  2.31e+04   MSE nakon 200 koraka 22.4
+standardiziran x   najveća norma gradijenta       373   MSE nakon 200 koraka 1.04
+</izlaz>
+<p>Bez rezanja gubitak je nakon par koraka <code>nan</code> i model je neupotrebljiv. Uz <code>clip_grad_norm_</code> trening preživi i MSE padne na dvadesetak, ali ne do varijance šuma $1$: rezani korak ima duljinu najviše $\eta\cdot1$, pa se u $200$ koraka ne stigne precizno namjestiti. Sa standardiziranim ulazom isti optimizator bez ikakvog rezanja dođe do MSE $\approx1$. Clipping je sigurnosni pojas protiv rijetkih skokova (rekurentne mreže, transformeri u lekciji D6), ne zamjena za skalirane ulaze i razumnu stopu učenja – a <code>nan</code> uvijek je znak da treba pogledati ulaze i spustiti $\eta$.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za svaki opis krivulja odredi što se događa i što bi prvo promijenio: (a) gubitak na treningu i validaciji padaju polako, pravocrtno, i nakon svih epoha još su visoki; (b) gubitak na treningu pada prema nuli, validacijski je dosegnuo minimum u 12. epohi i otad raste; (c) gubitak skače gore-dolje između epoha, ponekad i naglo naraste; (d) gubitak od prve epohe stoji na $2{,}30$ i ne miče se, a zadatak ima $10$ klasa.</p>
+<rjesenje>
+<p>(a) Podnaučenost zbog premale stope ili prekratkog treninga: povećaj $\eta$ (za $10$ puta) ili broj epoha, provjeri jesu li ulazi skalirani. (b) Prenaučenost: rano zaustavljanje (vrati model iz 12. epohe), dropout, weight decay, više podataka ili augmentacija, manji model. (c) Prevelika stopa ili premali mini-skup: smanji $\eta$, dodaj raspored koji je spušta, povećaj mini-skup, uključi clipping. (d) $2{,}30\approx\ln 10$: model uopće ne uči – prije mijenjanja hiperparametara traži bug (dtype, pogrešne oznake, nulti gradijenti zbog prevelike inicijalizacije ili „mrtvih” ReLU, zaboravljen <code>step()</code>); napravi test prenaučenja jednog mini-skupa.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Objasni zašto inverted dropout množi preostale aktivacije s $\frac1{1-p}$ i provjeri eksperimentom: na tenzoru jedinica oblika $(1000, 100)$ primijeni <code>nn.Dropout(0.5)</code> u načinu <code>train()</code> i <code>eval()</code>; ispiši udio nula, prosjek i skup različitih vrijednosti u oba slučaja.</p>
+<rjesenje>
+<p>Ako je svaki neuron zadržan s vjerojatnošću $1-p$ i pritom pomnožen s $\frac1{1-p}$, očekivana vrijednost je $(1-p)\cdot\frac{x}{1-p}+p\cdot0=x$ – ista kao bez dropouta. Zato sloj u <code>eval()</code> ne mora ništa skalirati i mreža vidi ulaze iste veličine u treningu i pri ocjenjivanju.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+sloj = nn.Dropout(0.5)
+jedinice = torch.ones(1000, 100)
+sloj.train()
+izlaz = sloj(jedinice)
+print("train: udio nula %.3f, prosjek %.3f, vrijednosti %s" %
+      ((izlaz == 0).float().mean(), izlaz.mean(), sorted(izlaz.unique().tolist())))
+sloj.eval()
+izlaz = sloj(jedinice)
+print("eval:  udio nula %.3f, prosjek %.3f, vrijednosti %s" %
+      ((izlaz == 0).float().mean(), izlaz.mean(), sorted(izlaz.unique().tolist())))
+</kod>
+<izlaz>
+train: udio nula 0.501, prosjek 0.999, vrijednosti [0.0, 2.0]
+eval:  udio nula 0.000, prosjek 1.000, vrijednosti [1.0]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Pokaži da je <code>weight_decay=λ</code> u <code>torch.optim.SGD</code> isto što i dodavanje $\lambda\theta$ gradijentu: za jedan <code>nn.Linear(3, 2)</code> napravi jedan korak SGD-a s <code>weight_decay=0.1</code> i usporedi s ručnim korakom $\theta\leftarrow\theta-\eta(g+\lambda\theta)$ na kopiji sloja.</p>
+<rjesenje>
+<kod jezik="python">
+torch.manual_seed(0)
+sloj_a = nn.Linear(3, 2)
+sloj_b = copy.deepcopy(sloj_a)
+ulaz = torch.randn(5, 3)
+eta, lam = 0.1, 0.1
+
+opt = torch.optim.SGD(sloj_a.parameters(), lr=eta, weight_decay=lam)
+opt.zero_grad(); sloj_a(ulaz).pow(2).sum().backward(); opt.step()
+
+sloj_b(ulaz).pow(2).sum().backward()
+with torch.no_grad():
+    for p in sloj_b.parameters():
+        p -= eta * (p.grad + lam * p)
+print("jednako:", all(torch.allclose(a, b) for a, b in zip(sloj_a.parameters(), sloj_b.parameters())))
+</kod>
+<izlaz>
+jednako: True
+</izlaz>
+<p>Isti rezultat: L2 kazna $\frac\lambda2\lVert\theta\rVert^2$ ima gradijent $\lambda\theta$, pa je weight decay u SGD-u doslovno L2 regularizacija. Kod Adama to više ne vrijedi (kazna prolazi kroz normiranje s $\sqrt{\hat v}$), zato postoji <code>AdamW</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Ispiši stopu učenja po epohama koju daju <code>StepLR(step_size=5, gamma=0.5)</code> i <code>CosineAnnealingLR(T_max=20)</code> kroz $20$ epoha za početnu stopu $0{,}1$, te usporedi kosinusne vrijednosti s formulom $\eta_t=\frac{\eta_0}2\left(1+\cos\frac{\pi t}{T}\right)$. (Scheduler se može „vrtjeti” i bez treniranja: <code>opt.step()</code> pa <code>sched.step()</code>.)</p>
+<rjesenje>
+<kod jezik="python">
+for ime, napravi in (("StepLR", lambda o: torch.optim.lr_scheduler.StepLR(o, step_size=5, gamma=0.5)),
+                     ("Cosine", lambda o: torch.optim.lr_scheduler.CosineAnnealingLR(o, T_max=20))):
+    p = [nn.Parameter(torch.zeros(1))]
+    opt = torch.optim.SGD(p, lr=0.1)
+    sched = napravi(opt)
+    stope = []
+    for t in range(20):
+        stope.append(sched.get_last_lr()[0])
+        opt.step(); sched.step()
+    print(ime, [round(s, 4) for s in stope[::3]])
+formula = [0.05 * (1 + np.cos(np.pi * t / 20)) for t in range(20)]
+print("formula", [round(float(s), 4) for s in formula[::3]])
+</kod>
+<izlaz>
+StepLR [0.1, 0.1, 0.05, 0.05, 0.025, 0.0125, 0.0125]
+Cosine [0.1, 0.0946, 0.0794, 0.0578, 0.0345, 0.0146, 0.0024]
+formula [0.1, 0.0946, 0.0794, 0.0578, 0.0345, 0.0146, 0.0024]
+</izlaz>
+<p><code>StepLR</code> daje stepenice ($0{,}1$ pet epoha, zatim $0{,}05$, …), kosinus glatki pad; vrijednosti se točno poklapaju s formulom (indeks $t$ je redni broj epohe od $0$). Zapamti redoslijed: u svakoj epohi prvo <code>opt.step()</code> (po mini-skupovima), pa jednom <code>sched.step()</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Provjeri ponovljivost: istreniraj <code>mlp([64, 64, 10])</code> Adamom $5$ epoha dvaput s istim sjemenom (model i <code>DataLoader</code>) i dvaput s različitim sjemenima te usporedi konačne gubitke. Zatim promijeni samo sjeme <code>DataLoadera</code>. Koliko se rezultat mijenja zbog sjemena u odnosu na razlike među hiperparametrima iz Primjera 1?</p>
+<rjesenje>
+<kod jezik="python">
+def pokus(seed_model, seed_podaci):
+    m = mlp([64, 64, 10], seed=seed_model)
+    pov = treniraj(m, torch.optim.Adam(m.parameters(), lr=1e-3), loader(X_tr, y_tr, seed=seed_podaci), epohe=5)
+    return pov["validacija"][-1], pov["tocnost"][-1]
+
+print("isto sjeme (0, 0):       %.4f %.3f  |  %.4f %.3f" % (*pokus(0, 0), *pokus(0, 0)))
+print("različito sjeme modela:  %.4f %.3f  |  %.4f %.3f" % (*pokus(1, 0), *pokus(2, 0)))
+print("različito sjeme podataka:%.4f %.3f  |  %.4f %.3f" % (*pokus(0, 1), *pokus(0, 2)))
+</kod>
+<izlaz>
+isto sjeme (0, 0):       0.7359 0.910  |  0.7359 0.910
+različito sjeme modela:  0.7109 0.906  |  0.7429 0.885
+različito sjeme podataka:0.7269 0.913  |  0.7277 0.917
+</izlaz>
+<p>S istim sjemenima rezultat je identičan do zadnje decimale; s različitima se validacijski gubitak mijenja u drugoj decimali. To je <em>šum</em> eksperimenta: razlika između dviju postavki manja od toga ne znači ništa, i treba je potvrditi s više sjemena. Razlike između stopa učenja u Primjeru 1 su desetak puta veće – te su stvarne.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Implementiraj Adam ručno prema formulama iz teorije (uz $\beta_1=0{,}9$, $\beta_2=0{,}999$, $\epsilon=10^{-8}$) i pokaži da nakon $50$ koraka na <code>make_moons</code>-u sličnoj maloj mreži daje iste parametre kao <code>torch.optim.Adam</code>. Što bi se dogodilo bez ispravka pristranosti $1-\beta^t$?</p>
+<naputak>Drži po jedan tenzor $m$ i $v$ za svaki parametar (<code>torch.zeros_like</code>). Brojač koraka $t$ počinje od $1$. Sve pod <code>torch.no_grad()</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def adam_korak(parametri, stanje, t, lr=1e-3, b1=0.9, b2=0.999, eps=1e-8):
+    with torch.no_grad():
+        for p in parametri:
+            m, v = stanje[p]
+            m.mul_(b1).add_(p.grad, alpha=1 - b1)
+            v.mul_(b2).addcmul_(p.grad, p.grad, value=1 - b2)
+            m_hat, v_hat = m / (1 - b1 ** t), v / (1 - b2 ** t)
+            p -= lr * m_hat / (v_hat.sqrt() + eps)
+
+m_torch = mlp([64, 64, 10], seed=3)
+m_rucno = copy.deepcopy(m_torch)
+opt = torch.optim.Adam(m_torch.parameters(), lr=1e-3)
+stanje = {p: (torch.zeros_like(p), torch.zeros_like(p)) for p in m_rucno.parameters()}
+for t, (xb_, yb_) in enumerate(loader(X_tr, y_tr, seed=3), start=1):
+    opt.zero_grad(); nn.functional.cross_entropy(m_torch(xb_), yb_).backward(); opt.step()
+    m_rucno.zero_grad(); nn.functional.cross_entropy(m_rucno(xb_), yb_).backward()
+    adam_korak(list(m_rucno.parameters()), stanje, t)
+    if t == 50:
+        break
+print("koraka:", t, " parametri jednaki:",
+      all(torch.allclose(a, b, atol=1e-6) for a, b in zip(m_torch.parameters(), m_rucno.parameters())))
+print("prvi korak bez ispravka pristranosti: m/sqrt(v) = %.3f * g/|g|  (s ispravkom: 1.000)" %
+      ((1 - 0.9) / np.sqrt(1 - 0.999)))
+</kod>
+<izlaz>
+koraka: 36  parametri jednaki: True
+prvi korak bez ispravka pristranosti: m/sqrt(v) = 3.162 * g/|g|  (s ispravkom: 1.000)
+</izlaz>
+<p>Ručni Adam i PyTorchov poklapaju se. Bez ispravka pristranosti prvi korak bi bio $\frac{0{,}1\,g}{\sqrt{0{,}001}\,|g|}\approx3{,}16\,\eta$ u smjeru predznaka gradijenta – nekoliko puta veći od namjeravanog i neovisan o veličini gradijenta; u sljedećih nekoliko stotina koraka faktor bi se polako spuštao prema $1$. Ispravak čini sve korake dosljednima od samog početka.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Implementiraj prolaz unaprijed batch normalizacije ručno (za način treniranja) i usporedi s <code>nn.BatchNorm1d</code> na slučajnom mini-skupu oblika $(32, 8)$. Zatim prebaci sloj u <code>eval()</code> i pokaži da izlaz više ne ovisi o ostalim primjerima u mini-skupu (isti primjer sam i u skupu daje isti rezultat), a da u <code>train()</code> ovisi.</p>
+<naputak>PyTorch u normiranju koristi <em>pristranu</em> varijancu (dijeli s $n$, <code>unbiased=False</code>), $\epsilon=10^{-5}$, početno $\gamma=1$, $\beta=0$. Pomični prosjeci (<code>running_mean</code>, <code>running_var</code>) ažuriraju se s momentumom $0{,}1$ pri svakom prolazu u <code>train()</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+torch.manual_seed(0)
+bn = nn.BatchNorm1d(8)
+ulaz = torch.randn(32, 8) * 3 + 5
+
+rucno = (ulaz - ulaz.mean(0)) / torch.sqrt(ulaz.var(0, unbiased=False) + bn.eps)
+print("train: jednako ručnom:", torch.allclose(bn(ulaz), rucno, atol=1e-6))
+print("running_mean nakon 1 prolaza:", bn.running_mean[:3].numpy().round(3), " (0.1 * prosjek =", (0.1 * ulaz.mean(0)[:3]).numpy().round(3), ")")
+
+bn.eval()
+sam = bn(ulaz[:1]); u_skupu = bn(ulaz)[:1]
+print("eval:  isti primjer sam i u skupu jednak:", torch.allclose(sam, u_skupu))
+bn.train()
+sam = bn(ulaz[:2])[:1]; u_skupu = bn(ulaz)[:1]
+print("train: isti primjer u različitim skupovima jednak:", torch.allclose(sam, u_skupu))
+</kod>
+<izlaz>
+train: jednako ručnom: True
+running_mean nakon 1 prolaza: [0.442 0.455 0.514]  (0.1 * prosjek = [0.442 0.455 0.514] )
+eval:  isti primjer sam i u skupu jednak: True
+train: isti primjer u različitim skupovima jednak: False
+</izlaz>
+<p>U načinu treniranja izlaz svakog primjera ovisi o <em>cijelom</em> mini-skupu (preko $\mu_B,\sigma_B$), što unosi šum i čini BN blagim regularizatorom, ali znači da se trening s mini-skupom od jednog primjera ne može izvesti. U <code>eval()</code> koriste se pomični prosjeci pa je sloj deterministička afina funkcija. Zaboravljen <code>model.eval()</code> pri ocjenjivanju zato kod mreža s BN-om daje pogrešne (i nestabilne) rezultate – a mreže s dropoutom daju šumne.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Napiši <em>test raspona stope učenja</em> (engl. <i>learning-rate range test</i>): kroz jednu epohu stopu učenja povećavaj eksponencijalno od $10^{-5}$ do $10$ (jedan korak po mini-skupu), bilježi gubitak za svaku stopu i nacrtaj gubitak u ovisnosti o stopi (logaritamska os). Prekini čim gubitak premaši četverostruki najmanji dosad. Koju stopu predlažeš za Adam na ovom modelu i slaže li se to s Primjerom 1?</p>
+<naputak>Stopa se mijenja izravno: <code>for g in opt.param_groups: g["lr"] = lr</code>. Uobičajeno pravilo: uzmi stopu otprilike red veličine manju od one gdje gubitak počinje rasti, odnosno gdje krivulja najstrmije pada.</naputak>
+<rjesenje>
+<kod jezik="python">
+def test_raspona(model, podaci, lr_min=1e-5, lr_max=10.0):
+    opt = torch.optim.Adam(model.parameters(), lr=lr_min)
+    faktor = (lr_max / lr_min) ** (1 / (len(podaci) - 1))
+    stope, gubici, lr, najmanji = [], [], lr_min, float("inf")
+    for xb_, yb_ in podaci:
+        for g in opt.param_groups:
+            g["lr"] = lr
+        opt.zero_grad()
+        gubitak = nn.functional.cross_entropy(model(xb_), yb_)
+        gubitak.backward()
+        opt.step()
+        stope.append(lr); gubici.append(gubitak.item())
+        najmanji = min(najmanji, gubici[-1])
+        if gubici[-1] > 4 * najmanji:
+            break
+        lr *= faktor
+    return np.array(stope), np.array(gubici)
+
+stope, gubici = test_raspona(mlp([64, 64, 10]), loader(X_tr, y_tr, velicina=16))
+najstrmije = stope[np.argmin(np.diff(gubici) / np.diff(np.log(stope)))]
+print("koraka: %d, prekid pri lr = %.3g, gubitak najmanji pri lr = %.3g, najstrmiji pad pri lr = %.3g"
+      % (len(stope), stope[-1], stope[np.argmin(gubici)], najstrmije))
+plt.figure(figsize=(5.5, 3.4))
+plt.plot(stope, gubici); plt.xscale("log"); plt.xlabel("stopa učenja"); plt.ylabel("gubitak")
+plt.tight_layout(); plt.savefig("lr_raspon.png", dpi=120)
+</kod>
+<izlaz>
+koraka: 48, prekid pri lr = 0.0937, gubitak najmanji pri lr = 0.0771, najstrmiji pad pri lr = 0.0523
+</izlaz>
+<p>Krivulja je na malim stopama ravna (model se ne miče), zatim strmo pada, dosegne minimum oko $0{,}08$ i odmah iznad $0{,}09$ eksplodira. Pravilo „red veličine ispod točke loma” daje $\approx10^{-2}$, a najstrmiji pad je oko $0{,}05$; stope iz tog područja u Primjeru 1 doista su dale najbrži pad i najbolju točnost, dok je $10^{-1}$ – točno na mjestu loma – bila prevelika. Dobili smo isti zaključak kao s četiri puna treninga, ali za manje od jedne epohe. Metoda je gruba (šumni gubici pojedinih mini-skupova, bez validacije), pa služi za izbor <em>reda veličine</em>, nakon čega se finije podešava rasporedom i validacijom.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Složi cjelovit „natjecateljski recept” na punom trening skupu: <code>mlp([64, 128, 128, 10], dropout=0.2, bn=True)</code>, <code>AdamW(lr=1e-3, weight_decay=1e-2)</code>, kosinusni raspored, rano zaustavljanje sa strpljenjem $15$ unutar najviše $100$ epoha, sjeme fiksirano. Usporedi točnost na testu s najboljom osnovnom varijantom iz Primjera 1 (Adam $10^{-3}$, $30$ epoha, bez regularizacije). Testni skup koristi <em>samo</em> za konačnu usporedbu.</p>
+<naputak>Spoji <code>treniraj_rano</code> i scheduler: nakon svake epohe <code>sched.step()</code>. Pazi da se kosinus računa na <code>T_max=100</code> (planirani maksimum), a ne na stvarno odrađeni broj epoha.</naputak>
+<rjesenje>
+<kod jezik="python">
+def recept(model, opt, sched, podaci, max_epohe=100, strpljenje=15):
+    najbolji, najbolja_epoha, najbolje_stanje = float("inf"), 0, None
+    kriterij = nn.CrossEntropyLoss()
+    for epoha in range(1, max_epohe + 1):
+        model.train()
+        for xb_, yb_ in podaci:
+            opt.zero_grad()
+            kriterij(model(xb_), yb_).backward()
+            opt.step()
+        sched.step()
+        g_va, _ = ocijeni(model, X_va, y_va)
+        if g_va < najbolji:
+            najbolji, najbolja_epoha, najbolje_stanje = g_va, epoha, copy.deepcopy(model.state_dict())
+        elif epoha - najbolja_epoha >= strpljenje:
+            break
+    model.load_state_dict(najbolje_stanje)
+    return najbolja_epoha, epoha
+
+m_recept = mlp([64, 128, 128, 10], dropout=0.2, bn=True)
+opt = torch.optim.AdamW(m_recept.parameters(), lr=1e-3, weight_decay=1e-2)
+sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=100)
+naj_ep, zadnja = recept(m_recept, opt, sched, podaci_tr)
+
+m_osnova = mlp([64, 64, 10])
+treniraj(m_osnova, torch.optim.Adam(m_osnova.parameters(), lr=1e-3), podaci_tr, epohe=30)
+print("recept: najbolja epoha %d, stalo nakon %d" % (naj_ep, zadnja))
+for ime, m in (("osnova", m_osnova), ("recept", m_recept)):
+    print("%-7s validacija: gubitak %.4f točnost %.3f   |   test: gubitak %.4f točnost %.3f" %
+          (ime, *ocijeni(m, X_va, y_va), *ocijeni(m, X_te, y_te)))
+</kod>
+<izlaz>
+recept: najbolja epoha 41, stalo nakon 56
+osnova  validacija: gubitak 0.1632 točnost 0.955   |   test: gubitak 0.1810 točnost 0.956
+recept  validacija: gubitak 0.0823 točnost 0.979   |   test: gubitak 0.0747 točnost 0.972
+</izlaz>
+<p>Recept prepolovi gubitak i podigne točnost na validaciji i na testu, a model je automatski odabran po validaciji – bez ručnog pogađanja broja epoha. Na skupu od $1800$ sličica razlika u točnosti je mala (oko $1{,}5$ postotnih bodova) jer je zadatak lagan; na pravim natjecateljskim skupovima (slike $32\times32$ i veće, tisuće klasa) razlika između „gole” petlje i ovakvog recepta zna biti desetak postotnih bodova. Red kojim dodaješ sastojke kad nešto ne radi: stopa učenja i raspored, pa inicijalni test prenaučenja jednog mini-skupa, pa regularizacija.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Stopa učenja je hiperparametar broj jedan; traži je logaritamski, a zatim je spuštaj rasporedom (kosinus kad znaš broj epoha, <code>ReduceLROnPlateau</code> kad ne znaš). Prevelika: skokovi/<code>nan</code>; premala: pravocrtno spor pad.</li>
+<li>Momentum izglađuje gradijente; Adam uz to normira korak svakog parametra, pa radi s $\eta\approx10^{-3}$ gotovo svugdje. Weight decay uz Adam koristi kroz <code>AdamW</code>.</li>
+<li>Prenaučenost se vidi kao rast validacijskog gubitka uz pad trening gubitka. Lijekovi: rano zaustavljanje (uvijek), dropout, weight decay, augmentacija, manji model.</li>
+<li>Batch normalizacija drži aktivacije i gradijente u razumnom rasponu kroz dubinu; ispravna inicijalizacija (He za ReLU) radi isto na početku treninga; <code>clip_grad_norm_</code> štiti od eksplozija.</li>
+<li>Prije podešavanja hiperparametara: fiksiraj sjemena, provjeri početni gubitak $\approx\ln K$, prenauči jedan mini-skup. Mjeri sve na validaciji, test diraj jednom.</li>
+<li><code>model.eval()</code>/<code>model.train()</code> nisu ukras: dropout i batch normalizacija ponašaju se različito u ta dva načina.</li>
+</ul>
+
+@@ literatura
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, poglavlja 7 (Regularization) i 8 (Optimization for Training Deep Models), <a href="https://www.deeplearningbook.org/">deeplearningbook.org</a>.</li>
+<li>A. Karpathy, <a href="https://karpathy.github.io/2019/04/25/recipe/">A Recipe for Training Neural Networks</a> – rutina dijagnostike iz koje je preuzet test prenaučenja jednog mini-skupa.</li>
+<li>Stanford CS231n, bilješke <a href="https://cs231n.github.io/neural-networks-3/">Neural Networks Part 3: Learning and Evaluation</a> (provjera gradijenta, krivulje, hiperparametri).</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/optim.html">torch.optim</a> (optimizatori i <code>lr_scheduler</code>), <a href="https://pytorch.org/docs/stable/generated/torch.nn.BatchNorm1d.html">BatchNorm1d</a>, <a href="https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html">Dropout</a>.</li>

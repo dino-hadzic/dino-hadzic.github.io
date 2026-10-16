@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Duboko učenje 5: Konvolucijske neuronske mreže (CNN)</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#duboko-ucenje">Duboko učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Duboko učenje · lekcija 5 od 6</p>
+            <h1><span class="broj-lekcije">D5</span> Konvolucijske neuronske mreže (CNN)</h1>
+            <p class="meta">Zašto slike traže poseban sloj: konvolucija, pooling, dijeljene težine i mreža u stilu LeNet-a u PyTorchu</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.8" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>konvolucija</li>
+                <li>jezgra</li>
+                <li>stride i padding</li>
+                <li>kanali</li>
+                <li>pooling</li>
+                <li>receptivno polje</li>
+                <li>LeNet</li>
+                <li>nn.Conv2d</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Objasniti zašto potpuno povezana mreža (MLP) loše iskorištava strukturu slike i što joj konvolucijski sloj daje: lokalnost, dijeljenje težina i ekvivarijantnost na pomak.</li>
+<li>Ručno, u NumPy-ju, izračunati konvoluciju s jezgrom, korakom (stride) i dopunjavanjem (padding) te max-pooling, i znati formulu za dimenziju izlaza.</li>
+<li>Prebrojati parametre konvolucijske mreže i izračunati njezino receptivno polje.</li>
+<li>Napisati i istrenirati malu mrežu u stilu LeNet-a u PyTorchu na slikama $8\times8$ (<code>load_digits</code>) i znati kako se isti kod prenosi na MNIST i CIFAR-10.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji D1 slike smo u MLP slali tako da ih „ispeglamo” u vektor: slika $28\times28$ postaje $784$ brojeva, a prvi skriveni sloj sa $256$ neurona ima $784\cdot256\approx 200\,000$ težina. Taj zapis ima dva problema. Prvo, <b>zaboravlja geometriju</b>: neuron ne zna da su pikseli $(3,4)$ i $(3,5)$ susjedi, pa isti uzorak (npr. rub) mora naučiti posebno za svako mjesto na slici. Drugo, <b>nije otporan na pomak</b>: ako se znamenka pomakne za jedan piksel udesno, ulazni vektor je potpuno drukčiji, iako je sadržaj isti. <b>Konvolucijske neuronske mreže</b> (engl. <i>convolutional neural networks</i>, CNN) oba problema rješavaju istim trikom: isti mali detektor klizi preko cijele slike.</p>
+
+<h3>Konvolucija: jezgra koja klizi</h3>
+<div class="pojam">
+<h4>Konvolucijski sloj (2D)</h4>
+<p>Neka je ulaz slika $X\in\mathbb R^{H\times W}$ i <b>jezgra</b> (engl. <i>kernel, filter</i>) $K\in\mathbb R^{k\times k}$. Izlaz (<b>mapa značajki</b>, engl. <i>feature map</i>) je
+$$Y_{i,j}=b+\sum_{u=0}^{k-1}\sum_{v=0}^{k-1}K_{u,v}\,X_{i+u,\,j+v},$$
+tj. $Y_{i,j}$ je skalarni produkt jezgre i prozora slike $k\times k$ s gornjim lijevim kutom u $(i,j)$. Parametri sloja su $K$ i pomak $b$; <em>isti</em> se koriste za sve položaje $(i,j)$.</p>
+</div>
+<p>Strogo matematički, ova operacija je <em>korelacija</em>; prava konvolucija ima jezgru zrcaljenu ($X_{i-u,j-v}$). Budući da se jezgra uči, zrcaljenje je nebitno, pa cijela zajednica dubokog učenja (i PyTorch) „konvolucijom” zove upravo formulu gore.</p>
+<p>Tri hiperparametra određuju oblik izlaza:</p>
+<ul>
+<li><b>Korak</b> (engl. <i>stride</i>) $s$: jezgra se pomiče za $s$ piksela umjesto za $1$; izlaz je $s$ puta manji po svakoj osi.</li>
+<li><b>Dopunjavanje</b> (engl. <i>padding</i>) $p$: sliku rubno obložimo s $p$ redaka i stupaca nula da jezgra „vidi” i rubne piksele. Za $k$ neparan i $p=(k-1)/2$ izlaz ima iste dimenzije kao ulaz (<code>padding="same"</code>).</li>
+<li><b>Kanali</b>: slika u boji ima $C_{\text{in}}=3$ kanala (RGB), a svaki konvolucijski sloj proizvodi $C_{\text{out}}$ mapa značajki. Jezgra je tada tenzor oblika $C_{\text{out}}\times C_{\text{in}}\times k\times k$: svaka izlazna mapa zbraja korelacije sa <em>svim</em> ulaznim kanalima.</li>
+</ul>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (dimenzija izlaza).</strong> Za ulaz širine $n$, jezgru $k$, dopunjavanje $p$ i korak $s$ izlaz ima širinu
+$$n_{\text{out}}=\left\lfloor\frac{n+2p-k}{s}\right\rfloor+1 .$$
+Isto vrijedi za visinu. Broj parametara konvolucijskog sloja je $C_{\text{out}}\,(C_{\text{in}}\,k^2+1)$ – ne ovisi o veličini slike.</p>
+</div>
+<p>Za usporedbu, potpuno povezani sloj od $784$ na $784$ neurona ima $615\,440$ parametara, a konvolucijski sloj $3\times3$ s jednim kanalom koji daje istu veličinu izlaza samo $10$. To <b>dijeljenje težina</b> (engl. <i>weight sharing</i>) ujedno je i snažna pretpostavka o podacima: uzorak koji vrijedi na jednom mjestu slike vrijedi svugdje. Posljedica je <b>ekvivarijantnost na pomak</b>: pomakne li se ulaz za jedan piksel, pomakne se i mapa značajki, dok same vrijednosti ostaju iste.</p>
+
+<h3>Pooling i nelinearnost</h3>
+<div class="pojam">
+<h4>Max-pooling</h4>
+<p>Sloj <b>sažimanja</b> (engl. <i>pooling</i>) s prozorom $2\times2$ i korakom $2$ svaki blok $2\times2$ mape značajki zamjenjuje njegovim maksimumom (<b>max-pooling</b>) ili prosjekom (<b>average pooling</b>). Nema parametara; prepolovljuje visinu i širinu i tako smanjuje računanje te čini mrežu blago <em>invarijantnom</em> na male pomake.</p>
+</div>
+<p>Između konvolucije i poolinga stoji nelinearnost, gotovo uvijek ReLU: bez nje bi složene konvolucije bile samo jedna velika linearna konvolucija (lekcija D1). Tipični „blok” CNN-a zato je <i>Conv → ReLU → Pool</i>, a mreža ih slaže nekoliko: svaki sljedeći sloj radi na manjoj slici s više kanala i prepoznaje sve složenije uzorke – rubovi, zatim kutovi i lukovi, zatim dijelovi znamenki ili lica.</p>
+
+<h3>Arhitektura u stilu LeNet-a</h3>
+<p>Klasična arhitektura LeNet (Yann LeCun i suradnici, za prepoznavanje rukom pisanih znamenki) definirala je obrazac koji se i danas koristi za male slike:</p>
+<ol>
+<li>Conv $5\times5$, $6$ kanala → ReLU → Pool $2\times2$</li>
+<li>Conv $5\times5$, $16$ kanala → ReLU → Pool $2\times2$</li>
+<li>Flatten → Linear → ReLU → Linear → ReLU → Linear(10)</li>
+</ol>
+<p>Konvolucijski dio izvlači značajke, a potpuno povezani „rep” ih klasificira. U ovoj lekciji isti obrazac gradimo za slike $8\times8$ s jezgrama $3\times3$; na natjecanju ćeš ga najčešće zamijeniti <em>pretreniranom</em> mrežom (ResNet i slične, lekcija V5), ali ćeš je razumjeti upravo preko ovog kostura.</p>
+
+<h3>Receptivno polje</h3>
+<div class="pojam">
+<h4>Receptivno polje</h4>
+<p><b>Receptivno polje</b> (engl. <i>receptive field</i>) neurona u nekoj mapi značajki je skup piksela ulazne slike o kojima njegova vrijednost ovisi. Slaganjem slojeva receptivno polje raste: ako sloj $\ell$ ima jezgru $k_\ell$ i korak $s_\ell$, uz $r_0=1$ i $j_0=1$ (razmak susjednih neurona mjeren u ulaznim pikselima) vrijedi
+$$r_\ell=r_{\ell-1}+(k_\ell-1)\,j_{\ell-1},\qquad j_\ell=j_{\ell-1}\,s_\ell .$$</p>
+</div>
+<p>Neuron u prvoj mapi vidi samo $3\times3$ piksela; da bi mreža „vidjela” cijelu znamenku, receptivno polje posljednjeg konvolucijskog sloja mora pokriti sliku. Zato se slojevi slažu i zato pooling (korak $2$) tako brzo širi receptivno polje: svaki sljedeći sloj ima dvostruko veći $j$.</p>
+
+<h3>Što filtri uče i kako mreži pomoći</h3>
+<p>Jezgre prvog sloja istrenirane mreže gotovo uvijek liče na detektore rubova i prijelaza svjetlo–tamno u raznim orijentacijama, slične ručno konstruiranim Sobelovim filtrima iz obrade slika; mape značajki dubljih slojeva reagiraju na dijelove objekata. Jednostavna vizualizacija (nacrtaj jezgre kao sličice, nacrtaj aktivacije za jednu ulaznu sliku) najbrži je način da provjeriš radi li mreža nešto smisleno ili je, recimo, naučila gledati samo pozadinu.</p>
+<div class="trener-umetak">
+<p>CNN je otporan na pomak samo onoliko koliko ga pooling učini; na rotacije, promjene mjerila i osvjetljenja nije. Lijek je <b>augmentacija</b> (engl. <i>data augmentation</i>): slike za učenje nasumično pomičemo, zrcalimo, rotiramo ili mijenjamo svjetlinu i tako mreži pokazujemo da oznaka ne ovisi o tim promjenama. Na malim natjecateljskim skupovima to je često najjači pojedinačni trik; sustavno u lekciji V4.</p>
+</div>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1 <span class="izvor-oznaka">skup podataka digits</span></h3>
+<div class="zadatak">
+<p>Napiši funkciju <code>konvolucija(X, K, stride, padding)</code> u NumPy-ju prema definiciji i primijeni je na jednu znamenku $8\times8$ iz <code>load_digits</code> s jezgrom koja detektira okomite rubove. Provjeri formulu za dimenziju izlaza za nekoliko kombinacija koraka i dopunjavanja, a zatim ručno napravi max-pooling $2\times2$.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: slika.</b> Skup <code>load_digits</code> ima $1797$ znamenki $8\times8$ s vrijednostima piksela od $0$ do $16$; nema downloada. Ispisujemo cijelu sliku kao matricu da vidimo s čime jezgra radi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_digits</span>
+
+<span class="n">digits</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">()</span>
+<span class="n">slike</span><span class="p">,</span> <span class="n">oznake</span> <span class="o">=</span> <span class="n">digits</span><span class="o">.</span><span class="n">images</span><span class="p">,</span> <span class="n">digits</span><span class="o">.</span><span class="n">target</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">slike</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"oznaka prve slike:"</span><span class="p">,</span> <span class="n">oznake</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(1797, 8, 8) oznaka prve slike: 0
+[[ 0  0  5 13  9  1  0  0]
+ [ 0  0 13 15 10 15  5  0]
+ [ 0  3 15  2  0 11  8  0]
+ [ 0  4 12  0  0  8  8  0]
+ [ 0  5  8  0  0  9  8  0]
+ [ 0  4 11  0  1 12  7  0]
+ [ 0  2 14  5 10 12  0  0]
+ [ 0  0  6 13 10  0  0  0]]</code></pre>
+<p><b>Korak 2: konvolucija prema definiciji.</b> Sliku obložimo nulama (<code>np.pad</code>), a zatim za svaki položaj izlaza uzmemo prozor i izračunamo skalarni produkt s jezgrom. Dimenziju izlaza daje formula iz teorije.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">konvolucija</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">padding</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">n_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span><span class="p">)</span> <span class="o">//</span> <span class="n">stride</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">m_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span><span class="p">)</span> <span class="o">//</span> <span class="n">stride</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_out</span><span class="p">,</span> <span class="n">m_out</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_out</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">m_out</span><span class="p">):</span>
+            <span class="n">prozor</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">stride</span><span class="p">:</span><span class="n">i</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">+</span> <span class="n">k</span><span class="p">,</span> <span class="n">j</span> <span class="o">*</span> <span class="n">stride</span><span class="p">:</span><span class="n">j</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">+</span> <span class="n">k</span><span class="p">]</span>
+            <span class="n">Y</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">prozor</span> <span class="o">*</span> <span class="n">K</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Y</span>
+
+<span class="n">okomiti_rub</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                        <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+                        <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]])</span>          <span class="c1"># Sobelova jezgra: svijetlo desno, tamno lijevo -&gt; +</span>
+<span class="n">Y</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">okomiti_rub</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oblik izlaza:"</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>oblik izlaza: (6, 6)
+[[ 46  42 -17  -3 -11 -42]
+ [ 55   9 -45  26  19 -45]
+ [ 47 -14 -47  34  32 -36]
+ [ 39 -18 -38  38  30 -38]
+ [ 44 -10 -32  40  10 -45]
+ [ 45  15 -14  13 -24 -36]]</code></pre>
+<p>Izlaz je $6\times6$ jer jezgra $3\times3$ bez dopunjavanja „pojede” po jedan piksel sa svake strane: $(8+0-3)/1+1=6$. Pozitivne vrijednosti označavaju mjesta gdje slika postaje svjetlija slijeva nadesno (lijevi rub nule), negativne gdje postaje tamnija (desni rub); u potpuno jednolikom području izlaz bi bio nula. Zrcaljena jezgra ili transponirana jezgra (vodoravni rubovi) dale bi druge mape – upravo to mreža uči sama.</p>
+<p><b>Korak 3: korak i dopunjavanje.</b></p>
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]:</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">okomiti_rub</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">formula</span> <span class="o">=</span> <span class="p">(</span><span class="mi">8</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">p</span> <span class="o">-</span> <span class="mi">3</span><span class="p">)</span> <span class="o">//</span> <span class="n">s</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"stride=</span><span class="si">%d</span><span class="s2"> padding=</span><span class="si">%d</span><span class="s2"> -&gt; izlaz </span><span class="si">%s</span><span class="s2">, formula </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">formula</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>stride=1 padding=0 -&gt; izlaz (6, 6), formula 6
+stride=1 padding=1 -&gt; izlaz (8, 8), formula 8
+stride=2 padding=0 -&gt; izlaz (3, 3), formula 3
+stride=2 padding=1 -&gt; izlaz (4, 4), formula 4
+stride=3 padding=1 -&gt; izlaz (3, 3), formula 3</code></pre>
+<p>Uz <code>padding=1</code> i <code>stride=1</code> izlaz ima iste dimenzije kao ulaz („same”); korak $2$ dimenziju prepolovljuje (uz zaokruživanje prema dolje).</p>
+<p><b>Korak 4: max-pooling.</b> Mapu $8\times8$ (iz „same” konvolucije) podijelimo na blokove $2\times2$ preoblikovanjem u tenzor $(4,2,4,2)$ i uzmemo maksimum po osima blokova – bez petlji.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">max_pooling</span><span class="p">(</span><span class="n">Y</span><span class="p">):</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">return</span> <span class="n">Y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">m</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+
+<span class="n">Y_same</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">okomiti_rub</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">max_pooling</span><span class="p">(</span><span class="n">Y_same</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"nakon poolinga:"</span><span class="p">,</span> <span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">P</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>nakon poolinga: (4, 4)
+[[ 46  42  -3  -5]
+ [ 55   9  34 -29]
+ [ 44 -10  40 -22]
+ [ 45  29  13   0]]</code></pre>
+<p>Pooling je zadržao gdje je rub najjači, a odbacio točan položaj unutar bloka $2\times2$ – to je ta mala invarijantnost na pomak.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka digits</span></h3>
+<div class="zadatak">
+<p>U PyTorchu izgradi mrežu u stilu LeNet-a za znamenke $8\times8$: dva bloka Conv $3\times3$ → ReLU → MaxPool, zatim dva linearna sloja. Prebroji parametre, istreniraj je na $80\,\%$ podataka i usporedi točnost na testu s MLP-om sličnog broja parametara.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci kao tenzori.</b> PyTorch konvolucija očekuje ulaz oblika $(N, C, H, W)$: broj slika, kanali, visina, širina. Zato dodajemo os kanala (<code>unsqueeze(1)</code>) i piksele skaliramo na $[0,1]$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">slike</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># (1797, 1, 8, 8)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">oznake</span><span class="p">)</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">oznake</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">X_te</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>torch.Size([1437, 1, 8, 8]) torch.Size([360, 1, 8, 8])</code></pre>
+<p><b>Korak 2: model.</b> Nakon dva poolinga slika $8\times8$ postane $2\times2$ sa $16$ kanala, pa linearni sloj prima $16\cdot2\cdot2=64$ brojeva. Zapisujemo i očekivani broj parametara iz formule $C_{\text{out}}(C_{\text{in}}k^2+1)$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">MaliCNN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>    <span class="c1"># 8 x 8 x 8</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># 16 x 4 x 4</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>   <span class="c1"># -&gt; (N, 8, 4, 4)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>   <span class="c1"># -&gt; (N, 16, 2, 2)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>                             <span class="c1"># -&gt; (N, 64)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">broj_parametara</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+
+<span class="n">cnn</span> <span class="o">=</span> <span class="n">MaliCNN</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">sloj</span> <span class="ow">in</span> <span class="n">cnn</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-6s</span><span class="s2"> </span><span class="si">%5d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">broj_parametara</span><span class="p">(</span><span class="n">sloj</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ukupno"</span><span class="p">,</span> <span class="n">broj_parametara</span><span class="p">(</span><span class="n">cnn</span><span class="p">),</span> <span class="s2">"; formula za conv2:"</span><span class="p">,</span> <span class="mi">16</span> <span class="o">*</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="mi">9</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>conv1     80
+conv2   1168
+fc1     2080
+fc2      330
+ukupno 3658 ; formula za conv2: 1168</code></pre>
+<p><b>Korak 3: učenje.</b> Petlja je ista kao u lekciji D3: mini-serije, unakrsna entropija, Adam. Mreža je sićušna pa četrdeset epoha na procesoru traje nekoliko sekundi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">treniraj</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">40</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">3e-3</span><span class="p">,</span> <span class="n">batch</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">batch</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">batch</span><span class="p">]</span>
+            <span class="n">gubitak</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">X_tr</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">model</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cnn</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">MaliCNN</span><span class="p">(),</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"CNN  trening </span><span class="si">%.3f</span><span class="s2">  test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">cnn</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">cnn</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>CNN  trening 0.999  test 0.961</code></pre>
+<p><b>Korak 4: usporedba s MLP-om.</b> MLP $64\to64\to10$ ima otprilike isti broj parametara (4810). Na tako malim i centriranim slikama oba modela rade dobro; razlika se pokazuje kad slike pomaknemo (Zadatak 7).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mlp</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Flatten</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MLP parametara:"</span><span class="p">,</span> <span class="n">broj_parametara</span><span class="p">(</span><span class="n">mlp</span><span class="p">))</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mlp</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">mlp</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MLP  trening </span><span class="si">%.3f</span><span class="s2">  test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">mlp</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">mlp</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>MLP parametara: 4810
+MLP  trening 0.993  test 0.964</code></pre>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Pogledaj što je mreža iz Primjera 2 naučila: ispiši i nacrtaj osam jezgri prvog sloja te mape značajki za jednu testnu znamenku. Zatim isti model prilagodi za MNIST ($28\times28$, 10 klasa) i objasni što se mijenja za CIFAR-10 ($32\times32$, 3 kanala).</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: jezgre prvog sloja.</b> Težine sloja <code>conv1</code> imaju oblik $(8,1,3,3)$. Ispisujemo jednu i mjerimo koliko je svaka slična Sobelovoj jezgri okomitog ruba iz Primjera 1 (kosinus kuta između jezgre i Sobelove jezgre).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">W1</span> <span class="o">=</span> <span class="n">cnn</span><span class="o">.</span><span class="n">conv1</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">detach</span><span class="p">()[:,</span> <span class="mi">0</span><span class="p">]</span>            <span class="c1"># (8, 3, 3)</span>
+<span class="n">sobel</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">okomiti_rub</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">slicnost</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cosine_similarity</span><span class="p">(</span><span class="n">W1</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">sobel</span><span class="o">.</span><span class="n">flatten</span><span class="p">()[</span><span class="kc">None</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"kosinusna sličnost sa Sobelovom jezgrom:"</span><span class="p">,</span> <span class="n">slicnost</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">najblizi</span> <span class="o">=</span> <span class="n">slicnost</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"jezgra </span><span class="si">%d</span><span class="s2">:"</span> <span class="o">%</span> <span class="n">najblizi</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">W1</span><span class="p">[</span><span class="n">najblizi</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>kosinusna sličnost sa Sobelovom jezgrom: [ 0.27  0.09  0.21 -0.13 -0.19  0.44 -0.41 -0.46]
+jezgra 7:
+[[ 0.25  0.42 -0.18]
+ [ 0.46  0.53  0.27]
+ [ 0.87 -0.09 -0.58]]</code></pre>
+<p>Nijedna jezgra nije doslovno Sobelova – sličnosti su umjerene, do oko $0{,}45$ po apsolutnoj vrijednosti – jer mreža takve jezgre nije ni morala naučiti. Ipak, najsličnija jezgra ima pozitivne težine u lijevom i negativne u desnom stupcu: mjeri isti kontrast svijetlo–tamno kao Sobelova, samo grublje i zrcaljeno. Na pravim fotografijama (MNIST, CIFAR) filtri prvog sloja gotovo uvijek postanu detektori rubova i prijelaza boja raznih orijentacija.</p>
+<p><b>Korak 2: slike jezgri i aktivacija.</b> Jezgre crtamo kao sivo-bijele sličice, a mape značajki dobivamo pozivom samo prvog sloja na jednoj slici.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">slika</span> <span class="o">=</span> <span class="n">X_te</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span>                                   <span class="c1"># (1, 1, 8, 8)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">mape</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">cnn</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">slika</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>             <span class="c1"># (8, 8, 8)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oznaka:"</span><span class="p">,</span> <span class="n">y_te</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="s2">"| srednja aktivacija po kanalu:"</span><span class="p">,</span> <span class="n">mape</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mf">3.2</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+    <span class="n">osi</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">W1</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"gray"</span><span class="p">);</span> <span class="n">osi</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"jezgra </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">k</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+    <span class="n">osi</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">mape</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"viridis"</span><span class="p">);</span> <span class="n">osi</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"mapa </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="n">k</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">os_</span> <span class="ow">in</span> <span class="n">osi</span><span class="p">[:,</span> <span class="n">k</span><span class="p">]:</span>
+        <span class="n">os_</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"filtri.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno filtri.png"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>oznaka: 7 | srednja aktivacija po kanalu: [0.28 0.33 1.15 0.34 0.4  0.78 0.33 0.55]
+spremljeno filtri.png</code></pre>
+<p>Na slici svaka mapa „pali” na drugom dijelu znamenke: jedna na lijevim rubovima poteza, druga na desnima, treća na vodoravnim crtama; kanal čija je srednja aktivacija blizu nule gotovo je neaktivan za ovu znamenku. Takvu provjeru napravi na svakom natjecanju – ako su sve mape slične ili prazne, mreža vjerojatno ne uči.</p>
+<p><b>Korak 3: MNIST.</b> Isti kostur za slike $28\times28$, ovaj put s izvornim jezgrama $5\times5$ i kanalima $6$ i $16$: prva konvolucija ima <code>padding=2</code> („same”), druga nema, pa je tijek dimenzija $28\to28\to14\to10\to5$ i prvi linearni sloj prima $16\cdot5\cdot5=400$ brojeva. Podaci se preuzimaju preko <code>torchvision</code> (oko $10$ MB), zato blok nije pokrenut; na procesoru jedna epoha traje oko minutu, a točnost na testu nakon nekoliko epoha prelazi $98\,\%$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span><span class="o">,</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span><span class="o">,</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
+
+<span class="n">tf</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span><span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">((</span><span class="mf">0.1307</span><span class="p">,),</span> <span class="p">(</span><span class="mf">0.3081</span><span class="p">,))])</span>
+<span class="n">train</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="s2">"podaci"</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">tf</span><span class="p">)</span>
+<span class="n">test</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="s2">"podaci"</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">tf</span><span class="p">)</span>
+<span class="n">train_dl</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">test_dl</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">LeNet</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kanali</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">velicina</span><span class="o">=</span><span class="mi">28</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">kanali</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+        <span class="n">strana</span> <span class="o">=</span> <span class="p">(</span><span class="n">velicina</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">4</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>             <span class="c1"># 28 -&gt; 5, 32 -&gt; 6</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span> <span class="o">*</span> <span class="n">strana</span> <span class="o">*</span> <span class="n">strana</span><span class="p">,</span> <span class="mi">120</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="p">)))))</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">LeNet</span><span class="p">()</span>
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">train_dl</span><span class="p">:</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="n">tocno</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">test_dl</span><span class="p">:</span>
+            <span class="n">tocno</span> <span class="o">+=</span> <span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">yb</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"epoha </span><span class="si">%d</span><span class="s2">: točnost na testu </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">epoha</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tocno</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test</span><span class="p">)))</span></code></pre></div>
+<p>Za <b>CIFAR-10</b> promijene se samo tri stvari: <code>datasets.CIFAR10</code> umjesto <code>MNIST</code> (download oko $170$ MB), <code>LeNet(kanali=3, velicina=32)</code> jer su slike RGB $32\times32$ (prvi sloj ima $3\cdot25$ težina po jezgri umjesto $25$), i normalizacija po tri kanala. Točnost će biti bitno niža (ovako plitka mreža na CIFAR-u obično dosegne oko $60$–$70\,\%$): fotografije objekata iz raznih kutova traže dublje mreže, augmentaciju i pretrenirane težine iz lekcije V5. Kod ostaje isti – u tome je ljepota modularnog zapisa.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Bez računala odredi dimenziju izlaza konvolucije za ulaz $32\times32$ i: (a) $k=5$, $p=0$, $s=1$; (b) $k=5$, $p=2$, $s=1$; (c) $k=3$, $p=1$, $s=2$; (d) $k=7$, $p=3$, $s=2$ pa max-pooling $2\times2$. Provjeri u PyTorchu.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Formula $\lfloor(n+2p-k)/s\rfloor+1$ daje: (a) $28$; (b) $32$; (c) $\lfloor 31/2\rfloor+1=16$; (d) $\lfloor 31/2\rfloor+1=16$, pa nakon poolinga $8$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">ulaz</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]:</span>
+    <span class="n">izlaz</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="n">p</span><span class="p">)(</span><span class="n">ulaz</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"k=</span><span class="si">%d</span><span class="s2"> p=</span><span class="si">%d</span><span class="s2"> s=</span><span class="si">%d</span><span class="s2"> -&gt;"</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">izlaz</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"nakon poolinga:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">izlaz</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">:]))</span></code></pre></div>
+<pre class="izlaz"><code>k=5 p=0 s=1 -&gt; (28, 28)
+k=5 p=2 s=1 -&gt; (32, 32)
+k=3 p=1 s=2 -&gt; (16, 16)
+k=7 p=3 s=2 -&gt; (16, 16)
+nakon poolinga: (8, 8)</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Koliko parametara ima: (a) konvolucijski sloj $3\times3$ sa $64$ ulazna i $128$ izlaznih kanala; (b) potpuno povezani sloj koji sliku $3\times32\times32$ preslikava u $128$ brojeva? Ovisi li (a) o veličini slike? Provjeri u PyTorchu.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) $128\,(64\cdot9+1)=73\,856$; (b) $128\,(3072+1)=393\,344$. Konvolucijski sloj ne ovisi o veličini slike – isti sloj radi na $32\times32$ i na $224\times224$, dok bi linearni sloj za veću sliku trebao pedeset puta više težina.</p>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="n">broj_parametara</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">broj_parametara</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="mi">32</span> <span class="o">*</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">128</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>73856 393344</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Ručno izračunaj konvoluciju (bez dopunjavanja, korak $1$) matrice $X=\begin{pmatrix}1&2&0\\0&1&3\\4&0&1\end{pmatrix}$ s jezgrom $K=\begin{pmatrix}1&0\\0&-1\end{pmatrix}$. Što ta jezgra „mjeri”? Provjeri funkcijom iz Primjera 1 i funkcijom <code>F.conv2d</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Izlaz je $2\times2$: $Y_{0,0}=1-1=0$, $Y_{0,1}=2-3=-1$, $Y_{1,0}=0-0=0$, $Y_{1,1}=1-1=0$. Jezgra uspoređuje piksel s njegovim dijagonalnim susjedom dolje-desno, tj. mjeri dijagonalni gradijent (to je jedan od Robertsovih operatora iz klasične obrade slika).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Xm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">Km</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">konvolucija</span><span class="p">(</span><span class="n">Xm</span><span class="p">,</span> <span class="n">Km</span><span class="p">))</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">conv2d</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Xm</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Km</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>[[ 0. -1.]
+ [ 0.  0.]]
+[[ 0. -1.]
+ [ 0.  0.]]</code></pre>
+<p>Jednakost s <code>F.conv2d</code> potvrđuje da PyTorch računa korelaciju, a ne zrcaljenu konvoluciju: s pravom konvolucijom bi $Y_{0,1}$ bio $3-2=1$.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Izračunaj receptivno polje neurona u posljednjoj mapi značajki (nakon drugog poolinga) mreže <code>MaliCNN</code> iz Primjera 2, pa isto za LeNet iz Primjera 3. Zatim rezultat potvrdi eksperimentom: u mreži iste građe, ali s jezgrama od samih jedinica i prosječnim poolingom (da ReLU i maksimum ne „ugase” ovisnost), izračunaj gradijent jednog izlaznog neurona po ulaznoj slici i pogledaj koji su pikseli različiti od nule.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Primijeni rekurziju $r_\ell=r_{\ell-1}+(k_\ell-1)j_{\ell-1}$, $j_\ell=j_{\ell-1}s_\ell$ na niz slojeva conv(3,1), pool(2,2), conv(3,1), pool(2,2). Dopunjavanje ne mijenja receptivno polje, samo dio polja može „visjeti” izvan slike.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Za <code>MaliCNN</code>: conv1 $r=3$, $j=1$; pool1 $r=3+1\cdot1=4$, $j=2$; conv2 $r=4+2\cdot2=8$, $j=2$; pool2 $r=8+1\cdot2=10$, $j=4$. Receptivno polje je $10\times10$ – veće od slike, pa svaki od četiri izlazna neurona vidi (uz dopunjavanje) gotovo cijelu znamenku. Za LeNet: conv $5$ → $r=5$, $j=1$; pool → $r=6$, $j=2$; conv $5$ → $r=14$, $j=2$; pool → $r=16$, $j=4$: svaki neuron mape $5\times5$ vidi područje $16\times16$ slike $28\times28$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">rec_polje</span><span class="p">(</span><span class="n">slojevi</span><span class="p">):</span>
+    <span class="n">r</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">slojevi</span><span class="p">:</span>
+        <span class="n">r</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">r</span> <span class="o">+</span> <span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">j</span><span class="p">,</span> <span class="n">j</span> <span class="o">*</span> <span class="n">s</span>
+    <span class="k">return</span> <span class="n">r</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MaliCNN:"</span><span class="p">,</span> <span class="n">rec_polje</span><span class="p">([(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]),</span>
+      <span class="s2">" LeNet:"</span><span class="p">,</span> <span class="n">rec_polje</span><span class="p">([(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)]))</span>
+
+<span class="n">c1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">c2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">c1</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="mf">1.0</span><span class="p">);</span> <span class="n">c2</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">fill_</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">polje_neurona</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">avg_pool2d</span><span class="p">(</span><span class="n">c2</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">avg_pool2d</span><span class="p">(</span><span class="n">c1</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="mi">2</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>      <span class="c1"># (1, 1, 2, 2)</span>
+    <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">ovisi</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">grad</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+    <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">ovisi</span><span class="p">,</span> <span class="n">as_tuple</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ovisi</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">r</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()),</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">c</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"izlaz (</span><span class="si">%d</span><span class="s2">,</span><span class="si">%d</span><span class="s2">): </span><span class="si">%2d</span><span class="s2"> piksela, retci </span><span class="si">%s</span><span class="s2">, stupci </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="n">polje_neurona</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>MaliCNN: 10  LeNet: 16
+izlaz (0,0): 49 piksela, retci (0, 6), stupci (0, 6)
+izlaz (1,1): 49 piksela, retci (1, 7), stupci (1, 7)</code></pre>
+<p>Izlazni neuron $(0,0)$ ovisi o pikselima u retcima i stupcima $0$–$6$, a neuron $(1,1)$ o retcima i stupcima $1$–$7$: svaki vidi prozor $7\times7$, tj. onaj dio teoretskog polja $10\times10$ koji ne „visi” u dopunjavanju izvan slike. U pravoj mreži ReLU i max-pooling mogu dio tih veza ugasiti za konkretnu sliku – receptivno polje govori tko <em>može</em> utjecati na neuron, ne tko utječe.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Pooling nije jedini način smanjivanja slike: umjesto <i>Conv (stride 1) → Pool</i> može se koristiti <i>Conv (stride 2)</i>. Napravi inačicu <code>MaliCNN</code> bez poolinga, s korakom $2$ u obje konvolucije, pa usporedi broj parametara, veličinu izlazne mape i točnost na testu s izvornom mrežom.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Konvolucija $3\times3$ s <code>padding=1</code> i <code>stride=2</code> na $8\times8$ daje $\lfloor(8+2-3)/2\rfloor+1=4$, pa druga daje $2$ – iste dimenzije kao s poolingom, uz isti broj parametara (pooling ih nema). Razlika je u tome što konvolucija s korakom <em>uči</em> kako sažeti blok, a pooling uvijek uzima maksimum.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">CNNbezPoolinga</span><span class="p">(</span><span class="n">MaliCNN</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">))))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc1</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">1</span><span class="p">))))</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">m2</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">CNNbezPoolinga</span><span class="p">(),</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"izlazna mapa:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">m2</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">m2</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">X_te</span><span class="p">[:</span><span class="mi">1</span><span class="p">]))))</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara: </span><span class="si">%d</span><span class="s2"> (izvorna </span><span class="si">%d</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">broj_parametara</span><span class="p">(</span><span class="n">m2</span><span class="p">),</span> <span class="n">broj_parametara</span><span class="p">(</span><span class="n">cnn</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"test: stride-2 </span><span class="si">%.3f</span><span class="s2">   pooling </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">m2</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">cnn</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>izlazna mapa: (16, 2, 2)
+parametara: 3658 (izvorna 3658)
+test: stride-2 0.961   pooling 0.961</code></pre>
+<p>Na ovako malom zadatku razlika u točnosti je unutar šuma; mreža s korakom je brža jer konvoluciju računa na četiri puta manje položaja. Moderne arhitekture (ResNet) koriste oboje.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Proširi funkciju iz Primjera 1 na više kanala: ulaz oblika $(C_{\text{in}},H,W)$, jezgra oblika $(C_{\text{out}},C_{\text{in}},k,k)$ i vektor pomaka duljine $C_{\text{out}}$. Provjeri da za nasumične tenzore daje isto što i <code>F.conv2d</code>, a zatim istu stvar izračunaj <em>bez petlji po položaju</em> metodom „im2col”: sve prozore složi u matricu i pomnoži je s matricom jezgri.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Svaka izlazna mapa $c$ je $b_c+\sum_{c'}\text{konvolucija}(X_{c'},K_{c,c'})$. Za im2col: prozor na položaju $(i,j)$ ispeglaj u vektor duljine $C_{\text{in}}k^2$; tada je izlaz (matrica $(H_{\text{out}}W_{\text{out}})\times C_{\text{out}}$) jedan matrični umnožak – zato je konvolucija na GPU-u brza.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">konvolucija_kanali</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">C_out</span><span class="p">,</span> <span class="n">C_in</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">izlaz</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C_out</span><span class="p">):</span>
+        <span class="n">Y</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">konvolucija</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">ci</span><span class="p">],</span> <span class="n">K</span><span class="p">[</span><span class="n">c</span><span class="p">,</span> <span class="n">ci</span><span class="p">],</span> <span class="n">stride</span><span class="p">,</span> <span class="n">padding</span><span class="p">)</span> <span class="k">for</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">C_in</span><span class="p">))</span>
+        <span class="n">izlaz</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Y</span> <span class="o">+</span> <span class="n">b</span><span class="p">[</span><span class="n">c</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">izlaz</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">konvolucija_im2col</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">C_out</span><span class="p">,</span> <span class="n">C_in</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">Xp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="n">padding</span><span class="p">,</span> <span class="n">padding</span><span class="p">),</span> <span class="p">(</span><span class="n">padding</span><span class="p">,</span> <span class="n">padding</span><span class="p">)))</span>
+    <span class="n">H_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">Xp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span><span class="p">)</span> <span class="o">//</span> <span class="n">stride</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">W_out</span> <span class="o">=</span> <span class="p">(</span><span class="n">Xp</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span><span class="p">)</span> <span class="o">//</span> <span class="n">stride</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">stupci</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">Xp</span><span class="p">[:,</span> <span class="n">i</span> <span class="o">*</span> <span class="n">stride</span><span class="p">:</span><span class="n">i</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">+</span> <span class="n">k</span><span class="p">,</span> <span class="n">j</span> <span class="o">*</span> <span class="n">stride</span><span class="p">:</span><span class="n">j</span> <span class="o">*</span> <span class="n">stride</span> <span class="o">+</span> <span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+                       <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">H_out</span><span class="p">)</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">W_out</span><span class="p">)])</span>  <span class="c1"># (H_out*W_out, C_in*k*k)</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">stupci</span> <span class="o">@</span> <span class="n">K</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">C_out</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">b</span>                           <span class="c1"># (H_out*W_out, C_out)</span>
+    <span class="k">return</span> <span class="n">Y</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">C_out</span><span class="p">,</span> <span class="n">H_out</span><span class="p">,</span> <span class="n">W_out</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Xc</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+<span class="n">Kc</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">bc</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="n">ref</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">conv2d</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Xc</span><span class="p">)[</span><span class="kc">None</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Kc</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">bc</span><span class="p">),</span> <span class="n">stride</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">konvolucija_kanali</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">Kc</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+      <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">konvolucija_kanali</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">Kc</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ref</span><span class="p">),</span>
+      <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">konvolucija_im2col</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">Kc</span><span class="p">,</span> <span class="n">bc</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ref</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(4, 4, 4) True True</code></pre>
+<p>Obje inačice daju isto što i PyTorch. Im2col troši više memorije (svaki piksel kopira se do $k^2$ puta), ali pretvara konvoluciju u jedno množenje matrica, za što su GPU-ovi i BLAS biblioteke optimirani; cuDNN i slične biblioteke koriste upravo takve (i pametnije) preslike.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Provjeri ekvivarijantnost na pomak i njezinu praktičnu posljedicu. (a) Za jednu znamenku i nasumičnu jezgru pokaži da je konvolucija slike pomaknute za jedan piksel udesno jednaka pomaknutoj konvoluciji izvorne slike (uz <code>padding=1</code>; zanemari rubni stupac). (b) Napiši funkciju <code>pomakni(X, dy, dx)</code> koja seriju slika pomiče za cijeli broj piksela i ispražnjeni rub puni nulama, pomakni testne slike iz Primjera 2 za jedan piksel udesno i usporedi točnost CNN-a i MLP-a na pomaknutom testu.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">K</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">slike</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">A_pom</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>                      <span class="c1"># pomak udesno za 1 piksel</span>
+<span class="n">lijevo</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">A_pom</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">:]</span>   <span class="c1"># konvolucija pomaknute slike</span>
+<span class="n">desno</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">konvolucija</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">:]</span>   <span class="c1"># pomaknuta konvolucija</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"(a) ekvivarijantnost:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">lijevo</span><span class="p">,</span> <span class="n">desno</span><span class="p">))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pomakni</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">shifts</span><span class="o">=</span><span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">dy</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span> <span class="n">Y</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">dy</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">dy</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> <span class="n">Y</span><span class="p">[:,</span> <span class="p">:,</span> <span class="n">dy</span><span class="p">:,</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">dx</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span> <span class="n">Y</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="p">:</span><span class="n">dx</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">dx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span> <span class="n">Y</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:,</span> <span class="n">dx</span><span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">Y</span>
+
+<span class="n">X_te_pom</span> <span class="o">=</span> <span class="n">pomakni</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"(b) pomaknuti test:  CNN </span><span class="si">%.3f</span><span class="s2">   MLP </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">cnn</span><span class="p">,</span> <span class="n">X_te_pom</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">mlp</span><span class="p">,</span> <span class="n">X_te_pom</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"    izvorni test:    CNN </span><span class="si">%.3f</span><span class="s2">   MLP </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">cnn</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">mlp</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>(a) ekvivarijantnost: True
+(b) pomaknuti test:  CNN 0.608   MLP 0.464
+    izvorni test:    CNN 0.961   MLP 0.964</code></pre>
+<p>Konvolucijski sloj je egzaktno ekvivarijantan, pa CNN pri pomaku zadržava više točnosti nego MLP, kojemu je pomaknuta znamenka potpuno novi vektor. Potpuna invarijantnost ipak ne postoji (linearni slojevi na kraju vide položaj), pa i CNN pada – lijek je augmentacija u sljedećem zadatku.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Augmentacija pomacima: napiši inačicu funkcije <code>treniraj</code> koja svaku mini-seriju prije koraka učenja nasumično pomakne za $-1$, $0$ ili $1$ piksel po svakoj osi (funkcijom <code>pomakni</code> iz prethodnog zadatka). Usporedi CNN bez i s augmentacijom na izvornom testu, na testu pomaknutom za jedan piksel udesno i na testu pomaknutom za jedan piksel udesno i dolje. Zašto augmentacija pomaže više od većeg modela?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Pomak mora biti isti za cijelu sliku, ali smije biti različit za različite slike; jednostavnije je uzeti jedan pomak po mini-seriji – i to je dovoljno. Augmentirana mreža uči teži zadatak, pa joj daj više epoha.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">treniraj_aug</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">3e-3</span><span class="p">,</span> <span class="n">batch</span><span class="o">=</span><span class="mi">64</span><span class="p">):</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">batch</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">batch</span><span class="p">]</span>
+            <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">xb</span> <span class="o">=</span> <span class="n">pomakni</span><span class="p">(</span><span class="n">X_tr</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+            <span class="n">gubitak</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">();</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">model</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cnn_aug</span> <span class="o">=</span> <span class="n">treniraj_aug</span><span class="p">(</span><span class="n">MaliCNN</span><span class="p">(),</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="n">X_te_pom2</span> <span class="o">=</span> <span class="n">pomakni</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"                 izvorni  pomak(1,0)  pomak(1,1)"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"bez augmentacije"</span><span class="p">,</span> <span class="n">cnn</span><span class="p">),</span> <span class="p">(</span><span class="s2">"s augmentacijom "</span><span class="p">,</span> <span class="n">cnn_aug</span><span class="p">)]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">  </span><span class="si">%.3f</span><span class="s2">     </span><span class="si">%.3f</span><span class="s2">       </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span>
+          <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te_pom</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te_pom2</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>                 izvorni  pomak(1,0)  pomak(1,1)
+bez augmentacije  0.961     0.608       0.178
+s augmentacijom   0.967     0.967       0.936</code></pre>
+<p>Mreža trenirana na pomaknutim slikama pri pomaku udesno ne gubi ništa, pri dijagonalnom pomaku malo, a na izvornom testu jednako je dobra kao i prije. Veći model to ne može postići: iz podataka u kojima su sve znamenke centrirane ne može se <em>naučiti</em> da pomak ne mijenja oznaku – tu informaciju unosimo mi, augmentacijom. Isti princip s rotacijama, zrcaljenjem i bojama razrađuje lekcija V4.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Linearni sloj nakon <code>flatten</code> veže mrežu uz točnu veličinu ulaza ($8\times8$). Zamijeni <code>flatten</code> + <code>fc1</code> <b>globalnim prosječnim poolingom</b> (<code>x.mean(dim=(2, 3))</code>, engl. <i>global average pooling</i>) iza dodatne konvolucije $1\times1$ koja $16$ kanala pretvara u $10$ (po jedan za svaku klasu). Prebroji parametre, istreniraj i pokaži da ista mreža bez promjene prihvaća i sliku $16\times16$ (npr. znamenku uvećanu ponavljanjem piksela). Je li predikcija na uvećanoj slici ispravna? Zašto (ne)?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Konvolucija $1\times1$ je linearni sloj primijenjen na svaki piksel zasebno: miješa kanale, ne prostor. Nakon nje svaka od $10$ mapa „glasuje” za svoju klasu, a prosjek po prostoru zbraja glasove – zato dimenzije ulaza više nisu bitne.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">CNN_GAP</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>              <span class="c1"># 1x1: 16 kanala -&gt; 10 "glasova"</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">F</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">)),</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">conv3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>         <span class="c1"># globalni prosjek -&gt; (N, 10)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">gap</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">CNN_GAP</span><span class="p">(),</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">80</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara: </span><span class="si">%d</span><span class="s2"> (MaliCNN </span><span class="si">%d</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">broj_parametara</span><span class="p">(</span><span class="n">gap</span><span class="p">),</span> <span class="n">broj_parametara</span><span class="p">(</span><span class="n">cnn</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"test 8x8: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">gap</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">))</span>
+<span class="n">X_te_16</span> <span class="o">=</span> <span class="n">X_te</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>   <span class="c1"># (N, 1, 16, 16)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ulaz"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">X_te_16</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]),</span> <span class="s2">"-&gt; izlaz"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">gap</span><span class="p">(</span><span class="n">X_te_16</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="s2">"točnost </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">gap</span><span class="p">,</span> <span class="n">X_te_16</span><span class="p">,</span> <span class="n">y_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>parametara: 1418 (MaliCNN 3658)
+test 8x8: 0.969
+ulaz (1, 16, 16) -&gt; izlaz (360, 10) točnost 0.136</code></pre>
+<p>Mreža s globalnim poolingom ima manje parametara (nema velikih linearnih slojeva) i prihvaća bilo koju veličinu ulaza – zato je taj obrazac standard u modernim arhitekturama (ResNet, EfficientNet). No točnost na uvećanim slikama pada: jezgre $3\times3$ naučene su na potezima debljine jednog piksela, a na uvećanoj slici potez je dvostruko deblji i rubovi izgledaju drukčije. Mreža je neovisna o <em>dimenzijama</em> ulaza, ali ne i o <em>mjerilu</em> sadržaja; za to opet treba augmentacija (slučajno skaliranje) ili testiranje na istoj rezoluciji kao pri učenju.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>MLP na slici gubi geometriju i nije otporan na pomak; CNN isti mali detektor (jezgru) primjenjuje na svim položajima – lokalnost, dijeljenje težina, ekvivarijantnost na pomak.</li>
+<li>Dimenzija izlaza: $\lfloor(n+2p-k)/s\rfloor+1$; broj parametara sloja $C_{\text{out}}(C_{\text{in}}k^2+1)$ ne ovisi o veličini slike.</li>
+<li>Blok <i>Conv → ReLU → Pool</i> smanjuje sliku, povećava broj kanala i širi receptivno polje ($r_\ell=r_{\ell-1}+(k_\ell-1)j_{\ell-1}$); dublji slojevi prepoznaju složenije uzorke.</li>
+<li>PyTorch: ulaz oblika $(N,C,H,W)$, <code>nn.Conv2d(C_in, C_out, k, stride, padding)</code>, <code>F.max_pool2d</code>, <code>flatten(1)</code> pa linearni slojevi ili globalni prosječni pooling.</li>
+<li>Uvijek pogledaj jezgre i mape značajki; protiv pomaka, rotacija i promjena osvjetljenja pomaže augmentacija (V4), a za prave fotografije pretrenirane mreže (V5).</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press, poglavlje 9 (Convolutional Networks); besplatno na <a href="https://www.deeplearningbook.org/">deeplearningbook.org</a>.</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html">nn.Conv2d</a> i vodič <a href="https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html">Training a Classifier</a> (CIFAR-10).</li>
+<li>Stanford CS231n, <i>Convolutional Neural Networks for Visual Recognition</i>, bilješke <a href="https://cs231n.github.io/convolutional-networks/">Convolutional Networks</a>.</li>
+<li>Y. LeCun, L. Bottou, Y. Bengio, P. Haffner, <i>Gradient-Based Learning Applied to Document Recognition</i>, Proc. IEEE, 1998 (izvorni LeNet-5).</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="04-treniranje-u-praksi.html"><small>← Prethodna lekcija</small>D4 · Treniranje mreža u praksi</a>
+                <a class="sljedeca" href="06-sekvence-attention-transformeri.html"><small>Sljedeća lekcija →</small>D6 · Sekvence, attention i transformeri</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

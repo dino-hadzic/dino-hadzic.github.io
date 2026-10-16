@@ -1,0 +1,565 @@
+@@ meta
+naslov = Sekvence, attention i transformeri
+podnaslov = Od rekurentnih mreža do self-attentiona: kako model „gleda” cijeli niz odjednom i zašto su transformeri osvojili jezik i vid
+oznake = sekvencijalni podaci, RNN i LSTM, self-attention, $Q$, $K$, $V$, višeglavi attention, pozicijsko kodiranje, transformer blok, pretrenirani model
+
+@@ ciljevi
+<li>Opisati što je sekvencijalni zadatak, kako ga rješava rekurentna mreža i zašto joj gradijent kroz dugačke nizove nestaje.</li>
+<li>Zapisati self-attention formulom $\operatorname{softmax}(QK^\top/\sqrt{d_k})\,V$, izračunati ga ručno u NumPy-ju i objasniti ulogu skaliranja, više glava i pozicijskog kodiranja.</li>
+<li>Složiti transformer blok (attention, rezidualne veze, normalizacija sloja, MLP) i razlikovati enkoder, dekoder s kauzalnom maskom i enkoder–dekoder.</li>
+<li>Istrenirati <code>nn.TransformerEncoderLayer</code> u PyTorchu na malom sintetičkom zadatku i znati što znači „pretrenirani model” prije lekcije V3.</li>
+
+@@ teorija
+<p>Slika ima fiksnu veličinu, a rečenica, melodija ili niz mjerenja temperature nemaju: ulaz je <b>niz</b> (sekvenca) $x_1,x_2,\dots,x_n$ promjenjive duljine $n$ u kojem <em>redoslijed nosi značenje</em> („pas grize čovjeka” nije „čovjek grize psa”). U tekstu su $x_t$ <b>tokeni</b> (riječi ili dijelovi riječi) iz vokabulara, koje najprije pretvorimo u vektore <b>ugradnje</b> (engl. <i>embedding</i>, lekcija V2) dimenzije $d$; niz tako postaje matrica $X\in\mathbb R^{n\times d}$. Model za sekvence mora raditi za svaki $n$ i mora znati povezati tokene koji su daleko jedan od drugoga.</p>
+
+<h3>Rekurentne mreže i problem nestajućeg gradijenta</h3>
+<definicija naslov="Rekurentna neuronska mreža (RNN)">
+RNN obrađuje niz element po element i pamti <b>skriveno stanje</b> $h_t\in\mathbb R^m$:
+$$h_t=\tanh\!\left(W_h h_{t-1}+W_x x_t+b\right),\qquad h_0=0 .$$
+Iste matrice $W_h,W_x$ koriste se u svakom koraku (dijeljenje težina kroz vrijeme, kao jezgra u CNN-u kroz prostor). Predikcija se čita iz $h_n$ (klasifikacija niza) ili iz svakog $h_t$ (označavanje svakog elementa).
+</definicija>
+<p>Gradijent gubitka po ranom ulazu $x_1$ putuje unatrag kroz sve korake: $\frac{\partial h_n}{\partial h_1}=\prod_{t=2}^{n}\frac{\partial h_t}{\partial h_{t-1}}$, a svaki faktor je $\operatorname{diag}(1-h_t^2)\,W_h$. Umnožak od $n$ matrica s normom manjom od $1$ eksponencijalno <em>nestaje</em>, s normom većom od $1$ <em>eksplodira</em> (lekcija D2). RNN zato teško uči ovisnosti udaljene više od desetak koraka. <b>LSTM</b> (engl. <i>long short-term memory</i>) i GRU ublažavaju problem dodatnim stanjem (<i>ćelijom</i>) koje se mijenja zbrajanjem, a ne množenjem, uz <b>vrata</b> (engl. <i>gates</i>) koja uče što zadržati i što zaboraviti. Ipak, i LSTM obrađuje niz slijedno – korak $t$ ne može početi prije koraka $t-1$ – pa ne iskorištava paralelizam GPU-a. To su dva razloga zbog kojih je attention zamijenio rekurenciju.</p>
+
+<h3>Self-attention</h3>
+<p>Ideja: umjesto da informacija putuje korak po korak, <em>svaki</em> token izravno pogleda <em>sve</em> ostale i iz njih složi težinski prosjek – pri čemu težine ovise o sadržaju. Tri uloge tokena razdvajamo trima naučenim projekcijama: <b>upit</b> (engl. <i>query</i>) „što tražim”, <b>ključ</b> (engl. <i>key</i>) „što nudim” i <b>vrijednost</b> (engl. <i>value</i>) „što dajem ako me odabereš”.</p>
+<definicija naslov="Skalirani skalarni produkt (scaled dot-product attention)">
+Za ulaz $X\in\mathbb R^{n\times d}$ i matrice $W_Q,W_K\in\mathbb R^{d\times d_k}$, $W_V\in\mathbb R^{d\times d_v}$ stavimo $Q=XW_Q$, $K=XW_K$, $V=XW_V$. Izlaz je
+$$\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V\in\mathbb R^{n\times d_v},$$
+gdje se softmax primjenjuje po retcima. Element $(i,j)$ matrice $A=\operatorname{softmax}(QK^\top/\sqrt{d_k})$ je <b>težina pažnje</b> kojom token $i$ gleda token $j$; svaki redak od $A$ zbraja se u $1$, pa je $i$-ti redak izlaza konveksna kombinacija vrijednosti $V$.
+</definicija>
+<p>Zašto $\sqrt{d_k}$? Ako komponente $q$ i $k$ imaju varijancu $1$, skalarni produkt $q^\top k$ ima varijancu $d_k$. Za velik $d_k$ razlike među rezultatima postaju goleme, softmax se zasiti (jedna težina $\approx1$, ostale $\approx0$) i gradijent nestaje; dijeljenje sa $\sqrt{d_k}$ vraća varijancu na $1$. Cijela operacija su tri množenja matrica i softmax – nema petlje po vremenu, svi tokeni računaju se paralelno, a put između bilo koja dva tokena dug je točno jedan korak.</p>
+<napomena>Složenost self-attentiona je $O(n^2 d)$ zbog matrice $QK^\top$ dimenzije $n\times n$. Za rečenice to je zanemarivo, za dokumente od desetaka tisuća tokena postaje glavni trošak – zato postoje aproksimacije, a „duljina konteksta” je ključna karakteristika svakog jezičnog modela.</napomena>
+
+<h3>Više glava</h3>
+<definicija naslov="Višeglavi attention (multi-head attention)">
+Umjesto jednog attentiona s $d_k=d$, ulaz se projicira u $h$ <b>glava</b> dimenzije $d_h=d/h$, svaka računa svoj attention, izlazi se nadovežu (engl. <i>concatenate</i>) i pomnože izlaznom matricom:
+$$\operatorname{MHA}(X)=\big[\operatorname{head}_1\,\|\cdots\|\,\operatorname{head}_h\big]\,W_O,\qquad \operatorname{head}_i=\operatorname{Attention}(XW_Q^{(i)},XW_K^{(i)},XW_V^{(i)}).$$
+Ukupan broj parametara (bez pomaka) je $4d^2$, isti kao za jednu glavu dimenzije $d$.
+</definicija>
+<p>Svaka glava može pratiti drugu vrstu veze: jedna susjedne riječi, druga subjekt–predikat, treća zamjenicu i imenicu na koju se odnosi. Cijena je ista kao za jednu veliku glavu, a izražajnost veća.</p>
+
+<h3>Pozicijsko kodiranje</h3>
+<p>Attention je <b>ekvivarijantan na permutacije</b>: ispremiješamo li retke od $X$, izlaz se samo jednako ispremiješa (Primjer 2). Model dakle ne vidi redoslijed – „pas grize čovjeka” i „čovjek grize psa” dali bi iste skupove izlaznih vektora. Zato se ugradnjama dodaje <b>pozicijsko kodiranje</b> $P\in\mathbb R^{n\times d}$, vektor koji ovisi samo o položaju $t$. Izvorni transformer koristi sinusoide različitih frekvencija,</p>
+$$P_{t,2i}=\sin\!\left(\frac{t}{10000^{2i/d}}\right),\qquad P_{t,2i+1}=\cos\!\left(\frac{t}{10000^{2i/d}}\right),$$
+<p>a mnogi noviji modeli položaj jednostavno <em>nauče</em> (tablica ugradnji po položaju, ograničena na najveću duljinu) ili ga ugrađuju u $Q$ i $K$ rotacijama. Bitno je samo da model može razlikovati i uspoređivati položaje.</p>
+
+<h3>Transformer blok</h3>
+<p>Jedan <b>blok</b> (sloj) transformera sastoji se od dva podsloja, oba omotana <b>rezidualnom vezom</b> i <b>normalizacijom sloja</b> (engl. <i>layer norm</i>, lekcija D4):</p>
+$$Z=\operatorname{LayerNorm}\big(X+\operatorname{MHA}(X)\big),\qquad Y=\operatorname{LayerNorm}\big(Z+\operatorname{FFN}(Z)\big),$$
+<p>gdje je $\operatorname{FFN}(z)=W_2\,\operatorname{ReLU}(W_1 z+b_1)+b_2$ mali MLP koji se primjenjuje na <em>svaki token zasebno</em>, obično s unutarnjom dimenzijom $4d$. Attention miješa informacije <em>između</em> tokena, FFN ih obrađuje <em>unutar</em> tokena. Blokovi se slažu ($6$ u izvornom radu, desetci u današnjim modelima); rezidualne veze omogućuju da gradijent prođe kroz sve (D4). Ovaj zapis (normalizacija nakon zbrajanja, <i>post-LN</i>) je zadani u PyTorchu; varijanta <i>pre-LN</i> normalizira ulaz podsloja i stabilnije se trenira.</p>
+
+<h3>Enkoder, dekoder i maska</h3>
+<p><b>Enkoder</b> je hrpa blokova kakvi su opisani: svaki token vidi sve ostale (dvosmjerno). Daje reprezentaciju cijelog niza – za klasifikaciju teksta, označavanje riječi, pretraživanje. <b>Dekoder</b> koristi <b>kauzalnu masku</b>: prije softmaxa postavi na $-\infty$ sve elemente $QK^\top$ iznad dijagonale, pa token $t$ vidi samo tokene $\le t$. Takav model može <em>generirati</em> niz token po token („predvidi sljedeću riječ”), jer tijekom učenja nikad ne „vara” gledanjem u budućnost. <b>Enkoder–dekoder</b> (izvorni transformer, za prijevod) ima oboje, a dekoder dodatno <i>unakrsnim</i> attentionom (engl. <i>cross-attention</i>) gleda izlaz enkodera: upiti dolaze iz dekodera, ključevi i vrijednosti iz enkodera. BERT je enkoder, modeli obitelji GPT su dekoderi, T5 i modeli za prijevod su enkoder–dekoderi.</p>
+
+<h3>Što je pretrenirani model</h3>
+<p>Transformer ima milijune ili milijarde parametara i treba mu ogromno podataka. Zato se treniranje dijeli u dvije faze. <b>Pretreniranje</b> (engl. <i>pre-training</i>): model se na golemom neoznačenom korpusu uči <em>samonadziranom</em> zadatku čije oznake dolaze iz samog teksta – predviđanje sljedećeg tokena (dekoderi) ili pogađanje nasumično sakrivenih tokena (enkoderi, engl. <i>masked language modeling</i>). Tako nauči gramatiku, značenja i mnogo činjenica. <b>Fino podešavanje</b> (engl. <i>fine-tuning</i>): pretrenirani model s dodanom malom izlaznom glavom kratko se trenira na našem malom označenom skupu. Na natjecanju gotovo nikad ne treniraš transformer od nule: preuzmeš pretrenirani (lekcije V3 i V5) i podešavaš ga – ali da bi znao što podešavaš, moraš razumjeti ovu lekciju.</p>
+
+@@ primjeri
+<primjer>
+<p>Za $n=4$ tokena dimenzije $d=8$ izračunaj self-attention s $d_k=d_v=4$ ručno u NumPy-ju: projekcije $Q,K,V$, matricu težina $A$ i izlaz. Provjeri da se svaki redak od $A$ zbraja u $1$ i da PyTorchova funkcija <code>scaled_dot_product_attention</code> daje isto. Zatim pokaži zašto je skaliranje sa $\sqrt{d_k}$ potrebno.</p>
+<rjesenje>
+<p><b>Korak 1: softmax po retcima.</b> Oduzimanje maksimuma retka ne mijenja rezultat (brojnik i nazivnik množe se istim $e^{-\max}$), a sprječava prelijevanje <code>exp</code>.</p>
+<kod jezik="python">
+import numpy as np
+
+def softmax(S, axis=-1):
+    S = S - S.max(axis=axis, keepdims=True)
+    E = np.exp(S)
+    return E / E.sum(axis=axis, keepdims=True)
+
+rng = np.random.default_rng(0)
+n, d, d_k = 4, 8, 4
+X = rng.normal(size=(n, d))                      # 4 tokena, svaki vektor dimenzije 8
+W_Q, W_K, W_V = (rng.normal(scale=0.5, size=(d, d_k)) for _ in range(3))
+print(X.shape, W_Q.shape)
+</kod>
+<izlaz>
+(4, 8) (8, 4)
+</izlaz>
+<p><b>Korak 2: Q, K, V, težine i izlaz.</b> Svaki redak od $A$ kaže kako token $i$ raspodjeljuje svoju „pažnju” po tokenima $j$.</p>
+<kod jezik="python">
+def attention(Q, K, V, maska=None):
+    S = Q @ K.T / np.sqrt(Q.shape[1])            # (n, n) rezultati (engl. scores)
+    if maska is not None:
+        S = np.where(maska, S, -np.inf)
+    A = softmax(S)
+    return A @ V, A
+
+Q, K, V = X @ W_Q, X @ W_K, X @ W_V
+Y, A = attention(Q, K, V)
+print("težine A:")
+print(A.round(3))
+print("zbroj po retcima:", A.sum(axis=1).round(6))
+print("izlaz Y, oblik", Y.shape)
+print(Y.round(3))
+</kod>
+<izlaz>
+težine A:
+[[0.299 0.23  0.315 0.157]
+ [0.162 0.068 0.295 0.475]
+ [0.54  0.06  0.298 0.102]
+ [0.14  0.283 0.216 0.361]]
+zbroj po retcima: [1. 1. 1. 1.]
+izlaz Y, oblik (4, 4)
+[[-0.058 -0.234 -0.156  1.185]
+ [ 0.218 -0.184 -0.095  0.772]
+ [ 0.329 -0.179 -0.458  0.669]
+ [-0.094 -0.276 -0.007  1.151]]
+</izlaz>
+<p>Token $1$ gotovo polovicu pažnje daje tokenu $3$, token $2$ više od polovice tokenu $0$, a token $0$ gleda sve podjednako – tko koga gleda ovisi o sadržaju vektora (preko $W_Q$ i $W_K$), a ne o položaju. Izlaz $Y$ ima isti broj redaka kao ulaz: svaki token dobio je novi vektor, mješavinu vrijednosti onih tokena na koje je „pazio”.</p>
+<p><b>Korak 3: provjera u PyTorchu.</b></p>
+<kod jezik="python">
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+Yt = F.scaled_dot_product_attention(torch.tensor(Q), torch.tensor(K), torch.tensor(V))
+print("isto kao PyTorch:", np.allclose(Yt.numpy(), Y))
+</kod>
+<izlaz>
+isto kao PyTorch: True
+</izlaz>
+<p><b>Korak 4: zašto $\sqrt{d_k}$.</b> Za nasumične $q,k$ sa standardnim normalnim komponentama i $d_k=64$ mjerimo standardnu devijaciju rezultata $q^\top k$ i prosječnu najveću težinu u retku od $A$ za $n=10$ ključeva, sa skaliranjem i bez njega.</p>
+<kod jezik="python">
+d_k, n = 64, 10
+najveca = {"bez skaliranja": [], "sa skaliranjem": []}
+std_rezultata = []
+for _ in range(200):
+    Qr, Kr = rng.normal(size=(n, d_k)), rng.normal(size=(n, d_k))
+    S = Qr @ Kr.T
+    std_rezultata.append(S.std())
+    najveca["bez skaliranja"].append(softmax(S).max(axis=1).mean())
+    najveca["sa skaliranjem"].append(softmax(S / np.sqrt(d_k)).max(axis=1).mean())
+print("std rezultata q.k: %.2f  (sqrt(d_k) = %.0f)" % (np.mean(std_rezultata), np.sqrt(d_k)))
+for ime, v in najveca.items():
+    print("%-15s prosječna najveća težina u retku: %.3f" % (ime, np.mean(v)))
+</kod>
+<izlaz>
+std rezultata q.k: 7.94  (sqrt(d_k) = 8)
+bez skaliranja  prosječna najveća težina u retku: 0.857
+sa skaliranjem  prosječna najveća težina u retku: 0.317
+</izlaz>
+<p>Bez skaliranja rezultati imaju standardnu devijaciju oko $8$, pa softmax većinu težine (u prosjeku preko $0{,}85$) stavi na jedan token: attention postaje gotovo tvrdi odabir, a gradijent po ostalim tokenima približno je nula. Skalirani rezultati imaju devijaciju oko $1$ i težine ostaju „meke”, što je na početku učenja ključno – model tek treba naučiti na što paziti.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Pokaži eksperimentom tri tvrdnje iz teorije: (a) gradijent RNN-a po prvom elementu niza eksponencijalno nestaje s duljinom niza; (b) self-attention je ekvivarijantan na permutacije tokena; (c) sinusoidno pozicijsko kodiranje daje svakom položaju jedinstven vektor čiji skalarni produkt s drugim položajem ovisi samo o njihovu razmaku.</p>
+<rjesenje>
+<p><b>Korak 1: nestajući gradijent.</b> Kroz <code>nn.RNN</code> s nasumičnim (početnim) težinama pustimo niz duljine $T$ i izračunamo normu gradijenta zbroja završnog stanja $h_T$ po prvom ulazu $x_1$.</p>
+<kod jezik="python">
+torch.manual_seed(0)
+rnn = nn.RNN(input_size=4, hidden_size=16, batch_first=True)
+for T in (5, 20, 50, 100):
+    x = torch.randn(1, T, 4, requires_grad=True)
+    _, h_T = rnn(x)
+    h_T.sum().backward()
+    print("T = %3d   |d h_T / d x_1| = %.2e" % (T, x.grad[0, 0].norm().item()))
+</kod>
+<izlaz>
+T =   5   |d h_T / d x_1| = 4.19e-02
+T =  20   |d h_T / d x_1| = 1.91e-05
+T =  50   |d h_T / d x_1| = 3.88e-13
+T = 100   |d h_T / d x_1| = 0.00e+00
+</izlaz>
+<p>Već za $T=20$ gradijent je reda $10^{-5}$, a za $T=100$ je numerički nula: ono što se dogodilo na početku niza ne može utjecati na učenje. Tako izgleda nestajući gradijent u praksi; LSTM ga ublažava, attention ga uklanja jer je udaljenost između bilo koja dva tokena uvijek jedan korak.</p>
+<p><b>Korak 2: ekvivarijantnost na permutacije.</b> Permutiramo retke ulaza $X$ iz Primjera 1 i usporedimo izlaz s permutiranim izvornim izlazom.</p>
+<kod jezik="python">
+perm = np.array([2, 0, 3, 1])
+Xp = X[perm]
+Yp, _ = attention(Xp @ W_Q, Xp @ W_K, Xp @ W_V)
+print("attention(X[perm]) == attention(X)[perm]:", np.allclose(Yp, Y[perm]))
+</kod>
+<izlaz>
+attention(X[perm]) == attention(X)[perm]: True
+</izlaz>
+<p>Dokaz je jedan redak: za permutacijsku matricu $\Pi$ je $Q'=\Pi Q$, $K'=\Pi K$, $V'=\Pi V$, pa $Q'K'^\top=\Pi QK^\top\Pi^\top$; softmax po retcima komutira s permutiranjem redaka i stupaca, pa je $A'=\Pi A\Pi^\top$ i $A'V'=\Pi A\Pi^\top\Pi V=\Pi(AV)$. Model dakle „vidi” skup tokena, ne niz – bez pozicijskog kodiranja ne može razlikovati rečenice koje se razlikuju samo redoslijedom.</p>
+<p><b>Korak 3: sinusoidno kodiranje.</b> Parni stupci su sinusi, neparni kosinusi, a frekvencija pada geometrijski s indeksom stupca: prvi stupci se mijenjaju brzo (razlikuju susjedne položaje), posljednji sporo (razlikuju daleke).</p>
+<kod jezik="python">
+def pozicijsko_kodiranje(n, d):
+    poz = np.arange(n)[:, None]                  # (n, 1)
+    i = np.arange(0, d, 2)[None, :]              # (1, d/2) indeksi parova
+    kut = poz / 10000 ** (i / d)
+    P = np.zeros((n, d))
+    P[:, 0::2] = np.sin(kut)
+    P[:, 1::2] = np.cos(kut)
+    return P
+
+P = pozicijsko_kodiranje(50, 16)
+print("oblik:", P.shape, " norma svakog retka:", np.unique(np.linalg.norm(P, axis=1).round(6)))
+for t in (0, 10, 30):
+    print("P[%2d].P[%2d] = %.3f   P[%2d].P[%2d] = %.3f" % (t, t + 1, P[t] @ P[t + 1], t, t + 5, P[t] @ P[t + 5]))
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+plt.figure(figsize=(6, 3))
+plt.imshow(P.T, aspect="auto", cmap="RdBu")
+plt.xlabel("položaj t"); plt.ylabel("dimenzija"); plt.colorbar()
+plt.tight_layout(); plt.savefig("pozicijsko.png", dpi=120)
+print("spremljeno pozicijsko.png")
+</kod>
+<izlaz>
+oblik: (50, 16)  norma svakog retka: [2.828427]
+P[ 0].P[ 1] = 7.485   P[ 0].P[ 5] = 6.137
+P[10].P[11] = 7.485   P[10].P[15] = 6.137
+P[30].P[31] = 7.485   P[30].P[35] = 6.137
+spremljeno pozicijsko.png
+</izlaz>
+<p>Svi retci imaju istu normu $\sqrt{d/2}$ (jer je $\sin^2+\cos^2=1$ u svakom paru), a skalarni produkt $P_t^\top P_{t+k}$ ne ovisi o $t$ nego samo o razmaku $k$ (adicijski teorem: $\sin a\sin b+\cos a\cos b=\cos(a-b)$) – susjedni položaji su sličniji od udaljenih, što attentionu olakšava učenje relativnih odnosa. Na slici se vidi „barkod”: gornje dimenzije brzo osciliraju, donje se gotovo ne mijenjaju duž niza.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>U PyTorchu složi mali transformer-enkoder (ugradnje + pozicijsko kodiranje + <code>nn.TransformerEncoderLayer</code> + linearna glava) i istreniraj ga na sintetičkom zadatku <b>obrtanja niza</b>: ulaz je niz od $8$ znamenki $0$–$9$, izlaz na položaju $i$ mora biti ulazna znamenka s položaja $7-i$. Izmjeri točnost po tokenu na novim nizovima.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> Nizovi se generiraju u hodu, pa trening i test nikad ne dijele primjer. Zadatak je namjerno jednostavan, ali ga je bez pozicijskog kodiranja nemoguće riješiti (Zadatak 7).</p>
+<kod jezik="python">
+V, L = 10, 8                                   # veličina vokabulara, duljina niza
+
+def obrni(x):
+    return x.flip(1)
+
+g = torch.Generator().manual_seed(1)
+x_primjer = torch.randint(0, V, (2, L), generator=g)
+print(x_primjer.tolist())
+print(obrni(x_primjer).tolist())
+</kod>
+<izlaz>
+[[5, 9, 4, 8, 3, 3, 1, 1], [9, 2, 8, 9, 6, 3, 3, 0]]
+[[1, 1, 3, 3, 8, 4, 9, 5], [0, 3, 3, 6, 9, 8, 2, 9]]
+</izlaz>
+<p><b>Korak 2: model.</b> <code>nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward)</code> je točno blok iz teorije (višeglavi attention + FFN s rezidualima i LayerNormom); <code>nn.TransformerEncoder</code> slaže više blokova. Uz <code>batch_first=True</code> ulaz ima oblik $(N, n, d)$. Pozicijsko kodiranje spremamo kao <i>buffer</i>: dio modela koji nije parametar.</p>
+<kod jezik="python">
+class MaliTransformer(nn.Module):
+    def __init__(self, d=32, glave=4, slojeva=2, pe=True):
+        super().__init__()
+        self.emb = nn.Embedding(V, d)
+        self.register_buffer("pe", torch.tensor(pozicijsko_kodiranje(L, d), dtype=torch.float32))
+        self.koristi_pe = pe
+        blok = nn.TransformerEncoderLayer(d, glave, dim_feedforward=64, dropout=0.0, batch_first=True)
+        self.enkoder = nn.TransformerEncoder(blok, slojeva, enable_nested_tensor=False)
+        self.glava = nn.Linear(d, V)
+
+    def forward(self, x, maska=None):
+        h = self.emb(x)                                      # (N, L, d)
+        if self.koristi_pe:
+            h = h + self.pe[:x.shape[1]]
+        return self.glava(self.enkoder(h, mask=maska))       # (N, L, V) logiti za svaki položaj
+
+torch.manual_seed(0)
+model = MaliTransformer()
+print("parametara:", sum(p.numel() for p in model.parameters()))
+print("oblik izlaza:", tuple(model(x_primjer).shape))
+</kod>
+<izlaz>
+parametara: 17738
+oblik izlaza: (2, 8, 10)
+</izlaz>
+<p><b>Korak 3: učenje.</b> Gubitak je unakrsna entropija po svakom položaju: logite $(N,L,V)$ spljoštimo u $(NL,V)$, ciljeve u $(NL)$. Jedan korak s mini-serijom od $64$ nizova traje nekoliko milisekundi na procesoru.</p>
+<kod jezik="python">
+def treniraj(model, cilj, koraka=1200, lr=1e-3, maska=None):
+    g = torch.Generator().manual_seed(0)
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    for k in range(1, koraka + 1):
+        x = torch.randint(0, V, (64, L), generator=g)
+        gubitak = F.cross_entropy(model(x, maska).flatten(0, 1), cilj(x).flatten())
+        opt.zero_grad(); gubitak.backward(); opt.step()
+        if k % 300 == 0:
+            print("korak %4d  gubitak %.4f" % (k, gubitak.item()))
+    return model
+
+def tocnost(model, cilj, maska=None):
+    g = torch.Generator().manual_seed(123)
+    x = torch.randint(0, V, (1000, L), generator=g)
+    model.eval()
+    with torch.no_grad():
+        return (model(x, maska).argmax(-1) == cilj(x)).float().mean().item()
+
+model = treniraj(model, obrni)
+print("točnost po tokenu na 1000 novih nizova: %.3f" % tocnost(model, obrni))
+</kod>
+<izlaz>
+korak  300  gubitak 0.0094
+korak  600  gubitak 0.0026
+korak  900  gubitak 0.0012
+korak 1200  gubitak 0.0007
+točnost po tokenu na 1000 novih nizova: 1.000
+</izlaz>
+<p><b>Korak 4: što je model naučio.</b> Pogledaj težine pažnje prvog bloka za jedan niz: za obrtanje bi token na položaju $i$ trebao gledati položaj $7-i$. Do težina dolazimo pozivom samog attention podsloja s <code>need_weights=True</code> (prosjek po glavama).</p>
+<kod jezik="python">
+blok = model.enkoder.layers[0]
+with torch.no_grad():
+    h = model.emb(x_primjer[:1]) + model.pe
+    _, A1 = blok.self_attn(h, h, h, need_weights=True)      # (1, L, L), prosjek po glavama
+print("položaj kojem svaki token daje najviše pažnje:", A1[0].argmax(1).tolist())
+print("najveća težina u svakom retku:", A1[0].max(1).values.numpy().round(2))
+</kod>
+<izlaz>
+položaj kojem svaki token daje najviše pažnje: [7, 6, 6, 3, 3, 0, 1, 1]
+najveća težina u svakom retku: [0.15 0.19 0.16 0.17 0.16 0.17 0.17 0.18]
+</izlaz>
+<p>Težine prosječene po četiri glave prilično su raspršene (najveća je tek oko $0{,}15$–$0{,}19$; pojedine glave su oštrije), ali za polovicu položaja ($0$, $1$, $4$, $6$) najjača veza ide upravo na zrcalni položaj, a za ostale na njegova susjeda; drugi blok dovršava posao. To je moguće samo zato što pozicijsko kodiranje razlikuje položaje, pa se pažnja može naučiti uparivati položaj $i$ s položajem $7-i$. Na pravim jezičnim modelima isto tako crtamo težine da vidimo koje riječi model povezuje.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za ulaz $X\in\mathbb R^{n\times d}$ s $n=20$ tokena i $d=512$, napiši dimenzije matrica $Q$, $K^\top$, $QK^\top$, $A$ i izlaza za (a) jednu glavu s $d_k=d_v=512$, (b) $8$ glava. Koliko parametara ima višeglavi attention s $d=512$ i $8$ glava, uključujući pomake u sve četiri projekcije? Provjeri na <code>nn.MultiheadAttention</code>.</p>
+<rjesenje>
+<p>(a) $Q\in\mathbb R^{20\times512}$, $K^\top\in\mathbb R^{512\times20}$, $QK^\top$ i $A$ su $20\times20$, izlaz $20\times512$. (b) Po glavi: $Q^{(i)}\in\mathbb R^{20\times64}$, $A^{(i)}\in\mathbb R^{20\times20}$ (osam takvih matrica), izlaz svake glave $20\times64$, nadovezano $20\times512$ i nakon $W_O$ opet $20\times512$. Parametri: četiri matrice $512\times512$ i četiri pomaka duljine $512$: $4\cdot512^2+4\cdot512=1\,050\,624$.</p>
+<kod jezik="python">
+mha = nn.MultiheadAttention(embed_dim=512, num_heads=8, batch_first=True)
+print(sum(p.numel() for p in mha.parameters()), "=", 4 * 512 ** 2 + 4 * 512)
+</kod>
+<izlaz>
+1050624 = 1050624
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Jedan upit ima (već skalirane) rezultate $s=(2,\,0,\,-2)$ prema tri ključa, a vrijednosti su $v_1=(1,0)$, $v_2=(0,1)$, $v_3=(1,1)$. Ručno izračunaj težine pažnje i izlaz, pa provjeri u NumPy-ju. Što bi se dogodilo s težinama kad bi se svi rezultati pomnožili s $10$?</p>
+<rjesenje>
+<p>Težine su $\dfrac{(e^2,\,1,\,e^{-2})}{e^2+1+e^{-2}}\approx(0{,}867,\,0{,}117,\,0{,}016)$, a izlaz $0{,}867\,(1,0)+0{,}117\,(0,1)+0{,}016\,(1,1)\approx(0{,}883,\,0{,}133)$. Pomnože li se rezultati s $10$, težine postaju $\approx(1,\,2\cdot10^{-9},\,0)$ – softmax se zasiti i attention degenerira u „uzmi $v_1$”; to je učinak koji skaliranje sa $\sqrt{d_k}$ sprječava.</p>
+<kod jezik="python">
+s = np.array([2.0, 0.0, -2.0])
+Vz = np.array([[1, 0], [0, 1], [1, 1]], dtype=float)
+print("težine:", softmax(s).round(3), " izlaz:", (softmax(s) @ Vz).round(3))
+print("x10:   ", softmax(10 * s).round(9))
+</kod>
+<izlaz>
+težine: [0.867 0.117 0.016]  izlaz: [0.883 0.133]
+x10:    [9.99999998e-01 2.00000000e-09 0.00000000e+00]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Napiši kauzalnu masku za $n=5$ tokena: logičku matricu u kojoj je $(i,j)$ istina ako token $i$ smije gledati token $j$. Primijeni je u funkciji <code>attention</code> iz Primjera 1 na nasumične $Q,K,V$ i provjeri da su težine iznad dijagonale nula, a retci se i dalje zbrajaju u $1$. Usporedi s PyTorchovom <code>nn.Transformer.generate_square_subsequent_mask(5)</code> – kakva je njezina konvencija?</p>
+<rjesenje>
+<kod jezik="python">
+maska = np.tril(np.ones((5, 5), dtype=bool))
+Q5, K5, V5 = (rng.normal(size=(5, 4)) for _ in range(3))
+_, A5 = attention(Q5, K5, V5, maska)
+print(A5.round(3))
+print("iznad dijagonale nula:", np.allclose(np.triu(A5, 1), 0), " retci zbroj 1:", np.allclose(A5.sum(1), 1))
+print(nn.Transformer.generate_square_subsequent_mask(5))
+</kod>
+<izlaz>
+[[1.    0.    0.    0.    0.   ]
+ [0.457 0.543 0.    0.    0.   ]
+ [0.037 0.089 0.874 0.    0.   ]
+ [0.112 0.064 0.323 0.501 0.   ]
+ [0.077 0.327 0.246 0.301 0.05 ]]
+iznad dijagonale nula: True  retci zbroj 1: True
+tensor([[0., -inf, -inf, -inf, -inf],
+        [0., 0., -inf, -inf, -inf],
+        [0., 0., 0., -inf, -inf],
+        [0., 0., 0., 0., -inf],
+        [0., 0., 0., 0., 0.]])
+</izlaz>
+<p>Prvi token vidi samo sebe (težina $1$), peti vidi sve. PyTorchova maska koristi suprotnu konvenciju: to je matrica koja se <em>pribraja</em> rezultatima, s $0$ gdje je gledanje dopušteno i $-\infty$ gdje nije; <code>-inf</code> nakon softmaxa daje točno nulu. Takvu masku prosljeđuješ kao argument <code>mask</code> enkoderu – vidi Zadatak 8.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>U transformer bloku s $d=512$ i $h=8$ glava FFN ima unutarnju dimenziju $4d=2048$. Prebroji parametre jednog bloka (attention s pomacima, FFN s pomacima, dvije normalizacije sloja s po $2d$ parametara) i provjeri na <code>nn.TransformerEncoderLayer</code>. Koji dio bloka nosi najviše parametara? Zatim ispiši parametre <code>MaliTransformer</code>-a po komponentama.</p>
+<rjesenje>
+<p>Attention: $4d^2+4d=1\,050\,624$. FFN: $d\cdot4d+4d+4d\cdot d+d=8d^2+5d=2\,099\,712$. Dvije normalizacije: $4d=2048$. Ukupno $3\,152\,384$. FFN nosi dvije trećine parametara – zato se u velikim modelima najviše „znanja” pripisuje upravo FFN slojevima.</p>
+<kod jezik="python">
+blok512 = nn.TransformerEncoderLayer(512, 8, dim_feedforward=2048)
+print(sum(p.numel() for p in blok512.parameters()), "=", 4 * 512 ** 2 + 4 * 512 + 8 * 512 ** 2 + 5 * 512 + 4 * 512)
+for ime, modul in model.named_children():
+    print("%-8s %6d" % (ime, sum(p.numel() for p in modul.parameters())))
+</kod>
+<izlaz>
+3152384 = 3152384
+emb         320
+enkoder   17088
+glava       330
+</izlaz>
+<p>U <code>MaliTransformer</code>-u ($d=32$, FFN $64$) dva bloka nose gotovo sve parametre; ugradnje i izlazna glava su sitne jer je vokabular samo $10$ znamenki. U pravim jezičnim modelima vokabular ima desetke tisuća tokena, pa i ugradnje postaju velike.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Iz pozicijskog kodiranja $P$ iz Primjera 2 ($n=50$, $d=16$) za svaki položaj $t$ nađi položaj $t'\ne t$ s najvećim skalarnim produktom $P_t^\top P_{t'}$. Je li to uvijek susjed? Zatim pokaži da pomak za fiksan $k$ djeluje linearno: nađi matricu $M_k$ (metodom najmanjih kvadrata) takvu da je $P_{t+k}\approx P_t M_k$ za sve $t$, i izmjeri grešku.</p>
+<naputak>Za svaki par (sinus, kosinus) iste frekvencije $\omega$ vrijedi $(\sin\omega(t+k),\cos\omega(t+k))=(\sin\omega t,\cos\omega t)\,R_k$ s rotacijskom matricom $R_k$ koja ne ovisi o $t$. $M_k$ je blok-dijagonalna od takvih rotacija.</naputak>
+<rjesenje>
+<kod jezik="python">
+G = P @ P.T
+np.fill_diagonal(G, -np.inf)
+najblizi = G.argmax(axis=1)
+print("najsličniji položaj je susjed:", np.mean(np.abs(najblizi - np.arange(50)) == 1).round(2))
+
+k = 3
+M_k, *_ = np.linalg.lstsq(P[:-k], P[k:], rcond=None)
+print("najveća greška |P[t+3] - P[t] M_3|: %.2e" % np.abs(P[:-k] @ M_k - P[k:]).max())
+print("M_3 je blok-dijagonalna (gornji lijevi 2x2 blok):")
+print(M_k[:2, :2].round(3), " rotacija za kut", round(float(np.degrees(np.arctan2(M_k[0, 1], M_k[0, 0]))), 1), "stupnjeva")
+</kod>
+<izlaz>
+najsličniji položaj je susjed: 1.0
+najveća greška |P[t+3] - P[t] M_3|: 3.76e-14
+M_3 je blok-dijagonalna (gornji lijevi 2x2 blok):
+[[-0.99  -0.141]
+ [ 0.141 -0.99 ]]  rotacija za kut -171.9 stupnjeva
+</izlaz>
+<p>Svakom položaju najsličniji je jedan od susjeda, a pomak za $k$ je egzaktno <em>linearno</em> preslikavanje $M_k$ neovisno o $t$: za prvi par (frekvencija $\omega=1$) blok je rotacija za $k=3$ radijana, tj. $\approx171{,}9^\circ$ (predznak kuta ovisi samo o smjeru vrtnje). Zato model može naučiti pitati „koji je token tri mjesta lijevo” jednom projekcijom – argument iz izvornog rada o transformerima.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Napiši višeglavi attention u NumPy-ju (podjela na glave, attention po glavi, nadovezivanje, izlazna projekcija) i provjeri da s težinama kopiranima iz <code>nn.MultiheadAttention</code> ($d=32$, $4$ glave) daje isti izlaz na nasumičnom nizu. PyTorch drži sve tri ulazne projekcije u jednoj matrici <code>in_proj_weight</code> oblika $(3d, d)$ – redom $Q$, $K$, $V$ – i računa <code>x @ W.T + b</code>.</p>
+<naputak>Za glavu $i$ uzmi stupce $[i\,d_h,(i+1)d_h)$ od $Q$, $K$, $V$. Nadovezivanje izlaza glava vraća matricu $(n,d)$, koju množiš s <code>out_proj.weight.T</code> i dodaješ <code>out_proj.bias</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def mha_numpy(Xn, W_in, b_in, W_out, b_out, glave, maska=None):
+    d = Xn.shape[1]
+    d_h = d // glave
+    Qn, Kn, Vn = np.split(Xn @ W_in.T + b_in, 3, axis=1)         # svaki (n, d)
+    izlazi = []
+    for i in range(glave):
+        s = slice(i * d_h, (i + 1) * d_h)
+        Yi, _ = attention(Qn[:, s], Kn[:, s], Vn[:, s], maska)
+        izlazi.append(Yi)
+    return np.concatenate(izlazi, axis=1) @ W_out.T + b_out
+
+torch.manual_seed(0)
+mha = nn.MultiheadAttention(32, 4, batch_first=True)
+Xt = torch.randn(1, 6, 32)
+with torch.no_grad():
+    Y_torch, _ = mha(Xt, Xt, Xt)
+tez = {ime: p.detach().double().numpy() for ime, p in mha.named_parameters()}
+Y_np = mha_numpy(Xt[0].double().numpy(), tez["in_proj_weight"], tez["in_proj_bias"],
+                 tez["out_proj.weight"], tez["out_proj.bias"], glave=4)
+print("isti izlaz:", np.allclose(Y_np, Y_torch[0].numpy(), atol=1e-6))
+</kod>
+<izlaz>
+isti izlaz: True
+</izlaz>
+<p>Dakle, „višeglavi” attention nije ništa tajanstveno: ista funkcija iz Primjera 1 primijenjena na $h$ odsječaka stupaca, uz jednu zajedničku izlaznu projekciju. Tu funkciju iskoristi u Zadatku 9 za cijeli blok.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Istreniraj <code>MaliTransformer(pe=False)</code> – bez pozicijskog kodiranja – na zadatku obrtanja iz Primjera 3 i usporedi točnost. Objasni rezultat ekvivarijantnošću na permutacije: koju bi najbolju točnost takav model <em>teoretski</em> mogao postići? Zatim pokaži da na zadatku koji ne ovisi o redoslijedu (npr. „na svakom položaju ispiši najveću znamenku u nizu”) model bez pozicijskog kodiranja radi jednako dobro.</p>
+<naputak>Izlaz na položaju $i$ modela bez pozicijskog kodiranja može ovisiti samo o tokenu $x_i$ i o <em>multiskupu</em> svih tokena, ne o tome gdje se koji nalazi.</naputak>
+<rjesenje>
+<kod jezik="python">
+torch.manual_seed(0)
+bez_pe = treniraj(MaliTransformer(pe=False), obrni)
+print("obrtanje bez poz. kodiranja: %.3f   (s njim: %.3f)" % (tocnost(bez_pe, obrni), tocnost(model, obrni)))
+
+def najveca(x):
+    return x.max(dim=1, keepdim=True).values.expand_as(x)
+
+torch.manual_seed(0)
+m_max = treniraj(MaliTransformer(pe=False), najveca, koraka=600)
+print("najveća znamenka bez poz. kodiranja: %.3f" % tocnost(m_max, najveca))
+</kod>
+<izlaz>
+korak  300  gubitak 1.6395
+korak  600  gubitak 1.5780
+korak  900  gubitak 1.6086
+korak 1200  gubitak 1.5943
+obrtanje bez poz. kodiranja: 0.316   (s njim: 1.000)
+korak  300  gubitak 0.0080
+korak  600  gubitak 0.0030
+najveća znamenka bez poz. kodiranja: 1.000
+</izlaz>
+<p>Gubitak kod obrtanja zapne oko $1{,}6$, a točnost je daleko od $1$. Model bez položaja na mjestu $i$ zna samo $x_i$ i koji se tokeni uopće pojavljuju u nizu; najbolje što može jest pogađati, npr. „neku znamenku koja se u nizu pojavljuje”, pa je točnost iznad slučajnih $10\,\%$, ali bitno ispod rješenja. Zadatak „najveća znamenka” ovisi samo o multiskupu, pa ga isti model rješava savršeno. Pouka: pozicijsko kodiranje nije ukras, nego jedini izvor informacije o redoslijedu.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Dekoder u malom: istreniraj <code>MaliTransformer</code> s <b>kauzalnom maskom</b> na zadatku „na položaju $i$ ispiši $(x_0+x_1+\dots+x_i)\bmod 10$”. Zatim eksperimentom potvrdi kauzalnost: promijeni tokene od položaja $4$ nadalje i provjeri da se logiti na položajima $0$–$3$ nisu promijenili. Zašto bi isti zadatak bio lakši bez maske, i zašto je maska ipak nužna za generativni model?</p>
+<naputak>Masku dobivaš s <code>nn.Transformer.generate_square_subsequent_mask(L)</code> i prosljeđuješ je kao <code>maska</code> u <code>forward</code> i funkcijama <code>treniraj</code>/<code>tocnost</code>. Zadatak je teži od obrtanja (zbroj modulo 10 treba složiti kroz dva bloka), pa daj modelu više koraka.</naputak>
+<rjesenje>
+<kod jezik="python">
+def prefiksni_zbroj(x):
+    return x.cumsum(dim=1) % 10
+
+maska_k = nn.Transformer.generate_square_subsequent_mask(L)
+torch.manual_seed(0)
+dekoder = treniraj(MaliTransformer(), prefiksni_zbroj, koraka=3000, maska=maska_k)
+print("točnost po tokenu: %.3f" % tocnost(dekoder, prefiksni_zbroj, maska_k))
+
+g = torch.Generator().manual_seed(7)
+x1 = torch.randint(0, V, (1, L), generator=g)
+x2 = x1.clone()
+x2[0, 4:] = (x2[0, 4:] + 5) % 10                 # mijenjamo samo "budućnost"
+with torch.no_grad():
+    l1, l2 = dekoder(x1, maska_k), dekoder(x2, maska_k)
+print("položaji 0-3 nepromijenjeni:", torch.allclose(l1[0, :4], l2[0, :4], atol=1e-5),
+      " položaji 4-7 promijenjeni:", not torch.allclose(l1[0, 4:], l2[0, 4:], atol=1e-5))
+</kod>
+<izlaz>
+korak  300  gubitak 1.8109
+korak  600  gubitak 1.5663
+korak  900  gubitak 0.7848
+korak 1200  gubitak 0.5170
+korak 1500  gubitak 0.4574
+korak 1800  gubitak 0.4519
+korak 2100  gubitak 0.1938
+korak 2400  gubitak 0.0953
+korak 2700  gubitak 0.0808
+korak 3000  gubitak 0.0866
+točnost po tokenu: 0.988
+položaji 0-3 nepromijenjeni: True  položaji 4-7 promijenjeni: True
+</izlaz>
+<p>Maska jamči da izlaz na položaju $i$ ovisi samo o $x_0,\dots,x_i$ – upravo ono što generativni model treba: pri generiranju buduće tokene još ne znamo, pa model na njima ne smije ni učiti. Bez maske zadatak bi bio „lakši” samo prividno – model bi mogao gledati i buduće tokene, ali ovdje mu oni ne trebaju, a u pravom jezičnom modeliranju bi mu odali odgovor (sljedeću riječ) i naučeno bi na novom tekstu bilo beskorisno. Isti princip pretreniranja – predviđanje sljedećeg tokena uz kauzalnu masku – stoji iza modela obitelji GPT koje ćeš koristiti u lekciji V3.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Složi cijeli transformer blok u NumPy-ju: višeglavi attention iz Zadatka 6, rezidualna veza, normalizacija sloja, FFN s ReLU-om, opet rezidual i normalizacija (post-LN, kao u teoriji). Kopiraj težine iz prvog bloka <code>MaliTransformer</code>-a iz Primjera 3 (<code>model.enkoder.layers[0]</code>) i provjeri da na ulazu <code>emb + pe</code> daješ isti izlaz kao PyTorch.</p>
+<naputak>Normalizacija sloja po retku: $\operatorname{LN}(z)=\gamma\odot\dfrac{z-\mu}{\sqrt{\sigma^2+\varepsilon}}+\beta$ s $\varepsilon=10^{-5}$, gdje su $\mu$ i $\sigma^2$ srednja vrijednost i varijanca <em>komponenata</em> vektora $z$ (ne po seriji!). Imena parametara dobivaš s <code>blok.named_parameters()</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def layer_norm(Z, gama, beta, eps=1e-5):
+    mu = Z.mean(axis=1, keepdims=True)
+    var = Z.var(axis=1, keepdims=True)
+    return gama * (Z - mu) / np.sqrt(var + eps) + beta
+
+def transformer_blok(Xn, t, glave):
+    A_out = mha_numpy(Xn, t["self_attn.in_proj_weight"], t["self_attn.in_proj_bias"],
+                      t["self_attn.out_proj.weight"], t["self_attn.out_proj.bias"], glave)
+    Z = layer_norm(Xn + A_out, t["norm1.weight"], t["norm1.bias"])
+    skriveni = np.maximum(0, Z @ t["linear1.weight"].T + t["linear1.bias"])
+    FFN = skriveni @ t["linear2.weight"].T + t["linear2.bias"]
+    return layer_norm(Z + FFN, t["norm2.weight"], t["norm2.bias"])
+
+blok = model.enkoder.layers[0]
+t = {ime: p.detach().double().numpy() for ime, p in blok.named_parameters()}
+print(sorted(t))
+with torch.no_grad():
+    h = model.emb(x_primjer[:1]) + model.pe
+    Y_blok = blok(h)[0].numpy()
+Y_np = transformer_blok(h[0].double().numpy(), t, glave=4)
+print("isti izlaz bloka:", np.allclose(Y_np, Y_blok, atol=1e-5))
+</kod>
+<izlaz>
+['linear1.bias', 'linear1.weight', 'linear2.bias', 'linear2.weight', 'norm1.bias', 'norm1.weight', 'norm2.bias', 'norm2.weight', 'self_attn.in_proj_bias', 'self_attn.in_proj_weight', 'self_attn.out_proj.bias', 'self_attn.out_proj.weight']
+isti izlaz bloka: True
+</izlaz>
+<p>Cijeli blok stane u desetak redaka: dvije normalizacije, dva rezidualna zbroja, jedan attention i jedan mali MLP. Svaki transformer – od ovog s nepunih $18\,000$ parametara do modela s milijardama – samo slaže takve blokove; razlikuju se u $d$, broju glava, broju blokova, položaju normalizacije i podacima na kojima su pretrenirani.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Sekvence imaju promjenjivu duljinu i značenje u redoslijedu. RNN ih obrađuje korak po korak dijeleći težine kroz vrijeme, ali gradijent kroz dugačke nizove nestaje i računanje je slijedno.</li>
+<li>Self-attention: $Q=XW_Q$, $K=XW_K$, $V=XW_V$, $\operatorname{softmax}(QK^\top/\sqrt{d_k})V$; svaki token je težinski prosjek vrijednosti svih tokena, težine ovise o sadržaju, skaliranje sprječava zasićenje softmaxa.</li>
+<li>Više glava = isti attention na $h$ odsječaka dimenzije $d/h$ pa zajednička projekcija; pozicijsko kodiranje (sinusoidno ili naučeno) jedini je izvor informacije o redoslijedu, jer je attention ekvivarijantan na permutacije.</li>
+<li>Transformer blok: $\operatorname{LN}(X+\operatorname{MHA}(X))$ pa $\operatorname{LN}(Z+\operatorname{FFN}(Z))$; enkoder gleda dvosmjerno, dekoder uz kauzalnu masku generira token po token, enkoder–dekoder ih spaja unakrsnim attentionom.</li>
+<li>PyTorch: <code>nn.MultiheadAttention</code>, <code>nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward, batch_first=True)</code>, <code>nn.TransformerEncoder</code>, maska iz <code>generate_square_subsequent_mask</code>.</li>
+<li>Pretrenirani model = transformer samonadzirano istreniran na golemom korpusu (sljedeći token ili maskirani tokeni); na natjecanju ga preuzimaš i fino podešavaš (V3, V5).</li>
+</ul>
+
+@@ literatura
+<li>A. Vaswani i dr., <i>Attention Is All You Need</i>, NeurIPS 2017 – izvorni rad o transformeru (<a href="https://arxiv.org/abs/1706.03762">arXiv:1706.03762</a>).</li>
+<li>J. Alammar, <a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a> – vizualno objašnjenje $Q$, $K$, $V$ i više glava.</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoderLayer.html">nn.TransformerEncoderLayer</a> i <a href="https://pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html">nn.MultiheadAttention</a>.</li>
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press, poglavlje 10 (Sequence Modeling: Recurrent and Recursive Nets).</li>

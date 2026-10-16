@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Duboko učenje 6: Sekvence, attention i transformeri</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#duboko-ucenje">Duboko učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Duboko učenje · lekcija 6 od 6</p>
+            <h1><span class="broj-lekcije">D6</span> Sekvence, attention i transformeri</h1>
+            <p class="meta">Od rekurentnih mreža do self-attentiona: kako model „gleda” cijeli niz odjednom i zašto su transformeri osvojili jezik i vid</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 1.0" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>sekvencijalni podaci</li>
+                <li>RNN i LSTM</li>
+                <li>self-attention</li>
+                <li>$Q$</li>
+                <li>$K$</li>
+                <li>$V$</li>
+                <li>višeglavi attention</li>
+                <li>pozicijsko kodiranje</li>
+                <li>transformer blok</li>
+                <li>pretrenirani model</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Opisati što je sekvencijalni zadatak, kako ga rješava rekurentna mreža i zašto joj gradijent kroz dugačke nizove nestaje.</li>
+<li>Zapisati self-attention formulom $\operatorname{softmax}(QK^\top/\sqrt{d_k})\,V$, izračunati ga ručno u NumPy-ju i objasniti ulogu skaliranja, više glava i pozicijskog kodiranja.</li>
+<li>Složiti transformer blok (attention, rezidualne veze, normalizacija sloja, MLP) i razlikovati enkoder, dekoder s kauzalnom maskom i enkoder–dekoder.</li>
+<li>Istrenirati <code>nn.TransformerEncoderLayer</code> u PyTorchu na malom sintetičkom zadatku i znati što znači „pretrenirani model” prije lekcije V3.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Slika ima fiksnu veličinu, a rečenica, melodija ili niz mjerenja temperature nemaju: ulaz je <b>niz</b> (sekvenca) $x_1,x_2,\dots,x_n$ promjenjive duljine $n$ u kojem <em>redoslijed nosi značenje</em> („pas grize čovjeka” nije „čovjek grize psa”). U tekstu su $x_t$ <b>tokeni</b> (riječi ili dijelovi riječi) iz vokabulara, koje najprije pretvorimo u vektore <b>ugradnje</b> (engl. <i>embedding</i>, lekcija V2) dimenzije $d$; niz tako postaje matrica $X\in\mathbb R^{n\times d}$. Model za sekvence mora raditi za svaki $n$ i mora znati povezati tokene koji su daleko jedan od drugoga.</p>
+
+<h3>Rekurentne mreže i problem nestajućeg gradijenta</h3>
+<div class="pojam">
+<h4>Rekurentna neuronska mreža (RNN)</h4>
+<p>RNN obrađuje niz element po element i pamti <b>skriveno stanje</b> $h_t\in\mathbb R^m$:
+$$h_t=\tanh\!\left(W_h h_{t-1}+W_x x_t+b\right),\qquad h_0=0 .$$
+Iste matrice $W_h,W_x$ koriste se u svakom koraku (dijeljenje težina kroz vrijeme, kao jezgra u CNN-u kroz prostor). Predikcija se čita iz $h_n$ (klasifikacija niza) ili iz svakog $h_t$ (označavanje svakog elementa).</p>
+</div>
+<p>Gradijent gubitka po ranom ulazu $x_1$ putuje unatrag kroz sve korake: $\frac{\partial h_n}{\partial h_1}=\prod_{t=2}^{n}\frac{\partial h_t}{\partial h_{t-1}}$, a svaki faktor je $\operatorname{diag}(1-h_t^2)\,W_h$. Umnožak od $n$ matrica s normom manjom od $1$ eksponencijalno <em>nestaje</em>, s normom većom od $1$ <em>eksplodira</em> (lekcija D2). RNN zato teško uči ovisnosti udaljene više od desetak koraka. <b>LSTM</b> (engl. <i>long short-term memory</i>) i GRU ublažavaju problem dodatnim stanjem (<i>ćelijom</i>) koje se mijenja zbrajanjem, a ne množenjem, uz <b>vrata</b> (engl. <i>gates</i>) koja uče što zadržati i što zaboraviti. Ipak, i LSTM obrađuje niz slijedno – korak $t$ ne može početi prije koraka $t-1$ – pa ne iskorištava paralelizam GPU-a. To su dva razloga zbog kojih je attention zamijenio rekurenciju.</p>
+
+<h3>Self-attention</h3>
+<p>Ideja: umjesto da informacija putuje korak po korak, <em>svaki</em> token izravno pogleda <em>sve</em> ostale i iz njih složi težinski prosjek – pri čemu težine ovise o sadržaju. Tri uloge tokena razdvajamo trima naučenim projekcijama: <b>upit</b> (engl. <i>query</i>) „što tražim”, <b>ključ</b> (engl. <i>key</i>) „što nudim” i <b>vrijednost</b> (engl. <i>value</i>) „što dajem ako me odabereš”.</p>
+<div class="pojam">
+<h4>Skalirani skalarni produkt (scaled dot-product attention)</h4>
+<p>Za ulaz $X\in\mathbb R^{n\times d}$ i matrice $W_Q,W_K\in\mathbb R^{d\times d_k}$, $W_V\in\mathbb R^{d\times d_v}$ stavimo $Q=XW_Q$, $K=XW_K$, $V=XW_V$. Izlaz je
+$$\operatorname{Attention}(Q,K,V)=\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V\in\mathbb R^{n\times d_v},$$
+gdje se softmax primjenjuje po retcima. Element $(i,j)$ matrice $A=\operatorname{softmax}(QK^\top/\sqrt{d_k})$ je <b>težina pažnje</b> kojom token $i$ gleda token $j$; svaki redak od $A$ zbraja se u $1$, pa je $i$-ti redak izlaza konveksna kombinacija vrijednosti $V$.</p>
+</div>
+<p>Zašto $\sqrt{d_k}$? Ako komponente $q$ i $k$ imaju varijancu $1$, skalarni produkt $q^\top k$ ima varijancu $d_k$. Za velik $d_k$ razlike među rezultatima postaju goleme, softmax se zasiti (jedna težina $\approx1$, ostale $\approx0$) i gradijent nestaje; dijeljenje sa $\sqrt{d_k}$ vraća varijancu na $1$. Cijela operacija su tri množenja matrica i softmax – nema petlje po vremenu, svi tokeni računaju se paralelno, a put između bilo koja dva tokena dug je točno jedan korak.</p>
+<div class="trener-umetak">
+<p>Složenost self-attentiona je $O(n^2 d)$ zbog matrice $QK^\top$ dimenzije $n\times n$. Za rečenice to je zanemarivo, za dokumente od desetaka tisuća tokena postaje glavni trošak – zato postoje aproksimacije, a „duljina konteksta” je ključna karakteristika svakog jezičnog modela.</p>
+</div>
+
+<h3>Više glava</h3>
+<div class="pojam">
+<h4>Višeglavi attention (multi-head attention)</h4>
+<p>Umjesto jednog attentiona s $d_k=d$, ulaz se projicira u $h$ <b>glava</b> dimenzije $d_h=d/h$, svaka računa svoj attention, izlazi se nadovežu (engl. <i>concatenate</i>) i pomnože izlaznom matricom:
+$$\operatorname{MHA}(X)=\big[\operatorname{head}_1\,\|\cdots\|\,\operatorname{head}_h\big]\,W_O,\qquad \operatorname{head}_i=\operatorname{Attention}(XW_Q^{(i)},XW_K^{(i)},XW_V^{(i)}).$$
+Ukupan broj parametara (bez pomaka) je $4d^2$, isti kao za jednu glavu dimenzije $d$.</p>
+</div>
+<p>Svaka glava može pratiti drugu vrstu veze: jedna susjedne riječi, druga subjekt–predikat, treća zamjenicu i imenicu na koju se odnosi. Cijena je ista kao za jednu veliku glavu, a izražajnost veća.</p>
+
+<h3>Pozicijsko kodiranje</h3>
+<p>Attention je <b>ekvivarijantan na permutacije</b>: ispremiješamo li retke od $X$, izlaz se samo jednako ispremiješa (Primjer 2). Model dakle ne vidi redoslijed – „pas grize čovjeka” i „čovjek grize psa” dali bi iste skupove izlaznih vektora. Zato se ugradnjama dodaje <b>pozicijsko kodiranje</b> $P\in\mathbb R^{n\times d}$, vektor koji ovisi samo o položaju $t$. Izvorni transformer koristi sinusoide različitih frekvencija,</p>
+$$P_{t,2i}=\sin\!\left(\frac{t}{10000^{2i/d}}\right),\qquad P_{t,2i+1}=\cos\!\left(\frac{t}{10000^{2i/d}}\right),$$
+<p>a mnogi noviji modeli položaj jednostavno <em>nauče</em> (tablica ugradnji po položaju, ograničena na najveću duljinu) ili ga ugrađuju u $Q$ i $K$ rotacijama. Bitno je samo da model može razlikovati i uspoređivati položaje.</p>
+
+<h3>Transformer blok</h3>
+<p>Jedan <b>blok</b> (sloj) transformera sastoji se od dva podsloja, oba omotana <b>rezidualnom vezom</b> i <b>normalizacijom sloja</b> (engl. <i>layer norm</i>, lekcija D4):</p>
+$$Z=\operatorname{LayerNorm}\big(X+\operatorname{MHA}(X)\big),\qquad Y=\operatorname{LayerNorm}\big(Z+\operatorname{FFN}(Z)\big),$$
+<p>gdje je $\operatorname{FFN}(z)=W_2\,\operatorname{ReLU}(W_1 z+b_1)+b_2$ mali MLP koji se primjenjuje na <em>svaki token zasebno</em>, obično s unutarnjom dimenzijom $4d$. Attention miješa informacije <em>između</em> tokena, FFN ih obrađuje <em>unutar</em> tokena. Blokovi se slažu ($6$ u izvornom radu, desetci u današnjim modelima); rezidualne veze omogućuju da gradijent prođe kroz sve (D4). Ovaj zapis (normalizacija nakon zbrajanja, <i>post-LN</i>) je zadani u PyTorchu; varijanta <i>pre-LN</i> normalizira ulaz podsloja i stabilnije se trenira.</p>
+
+<h3>Enkoder, dekoder i maska</h3>
+<p><b>Enkoder</b> je hrpa blokova kakvi su opisani: svaki token vidi sve ostale (dvosmjerno). Daje reprezentaciju cijelog niza – za klasifikaciju teksta, označavanje riječi, pretraživanje. <b>Dekoder</b> koristi <b>kauzalnu masku</b>: prije softmaxa postavi na $-\infty$ sve elemente $QK^\top$ iznad dijagonale, pa token $t$ vidi samo tokene $\le t$. Takav model može <em>generirati</em> niz token po token („predvidi sljedeću riječ”), jer tijekom učenja nikad ne „vara” gledanjem u budućnost. <b>Enkoder–dekoder</b> (izvorni transformer, za prijevod) ima oboje, a dekoder dodatno <i>unakrsnim</i> attentionom (engl. <i>cross-attention</i>) gleda izlaz enkodera: upiti dolaze iz dekodera, ključevi i vrijednosti iz enkodera. BERT je enkoder, modeli obitelji GPT su dekoderi, T5 i modeli za prijevod su enkoder–dekoderi.</p>
+
+<h3>Što je pretrenirani model</h3>
+<p>Transformer ima milijune ili milijarde parametara i treba mu ogromno podataka. Zato se treniranje dijeli u dvije faze. <b>Pretreniranje</b> (engl. <i>pre-training</i>): model se na golemom neoznačenom korpusu uči <em>samonadziranom</em> zadatku čije oznake dolaze iz samog teksta – predviđanje sljedećeg tokena (dekoderi) ili pogađanje nasumično sakrivenih tokena (enkoderi, engl. <i>masked language modeling</i>). Tako nauči gramatiku, značenja i mnogo činjenica. <b>Fino podešavanje</b> (engl. <i>fine-tuning</i>): pretrenirani model s dodanom malom izlaznom glavom kratko se trenira na našem malom označenom skupu. Na natjecanju gotovo nikad ne treniraš transformer od nule: preuzmeš pretrenirani (lekcije V3 i V5) i podešavaš ga – ali da bi znao što podešavaš, moraš razumjeti ovu lekciju.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Za $n=4$ tokena dimenzije $d=8$ izračunaj self-attention s $d_k=d_v=4$ ručno u NumPy-ju: projekcije $Q,K,V$, matricu težina $A$ i izlaz. Provjeri da se svaki redak od $A$ zbraja u $1$ i da PyTorchova funkcija <code>scaled_dot_product_attention</code> daje isto. Zatim pokaži zašto je skaliranje sa $\sqrt{d_k}$ potrebno.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: softmax po retcima.</b> Oduzimanje maksimuma retka ne mijenja rezultat (brojnik i nazivnik množe se istim $e^{-\max}$), a sprječava prelijevanje <code>exp</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">softmax</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">S</span> <span class="o">-</span> <span class="n">S</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">S</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">E</span> <span class="o">/</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">d_k</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">4</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>                      <span class="c1"># 4 tokena, svaki vektor dimenzije 8</span>
+<span class="n">W_Q</span><span class="p">,</span> <span class="n">W_K</span><span class="p">,</span> <span class="n">W_V</span> <span class="o">=</span> <span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">scale</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">d_k</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">W_Q</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>(4, 8) (8, 4)</code></pre>
+<p><b>Korak 2: Q, K, V, težine i izlaz.</b> Svaki redak od $A$ kaže kako token $i$ raspodjeljuje svoju „pažnju” po tokenima $j$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">attention</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">maska</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">Q</span> <span class="o">@</span> <span class="n">K</span><span class="o">.</span><span class="n">T</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Q</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>            <span class="c1"># (n, n) rezultati (engl. scores)</span>
+    <span class="k">if</span> <span class="n">maska</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">maska</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+    <span class="n">A</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">S</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">A</span> <span class="o">@</span> <span class="n">V</span><span class="p">,</span> <span class="n">A</span>
+
+<span class="n">Q</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">X</span> <span class="o">@</span> <span class="n">W_Q</span><span class="p">,</span> <span class="n">X</span> <span class="o">@</span> <span class="n">W_K</span><span class="p">,</span> <span class="n">X</span> <span class="o">@</span> <span class="n">W_V</span>
+<span class="n">Y</span><span class="p">,</span> <span class="n">A</span> <span class="o">=</span> <span class="n">attention</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"težine A:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"zbroj po retcima:"</span><span class="p">,</span> <span class="n">A</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"izlaz Y, oblik"</span><span class="p">,</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">Y</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>težine A:
+[[0.299 0.23  0.315 0.157]
+ [0.162 0.068 0.295 0.475]
+ [0.54  0.06  0.298 0.102]
+ [0.14  0.283 0.216 0.361]]
+zbroj po retcima: [1. 1. 1. 1.]
+izlaz Y, oblik (4, 4)
+[[-0.058 -0.234 -0.156  1.185]
+ [ 0.218 -0.184 -0.095  0.772]
+ [ 0.329 -0.179 -0.458  0.669]
+ [-0.094 -0.276 -0.007  1.151]]</code></pre>
+<p>Token $1$ gotovo polovicu pažnje daje tokenu $3$, token $2$ više od polovice tokenu $0$, a token $0$ gleda sve podjednako – tko koga gleda ovisi o sadržaju vektora (preko $W_Q$ i $W_K$), a ne o položaju. Izlaz $Y$ ima isti broj redaka kao ulaz: svaki token dobio je novi vektor, mješavinu vrijednosti onih tokena na koje je „pazio”.</p>
+<p><b>Korak 3: provjera u PyTorchu.</b></p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+
+<span class="n">Yt</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">scaled_dot_product_attention</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Q</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">K</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">V</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isto kao PyTorch:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Yt</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">Y</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>isto kao PyTorch: True</code></pre>
+<p><b>Korak 4: zašto $\sqrt{d_k}$.</b> Za nasumične $q,k$ sa standardnim normalnim komponentama i $d_k=64$ mjerimo standardnu devijaciju rezultata $q^\top k$ i prosječnu najveću težinu u retku od $A$ za $n=10$ ključeva, sa skaliranjem i bez njega.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">d_k</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">10</span>
+<span class="n">najveca</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"bez skaliranja"</span><span class="p">:</span> <span class="p">[],</span> <span class="s2">"sa skaliranjem"</span><span class="p">:</span> <span class="p">[]}</span>
+<span class="n">std_rezultata</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+    <span class="n">Qr</span><span class="p">,</span> <span class="n">Kr</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d_k</span><span class="p">)),</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d_k</span><span class="p">))</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="n">Qr</span> <span class="o">@</span> <span class="n">Kr</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">std_rezultata</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">S</span><span class="o">.</span><span class="n">std</span><span class="p">())</span>
+    <span class="n">najveca</span><span class="p">[</span><span class="s2">"bez skaliranja"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">softmax</span><span class="p">(</span><span class="n">S</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+    <span class="n">najveca</span><span class="p">[</span><span class="s2">"sa skaliranjem"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">softmax</span><span class="p">(</span><span class="n">S</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d_k</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"std rezultata q.k: </span><span class="si">%.2f</span><span class="s2">  (sqrt(d_k) = </span><span class="si">%.0f</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">std_rezultata</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">d_k</span><span class="p">)))</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">najveca</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-15s</span><span class="s2"> prosječna najveća težina u retku: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>std rezultata q.k: 7.94  (sqrt(d_k) = 8)
+bez skaliranja  prosječna najveća težina u retku: 0.857
+sa skaliranjem  prosječna najveća težina u retku: 0.317</code></pre>
+<p>Bez skaliranja rezultati imaju standardnu devijaciju oko $8$, pa softmax većinu težine (u prosjeku preko $0{,}85$) stavi na jedan token: attention postaje gotovo tvrdi odabir, a gradijent po ostalim tokenima približno je nula. Skalirani rezultati imaju devijaciju oko $1$ i težine ostaju „meke”, što je na početku učenja ključno – model tek treba naučiti na što paziti.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Pokaži eksperimentom tri tvrdnje iz teorije: (a) gradijent RNN-a po prvom elementu niza eksponencijalno nestaje s duljinom niza; (b) self-attention je ekvivarijantan na permutacije tokena; (c) sinusoidno pozicijsko kodiranje daje svakom položaju jedinstven vektor čiji skalarni produkt s drugim položajem ovisi samo o njihovu razmaku.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: nestajući gradijent.</b> Kroz <code>nn.RNN</code> s nasumičnim (početnim) težinama pustimo niz duljine $T$ i izračunamo normu gradijenta zbroja završnog stanja $h_T$ po prvom ulazu $x_1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">rnn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">RNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">T</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">h_T</span> <span class="o">=</span> <span class="n">rnn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">h_T</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"T = </span><span class="si">%3d</span><span class="s2">   |d h_T / d x_1| = </span><span class="si">%.2e</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">grad</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>T =   5   |d h_T / d x_1| = 4.19e-02
+T =  20   |d h_T / d x_1| = 1.91e-05
+T =  50   |d h_T / d x_1| = 3.88e-13
+T = 100   |d h_T / d x_1| = 0.00e+00</code></pre>
+<p>Već za $T=20$ gradijent je reda $10^{-5}$, a za $T=100$ je numerički nula: ono što se dogodilo na početku niza ne može utjecati na učenje. Tako izgleda nestajući gradijent u praksi; LSTM ga ublažava, attention ga uklanja jer je udaljenost između bilo koja dva tokena uvijek jedan korak.</p>
+<p><b>Korak 2: ekvivarijantnost na permutacije.</b> Permutiramo retke ulaza $X$ iz Primjera 1 i usporedimo izlaz s permutiranim izvornim izlazom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">perm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">Xp</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">perm</span><span class="p">]</span>
+<span class="n">Yp</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">attention</span><span class="p">(</span><span class="n">Xp</span> <span class="o">@</span> <span class="n">W_Q</span><span class="p">,</span> <span class="n">Xp</span> <span class="o">@</span> <span class="n">W_K</span><span class="p">,</span> <span class="n">Xp</span> <span class="o">@</span> <span class="n">W_V</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"attention(X[perm]) == attention(X)[perm]:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Yp</span><span class="p">,</span> <span class="n">Y</span><span class="p">[</span><span class="n">perm</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>attention(X[perm]) == attention(X)[perm]: True</code></pre>
+<p>Dokaz je jedan redak: za permutacijsku matricu $\Pi$ je $Q'=\Pi Q$, $K'=\Pi K$, $V'=\Pi V$, pa $Q'K'^\top=\Pi QK^\top\Pi^\top$; softmax po retcima komutira s permutiranjem redaka i stupaca, pa je $A'=\Pi A\Pi^\top$ i $A'V'=\Pi A\Pi^\top\Pi V=\Pi(AV)$. Model dakle „vidi” skup tokena, ne niz – bez pozicijskog kodiranja ne može razlikovati rečenice koje se razlikuju samo redoslijedom.</p>
+<p><b>Korak 3: sinusoidno kodiranje.</b> Parni stupci su sinusi, neparni kosinusi, a frekvencija pada geometrijski s indeksom stupca: prvi stupci se mijenjaju brzo (razlikuju susjedne položaje), posljednji sporo (razlikuju daleke).</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">pozicijsko_kodiranje</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+    <span class="n">poz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">)[:,</span> <span class="kc">None</span><span class="p">]</span>                  <span class="c1"># (n, 1)</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:]</span>              <span class="c1"># (1, d/2) indeksi parova</span>
+    <span class="n">kut</span> <span class="o">=</span> <span class="n">poz</span> <span class="o">/</span> <span class="mi">10000</span> <span class="o">**</span> <span class="p">(</span><span class="n">i</span> <span class="o">/</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+    <span class="n">P</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">kut</span><span class="p">)</span>
+    <span class="n">P</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">kut</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">P</span>
+
+<span class="n">P</span> <span class="o">=</span> <span class="n">pozicijsko_kodiranje</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oblik:"</span><span class="p">,</span> <span class="n">P</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">" norma svakog retka:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">)))</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"P[</span><span class="si">%2d</span><span class="s2">].P[</span><span class="si">%2d</span><span class="s2">] = </span><span class="si">%.3f</span><span class="s2">   P[</span><span class="si">%2d</span><span class="s2">].P[</span><span class="si">%2d</span><span class="s2">] = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">P</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">@</span> <span class="n">P</span><span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">t</span><span class="p">,</span> <span class="n">t</span> <span class="o">+</span> <span class="mi">5</span><span class="p">,</span> <span class="n">P</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">@</span> <span class="n">P</span><span class="p">[</span><span class="n">t</span> <span class="o">+</span> <span class="mi">5</span><span class="p">]))</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">P</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">"auto"</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdBu"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"položaj t"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"dimenzija"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"pozicijsko.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno pozicijsko.png"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>oblik: (50, 16)  norma svakog retka: [2.828427]
+P[ 0].P[ 1] = 7.485   P[ 0].P[ 5] = 6.137
+P[10].P[11] = 7.485   P[10].P[15] = 6.137
+P[30].P[31] = 7.485   P[30].P[35] = 6.137
+spremljeno pozicijsko.png</code></pre>
+<p>Svi retci imaju istu normu $\sqrt{d/2}$ (jer je $\sin^2+\cos^2=1$ u svakom paru), a skalarni produkt $P_t^\top P_{t+k}$ ne ovisi o $t$ nego samo o razmaku $k$ (adicijski teorem: $\sin a\sin b+\cos a\cos b=\cos(a-b)$) – susjedni položaji su sličniji od udaljenih, što attentionu olakšava učenje relativnih odnosa. Na slici se vidi „barkod”: gornje dimenzije brzo osciliraju, donje se gotovo ne mijenjaju duž niza.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>U PyTorchu složi mali transformer-enkoder (ugradnje + pozicijsko kodiranje + <code>nn.TransformerEncoderLayer</code> + linearna glava) i istreniraj ga na sintetičkom zadatku <b>obrtanja niza</b>: ulaz je niz od $8$ znamenki $0$–$9$, izlaz na položaju $i$ mora biti ulazna znamenka s položaja $7-i$. Izmjeri točnost po tokenu na novim nizovima.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci.</b> Nizovi se generiraju u hodu, pa trening i test nikad ne dijele primjer. Zadatak je namjerno jednostavan, ali ga je bez pozicijskog kodiranja nemoguće riješiti (Zadatak 7).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">V</span><span class="p">,</span> <span class="n">L</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">8</span>                                   <span class="c1"># veličina vokabulara, duljina niza</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">obrni</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">flip</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">x_primjer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="n">L</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">x_primjer</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">obrni</span><span class="p">(</span><span class="n">x_primjer</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>[[5, 9, 4, 8, 3, 3, 1, 1], [9, 2, 8, 9, 6, 3, 3, 0]]
+[[1, 1, 3, 3, 8, 4, 9, 5], [0, 3, 3, 6, 9, 8, 2, 9]]</code></pre>
+<p><b>Korak 2: model.</b> <code>nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward)</code> je točno blok iz teorije (višeglavi attention + FFN s rezidualima i LayerNormom); <code>nn.TransformerEncoder</code> slaže više blokova. Uz <code>batch_first=True</code> ulaz ima oblik $(N, n, d)$. Pozicijsko kodiranje spremamo kao <i>buffer</i>: dio modela koji nije parametar.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">MaliTransformer</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">glave</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">slojeva</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">pe</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">"pe"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">pozicijsko_kodiranje</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">d</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">koristi_pe</span> <span class="o">=</span> <span class="n">pe</span>
+        <span class="n">blok</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">TransformerEncoderLayer</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">glave</span><span class="p">,</span> <span class="n">dim_feedforward</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enkoder</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">TransformerEncoder</span><span class="p">(</span><span class="n">blok</span><span class="p">,</span> <span class="n">slojeva</span><span class="p">,</span> <span class="n">enable_nested_tensor</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">glava</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">maska</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>                                      <span class="c1"># (N, L, d)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">koristi_pe</span><span class="p">:</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">h</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pe</span><span class="p">[:</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">glava</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">enkoder</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">maska</span><span class="p">))</span>       <span class="c1"># (N, L, V) logiti za svaki položaj</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">MaliTransformer</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oblik izlaza:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x_primjer</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>parametara: 17738
+oblik izlaza: (2, 8, 10)</code></pre>
+<p><b>Korak 3: učenje.</b> Gubitak je unakrsna entropija po svakom položaju: logite $(N,L,V)$ spljoštimo u $(NL,V)$, ciljeve u $(NL)$. Jedan korak s mini-serijom od $64$ nizova traje nekoliko milisekundi na procesoru.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">treniraj</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">cilj</span><span class="p">,</span> <span class="n">koraka</span><span class="o">=</span><span class="mi">1200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">maska</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">koraka</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="n">L</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+        <span class="n">gubitak</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">maska</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">cilj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">();</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="o">%</span> <span class="mi">300</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"korak </span><span class="si">%4d</span><span class="s2">  gubitak </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+    <span class="k">return</span> <span class="n">model</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">cilj</span><span class="p">,</span> <span class="n">maska</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">123</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">L</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">maska</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">cilj</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">obrni</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"točnost po tokenu na 1000 novih nizova: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">obrni</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>korak  300  gubitak 0.0094
+korak  600  gubitak 0.0026
+korak  900  gubitak 0.0012
+korak 1200  gubitak 0.0007
+točnost po tokenu na 1000 novih nizova: 1.000</code></pre>
+<p><b>Korak 4: što je model naučio.</b> Pogledaj težine pažnje prvog bloka za jedan niz: za obrtanje bi token na položaju $i$ trebao gledati položaj $7-i$. Do težina dolazimo pozivom samog attention podsloja s <code>need_weights=True</code> (prosjek po glavama).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">blok</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">enkoder</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">emb</span><span class="p">(</span><span class="n">x_primjer</span><span class="p">[:</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">model</span><span class="o">.</span><span class="n">pe</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">A1</span> <span class="o">=</span> <span class="n">blok</span><span class="o">.</span><span class="n">self_attn</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">h</span><span class="p">,</span> <span class="n">need_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>      <span class="c1"># (1, L, L), prosjek po glavama</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"položaj kojem svaki token daje najviše pažnje:"</span><span class="p">,</span> <span class="n">A1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najveća težina u svakom retku:"</span><span class="p">,</span> <span class="n">A1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>položaj kojem svaki token daje najviše pažnje: [7, 6, 6, 3, 3, 0, 1, 1]
+najveća težina u svakom retku: [0.15 0.19 0.16 0.17 0.16 0.17 0.17 0.18]</code></pre>
+<p>Težine prosječene po četiri glave prilično su raspršene (najveća je tek oko $0{,}15$–$0{,}19$; pojedine glave su oštrije), ali za polovicu položaja ($0$, $1$, $4$, $6$) najjača veza ide upravo na zrcalni položaj, a za ostale na njegova susjeda; drugi blok dovršava posao. To je moguće samo zato što pozicijsko kodiranje razlikuje položaje, pa se pažnja može naučiti uparivati položaj $i$ s položajem $7-i$. Na pravim jezičnim modelima isto tako crtamo težine da vidimo koje riječi model povezuje.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za ulaz $X\in\mathbb R^{n\times d}$ s $n=20$ tokena i $d=512$, napiši dimenzije matrica $Q$, $K^\top$, $QK^\top$, $A$ i izlaza za (a) jednu glavu s $d_k=d_v=512$, (b) $8$ glava. Koliko parametara ima višeglavi attention s $d=512$ i $8$ glava, uključujući pomake u sve četiri projekcije? Provjeri na <code>nn.MultiheadAttention</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) $Q\in\mathbb R^{20\times512}$, $K^\top\in\mathbb R^{512\times20}$, $QK^\top$ i $A$ su $20\times20$, izlaz $20\times512$. (b) Po glavi: $Q^{(i)}\in\mathbb R^{20\times64}$, $A^{(i)}\in\mathbb R^{20\times20}$ (osam takvih matrica), izlaz svake glave $20\times64$, nadovezano $20\times512$ i nakon $W_O$ opet $20\times512$. Parametri: četiri matrice $512\times512$ i četiri pomaka duljine $512$: $4\cdot512^2+4\cdot512=1\,050\,624$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="n">embed_dim</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">num_heads</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mha</span><span class="o">.</span><span class="n">parameters</span><span class="p">()),</span> <span class="s2">"="</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">512</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">512</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>1050624 = 1050624</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Jedan upit ima (već skalirane) rezultate $s=(2,\,0,\,-2)$ prema tri ključa, a vrijednosti su $v_1=(1,0)$, $v_2=(0,1)$, $v_3=(1,1)$. Ručno izračunaj težine pažnje i izlaz, pa provjeri u NumPy-ju. Što bi se dogodilo s težinama kad bi se svi rezultati pomnožili s $10$?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Težine su $\dfrac{(e^2,\,1,\,e^{-2})}{e^2+1+e^{-2}}\approx(0{,}867,\,0{,}117,\,0{,}016)$, a izlaz $0{,}867\,(1,0)+0{,}117\,(0,1)+0{,}016\,(1,1)\approx(0{,}883,\,0{,}133)$. Pomnože li se rezultati s $10$, težine postaju $\approx(1,\,2\cdot10^{-9},\,0)$ – softmax se zasiti i attention degenerira u „uzmi $v_1$”; to je učinak koji skaliranje sa $\sqrt{d_k}$ sprječava.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">])</span>
+<span class="n">Vz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"težine:"</span><span class="p">,</span> <span class="n">softmax</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">" izlaz:"</span><span class="p">,</span> <span class="p">(</span><span class="n">softmax</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">@</span> <span class="n">Vz</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"x10:   "</span><span class="p">,</span> <span class="n">softmax</span><span class="p">(</span><span class="mi">10</span> <span class="o">*</span> <span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">9</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>težine: [0.867 0.117 0.016]  izlaz: [0.883 0.133]
+x10:    [9.99999998e-01 2.00000000e-09 0.00000000e+00]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Napiši kauzalnu masku za $n=5$ tokena: logičku matricu u kojoj je $(i,j)$ istina ako token $i$ smije gledati token $j$. Primijeni je u funkciji <code>attention</code> iz Primjera 1 na nasumične $Q,K,V$ i provjeri da su težine iznad dijagonale nula, a retci se i dalje zbrajaju u $1$. Usporedi s PyTorchovom <code>nn.Transformer.generate_square_subsequent_mask(5)</code> – kakva je njezina konvencija?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">maska</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tril</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">))</span>
+<span class="n">Q5</span><span class="p">,</span> <span class="n">K5</span><span class="p">,</span> <span class="n">V5</span> <span class="o">=</span> <span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">_</span><span class="p">,</span> <span class="n">A5</span> <span class="o">=</span> <span class="n">attention</span><span class="p">(</span><span class="n">Q5</span><span class="p">,</span> <span class="n">K5</span><span class="p">,</span> <span class="n">V5</span><span class="p">,</span> <span class="n">maska</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">A5</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"iznad dijagonale nula:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">A5</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">0</span><span class="p">),</span> <span class="s2">" retci zbroj 1:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">A5</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Transformer</span><span class="o">.</span><span class="n">generate_square_subsequent_mask</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>[[1.    0.    0.    0.    0.   ]
+ [0.457 0.543 0.    0.    0.   ]
+ [0.037 0.089 0.874 0.    0.   ]
+ [0.112 0.064 0.323 0.501 0.   ]
+ [0.077 0.327 0.246 0.301 0.05 ]]
+iznad dijagonale nula: True  retci zbroj 1: True
+tensor([[0., -inf, -inf, -inf, -inf],
+        [0., 0., -inf, -inf, -inf],
+        [0., 0., 0., -inf, -inf],
+        [0., 0., 0., 0., -inf],
+        [0., 0., 0., 0., 0.]])</code></pre>
+<p>Prvi token vidi samo sebe (težina $1$), peti vidi sve. PyTorchova maska koristi suprotnu konvenciju: to je matrica koja se <em>pribraja</em> rezultatima, s $0$ gdje je gledanje dopušteno i $-\infty$ gdje nije; <code>-inf</code> nakon softmaxa daje točno nulu. Takvu masku prosljeđuješ kao argument <code>mask</code> enkoderu – vidi Zadatak 8.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>U transformer bloku s $d=512$ i $h=8$ glava FFN ima unutarnju dimenziju $4d=2048$. Prebroji parametre jednog bloka (attention s pomacima, FFN s pomacima, dvije normalizacije sloja s po $2d$ parametara) i provjeri na <code>nn.TransformerEncoderLayer</code>. Koji dio bloka nosi najviše parametara? Zatim ispiši parametre <code>MaliTransformer</code>-a po komponentama.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Attention: $4d^2+4d=1\,050\,624$. FFN: $d\cdot4d+4d+4d\cdot d+d=8d^2+5d=2\,099\,712$. Dvije normalizacije: $4d=2048$. Ukupno $3\,152\,384$. FFN nosi dvije trećine parametara – zato se u velikim modelima najviše „znanja” pripisuje upravo FFN slojevima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">blok512</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">TransformerEncoderLayer</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">dim_feedforward</span><span class="o">=</span><span class="mi">2048</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">blok512</span><span class="o">.</span><span class="n">parameters</span><span class="p">()),</span> <span class="s2">"="</span><span class="p">,</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">512</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">512</span> <span class="o">+</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">512</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">5</span> <span class="o">*</span> <span class="mi">512</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">512</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">modul</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-8s</span><span class="s2"> </span><span class="si">%6d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">modul</span><span class="o">.</span><span class="n">parameters</span><span class="p">())))</span></code></pre></div>
+<pre class="izlaz"><code>3152384 = 3152384
+emb         320
+enkoder   17088
+glava       330</code></pre>
+<p>U <code>MaliTransformer</code>-u ($d=32$, FFN $64$) dva bloka nose gotovo sve parametre; ugradnje i izlazna glava su sitne jer je vokabular samo $10$ znamenki. U pravim jezičnim modelima vokabular ima desetke tisuća tokena, pa i ugradnje postaju velike.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Iz pozicijskog kodiranja $P$ iz Primjera 2 ($n=50$, $d=16$) za svaki položaj $t$ nađi položaj $t'\ne t$ s najvećim skalarnim produktom $P_t^\top P_{t'}$. Je li to uvijek susjed? Zatim pokaži da pomak za fiksan $k$ djeluje linearno: nađi matricu $M_k$ (metodom najmanjih kvadrata) takvu da je $P_{t+k}\approx P_t M_k$ za sve $t$, i izmjeri grešku.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za svaki par (sinus, kosinus) iste frekvencije $\omega$ vrijedi $(\sin\omega(t+k),\cos\omega(t+k))=(\sin\omega t,\cos\omega t)\,R_k$ s rotacijskom matricom $R_k$ koja ne ovisi o $t$. $M_k$ je blok-dijagonalna od takvih rotacija.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">G</span> <span class="o">=</span> <span class="n">P</span> <span class="o">@</span> <span class="n">P</span><span class="o">.</span><span class="n">T</span>
+<span class="n">np</span><span class="o">.</span><span class="n">fill_diagonal</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+<span class="n">najblizi</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najsličniji položaj je susjed:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">najblizi</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">50</span><span class="p">))</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+
+<span class="n">k</span> <span class="o">=</span> <span class="mi">3</span>
+<span class="n">M_k</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">P</span><span class="p">[:</span><span class="o">-</span><span class="n">k</span><span class="p">],</span> <span class="n">P</span><span class="p">[</span><span class="n">k</span><span class="p">:],</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najveća greška |P[t+3] - P[t] M_3|: </span><span class="si">%.2e</span><span class="s2">"</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">P</span><span class="p">[:</span><span class="o">-</span><span class="n">k</span><span class="p">]</span> <span class="o">@</span> <span class="n">M_k</span> <span class="o">-</span> <span class="n">P</span><span class="p">[</span><span class="n">k</span><span class="p">:])</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"M_3 je blok-dijagonalna (gornji lijevi 2x2 blok):"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">M_k</span><span class="p">[:</span><span class="mi">2</span><span class="p">,</span> <span class="p">:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">" rotacija za kut"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arctan2</span><span class="p">(</span><span class="n">M_k</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">M_k</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))),</span> <span class="mi">1</span><span class="p">),</span> <span class="s2">"stupnjeva"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>najsličniji položaj je susjed: 1.0
+najveća greška |P[t+3] - P[t] M_3|: 3.76e-14
+M_3 je blok-dijagonalna (gornji lijevi 2x2 blok):
+[[-0.99  -0.141]
+ [ 0.141 -0.99 ]]  rotacija za kut -171.9 stupnjeva</code></pre>
+<p>Svakom položaju najsličniji je jedan od susjeda, a pomak za $k$ je egzaktno <em>linearno</em> preslikavanje $M_k$ neovisno o $t$: za prvi par (frekvencija $\omega=1$) blok je rotacija za $k=3$ radijana, tj. $\approx171{,}9^\circ$ (predznak kuta ovisi samo o smjeru vrtnje). Zato model može naučiti pitati „koji je token tri mjesta lijevo” jednom projekcijom – argument iz izvornog rada o transformerima.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Napiši višeglavi attention u NumPy-ju (podjela na glave, attention po glavi, nadovezivanje, izlazna projekcija) i provjeri da s težinama kopiranima iz <code>nn.MultiheadAttention</code> ($d=32$, $4$ glave) daje isti izlaz na nasumičnom nizu. PyTorch drži sve tri ulazne projekcije u jednoj matrici <code>in_proj_weight</code> oblika $(3d, d)$ – redom $Q$, $K$, $V$ – i računa <code>x @ W.T + b</code>.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za glavu $i$ uzmi stupce $[i\,d_h,(i+1)d_h)$ od $Q$, $K$, $V$. Nadovezivanje izlaza glava vraća matricu $(n,d)$, koju množiš s <code>out_proj.weight.T</code> i dodaješ <code>out_proj.bias</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">mha_numpy</span><span class="p">(</span><span class="n">Xn</span><span class="p">,</span> <span class="n">W_in</span><span class="p">,</span> <span class="n">b_in</span><span class="p">,</span> <span class="n">W_out</span><span class="p">,</span> <span class="n">b_out</span><span class="p">,</span> <span class="n">glave</span><span class="p">,</span> <span class="n">maska</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">Xn</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">d_h</span> <span class="o">=</span> <span class="n">d</span> <span class="o">//</span> <span class="n">glave</span>
+    <span class="n">Qn</span><span class="p">,</span> <span class="n">Kn</span><span class="p">,</span> <span class="n">Vn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">Xn</span> <span class="o">@</span> <span class="n">W_in</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">b_in</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>         <span class="c1"># svaki (n, d)</span>
+    <span class="n">izlazi</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">glave</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">d_h</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">d_h</span><span class="p">)</span>
+        <span class="n">Yi</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">attention</span><span class="p">(</span><span class="n">Qn</span><span class="p">[:,</span> <span class="n">s</span><span class="p">],</span> <span class="n">Kn</span><span class="p">[:,</span> <span class="n">s</span><span class="p">],</span> <span class="n">Vn</span><span class="p">[:,</span> <span class="n">s</span><span class="p">],</span> <span class="n">maska</span><span class="p">)</span>
+        <span class="n">izlazi</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Yi</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">izlazi</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">@</span> <span class="n">W_out</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">b_out</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mha</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">MultiheadAttention</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">Xt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">Y_torch</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">mha</span><span class="p">(</span><span class="n">Xt</span><span class="p">,</span> <span class="n">Xt</span><span class="p">,</span> <span class="n">Xt</span><span class="p">)</span>
+<span class="n">tez</span> <span class="o">=</span> <span class="p">{</span><span class="n">ime</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mha</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()}</span>
+<span class="n">Y_np</span> <span class="o">=</span> <span class="n">mha_numpy</span><span class="p">(</span><span class="n">Xt</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">tez</span><span class="p">[</span><span class="s2">"in_proj_weight"</span><span class="p">],</span> <span class="n">tez</span><span class="p">[</span><span class="s2">"in_proj_bias"</span><span class="p">],</span>
+                 <span class="n">tez</span><span class="p">[</span><span class="s2">"out_proj.weight"</span><span class="p">],</span> <span class="n">tez</span><span class="p">[</span><span class="s2">"out_proj.bias"</span><span class="p">],</span> <span class="n">glave</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti izlaz:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Y_np</span><span class="p">,</span> <span class="n">Y_torch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>isti izlaz: True</code></pre>
+<p>Dakle, „višeglavi” attention nije ništa tajanstveno: ista funkcija iz Primjera 1 primijenjena na $h$ odsječaka stupaca, uz jednu zajedničku izlaznu projekciju. Tu funkciju iskoristi u Zadatku 9 za cijeli blok.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Istreniraj <code>MaliTransformer(pe=False)</code> – bez pozicijskog kodiranja – na zadatku obrtanja iz Primjera 3 i usporedi točnost. Objasni rezultat ekvivarijantnošću na permutacije: koju bi najbolju točnost takav model <em>teoretski</em> mogao postići? Zatim pokaži da na zadatku koji ne ovisi o redoslijedu (npr. „na svakom položaju ispiši najveću znamenku u nizu”) model bez pozicijskog kodiranja radi jednako dobro.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Izlaz na položaju $i$ modela bez pozicijskog kodiranja može ovisiti samo o tokenu $x_i$ i o <em>multiskupu</em> svih tokena, ne o tome gdje se koji nalazi.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">bez_pe</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">MaliTransformer</span><span class="p">(</span><span class="n">pe</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span> <span class="n">obrni</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"obrtanje bez poz. kodiranja: </span><span class="si">%.3f</span><span class="s2">   (s njim: </span><span class="si">%.3f</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">bez_pe</span><span class="p">,</span> <span class="n">obrni</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">obrni</span><span class="p">)))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">najveca</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">expand_as</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">m_max</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">MaliTransformer</span><span class="p">(</span><span class="n">pe</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span> <span class="n">najveca</span><span class="p">,</span> <span class="n">koraka</span><span class="o">=</span><span class="mi">600</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najveća znamenka bez poz. kodiranja: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m_max</span><span class="p">,</span> <span class="n">najveca</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>korak  300  gubitak 1.6395
+korak  600  gubitak 1.5780
+korak  900  gubitak 1.6086
+korak 1200  gubitak 1.5943
+obrtanje bez poz. kodiranja: 0.316   (s njim: 1.000)
+korak  300  gubitak 0.0080
+korak  600  gubitak 0.0030
+najveća znamenka bez poz. kodiranja: 1.000</code></pre>
+<p>Gubitak kod obrtanja zapne oko $1{,}6$, a točnost je daleko od $1$. Model bez položaja na mjestu $i$ zna samo $x_i$ i koji se tokeni uopće pojavljuju u nizu; najbolje što može jest pogađati, npr. „neku znamenku koja se u nizu pojavljuje”, pa je točnost iznad slučajnih $10\,\%$, ali bitno ispod rješenja. Zadatak „najveća znamenka” ovisi samo o multiskupu, pa ga isti model rješava savršeno. Pouka: pozicijsko kodiranje nije ukras, nego jedini izvor informacije o redoslijedu.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Dekoder u malom: istreniraj <code>MaliTransformer</code> s <b>kauzalnom maskom</b> na zadatku „na položaju $i$ ispiši $(x_0+x_1+\dots+x_i)\bmod 10$”. Zatim eksperimentom potvrdi kauzalnost: promijeni tokene od položaja $4$ nadalje i provjeri da se logiti na položajima $0$–$3$ nisu promijenili. Zašto bi isti zadatak bio lakši bez maske, i zašto je maska ipak nužna za generativni model?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Masku dobivaš s <code>nn.Transformer.generate_square_subsequent_mask(L)</code> i prosljeđuješ je kao <code>maska</code> u <code>forward</code> i funkcijama <code>treniraj</code>/<code>tocnost</code>. Zadatak je teži od obrtanja (zbroj modulo 10 treba složiti kroz dva bloka), pa daj modelu više koraka.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">prefiksni_zbroj</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span>
+
+<span class="n">maska_k</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Transformer</span><span class="o">.</span><span class="n">generate_square_subsequent_mask</span><span class="p">(</span><span class="n">L</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">dekoder</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">MaliTransformer</span><span class="p">(),</span> <span class="n">prefiksni_zbroj</span><span class="p">,</span> <span class="n">koraka</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">maska</span><span class="o">=</span><span class="n">maska_k</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"točnost po tokenu: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">dekoder</span><span class="p">,</span> <span class="n">prefiksni_zbroj</span><span class="p">,</span> <span class="n">maska_k</span><span class="p">))</span>
+
+<span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">7</span><span class="p">)</span>
+<span class="n">x1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">L</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+<span class="n">x2</span> <span class="o">=</span> <span class="n">x1</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+<span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:]</span> <span class="o">=</span> <span class="p">(</span><span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:]</span> <span class="o">+</span> <span class="mi">5</span><span class="p">)</span> <span class="o">%</span> <span class="mi">10</span>                 <span class="c1"># mijenjamo samo "budućnost"</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">l1</span><span class="p">,</span> <span class="n">l2</span> <span class="o">=</span> <span class="n">dekoder</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">maska_k</span><span class="p">),</span> <span class="n">dekoder</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">maska_k</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"položaji 0-3 nepromijenjeni:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">l1</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:</span><span class="mi">4</span><span class="p">],</span> <span class="n">l2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:</span><span class="mi">4</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">),</span>
+      <span class="s2">" položaji 4-7 promijenjeni:"</span><span class="p">,</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">l1</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:],</span> <span class="n">l2</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">:],</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>korak  300  gubitak 1.8109
+korak  600  gubitak 1.5663
+korak  900  gubitak 0.7848
+korak 1200  gubitak 0.5170
+korak 1500  gubitak 0.4574
+korak 1800  gubitak 0.4519
+korak 2100  gubitak 0.1938
+korak 2400  gubitak 0.0953
+korak 2700  gubitak 0.0808
+korak 3000  gubitak 0.0866
+točnost po tokenu: 0.988
+položaji 0-3 nepromijenjeni: True  položaji 4-7 promijenjeni: True</code></pre>
+<p>Maska jamči da izlaz na položaju $i$ ovisi samo o $x_0,\dots,x_i$ – upravo ono što generativni model treba: pri generiranju buduće tokene još ne znamo, pa model na njima ne smije ni učiti. Bez maske zadatak bi bio „lakši” samo prividno – model bi mogao gledati i buduće tokene, ali ovdje mu oni ne trebaju, a u pravom jezičnom modeliranju bi mu odali odgovor (sljedeću riječ) i naučeno bi na novom tekstu bilo beskorisno. Isti princip pretreniranja – predviđanje sljedećeg tokena uz kauzalnu masku – stoji iza modela obitelji GPT koje ćeš koristiti u lekciji V3.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Složi cijeli transformer blok u NumPy-ju: višeglavi attention iz Zadatka 6, rezidualna veza, normalizacija sloja, FFN s ReLU-om, opet rezidual i normalizacija (post-LN, kao u teoriji). Kopiraj težine iz prvog bloka <code>MaliTransformer</code>-a iz Primjera 3 (<code>model.enkoder.layers[0]</code>) i provjeri da na ulazu <code>emb + pe</code> daješ isti izlaz kao PyTorch.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Normalizacija sloja po retku: $\operatorname{LN}(z)=\gamma\odot\dfrac{z-\mu}{\sqrt{\sigma^2+\varepsilon}}+\beta$ s $\varepsilon=10^{-5}$, gdje su $\mu$ i $\sigma^2$ srednja vrijednost i varijanca <em>komponenata</em> vektora $z$ (ne po seriji!). Imena parametara dobivaš s <code>blok.named_parameters()</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">layer_norm</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">gama</span><span class="p">,</span> <span class="n">beta</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">):</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">gama</span> <span class="o">*</span> <span class="p">(</span><span class="n">Z</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">+</span> <span class="n">beta</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">transformer_blok</span><span class="p">(</span><span class="n">Xn</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">glave</span><span class="p">):</span>
+    <span class="n">A_out</span> <span class="o">=</span> <span class="n">mha_numpy</span><span class="p">(</span><span class="n">Xn</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="s2">"self_attn.in_proj_weight"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"self_attn.in_proj_bias"</span><span class="p">],</span>
+                      <span class="n">t</span><span class="p">[</span><span class="s2">"self_attn.out_proj.weight"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"self_attn.out_proj.bias"</span><span class="p">],</span> <span class="n">glave</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">layer_norm</span><span class="p">(</span><span class="n">Xn</span> <span class="o">+</span> <span class="n">A_out</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="s2">"norm1.weight"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"norm1.bias"</span><span class="p">])</span>
+    <span class="n">skriveni</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">Z</span> <span class="o">@</span> <span class="n">t</span><span class="p">[</span><span class="s2">"linear1.weight"</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">t</span><span class="p">[</span><span class="s2">"linear1.bias"</span><span class="p">])</span>
+    <span class="n">FFN</span> <span class="o">=</span> <span class="n">skriveni</span> <span class="o">@</span> <span class="n">t</span><span class="p">[</span><span class="s2">"linear2.weight"</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">t</span><span class="p">[</span><span class="s2">"linear2.bias"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">layer_norm</span><span class="p">(</span><span class="n">Z</span> <span class="o">+</span> <span class="n">FFN</span><span class="p">,</span> <span class="n">t</span><span class="p">[</span><span class="s2">"norm2.weight"</span><span class="p">],</span> <span class="n">t</span><span class="p">[</span><span class="s2">"norm2.bias"</span><span class="p">])</span>
+
+<span class="n">blok</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">enkoder</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">t</span> <span class="o">=</span> <span class="p">{</span><span class="n">ime</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">blok</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()}</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">emb</span><span class="p">(</span><span class="n">x_primjer</span><span class="p">[:</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="n">model</span><span class="o">.</span><span class="n">pe</span>
+    <span class="n">Y_blok</span> <span class="o">=</span> <span class="n">blok</span><span class="p">(</span><span class="n">h</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">Y_np</span> <span class="o">=</span> <span class="n">transformer_blok</span><span class="p">(</span><span class="n">h</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">double</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">t</span><span class="p">,</span> <span class="n">glave</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti izlaz bloka:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">Y_np</span><span class="p">,</span> <span class="n">Y_blok</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>['linear1.bias', 'linear1.weight', 'linear2.bias', 'linear2.weight', 'norm1.bias', 'norm1.weight', 'norm2.bias', 'norm2.weight', 'self_attn.in_proj_bias', 'self_attn.in_proj_weight', 'self_attn.out_proj.bias', 'self_attn.out_proj.weight']
+isti izlaz bloka: True</code></pre>
+<p>Cijeli blok stane u desetak redaka: dvije normalizacije, dva rezidualna zbroja, jedan attention i jedan mali MLP. Svaki transformer – od ovog s nepunih $18\,000$ parametara do modela s milijardama – samo slaže takve blokove; razlikuju se u $d$, broju glava, broju blokova, položaju normalizacije i podacima na kojima su pretrenirani.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Sekvence imaju promjenjivu duljinu i značenje u redoslijedu. RNN ih obrađuje korak po korak dijeleći težine kroz vrijeme, ali gradijent kroz dugačke nizove nestaje i računanje je slijedno.</li>
+<li>Self-attention: $Q=XW_Q$, $K=XW_K$, $V=XW_V$, $\operatorname{softmax}(QK^\top/\sqrt{d_k})V$; svaki token je težinski prosjek vrijednosti svih tokena, težine ovise o sadržaju, skaliranje sprječava zasićenje softmaxa.</li>
+<li>Više glava = isti attention na $h$ odsječaka dimenzije $d/h$ pa zajednička projekcija; pozicijsko kodiranje (sinusoidno ili naučeno) jedini je izvor informacije o redoslijedu, jer je attention ekvivarijantan na permutacije.</li>
+<li>Transformer blok: $\operatorname{LN}(X+\operatorname{MHA}(X))$ pa $\operatorname{LN}(Z+\operatorname{FFN}(Z))$; enkoder gleda dvosmjerno, dekoder uz kauzalnu masku generira token po token, enkoder–dekoder ih spaja unakrsnim attentionom.</li>
+<li>PyTorch: <code>nn.MultiheadAttention</code>, <code>nn.TransformerEncoderLayer(d_model, nhead, dim_feedforward, batch_first=True)</code>, <code>nn.TransformerEncoder</code>, maska iz <code>generate_square_subsequent_mask</code>.</li>
+<li>Pretrenirani model = transformer samonadzirano istreniran na golemom korpusu (sljedeći token ili maskirani tokeni); na natjecanju ga preuzimaš i fino podešavaš (V3, V5).</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>A. Vaswani i dr., <i>Attention Is All You Need</i>, NeurIPS 2017 – izvorni rad o transformeru (<a href="https://arxiv.org/abs/1706.03762">arXiv:1706.03762</a>).</li>
+<li>J. Alammar, <a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a> – vizualno objašnjenje $Q$, $K$, $V$ i više glava.</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/generated/torch.nn.TransformerEncoderLayer.html">nn.TransformerEncoderLayer</a> i <a href="https://pytorch.org/docs/stable/generated/torch.nn.MultiheadAttention.html">nn.MultiheadAttention</a>.</li>
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press, poglavlje 10 (Sequence Modeling: Recurrent and Recursive Nets).</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="05-konvolucijske-mreze.html"><small>← Prethodna lekcija</small>D5 · Konvolucijske neuronske mreže (CNN)</a>
+                <span class="lekcija-nav-prazno sljedeca"></span>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

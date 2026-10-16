@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Natjecanje 5: Riješeni zadatak: klasifikacija slika (simulacija u stilu IOAI)</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#natjecanje">Natjecanje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Natjecanje · lekcija 5 od 6</p>
+            <h1><span class="broj-lekcije">N5</span> Riješeni zadatak: klasifikacija slika (simulacija u stilu IOAI)</h1>
+            <p class="meta">Znamenke veličine 8 × 8: pikseli, mali CNN, augmentacija i poštena usporedba na CPU-u</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.8" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>simulacija</li>
+                <li>load_digits</li>
+                <li>logistička regresija</li>
+                <li>CNN</li>
+                <li>augmentacija</li>
+                <li>krivulje učenja</li>
+                <li>transfer learning</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Postaviti reproducibilan zadatak računalnog vida s odvojenim učenjem, validacijom i testom.</li>
+<li>Usporediti logističku regresiju na pikselima i malu konvolucijsku mrežu u PyTorchu.</li>
+<li>Primijeniti pomake samo pri učenju te protumačiti krivulje, matricu zabune i pogrešne slike.</li>
+<li>Prepoznati što treba promijeniti pri prijelazu na MNIST, CIFAR i pretreniranu mrežu.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<div class="trener-umetak">
+<p>Ovo je <b>simulacija u stilu IOAI</b>, ne službeni natjecateljski zadatak. Koristimo ugrađeni skup <code>load_digits</code>, bez preuzimanja. Pravila predaje i metrika u nastavku dogovor su ove vježbe.</p>
+</div>
+
+<h3>Što model prima i što predviđa?</h3>
+<p>Skup sadrži $1797$ sivih slika veličine $8\times8$, s pikselima od $0$ do $16$ i razredima $\{0,\dots,9\}$. Metrika je <b>točnost</b> (engl. <i>accuracy</i>), udio pogodaka. Stratificirana podjela približno čuva omjere razreda, ali ne odvaja nužno autore. Rezultat zato ne vrijedi automatski za nove rukopise ili fotografije.</p>
+<p>Odvoji približno $60\%$ za učenje, $20\%$ za validaciju i $20\%$ za test. Validacija bira model i epohu. Na kraju opisno uspoređujemo dva unaprijed zadana kandidata na testu, bez promjene izbora za predaju.</p>
+
+<h3>Od vektora piksela do konvolucije</h3>
+<p>Početno rješenje (engl. <i>baseline</i>) poravnava sliku u $x\in\mathbb R^{64}$. Logistička regresija računa linearne bodove razreda, bez posebnog tretmana susjedstva. Konvolucijska neuronska mreža (engl. <i>convolutional neural network</i>, CNN) iskorištava lokalnu strukturu.</p>
+<div class="pojam">
+<h4>Konvolucijski sloj</h4>
+<p>Za jedan ulazni kanal i jedan filtar računamo
+$$z_{i,j}=b+\sum_{a=0}^{k-1}\sum_{c=0}^{k-1}W_{a,c}x_{i+a,j+c}.$$
+Iste težine $W$ primjenjuju se na svim položajima. PyTorch operaciju bez okretanja filtra naziva konvolucijom, iako je matematički riječ o unakrsnoj korelaciji. Više filtara daje više izlaznih kanala.</p>
+</div>
+<p>Mreža će imati dva sloja s filtrima $3\times3$, nelinearnosti ReLU, sažimanje maksimumom $2\times2$ i linearnu glavu. Dopuna nulama čuva prostornu veličinu prije sažimanja. Ulaz je oblika $(B,1,8,8)$, a izlaz $(B,10)$, gdje je $B$ veličina <b>miniserije</b> (engl. <i>batch</i>). <code>CrossEntropyLoss</code> prima sirove bodove, ne već izračunat softmax; oznake su cjelobrojni indeksi razreda.</p>
+
+<h3>Normalizacija, augmentacija i sjeme</h3>
+<p>Dijeljenjem s poznatom granicom $16$ preslikavamo piksele u $[0,1]$. To nije procjena iz testnih podataka. Kad bi se računali sredina i standardna devijacija, trebalo bi ih procijeniti samo na učenju. U <b>augmentaciji</b> (engl. <i>data augmentation</i>) stvaramo male varijante ulaza uz pretpostavku da oznaka ostaje ista. Pomak od jednoga piksela ovdje je već velik u odnosu na širinu slike; pretjerani pomaci mogu odrezati važan potez.</p>
+<p>Koristit ćemo pomake s nulama na rubu, ne <code>roll</code>, koji bi sadržaj s desnog ruba vratio na lijevi. Radi kratkog koda sve slike jedne miniserije dobivaju isti slučajni pomak. Validacija i test ostaju nepromijenjeni. Zrcaljenje ili velika rotacija nisu automatski dopušteni za znamenke: transformacija može uništiti značenje oznake.</p>
+<p>Fiksiraj sjeme, podjelu, miješanje i broj dretvi. Na različitim procesorima i bibliotekama rezultat nije nužno identičan na razini bitova. Miniserija $64$ prikladna je za CPU; posljednja smije biti manja.</p>
+
+<h3>Krivulje nisu samo ukras</h3>
+<p><b>Krivulje učenja</b> prikazuju gubitak (engl. <i>loss</i>) i točnost po epohama. Pad gubitka na učenju uz rast na validaciji upozorava na prenaučenost; velike greške na oba skupa traže provjeru podataka, optimizacije i kapaciteta. Mjerimo oba skupa <em>bez augmentacije</em>.</p>
+<p>Težine s najmanjim validacijskim gubitkom kopiraj pomoću <code>copy.deepcopy</code>; samo pridruživanje <code>state_dict()</code> ne izolira tenzore od novih promjena. <code>eval()</code> mijenja ponašanje slojeva, a <code>no_grad()</code> isključuje gradijente: nisu isto.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Učitaj znamenke, odvoji skupove i izmjeri početnu logističku regresiju.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podjela indeksa.</b> Izvorni indeksi povezuju predikciju sa slikom; ne miješaj slike i oznake odvojeno.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_digits</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span><span class="p">,</span> <span class="n">confusion_matrix</span>
+
+<span class="n">podaci</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">()</span>
+<span class="n">slike</span> <span class="o">=</span> <span class="p">(</span><span class="n">podaci</span><span class="o">.</span><span class="n">images</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">oznake</span> <span class="o">=</span> <span class="n">podaci</span><span class="o">.</span><span class="n">target</span>
+<span class="n">razvoj</span><span class="p">,</span> <span class="n">te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">oznake</span><span class="p">)),</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
+                             <span class="n">stratify</span><span class="o">=</span><span class="n">oznake</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">tr</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">razvoj</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span>
+                         <span class="n">stratify</span><span class="o">=</span><span class="n">oznake</span><span class="p">[</span><span class="n">razvoj</span><span class="p">],</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">tr</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">va</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">(</span><span class="n">tr</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">te</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">(</span><span class="n">va</span><span class="p">)</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="n">te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"slike:"</span><span class="p">,</span> <span class="n">slike</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"raspon:"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">slike</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span> <span class="nb">float</span><span class="p">(</span><span class="n">slike</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"učenje, validacija, test:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">tr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">va</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>slike: (1797, 8, 8) raspon: 0.0 1.0
+učenje, validacija, test: 1077 360 360</code></pre>
+<p><b>Korak 2: model na pikselima.</b> Oba kandidata dobivaju isti raspon. Ne ignoriraj upozorenje o konvergenciji; ovdje je dovoljno $1000$ koraka.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pikseli</span> <span class="o">=</span> <span class="n">slike</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slike</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">lr</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">lr</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">pikseli</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">oznake</span><span class="p">[</span><span class="n">tr</span><span class="p">])</span>
+<span class="n">lr_va</span> <span class="o">=</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">oznake</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">lr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">pikseli</span><span class="p">[</span><span class="n">va</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"LR učenje: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">lr</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">pikseli</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">oznake</span><span class="p">[</span><span class="n">tr</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"LR validacija: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">lr_va</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>LR učenje: 0.995
+LR validacija: 0.958</code></pre>
+<p><b>Korak 3: ugovor eksperimenta.</b> Prije učenja CNN-a dogovorimo $15$ epoha, spremanje prema validacijskom gubitku i izbor kandidata prema validacijskoj točnosti. U izjednačenju biramo jeftiniji LR. Test još ne mjerimo.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Istreniraj mali CNN s pomacima te nacrtaj krivulje.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: tenzori, model i augmentacija.</b> Učenju odgovara <code>float32</code>, a oznakama <code>long</code>. Ne treba GPU ni dodatni skup podataka.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">functional</span> <span class="k">as</span> <span class="n">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">DataLoader</span><span class="p">,</span> <span class="n">TensorDataset</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">use_deterministic_algorithms</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">slike</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">oznake</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+<span class="n">generator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">TensorDataset</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">tr</span><span class="p">]),</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">generator</span><span class="o">=</span><span class="n">generator</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mreza</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">padding</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">MaxPool2d</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">Flatten</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">*</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">pomakni</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+    <span class="n">siri</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">siri</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">dy</span><span class="p">:</span><span class="mi">9</span> <span class="o">-</span> <span class="n">dy</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">dx</span><span class="p">:</span><span class="mi">9</span> <span class="o">-</span> <span class="n">dx</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">izmjeri</span><span class="p">(</span><span class="n">indeksi</span><span class="p">):</span>
+    <span class="n">mreza</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">bodovi</span> <span class="o">=</span> <span class="n">mreza</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">indeksi</span><span class="p">])</span>
+        <span class="n">gubitak</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">bodovi</span><span class="p">,</span> <span class="n">y</span><span class="p">[</span><span class="n">indeksi</span><span class="p">])</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">tocnost</span> <span class="o">=</span> <span class="p">(</span><span class="n">bodovi</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">y</span><span class="p">[</span><span class="n">indeksi</span><span class="p">])</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">gubitak</span><span class="p">,</span> <span class="n">tocnost</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ulaz:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">[:</span><span class="mi">4</span><span class="p">]]</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="s2">"izlaz:"</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">mreza</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">[:</span><span class="mi">4</span><span class="p">]])</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametri:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mreza</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>ulaz: (4, 1, 8, 8) izlaz: (4, 10)
+parametri: 3818</code></pre>
+<p><b>Korak 2: petlja učenja.</b> Gradijente brišemo prije svake miniserije. Validacija ne ulazi u <code>backward</code>; ipak utječe na izbor spremljene epohe, pa nije zamjena za test.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">optimizator</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">povijest</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">najbolji_gubitak</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"inf"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">16</span><span class="p">):</span>
+    <span class="n">mreza</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+        <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,))</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">optimizator</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">gubitak</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">mreza</span><span class="p">(</span><span class="n">pomakni</span><span class="p">(</span><span class="n">xb</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)),</span> <span class="n">yb</span><span class="p">)</span>
+        <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="n">optimizator</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="n">g_tr</span><span class="p">,</span> <span class="n">a_tr</span> <span class="o">=</span> <span class="n">izmjeri</span><span class="p">(</span><span class="n">tr</span><span class="p">)</span>
+    <span class="n">g_va</span><span class="p">,</span> <span class="n">a_va</span> <span class="o">=</span> <span class="n">izmjeri</span><span class="p">(</span><span class="n">va</span><span class="p">)</span>
+    <span class="n">povijest</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">g_tr</span><span class="p">,</span> <span class="n">g_va</span><span class="p">,</span> <span class="n">a_tr</span><span class="p">,</span> <span class="n">a_va</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">g_va</span> <span class="o">&lt;</span> <span class="n">najbolji_gubitak</span><span class="p">:</span>
+        <span class="n">najbolji_gubitak</span> <span class="o">=</span> <span class="n">g_va</span>
+        <span class="n">najbolja_epoha</span> <span class="o">=</span> <span class="n">epoha</span>
+        <span class="n">najbolje</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">15</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"epoha </span><span class="si">%2d</span><span class="s2">: gubitak </span><span class="si">%.3f</span><span class="s2"> / </span><span class="si">%.3f</span><span class="s2">, točnost </span><span class="si">%.3f</span><span class="s2"> / </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+            <span class="n">epoha</span><span class="p">,</span> <span class="n">g_tr</span><span class="p">,</span> <span class="n">g_va</span><span class="p">,</span> <span class="n">a_tr</span><span class="p">,</span> <span class="n">a_va</span><span class="p">))</span>
+<span class="n">mreza</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">najbolje</span><span class="p">)</span>
+<span class="n">cnn_va</span> <span class="o">=</span> <span class="n">izmjeri</span><span class="p">(</span><span class="n">va</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">odabir</span> <span class="o">=</span> <span class="s2">"CNN"</span> <span class="k">if</span> <span class="n">cnn_va</span> <span class="o">&gt;</span> <span class="n">lr_va</span> <span class="k">else</span> <span class="s2">"LR"</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljena epoha:"</span><span class="p">,</span> <span class="n">najbolja_epoha</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"CNN validacija: </span><span class="si">%.3f</span><span class="s2">; odabir: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">cnn_va</span><span class="p">,</span> <span class="n">odabir</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>epoha  1: gubitak 1.612 / 1.633, točnost 0.686 / 0.653
+epoha  5: gubitak 0.262 / 0.337, točnost 0.945 / 0.917
+epoha 10: gubitak 0.102 / 0.165, točnost 0.969 / 0.947
+epoha 15: gubitak 0.081 / 0.138, točnost 0.981 / 0.956
+spremljena epoha: 13
+CNN validacija: 0.969; odabir: CNN</code></pre>
+<p><b>Korak 3: krivulje.</b> Gubitci padaju uz oscilacije. Vraćena je $13$. epoha, s validacijskom točnošću $0{,}969$, a ne posljednja. Vertikalna crta označava vraćenu epohu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">h</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">povijest</span><span class="p">)</span>
+<span class="n">epohe</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">h</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">os_</span><span class="p">,</span> <span class="n">stupac</span><span class="p">,</span> <span class="n">naslov</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">osi</span><span class="p">,</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="s2">"gubitak"</span><span class="p">,</span> <span class="s2">"točnost"</span><span class="p">)):</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">epohe</span><span class="p">,</span> <span class="n">h</span><span class="p">[:,</span> <span class="n">stupac</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">"učenje bez pomaka"</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">epohe</span><span class="p">,</span> <span class="n">h</span><span class="p">[:,</span> <span class="n">stupac</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">"validacija"</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">najbolja_epoha</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"gray"</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s2">"--"</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">"epoha"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="n">naslov</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"cv_krivulje.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno cv_krivulje.png"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>spremljeno cv_krivulje.png</code></pre>
+<p>Učinak augmentacije provjeri kontrolnim CNN-om bez pomaka uz istu podjelu i proračun učenja; sama krivulja nije dokaz koristi.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Jednom otvori test, prikaži zabune CNN-a i pripremi predaju odabranog kandidata.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: završna provjera.</b> Ne mijenjaj <code>odabir</code>. Matrica ima prave razrede u redcima, predviđene u stupcima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mreza</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">cnn_pred</span> <span class="o">=</span> <span class="n">mreza</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">te</span><span class="p">])</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">lr_pred</span> <span class="o">=</span> <span class="n">lr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">pikseli</span><span class="p">[</span><span class="n">te</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"model   validacija   test"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"LR      </span><span class="si">%.3f</span><span class="s2">        </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">lr_va</span><span class="p">,</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">oznake</span><span class="p">[</span><span class="n">te</span><span class="p">],</span> <span class="n">lr_pred</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"CNN     </span><span class="si">%.3f</span><span class="s2">        </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">cnn_va</span><span class="p">,</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">oznake</span><span class="p">[</span><span class="n">te</span><span class="p">],</span> <span class="n">cnn_pred</span><span class="p">)))</span>
+<span class="n">matrica</span> <span class="o">=</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">oznake</span><span class="p">[</span><span class="n">te</span><span class="p">],</span> <span class="n">cnn_pred</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"CNN, razredi 0 do 9:"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">matrica</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>model   validacija   test
+LR      0.958        0.961
+CNN     0.969        0.961
+CNN, razredi 0 do 9:
+[[35  0  0  0  0  0  0  0  1  0]
+ [ 0 36  0  0  0  0  0  0  0  0]
+ [ 0  1 34  0  0  0  0  0  0  0]
+ [ 0  0  0 35  0  0  0  1  1  0]
+ [ 0  0  0  0 34  0  0  0  2  0]
+ [ 0  0  0  0  0 37  0  0  0  0]
+ [ 0  0  0  0  0  0 36  0  0  0]
+ [ 0  0  0  0  0  0  0 36  0  0]
+ [ 0  4  0  0  0  0  0  0 31  0]
+ [ 0  2  0  0  1  0  0  0  1 32]]</code></pre>
+<p><b>Korak 2: pogledaj slike.</b> Testna točnost oba kandidata je $0{,}961$. CNN ima $14$ grešaka; prikazujemo prvih osam s pravom i predviđenom znamenkom. Ne proglašavaj oznaku pogrešnom bez pregleda.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">greske</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">cnn_pred</span> <span class="o">!=</span> <span class="n">oznake</span><span class="p">[</span><span class="n">te</span><span class="p">])</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">osi</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">os_</span> <span class="ow">in</span> <span class="n">osi</span><span class="o">.</span><span class="n">flat</span><span class="p">:</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">os_</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">osi</span><span class="o">.</span><span class="n">flat</span><span class="p">,</span> <span class="n">greske</span><span class="p">[:</span><span class="mi">8</span><span class="p">]):</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="n">te</span><span class="p">[</span><span class="n">j</span><span class="p">]],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">"gray"</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">os_</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"</span><span class="si">%d</span><span class="s2"> → </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">oznake</span><span class="p">[</span><span class="n">te</span><span class="p">[</span><span class="n">j</span><span class="p">]],</span> <span class="n">cnn_pred</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"cv_greske.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"CNN greške:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">greske</span><span class="p">),</span> <span class="s2">"od"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prve zabune:"</span><span class="p">,</span> <span class="p">[(</span><span class="nb">int</span><span class="p">(</span><span class="n">oznake</span><span class="p">[</span><span class="n">te</span><span class="p">[</span><span class="n">j</span><span class="p">]]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">cnn_pred</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">greske</span><span class="p">[:</span><span class="mi">8</span><span class="p">]])</span></code></pre></div>
+<pre class="izlaz"><code>CNN greške: 14 od 360
+prve zabune: [(8, 1), (4, 8), (3, 7), (9, 1), (8, 1), (9, 4), (8, 1), (4, 8)]</code></pre>
+<p><b>Korak 3: predaja.</b> Ovdje je format <code>id,znamenka</code>, s izvornim indeksima u testnom redoslijedu. Na stvarnom zadatku provjeri primjer predaje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="n">predikcije</span> <span class="o">=</span> <span class="n">cnn_pred</span> <span class="k">if</span> <span class="n">odabir</span> <span class="o">==</span> <span class="s2">"CNN"</span> <span class="k">else</span> <span class="n">lr_pred</span>
+<span class="n">predaja</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">te</span><span class="p">,</span> <span class="s2">"znamenka"</span><span class="p">:</span> <span class="n">predikcije</span><span class="p">})</span>
+<span class="k">assert</span> <span class="n">predaja</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">is_unique</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">predaja</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">te</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">predaja</span><span class="o">.</span><span class="n">znamenka</span><span class="o">.</span><span class="n">between</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">9</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+<span class="n">predaja</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">"cv_predaja.csv"</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="s2">"cv_cnn.pt"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"predaja:"</span><span class="p">,</span> <span class="n">odabir</span><span class="p">,</span> <span class="s2">"redaka:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">predaja</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno cv_predaja.csv i cv_cnn.pt"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>predaja: CNN redaka: 360
+spremljeno cv_predaja.csv i cv_cnn.pt</code></pre>
+<p>Uz težine sačuvaj arhitekturu, normalizaciju, postupak učenja, podjelu, sjemena, metrike i ograničenja.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Koji je oblik miniserije od $32$ sivih slika u našem CNN-u? Zašto izlaz ima deset, a ne jedan stupac?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Ulaz je $(32,1,8,8)$, izlaz $(32,10)$. Svaka slika dobiva bod za svaki od deset razreda. Oznake su vektor duljine $32$, a ne realne ciljne vrijednosti za regresiju.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Zašto dijelimo s $16$, a ne s $255$? Treba li raspon piksela procijeniti iz testa?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Skup <code>load_digits</code> dokumentira vrijednosti od nule do šesnaest. Dijeljenje s $255$ nepotrebno bi smanjilo već malen signal. Granica je poznata iz formata podataka, ne naučena iz testa.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Smiješ li promijeniti odabir kandidata nakon što vidiš testnu tablicu?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Ne ako testnu metriku želiš zadržati kao završnu procjenu. Izbor tada postaje prilagodba testu. Kandidat je odabran na validaciji; tablica testa služi izvještaju.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Provjeri da pomak ne vraća sadržaj preko ruba. Postavi jedini svijetli piksel u desni gornji kut i pomakni ga udesno.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">probna</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+<span class="n">probna</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prije:"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">probna</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="s2">"poslije:"</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">pomakni</span><span class="p">(</span><span class="n">probna</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>prije: 1.0 poslije: 0.0</code></pre>
+<p>Piksel izlazi iz slike; to je namjerno rezanje, ne kružno pomicanje.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Iz matrice CNN-a izračunaj odziv za svaku znamenku. Koji nazivnik koristiš?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">odziv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">matrica</span><span class="p">)</span> <span class="o">/</span> <span class="n">matrica</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">znamenka</span><span class="p">,</span> <span class="n">vrijednost</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">odziv</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">znamenka</span><span class="p">,</span> <span class="s2">"</span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">vrijednost</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>0 0.972
+1 1.000
+2 0.971
+3 0.946
+4 0.944
+5 1.000
+6 1.000
+7 1.000
+8 0.886
+9 0.889</code></pre>
+<p>Nazivnik je broj stvarnih primjera pojedine znamenke, odnosno zbroj njezina retka. U ovoj podjeli svi su razredi zastupljeni.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Provjeri broj parametara mreže ručnim računom i kodom.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Konvolucija ima po jedan pomak za svaki izlazni kanal. Linearna glava prima $16\cdot4\cdot4$ značajki.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">rucno</span> <span class="o">=</span> <span class="p">(</span><span class="mi">8</span> <span class="o">*</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">8</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">16</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">16</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">256</span> <span class="o">*</span> <span class="mi">10</span> <span class="o">+</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">rucno</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">mreza</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>3818 3818</code></pre>
+<p>ReLU, sažimanje i poravnavanje nemaju naučive parametre. Prostorno dijeljenje težina čini konvoluciju štedljivom.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Bi li CNN bez augmentacije nužno bio lošiji? Definiraj kontrolni eksperiment i kriterij zaključka.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Odvoji učinak slučajne inicijalizacije od učinka transformacije ulaza.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>U novom razvojnom ciklusu pokreni dvije inačice iz istih početnih težina, s istom podjelom, redoslijedom miniserija, optimizatorom i brojem epoha. Jedna koristi pomake, druga izvorne slike. Ponovi nekoliko unaprijed zadanih sjemena i usporedi validacijske rezultate te raspršenje. Nema jamstva poboljšanja: pomak može odrezati potez. Završni test ne koristi za ponovljeni izbor augmentacije.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Primijeni prijenos učenja (engl. <i>transfer learning</i>) na MNIST ili CIFAR-10 uz ResNet. Napiši pokus sa zamrznutim izdvajačem značajki.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>MNIST ima jedan kanal, a pretrenirani ResNet očekuje tri. Normalizaciju uzmi iz odabranih težina.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Blok je <b>neizvršen</b> zbog preuzimanja skupa i težina. Za MNIST promijeni <code>naziv</code>; slika dobiva tri jednaka kanala. Mali poduzorak provjerava sučelje, ne kvalitetu ni prednost velikog modela za MNIST.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">torchvision</span><span class="w"> </span><span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">models</span><span class="p">,</span> <span class="n">transforms</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Subset</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">naziv</span> <span class="o">=</span> <span class="s2">"CIFAR10"</span>  <span class="c1"># druga mogućnost: "MNIST"</span>
+<span class="n">tezine</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ResNet18_Weights</span><span class="o">.</span><span class="n">DEFAULT</span>
+<span class="n">pretvorbe</span> <span class="o">=</span> <span class="p">[</span><span class="n">tezine</span><span class="o">.</span><span class="n">transforms</span><span class="p">()]</span>
+<span class="k">if</span> <span class="n">naziv</span> <span class="o">==</span> <span class="s2">"MNIST"</span><span class="p">:</span>
+    <span class="n">pretvorbe</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Grayscale</span><span class="p">(</span><span class="n">num_output_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">skup</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">datasets</span><span class="p">,</span> <span class="n">naziv</span><span class="p">)(</span><span class="n">root</span><span class="o">=</span><span class="s2">"podaci"</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                              <span class="n">transform</span><span class="o">=</span><span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span><span class="n">pretvorbe</span><span class="p">))</span>
+<span class="n">indeksi</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">skup</span><span class="p">),</span> <span class="n">generator</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="n">tr_mali</span> <span class="o">=</span> <span class="n">Subset</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="n">indeksi</span><span class="p">[:</span><span class="mi">128</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="n">va_mali</span> <span class="o">=</span> <span class="n">Subset</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="n">indeksi</span><span class="p">[</span><span class="mi">128</span><span class="p">:</span><span class="mi">192</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="n">tr_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">tr_mali</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                       <span class="n">generator</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="n">va_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">va_mali</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">resnet</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">resnet18</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="n">tezine</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">resnet</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">resnet</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">resnet</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">resnet</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+<span class="n">resnet</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>  <span class="c1"># zamrznute su i statistike normalizacijskih slojeva</span>
+<span class="n">resnet</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">tr_loader</span><span class="p">:</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+    <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">resnet</span><span class="p">(</span><span class="n">xb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+<span class="n">resnet</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<span class="n">pogodci</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">va_loader</span><span class="p">:</span>
+        <span class="n">pogodci</span> <span class="o">+=</span> <span class="nb">int</span><span class="p">((</span><span class="n">resnet</span><span class="p">(</span><span class="n">xb</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">yb</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"validacijska točnost:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">pogodci</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">va_mali</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span></code></pre></div>
+<p>Očekuje se jedan broj od nule do jedan; nije izmjeren. Za stvarni pokus povećaj razvojni skup, koristi stratificiranu podjelu i usporedi s malom mrežom od nule. Fino podešavanje (engl. <i>fine-tuning</i>) odmrzava dio izdvajača uz manju brzinu učenja. Provjeri dopuštenost i licenciju vanjskih težina.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Podjela i normalizacija dolaze prije arhitekture; LR na pikselima vrijedan je početni model.</li>
+<li>CNN iskorištava lokalnost i dijeljenje težina; mali model može se učiti na CPU-u.</li>
+<li>Augmentacija pripada učenju i mora čuvati oznaku. Pomak nije isto što i kružno premještanje.</li>
+<li>Krivulje mjere razvoj kroz epohe; najbolje težine spremi kopiranjem prema validaciji.</li>
+<li>Matrica i pogrešne slike otkrivaju slabosti koje točnost skriva; nakon otvaranja testa ne podešavaj model.</li>
+<li>Transfer learning zahtijeva usklađene kanale i normalizaciju te dopuštene vanjske težine.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>Scikit-learn: <a href="https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html">load_digits</a> i opis izvora podataka.</li>
+<li>PyTorch: <a href="https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html">CrossEntropyLoss</a> i <a href="https://docs.pytorch.org/docs/stable/notes/randomness.html">reproducibilnost</a>.</li>
+<li>PyTorch: <a href="https://docs.pytorch.org/tutorials/beginner/transfer_learning_tutorial.html">Transfer Learning for Computer Vision Tutorial</a>.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="04-nlp-zadatak.html"><small>← Prethodna lekcija</small>N4 · Riješeni zadatak: klasifikacija teksta (simulacija u stilu IOAI)</a>
+                <a class="sljedeca" href="06-interpretabilnost-etika.html"><small>Sljedeća lekcija →</small>N6 · Interpretabilnost, pristranost i etika AI-ja</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

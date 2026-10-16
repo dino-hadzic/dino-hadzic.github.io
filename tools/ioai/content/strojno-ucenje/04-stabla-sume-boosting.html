@@ -1,0 +1,528 @@
+@@ meta
+naslov = Stabla odluke, slučajne šume i boosting
+podnaslov = Od jedne Gini podjele do HistGradientBoostinga: zašto su ansambli stabala zadani izbor za tabularne podatke
+oznake = stablo odluke, Gini, entropija, informacijska dobit, bagging, slučajna šuma, važnost značajki, gradient boosting, HistGradientBoosting
+
+@@ ciljevi
+<li>Objasniti kako stablo odluke bira podjelu (Gini, entropija, informacijska dobit) i implementirati najbolju Gini podjelu te malo rekurzivno stablo u NumPy-ju.</li>
+<li>Pokazati kako dubina stabla upravlja prenaučenošću i kako bagging i slučajna šuma smanjuju varijancu.</li>
+<li>Razumjeti ideju gradient boostinga, ulogu parametara <code>learning_rate</code> i <code>n_estimators</code> te rano zaustavljanje u <code>HistGradientBoosting</code> modelima.</li>
+<li>Usporediti linearne modele, stabla, šume i boosting na tabularnim podacima i argumentirati zašto su ansambli stabala prvi izbor za takve zadatke na natjecanjima.</li>
+
+@@ teorija
+<p>Modeli iz M1–M3 linearni su u značajkama: granica odluke je hiperravnina, a svaka nelinearnost mora se ručno ugraditi (polinomi u M1). Tabularni podaci kakvi dolaze na IOAI – tablica s desecima stupaca različitih tipova, skala i raspodjela – rijetko su tako pitomi. Stabla odluke uče nelinearne granice sastavljene od pravila „ako je $x_j\le t$”, ne traže skaliranje i podnose miješane tipove značajki; njihovi ansambli (šume i boosting) godinama su najjači opći alat za tablice.</p>
+
+<h3>Stablo odluke</h3>
+<definicija naslov="Stablo odluke (CART)">
+Binarno stablo u kojem svaki unutarnji čvor sadrži pravilo $x_j\le t$ (lijevo ako vrijedi, desno inače), a svaki list predikciju: najčešći razred (klasifikacija) ili prosjek ciljne vrijednosti (regresija). Primjer se klasificira spuštanjem od korijena do lista.
+</definicija>
+<definicija naslov="Nečistoća čvora i informacijska dobit">
+Za čvor s udjelima razreda $p_1,\dots,p_K$ nečistoća je
+$$G=1-\sum_{k=1}^Kp_k^2\quad\text{(Gini)},\qquad H=-\sum_{k=1}^Kp_k\log_2p_k\quad\text{(entropija)}.$$
+Obje su $0$ za čist čvor i najveće za jednolike udjele. <b>Informacijska dobit</b> podjele čvora s $n$ primjera na lijevi ($n_L$) i desni ($n_R$) dio je
+$$\mathrm{IG}=I(\text{roditelj})-\frac{n_L}{n}I(L)-\frac{n_R}{n}I(R),$$
+gdje je $I$ odabrana nečistoća. Za regresiju ulogu nečistoće igra MSE unutar čvora (varijanca ciljne vrijednosti).
+</definicija>
+<p>Učenje je <b>pohlepno</b>: u svakom čvoru za svaku značajku poredamo primjere po vrijednosti, isprobamo sve pragove između susjednih različitih vrijednosti i uzmemo podjelu s najvećom dobiti; zatim se postupak rekurzivno ponavlja u djeci dok čvor ne postane čist ili dok ne udari u ograničenje. Jedan čvor stoji $O(d\,n\log n)$ zbog sortiranja. Gini i entropija gotovo uvijek daju isto stablo; Gini je zadan jer ne računa logaritme. Informacijska dobit nikad nije negativna jer su obje nečistoće konkavne (Zadatak 8).</p>
+<napomena><b>Prenaučenost.</b> Stablo bez ograničenja raste dok svaki list ne bude čist, pa trening točnost postaje $1$, a model pamti šum: mala promjena podataka daje posve drukčije stablo (velika varijanca, M1). Rast se obuzdava s <code>max_depth</code>, <code>min_samples_leaf</code>, <code>min_samples_split</code>, <code>max_leaf_nodes</code> ili naknadnim rezanjem <code>ccp_alpha</code> (Zadatak 7). Stablo ne ovisi o skali značajki ni o bilo kojoj rastućoj transformaciji (pragovi se samo preslikaju), ali ne može ekstrapolirati: izvan raspona treninga predviđa konstantu (Zadatak 4).</napomena>
+
+<h3>Bagging i slučajna šuma</h3>
+<definicija naslov="Bagging i slučajna šuma">
+<b>Bagging</b> (<i>bootstrap aggregating</i>) trenira $B$ stabala, svako na <em>bootstrap</em> uzorku (n primjera izvučenih s vraćanjem), i usrednjava njihove vjerojatnosti ili predikcije. <b>Slučajna šuma</b> (engl. <i>random forest</i>) dodatno u svakom čvoru bira najbolju podjelu samo među slučajnim podskupom od <code>max_features</code> značajki (zadano $\sqrt d$ za klasifikaciju).
+</definicija>
+<p>Prosjek $B$ procjenitelja s varijancom $\sigma^2$ i međusobnom korelacijom $\rho$ ima varijancu $\rho\sigma^2+\frac{1-\rho}{B}\sigma^2$: drugi član nestaje s velikim $B$, prvi ne. Bootstrap uzorci sami po sebi daju vrlo slična (korelirana) stabla jer dominantna značajka pobijedi u svakom korijenu; ograničenje <code>max_features</code> stabla <em>dekorelira</em> i tako smanjuje $\rho$. Zato šuma s više stabala praktički ne može prenaučiti više od pojedinačnog stabla, a dodavanje stabala samo stabilizira rezultat. Primjeri koji nisu ušli u bootstrap uzorak nekog stabla (otprilike $37\,\%$) služe za besplatnu <b>OOB</b> (<i>out-of-bag</i>) procjenu pogreške.</p>
+<p><b>Važnost značajki.</b> <code>feature_importances_</code> zbraja smanjenje nečistoće koje je značajka donijela u svim čvorovima svih stabala (<i>mean decrease in impurity</i>). Brzo je, ali računa se na treningu i precjenjuje značajke s mnogo različitih vrijednosti. <b>Permutacijska važnost</b> (<code>permutation_importance</code>) mjeri koliko metrika padne kad se stupac na validacijskom skupu slučajno promiješa; sporija je, ali radi za svaki model i mjeri ono što nas doista zanima.</p>
+
+<h3>Gradient boosting</h3>
+<definicija naslov="Gradient boosting">
+Model se gradi <em>sekvencijalno</em>: $F_0$ je konstanta (prosjek ili log-omjer izgleda), a u koraku $m$ plitko stablo $h_m$ uči negativni gradijent gubitka po trenutnim predikcijama – za kvadratni gubitak to su <em>reziduali</em> $y_i-F_{m-1}(x_i)$ – pa se model ažurira
+$$F_m(x)=F_{m-1}(x)+\eta\,h_m(x),\qquad 0\lt\eta\le1.$$
+$\eta$ je <code>learning_rate</code>, broj koraka $M$ je <code>n_estimators</code>.
+</definicija>
+<p>Dok bagging usrednjava mnogo <em>jakih</em>, nezavisno naučenih stabala i smanjuje varijancu, boosting zbraja mnogo <em>slabih</em> stabala (dubine $2$–$6$) od kojih svako popravlja pogreške prethodnih i smanjuje pristranost. Parametri $\eta$ i $M$ u zamjeni su: manji $\eta$ traži više stabala, ali obično daje bolji model (svaki korak manje prenauči na rezidualima); u praksi se uzme $\eta\in[0{,}03;0{,}1]$ i $M$ odredi <b>ranim zaustavljanjem</b> na validacijskom skupu, jer predugo boostanje – za razliku od šume – prenauči. <code>HistGradientBoostingClassifier/Regressor</code> svaku značajku najprije diskretizira u najviše $255$ koševa (histogram), pa su podjele mnogo brže na velikim skupovima; podržava nedostajuće vrijednosti (<code>NaN</code> se u svakom čvoru šalje na bolju stranu), kategorijske značajke i rano zaustavljanje. Biblioteke XGBoost, LightGBM i CatBoost isti su recept s dodatnim trikovima i često se vide u pobjedničkim rješenjima.</p>
+<napomena><b>Zašto su stabla zadani izbor za tablice.</b> Ne traže skaliranje ni transformacije, hvataju interakcije i nelinearnosti bez ručnog inženjeringa, rade s miješanim tipovima i s nedostajućim vrijednostima, a dobra zadana postavka boostinga obično je u vrhu bez ugađanja. Na ograničenom natjecateljskom vremenu to znači: započni s <code>HistGradientBoosting</code> ili slučajnom šumom, uspostavi validaciju, pa tek onda ugađaj. Linearni modeli ostaju bolji kad je podataka vrlo malo ili je veza doista linearna, a za slike, zvuk i tekst dolaze duboke mreže (modul D).</napomena>
+
+@@ primjeri
+<primjer izvor="skup podataka breast_cancer">
+<p>Implementiraj Gini nečistoću i pretragu najbolje podjele u NumPy-ju, nađi korijensku podjelu skupa <code>breast_cancer</code> i usporedi je sa stablom dubine $1$ iz scikit-learna. Zatim od te funkcije rekurzivno izgradi stablo dubine $3$ i usporedi točnost sa <code>DecisionTreeClassifier(max_depth=3)</code>.</p>
+<rjesenje>
+<p><b>Korak 1: Gini i najbolja podjela.</b> Za jednu značajku poredamo primjere; kad prag prelazi $i$-ti primjer, lijevo ide prvih $i$. Kumulativnom sumom oznaka dobivamo broj pozitivnih lijevo i desno za <em>sve</em> pragove odjednom, bez petlje. Podjela između dvije jednake vrijednosti nije dopuštena.</p>
+<kod jezik="python">
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+bc = load_breast_cancer()
+X, y = bc.data, bc.target                        # 1 = dobroćudan
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0, stratify=y)
+
+def gini(y):
+    p = np.bincount(y, minlength=2) / len(y)
+    return 1 - np.sum(p ** 2)
+
+def najbolja_podjela(X, y):
+    n = len(y)
+    G0 = gini(y)
+    najbolje = (0.0, None, None)                 # (dobit, značajka, prag)
+    for j in range(X.shape[1]):
+        poredak = np.argsort(X[:, j], kind="stable")
+        xs, ys = X[poredak, j], y[poredak]
+        i = np.arange(1, n)                      # broj primjera lijevo
+        l1 = np.cumsum(ys)[:-1]                  # pozitivnih lijevo
+        r1 = ys.sum() - l1
+        gL = 1 - (l1 / i) ** 2 - (1 - l1 / i) ** 2
+        gR = 1 - (r1 / (n - i)) ** 2 - (1 - r1 / (n - i)) ** 2
+        dobit = G0 - (i * gL + (n - i) * gR) / n
+        dobit[xs[1:] == xs[:-1]] = -1.0
+        k = int(np.argmax(dobit))
+        if dobit[k] > najbolje[0]:
+            najbolje = (float(dobit[k]), j, float((xs[k] + xs[k + 1]) / 2))
+    return najbolje
+
+dobit, j, prag = najbolja_podjela(X_tr, y_tr)
+print("Gini korijena: %.4f" % gini(y_tr))
+print("najbolja podjela: '%s' <= %.2f, dobit %.4f" % (bc.feature_names[j], prag, dobit))
+L = X_tr[:, j] <= prag
+print("lijevo: %d primjera, udio dobroćudnih %.3f;  desno: %d primjera, udio dobroćudnih %.3f"
+      % (L.sum(), y_tr[L].mean(), (~L).sum(), y_tr[~L].mean()))
+</kod>
+<izlaz>
+Gini korijena: 0.4679
+najbolja podjela: 'worst perimeter' <= 106.10, dobit 0.3394
+lijevo: 259 primjera, udio dobroćudnih 0.958;  desno: 167 primjera, udio dobroćudnih 0.114
+</izlaz>
+<p><b>Korak 2: usporedba sa scikit-learnom.</b> Stablo dubine $1$ (<em>panj</em>) mora pronaći istu podjelu; čitamo je iz atributa <code>tree_</code>.</p>
+<kod jezik="python">
+from sklearn.tree import DecisionTreeClassifier
+
+panj = DecisionTreeClassifier(max_depth=1, random_state=0).fit(X_tr, y_tr)
+print("sklearn panj: '%s' <= %.2f" % (bc.feature_names[panj.tree_.feature[0]], panj.tree_.threshold[0]))
+print("točnost panja na testu: %.3f" % panj.score(X_te, y_te))
+</kod>
+<izlaz>
+sklearn panj: 'worst perimeter' <= 106.10
+točnost panja na testu: 0.888
+</izlaz>
+<p><b>Korak 3: rekurzivno stablo.</b> Stablo predstavljamo ugniježđenim n-torkama <code>(j, prag, lijevo, desno)</code>, a list cijelim brojem razreda. Rekurzija staje na zadanoj dubini, u čistom čvoru ili kad nijedna podjela ne donosi dobit.</p>
+<kod jezik="python">
+def izgradi(X, y, dubina=0, max_dubina=3):
+    vecina = int(np.bincount(y, minlength=2).argmax())
+    if dubina == max_dubina or gini(y) == 0:
+        return vecina
+    dobit, j, prag = najbolja_podjela(X, y)
+    if j is None:
+        return vecina
+    L = X[:, j] <= prag
+    return (j, prag, izgradi(X[L], y[L], dubina + 1, max_dubina), izgradi(X[~L], y[~L], dubina + 1, max_dubina))
+
+def predvidi(stablo, X):
+    def jedan(x):
+        cvor = stablo
+        while isinstance(cvor, tuple):
+            j, prag, lijevo, desno = cvor
+            cvor = lijevo if x[j] <= prag else desno
+        return cvor
+    return np.array([jedan(x) for x in X])
+
+stablo = izgradi(X_tr, y_tr)
+sk = DecisionTreeClassifier(max_depth=3, random_state=0).fit(X_tr, y_tr)
+print("dubina 3 – ručno:   trening %.3f  test %.3f" % (np.mean(predvidi(stablo, X_tr) == y_tr), np.mean(predvidi(stablo, X_te) == y_te)))
+print("dubina 3 – sklearn: trening %.3f  test %.3f" % (sk.score(X_tr, y_tr), sk.score(X_te, y_te)))
+print("ista predikcija na testu u %.1f %% primjera" % (100 * np.mean(predvidi(stablo, X_te) == sk.predict(X_te))))
+</kod>
+<izlaz>
+dubina 3 – ručno:   trening 0.977  test 0.916
+dubina 3 – sklearn: trening 0.977  test 0.916
+ista predikcija na testu u 100.0 % primjera
+</izlaz>
+<p>Ručno stablo i scikit-learnovo identični su: iste točnosti i iste predikcije na svakom testnom primjeru (na drugim skupovima mogu se razići kod izjednačenih dobiti, gdje implementacije biraju različitu značajku). Trideset redaka NumPy-ja dovoljno je za cijeli CART, a sve ostalo u ovoj lekciji nadogradnja je iste funkcije <code>najbolja_podjela</code>.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka breast_cancer">
+<p>Na istom skupu pokaži kako točnost na treningu, u unakrsnoj validaciji i na testu ovisi o dubini stabla. Zatim istreniraj slučajnu šumu, usporedi je s pojedinačnim stablima koja je čine, pročitaj OOB točnost te usporedi dvije mjere važnosti značajki.</p>
+<rjesenje>
+<p><b>Korak 1: dubina i prenaučenost.</b></p>
+<kod jezik="python">
+from sklearn.model_selection import cross_val_score
+
+print("dubina  listova  trening  CV(5)   test")
+for dub in (1, 2, 3, 5, 8, None):
+    st = DecisionTreeClassifier(max_depth=dub, random_state=0)
+    cv = cross_val_score(st, X_tr, y_tr, cv=5).mean()
+    st.fit(X_tr, y_tr)
+    print("%6s  %7d  %7.3f  %5.3f  %5.3f" % (dub, st.get_n_leaves(), st.score(X_tr, y_tr), cv, st.score(X_te, y_te)))
+</kod>
+<izlaz>
+dubina  listova  trening  CV(5)   test
+     1        2    0.930  0.897  0.888
+     2        4    0.932  0.927  0.888
+     3        8    0.977  0.925  0.916
+     5       18    1.000  0.930  0.902
+     8       18    1.000  0.925  0.902
+  None       18    1.000  0.925  0.902
+</izlaz>
+<p>Trening točnost monotono raste do $1$, a validacijska se zaustavi već kod dubine $2$–$5$ (razlike među njima unutar su šuma): dublji listovi opisuju pojedinačne primjere, ne pravilnosti. Na dubini $5$ stablo je već potpuno izraslo ($18$ listova, svi čisti), pa <code>max_depth=8</code> i <code>None</code> ništa ne mijenjaju. Testni stupac na $143$ primjera koleba se za jedan-dva postotna boda, što je još jedan razlog da odluke donosiš po unakrsnoj validaciji, a ne po jednom testu.</p>
+<p><b>Korak 2: slučajna šuma protiv svojih stabala.</b> Svako stablo u šumi vidi drugi bootstrap uzorak i druge značajke po čvoru; pojedinačno nisu ništa bolja od stabla na cijelom skupu i jako se razlikuju, ali njihov prosjek bolji je od svih njih.</p>
+<kod jezik="python">
+from sklearn.ensemble import RandomForestClassifier
+
+rf = RandomForestClassifier(n_estimators=200, oob_score=True, random_state=0).fit(X_tr, y_tr)
+pojedinacna = np.array([t.score(X_te, y_te) for t in rf.estimators_])
+print("pojedinačna stabla šume: test %.3f ± %.3f (min %.3f, max %.3f)"
+      % (pojedinacna.mean(), pojedinacna.std(), pojedinacna.min(), pojedinacna.max()))
+print("šuma: trening %.3f  OOB %.3f  test %.3f" % (rf.score(X_tr, y_tr), rf.oob_score_, rf.score(X_te, y_te)))
+</kod>
+<izlaz>
+pojedinačna stabla šume: test 0.910 ± 0.021 (min 0.825, max 0.958)
+šuma: trening 1.000  OOB 0.965  test 0.944
+</izlaz>
+<p>Šuma ima trening točnost $1$ kao i duboko stablo, ali to ovdje nije znak prenaučenosti: OOB i testna točnost više su od svega u Koraku 1. OOB procjena dobivena je bez ijednog dodatnog treniranja i slaže se s testom.</p>
+<p><b>Korak 3: važnost značajki.</b></p>
+<kod jezik="python">
+from sklearn.inspection import permutation_importance
+
+mdi = rf.feature_importances_
+perm = permutation_importance(rf, X_te, y_te, n_repeats=5, random_state=0).importances_mean
+print("%-26s %6s   %-26s %6s" % ("MDI (nečistoća)", "", "permutacijska (test)", ""))
+for a, b in zip(np.argsort(-mdi)[:5], np.argsort(-perm)[:5]):
+    print("%-26s %6.3f   %-26s %6.3f" % (bc.feature_names[a], mdi[a], bc.feature_names[b], perm[b]))
+print("značajki s permutacijskom važnošću > 0.005: %d od %d" % ((perm > 0.005).sum(), len(perm)))
+</kod>
+<izlaz>
+MDI (nečistoća)                     permutacijska (test)
+worst perimeter             0.144   worst concave points        0.007
+worst radius                0.136   mean concave points         0.006
+worst concave points        0.131   worst area                  0.004
+worst area                  0.103   mean concavity              0.004
+mean concave points         0.095   worst texture               0.004
+značajki s permutacijskom važnošću > 0.005: 2 od 30
+</izlaz>
+<p>Na objema listama pojavljuju se iste značajke veličine i konkavnosti tumora (<code>worst area</code>, <code>worst concave points</code>, <code>mean concave points</code>), ali poredak i skala vrijednosti razlikuju se: MDI je udio ukupnog smanjenja nečistoće (zbroj $1$), a permutacijska važnost je pad točnosti. Permutacijska važnost otkriva i nešto što MDI skriva: tek je nekoliko značajki doista potrebno, jer su ostale međusobno jako korelirane (promiješaš li jednu, šuma istu informaciju pročita iz druge).</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Na sintetičkom tabularnom skupu (<code>make_classification</code>, $5000$ primjera, $20$ značajki) usporedi logističku regresiju, jedno stablo, slučajnu šumu i <code>HistGradientBoostingClassifier</code>. Zatim pokaži zamjenu između <code>learning_rate</code> i <code>n_estimators</code> i upotrijebi rano zaustavljanje.</p>
+<rjesenje>
+<p><b>Korak 1: četiri modela, zadane postavke.</b> Skup ima nelinearnu strukturu (klasteri po razredu) i $3\,\%$ pogrešnih oznaka.</p>
+<kod jezik="python">
+from sklearn.datasets import make_classification
+from sklearn.ensemble import HistGradientBoostingClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import roc_auc_score, log_loss
+
+Xc, yc = make_classification(n_samples=5000, n_features=20, n_informative=8, n_redundant=4,
+                             n_clusters_per_class=3, flip_y=0.03, class_sep=0.8, random_state=2)
+Xc_tr, Xc_te, yc_tr, yc_te = train_test_split(Xc, yc, test_size=0.3, random_state=2, stratify=yc)
+modeli = {
+    "logistička regresija": make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000)),
+    "stablo (bez ograničenja)": DecisionTreeClassifier(random_state=0),
+    "slučajna šuma (200)": RandomForestClassifier(n_estimators=200, random_state=0),
+    "HistGradientBoosting": HistGradientBoostingClassifier(random_state=0),
+}
+print("%-26s %7s %6s" % ("model", "točnost", "AUC"))
+for naziv, m in modeli.items():
+    m.fit(Xc_tr, yc_tr)
+    print("%-26s %7.3f %6.3f" % (naziv, m.score(Xc_te, yc_te), roc_auc_score(yc_te, m.predict_proba(Xc_te)[:, 1])))
+</kod>
+<izlaz>
+model                      točnost    AUC
+logistička regresija         0.750  0.808
+stablo (bez ograničenja)     0.790  0.790
+slučajna šuma (200)          0.895  0.947
+HistGradientBoosting         0.893  0.954
+</izlaz>
+<p>Linearni model ovdje jednostavno ne može opisati granicu: klasteri istog razreda leže na više mjesta. Jedno stablo granicu nađe, ali uz veliku varijancu; šuma i boosting s istim ulazom i bez ikakvog ugađanja dodaju još desetak postotnih bodova. Upravo je to tipična slika na tabularnim zadacima.</p>
+<p><b>Korak 2: <code>learning_rate</code> i <code>n_estimators</code>.</b> Klasični <code>GradientBoostingClassifier</code> ima <code>staged_predict_proba</code>, kojim pratimo testni log-gubitak nakon svakog stabla.</p>
+<kod jezik="python">
+print("learning_rate  najmanji test log-gubitak  pri n_estimators  log-gubitak pri 500")
+for lr in (0.02, 0.1, 0.5):
+    gb = GradientBoostingClassifier(n_estimators=500, learning_rate=lr, max_depth=3, random_state=0).fit(Xc_tr, yc_tr)
+    krivulja = np.array([log_loss(yc_te, p[:, 1]) for p in gb.staged_predict_proba(Xc_te)])
+    print("%13.2f  %25.4f  %16d  %19.4f" % (lr, krivulja.min(), krivulja.argmin() + 1, krivulja[-1]))
+</kod>
+<izlaz>
+learning_rate  najmanji test log-gubitak  pri n_estimators  log-gubitak pri 500
+         0.02                     0.3486               500               0.3486
+         0.10                     0.2929               457               0.2940
+         0.50                     0.3298                61               0.4363
+</izlaz>
+<p>Mali $\eta$ nakon $500$ stabala još nije ni stigao do svog minimuma, veliki $\eta$ minimum prođe već nakon nekoliko desetaka stabala i potom prenaučuje (log-gubitak raste), a srednji $\eta=0{,}1$ je najbolji kompromis. Ručno bismo dakle trebali birati $M$ za svaki $\eta$ posebno – to je posao ranog zaustavljanja.</p>
+<p><b>Korak 3: rano zaustavljanje u <code>HistGradientBoosting</code>.</b> Model sam odvoji dio treninga za validaciju i stane kad se gubitak <code>n_iter_no_change</code> iteracija ne popravi.</p>
+<kod jezik="python">
+hgb = HistGradientBoostingClassifier(learning_rate=0.1, max_iter=1000, early_stopping=True,
+                                     validation_fraction=0.15, n_iter_no_change=20, random_state=0).fit(Xc_tr, yc_tr)
+print("rano zaustavljanje: stalo nakon %d stabala (najbolji validacijski rezultat pri %d);  test točnost %.3f  AUC %.3f"
+      % (hgb.n_iter_, int(np.argmax(hgb.validation_score_)), hgb.score(Xc_te, yc_te), roc_auc_score(yc_te, hgb.predict_proba(Xc_te)[:, 1])))
+</kod>
+<izlaz>
+rano zaustavljanje: stalo nakon 100 stabala (najbolji validacijski rezultat pri 80);  test točnost 0.900  AUC 0.954
+</izlaz>
+<p>Model je sam odredio broj stabala i stao $20$ iteracija nakon najboljeg validacijskog rezultata, s testnim AUC-om jednakim zadanoj postavci. U pravom zadatku to je postavka koju treba uključiti odmah: štedi i vrijeme i brigu o <code>n_estimators</code>.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Čvor sadrži $40$ primjera razreda A i $10$ razreda B. Izračunaj Gini nečistoću i entropiju. Podjela šalje $30$ A lijevo, a $10$ A i $10$ B desno. Kolika je informacijska dobit po Giniju? Provjeri računalom.</p>
+<rjesenje>
+<p>Udjeli su $0{,}8$ i $0{,}2$: $G=1-0{,}64-0{,}04=0{,}32$, $H=-0{,}8\log_20{,}8-0{,}2\log_20{,}2\approx0{,}722$. Lijevi čvor je čist ($G=0$), desni ima $G=1-0{,}25-0{,}25=0{,}5$. Ponderirano: $\frac{30}{50}\cdot0+\frac{20}{50}\cdot0{,}5=0{,}2$, pa je dobit $0{,}32-0{,}2=0{,}12$.</p>
+<kod jezik="python">
+def entropija(y):
+    p = np.bincount(y, minlength=2) / len(y)
+    p = p[p > 0]
+    return -np.sum(p * np.log2(p))
+
+cvor = np.array([0] * 40 + [1] * 10)
+lijevo, desno = np.zeros(30, dtype=int), np.array([0] * 10 + [1] * 10)
+print("Gini %.3f  entropija %.3f  dobit %.3f" % (gini(cvor), entropija(cvor), gini(cvor) - (30 * gini(lijevo) + 20 * gini(desno)) / 50))
+</kod>
+<izlaz>
+Gini 0.320  entropija 0.722  dobit 0.120
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Pokaži eksperimentom da stablo ne ovisi o skali ni o rastućim transformacijama značajki: istreniraj <code>DecisionTreeClassifier(max_depth=3)</code> na izvornim podacima, na standardiziranima i na $x^3$ (sve su značajke nenegativne) i usporedi predikcije. Bi li isto vrijedilo za logističku regresiju iz M3?</p>
+<rjesenje>
+<p>Rastuća transformacija čuva poredak vrijednosti, a stablo gleda samo poredak: skup mogućih podjela (između susjednih vrijednosti) ostaje isti, pa i dobit svake podjele. Logistička regresija bez regularizacije invarijantna je na afine transformacije (težine se preskaliraju), ali ne na $x^3$, koje mijenja oblik granice; s regularizacijom nije invarijantna ni na skaliranje.</p>
+<kod jezik="python">
+osnovno = DecisionTreeClassifier(max_depth=3, random_state=0).fit(X_tr, y_tr).predict(X_te)
+mu, sd = X_tr.mean(axis=0), X_tr.std(axis=0)
+for naziv, f in (("standardizirano", lambda A: (A - mu) / sd), ("x^3", lambda A: A ** 3)):
+    pred = DecisionTreeClassifier(max_depth=3, random_state=0).fit(f(X_tr), y_tr).predict(f(X_te))
+    print("%-16s iste predikcije kao izvorno: %s" % (naziv, np.array_equal(pred, osnovno)))
+</kod>
+<izlaz>
+standardizirano  iste predikcije kao izvorno: True
+x^3              iste predikcije kao izvorno: True
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Odgovori bez računala. (a) Stablo ima trening točnost $1{,}00$, a testnu $0{,}88$; koja dva parametra bi prvo mijenjao i u kojem smjeru? (b) Slučajna šuma od $500$ stabala ima trening točnost $1{,}00$; je li to nužno problem? (c) Boosting s $\eta=0{,}5$ i $M=2000$ ima trening log-gubitak blizu nule i loš validacijski rezultat; što promijeniti? (d) Zašto <code>max_features</code> u šumi pomaže iako svako pojedino stablo čini lošijim?</p>
+<rjesenje>
+<p>(a) Smanjiti <code>max_depth</code> ili povećati <code>min_samples_leaf</code> (ili uvesti <code>ccp_alpha</code>): sve ograničava rast i smanjuje varijancu. (b) Ne: potpuno izrasla stabla uvijek pamte trening, a šumu ocjenjujemo po OOB-u ili validaciji; ako su oni dobri, trening točnost $1$ nije simptom. (c) Smanjiti $\eta$ i odrediti $M$ ranim zaustavljanjem; usput smanjiti dubinu stabala ili dodati regularizaciju (<code>l2_regularization</code>, <code>min_samples_leaf</code>). (d) Varijanca prosjeka ima član $\rho\sigma^2$ koji ne nestaje s brojem stabala; <code>max_features</code> smanjuje korelaciju $\rho$ među stablima više nego što povećava $\sigma^2$, pa prosjek postaje bolji.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši regresijsku inačicu funkcije <code>najbolja_podjela</code> s MSE-om kao nečistoćom i provjeri je na podacima $y=\sin x+\varepsilon$, $x\in[0,6]$, protiv <code>DecisionTreeRegressor(max_depth=1)</code>. Zatim istreniraj regresijsko stablo dubine $4$ i ispiši predikcije za $x=5{,}5$, $7$, $9$ i $20$. Što pokazuju?</p>
+<naputak>MSE čvora je varijanca ciljne vrijednosti; za sve pragove odjednom računaj je iz kumulativnih suma $y$ i $y^2$.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.tree import DecisionTreeRegressor
+
+def najbolja_podjela_mse(x, y):
+    poredak = np.argsort(x, kind="stable")
+    xs, ys = x[poredak], y[poredak]
+    n = len(y)
+    i = np.arange(1, n)
+    s1, s2 = np.cumsum(ys)[:-1], np.cumsum(ys ** 2)[:-1]
+    varL = s2 / i - (s1 / i) ** 2
+    varR = (ys ** 2).sum() - s2
+    varR = varR / (n - i) - ((ys.sum() - s1) / (n - i)) ** 2
+    ukupno = (i * varL + (n - i) * varR) / n
+    ukupno[xs[1:] == xs[:-1]] = np.inf
+    k = int(np.argmin(ukupno))
+    return (xs[k] + xs[k + 1]) / 2, ys.var() - ukupno[k]
+
+rng = np.random.default_rng(0)
+xr = np.sort(rng.uniform(0, 6, 200))
+yr = np.sin(xr) + rng.normal(scale=0.3, size=200)
+prag, dobit = najbolja_podjela_mse(xr, yr)
+panj_r = DecisionTreeRegressor(max_depth=1).fit(xr[:, None], yr)
+print("prag ručno %.3f (smanjenje MSE %.3f);  sklearn %.3f" % (prag, dobit, panj_r.tree_.threshold[0]))
+st4 = DecisionTreeRegressor(max_depth=4, random_state=0).fit(xr[:, None], yr)
+print("predikcije za x = 5.5, 7, 9, 20:", st4.predict(np.array([[5.5], [7], [9], [20]])).round(3))
+print("sin(5.5) = %.3f, sin(7) = %.3f, sin(9) = %.3f" % (np.sin(5.5), np.sin(7), np.sin(9)))
+</kod>
+<izlaz>
+prag ručno 2.992 (smanjenje MSE 0.399);  sklearn 2.992
+predikcije za x = 5.5, 7, 9, 20: [-0.629 -0.281 -0.281 -0.281]
+sin(5.5) = -0.706, sin(7) = 0.657, sin(9) = 0.412
+</izlaz>
+<p>Unutar raspona treninga stablo aproksimira sinusoidu stepenicama, a izvan njega vraća vrijednost posljednjeg lista – za sve $x\gt6$ istu konstantu. Stabla, šume i boosting <em>ne ekstrapoliraju</em>; kad zadatak traži predviđanje izvan viđenog raspona (vremenski trendovi, veće vrijednosti), linearni model ili ručna transformacija cilja mogu biti bolji.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Implementiraj bagging ručno: $B$ puta izvuci bootstrap uzorak treninga, nauči neograničeno <code>DecisionTreeClassifier</code> stablo i usrednji <code>predict_proba</code> na testu. Ispiši točnost za $B\in\{1,5,20,100\}$ i usporedi s jednim stablom na cijelom treningu te sa slučajnom šumom s istim $B$ (<code>max_features="sqrt"</code>).</p>
+<rjesenje>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+zbroj, zbroj_rf = np.zeros(len(X_te)), np.zeros(len(X_te))
+print("     B  bagging  šuma (max_features=sqrt)")
+for b in range(1, 101):
+    idx = rng.integers(0, len(X_tr), len(X_tr))
+    zbroj += DecisionTreeClassifier(random_state=b).fit(X_tr[idx], y_tr[idx]).predict_proba(X_te)[:, 1]
+    zbroj_rf += DecisionTreeClassifier(max_features="sqrt", random_state=b).fit(X_tr[idx], y_tr[idx]).predict_proba(X_te)[:, 1]
+    if b in (1, 5, 20, 100):
+        print("%6d  %7.3f  %7.3f" % (b, np.mean((zbroj / b >= 0.5) == y_te), np.mean((zbroj_rf / b >= 0.5) == y_te)))
+print("jedno stablo na cijelom treningu: %.3f" % DecisionTreeClassifier(random_state=0).fit(X_tr, y_tr).score(X_te, y_te))
+</kod>
+<izlaz>
+     B  bagging  šuma (max_features=sqrt)
+     1    0.930    0.895
+     5    0.937    0.930
+    20    0.944    0.930
+   100    0.937    0.944
+jedno stablo na cijelom treningu: 0.902
+</izlaz>
+<p>Već nekoliko usrednjenih stabala nadmaši jedno stablo, a poslije dvadesetak rezultat se stabilizira: to je član $\frac{1-\rho}{B}\sigma^2$ koji nestaje. Slučajni podskup značajki u pravilu doda još malo jer smanjuje $\rho$; na ovako malom testu razlika između bagginga i šume može biti unutar šuma od jednog-dva primjera.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Implementiraj gradient boosting za regresiju s kvadratnim gubitkom ručno: $F_0=\bar y$, u svakom koraku <code>DecisionTreeRegressor(max_depth=2)</code> uči reziduale, $F_m=F_{m-1}+\eta h_m$. Na skupu <code>make_friedman1</code> ispiši testni MSE nakon $1$, $10$, $50$, $100$ i $300$ koraka za $\eta=0{,}1$ i usporedi sa <code>GradientBoostingRegressor</code> s istim postavkama.</p>
+<rjesenje>
+<p>Za kvadratni gubitak $\frac12(y-F)^2$ negativni gradijent po $F$ upravo je rezidual $y-F$, pa „stablo uči reziduale” i „stablo uči negativni gradijent” isto znače; za druge gubitke (log-gubitak u klasifikaciji) mijenja se samo što stablo uči.</p>
+<kod jezik="python">
+from sklearn.datasets import make_friedman1
+from sklearn.ensemble import GradientBoostingRegressor
+
+Xf, yf = make_friedman1(n_samples=800, noise=1.0, random_state=0)
+Xf_tr, Xf_te, yf_tr, yf_te = train_test_split(Xf, yf, test_size=0.3, random_state=0)
+eta, M = 0.1, 300
+F_tr, F_te = np.full(len(yf_tr), yf_tr.mean()), np.full(len(yf_te), yf_tr.mean())
+gbr = GradientBoostingRegressor(n_estimators=M, learning_rate=eta, max_depth=2, random_state=0).fit(Xf_tr, yf_tr)
+mse_sk = [np.mean((p - yf_te) ** 2) for p in gbr.staged_predict(Xf_te)]
+print("    m   MSE ručno   MSE sklearn")
+for m in range(1, M + 1):
+    h = DecisionTreeRegressor(max_depth=2, random_state=0).fit(Xf_tr, yf_tr - F_tr)
+    F_tr += eta * h.predict(Xf_tr)
+    F_te += eta * h.predict(Xf_te)
+    if m in (1, 10, 50, 100, 300):
+        print("%5d   %9.3f   %11.3f" % (m, np.mean((F_te - yf_te) ** 2), mse_sk[m - 1]))
+print("varijanca y na testu (MSE modela 'prosjek'): %.3f" % yf_te.var())
+</kod>
+<izlaz>
+    m   MSE ručno   MSE sklearn
+    1      24.776        24.776
+   10      14.626        14.626
+   50       4.365         4.365
+  100       2.884         2.884
+  300       2.241         2.247
+varijanca y na testu (MSE modela 'prosjek'): 26.877
+</izlaz>
+<p>Dvije se krivulje podudaraju (sitna razlika pri $m=300$ dolazi od izjednačenih podjela u pojedinim stablima): scikit-learnov model je točno ovaj algoritam. MSE pada brzo, a zatim se usporava približavajući se varijanci šuma ($\sigma^2=1$), ispod koje nijedan model ne može.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p><b>Rezanje stabla.</b> Scikit-learnovo <em>cost-complexity</em> rezanje minimizira $R(T)+\alpha\,|T|$, gdje je $R$ nečistoća listova, a $|T|$ broj listova. Metodom <code>cost_complexity_pruning_path</code> dobij niz vrijednosti $\alpha$, za desetak njih izračunaj točnost u petostrukoj unakrsnoj validaciji, odaberi najbolji $\alpha$ i usporedi broj listova i testnu točnost nerezanog i rezanog stabla.</p>
+<rjesenje>
+<kod jezik="python">
+put = DecisionTreeClassifier(random_state=0).cost_complexity_pruning_path(X_tr, y_tr)
+alfe = np.unique(put.ccp_alphas)[:-1]                      # zadnja alfa ostavlja samo korijen
+kandidati = alfe[np.linspace(0, len(alfe) - 1, 10).astype(int)]
+rez = [(cross_val_score(DecisionTreeClassifier(ccp_alpha=a, random_state=0), X_tr, y_tr, cv=5).mean(), a) for a in kandidati]
+print("   alpha   CV točnost")
+for cv, a in rez:
+    print("%8.4f   %.3f" % (a, cv))
+najbolja = max(rez)[1]
+for naziv, a in (("nerezano", 0.0), ("ccp_alpha=%.4f" % najbolja, najbolja)):
+    st = DecisionTreeClassifier(ccp_alpha=a, random_state=0).fit(X_tr, y_tr)
+    print("%-18s listova %2d  test %.3f" % (naziv, st.get_n_leaves(), st.score(X_te, y_te)))
+</kod>
+<izlaz>
+   alpha   CV točnost
+  0.0000   0.925
+  0.0021   0.925
+  0.0031   0.927
+  0.0042   0.927
+  0.0046   0.927
+  0.0047   0.927
+  0.0063   0.937
+  0.0070   0.937
+  0.0173   0.932
+  0.0267   0.920
+nerezano           listova 18  test 0.902
+ccp_alpha=0.0070   listova  6  test 0.923
+</izlaz>
+<p>Rezanje je alternativa ograničavanju dubine: stablo se najprije pusti da izraste, a zatim se uklanjaju podstabla čiji doprinos nečistoći ne opravdava njihovu složenost. Rezultat je obično malo stablo s nekoliko listova koje se čita kao popis pravila – vrijedno kad zadatak traži i objašnjenje, ne samo predikciju.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Dokaži da informacijska dobit nikad nije negativna, i za Gini i za entropiju. Zatim eksperimentom na skupu <code>breast_cancer</code> ispiši najmanju dobit među $2000$ slučajnih podjela (slučajna značajka, slučajan prag).</p>
+<naputak>Udjeli razreda u roditelju konveksna su kombinacija udjela u djeci: $p=\frac{n_L}np^{(L)}+\frac{n_R}np^{(R)}$. Pokaži da su $G(p)$ i $H(p)$ konkavne funkcije vektora $p$ i primijeni Jensenovu nejednakost.</naputak>
+<rjesenje>
+<p>Neka su $p^{(L)},p^{(R)}$ vektori udjela razreda u djeci i $\lambda=\frac{n_L}n$. Brojanjem primjera svakog razreda vrijedi $p=\lambda p^{(L)}+(1-\lambda)p^{(R)}$. Funkcija $G(p)=1-\sum_kp_k^2$ konkavna je jer je $-\sum_kp_k^2$ zbroj konkavnih funkcija (Hesseova matrica je $-2I$); $H(p)=-\sum_kp_k\log_2p_k$ konkavna je jer je svaki pribrojnik $-p\log_2p$ konkavan ($\frac{d^2}{dp^2}(-p\log_2p)=-\frac1{p\ln2}\lt0$). Za konkavnu $I$ Jensenova nejednakost daje
+$$I(p)=I\bigl(\lambda p^{(L)}+(1-\lambda)p^{(R)}\bigr)\ \ge\ \lambda I(p^{(L)})+(1-\lambda)I(p^{(R)}),$$
+a desna strana je upravo ponderirana nečistoća djece; razlika lijeve i desne strane je $\mathrm{IG}\ge0$. Jednakost nastupa kad djeca imaju iste udjele razreda kao roditelj – podjela koja ništa ne razdvaja.</p>
+<kod jezik="python">
+rng = np.random.default_rng(1)
+dobiti = []
+for _ in range(2000):
+    j = rng.integers(X_tr.shape[1])
+    prag = rng.uniform(X_tr[:, j].min(), X_tr[:, j].max())
+    L = X_tr[:, j] <= prag
+    if 0 < L.sum() < len(L):
+        dobiti.append(gini(y_tr) - (L.sum() * gini(y_tr[L]) + (~L).sum() * gini(y_tr[~L])) / len(L))
+dobiti = np.array(dobiti)
+print("podjela: %d, najmanja dobit %.2e, medijan %.4f, najveća %.4f" % (len(dobiti), dobiti.min(), np.median(dobiti), dobiti.max()))
+</kod>
+<izlaz>
+podjela: 2000, najmanja dobit 4.12e-08, medijan 0.0105, najveća 0.3332
+</izlaz>
+<p>Najmanja dobit je nula do zaokruživanja, nikad negativna; medijan slučajne podjele daleko je ispod najbolje pohlepne podjele iz Primjera 1, što pokazuje koliko pretraga pragova vrijedi.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><b>Zadatak u stilu IOAI (simulacija).</b> Dobivaš tablicu s $3000$ redaka i $12$ numeričkih značajki, od kojih tri imaju $20\,\%$ nedostajućih vrijednosti, i ocjenjuje te AUC na skrivenom testu. Simuliraj takav skup iz <code>make_classification</code>. Usporedi: (a) slučajnu šumu uz imputaciju medijanom (<code>SimpleImputer</code>), (b) <code>HistGradientBoostingClassifier</code> koji <code>NaN</code> obrađuje sam, (c) isti model uz rano zaustavljanje. Procijeni modele petostrukom unakrsnom validacijom po AUC-u <em>prije</em> nego što ih primijeniš na test. Koji bi predao i zašto?</p>
+<rjesenje>
+<p>Nedostajuće vrijednosti nisu slučajne smetnje: često nose informaciju (zašto baš ti redci nemaju mjerenje?). <code>HistGradientBoosting</code> u svakom čvoru nauči na koju stranu šalje <code>NaN</code>, pa tu informaciju iskorištava bez ručnog rada; šuma s imputacijom radi, ali tu informaciju izgubi osim ako ne dodamo indikator nedostajanja. Odluku donosi unakrsna validacija na treningu, ne test.</p>
+<kod jezik="python">
+from sklearn.impute import SimpleImputer
+
+Xm, ym = make_classification(n_samples=3000, n_features=12, n_informative=6, n_redundant=2,
+                             n_clusters_per_class=2, flip_y=0.02, class_sep=0.9, random_state=5)
+Xm = Xm.copy()
+rng = np.random.default_rng(5)
+for j in (0, 1, 2):                                   # 20 % NaN u tri stupca, češće kod pozitivnih
+    vjer = np.where(ym == 1, 0.3, 0.1)
+    Xm[rng.random(len(Xm)) < vjer, j] = np.nan
+print("udio NaN po stupcima 0–2: %s;  ukupno NaN: %d" % (np.isnan(Xm[:, :3]).mean(axis=0).round(3), np.isnan(Xm).sum()))
+Xm_tr, Xm_te, ym_tr, ym_te = train_test_split(Xm, ym, test_size=0.3, random_state=5, stratify=ym)
+kandidati = {
+    "šuma + imputacija medijanom": make_pipeline(SimpleImputer(strategy="median"), RandomForestClassifier(n_estimators=300, random_state=0)),
+    "HistGradientBoosting": HistGradientBoostingClassifier(random_state=0),
+    "HGB + rano zaustavljanje": HistGradientBoostingClassifier(max_iter=1000, early_stopping=True, n_iter_no_change=20, random_state=0),
+}
+print("%-28s %8s %8s" % ("model", "CV AUC", "test AUC"))
+for naziv, m in kandidati.items():
+    cv = cross_val_score(m, Xm_tr, ym_tr, cv=5, scoring="roc_auc").mean()
+    m.fit(Xm_tr, ym_tr)
+    print("%-28s %8.3f %8.3f" % (naziv, cv, roc_auc_score(ym_te, m.predict_proba(Xm_te)[:, 1])))
+</kod>
+<izlaz>
+udio NaN po stupcima 0–2: [0.2   0.206 0.189];  ukupno NaN: 1787
+model                          CV AUC test AUC
+šuma + imputacija medijanom     0.947    0.945
+HistGradientBoosting            0.951    0.947
+HGB + rano zaustavljanje        0.947    0.940
+</izlaz>
+<p>Predao bih model s najboljim CV AUC-om, a to je ovdje boosting; test to potvrđuje, ali on u pravom natjecanju nije dostupan, pa je CV jedini legitiman kriterij. Rano zaustavljanje ovdje je čak mrvicu lošije: dio treninga odlazi u internu validaciju, a zadanih $100$ iteracija ionako je blizu optimuma; na većim i nepoznatim skupovima ono je ipak jeftino osiguranje od prenaučenosti. Ako vrijeme dopušta, sljedeći su koraci: indikatori nedostajanja za šumu, ugađanje <code>learning_rate</code> i <code>max_leaf_nodes</code> po CV-u i usrednjavanje nekoliko modela s različitim <code>random_state</code>.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Stablo odluke pohlepno bira podjelu $x_j\le t$ s najvećom informacijskom dobiti; nečistoća je Gini $1-\sum p_k^2$ ili entropija $-\sum p_k\log_2p_k$ (regresija: MSE). Dobit je uvijek $\ge0$ jer su nečistoće konkavne.</li>
+<li>Stabla ne traže skaliranje, invarijantna su na rastuće transformacije, ali ne ekstrapoliraju i lako prenauče; rast ograničavaju <code>max_depth</code>, <code>min_samples_leaf</code>, <code>ccp_alpha</code>.</li>
+<li>Bagging usrednjava stabla s bootstrap uzoraka i smanjuje varijancu; slučajna šuma ih dekorelira s <code>max_features</code>, daje OOB procjenu i važnost značajki (MDI brzo, permutacijska pouzdanije).</li>
+<li>Gradient boosting zbraja plitka stabla koja uče negativni gradijent (reziduale): $F_m=F_{m-1}+\eta h_m$; <code>learning_rate</code> i <code>n_estimators</code> su u zamjeni, $M$ se bira ranim zaustavljanjem; predugo boostanje prenauči.</li>
+<li><code>HistGradientBoostingClassifier/Regressor</code>: histogramski koševi, nativni <code>NaN</code>, kategorijske značajke, <code>early_stopping</code> – zadani početni model za tabularne zadatke; šuma je robusna druga opcija, a linearni model osnovica.</li>
+</ul>
+
+@@ literatura
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 6 (Decision Trees) i 7 (Ensemble Learning and Random Forests).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlja 9.2 (Tree-Based Methods), 10 (Boosting) i 15 (Random Forests).</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/tree.html">Decision Trees</a> i <a href="https://scikit-learn.org/stable/modules/ensemble.html">Ensembles: gradient boosting, random forests, bagging</a>.</li>

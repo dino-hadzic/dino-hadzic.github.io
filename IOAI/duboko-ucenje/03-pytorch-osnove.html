@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Duboko učenje 3: PyTorch: tenzori, autograd i prva mreža</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#duboko-ucenje">Duboko učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Duboko učenje · lekcija 3 od 6</p>
+            <h1><span class="broj-lekcije">D3</span> PyTorch: tenzori, autograd i prva mreža</h1>
+            <p class="meta">Od NumPy polja do tenzora s gradijentom: autograd, nn.Module, gubici, optimizatori, petlja treniranja, DataLoader i spremanje modela</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.4" title="razina nacionalnog izbora i kvalifikacija">Razina: Srednje</li>
+                <li>tenzor</li>
+                <li>autograd</li>
+                <li>requires_grad</li>
+                <li>nn.Module</li>
+                <li>nn.Sequential</li>
+                <li>optimizator</li>
+                <li>DataLoader</li>
+                <li>state_dict</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Stvarati tenzore, pretvarati ih iz NumPy polja i natrag te razumjeti zašto je <code>dtype</code> (float32 naspram float64, int64) najčešći izvor grešaka.</li>
+<li>Objasniti što radi <code>requires_grad</code>, <code>backward()</code> i <code>.grad</code>, zašto se gradijenti zbrajaju i kada treba <code>torch.no_grad()</code>.</li>
+<li>Sastaviti mrežu pomoću <code>nn.Linear</code>, <code>nn.Sequential</code> i vlastite potklase <code>nn.Module</code> te je trenirati petljom <em>zero_grad → forward → loss → backward → step</em> uz <code>nn.CrossEntropyLoss</code>, SGD i Adam.</li>
+<li>Puniti podatke kroz <code>Dataset</code>/<code>DataLoader</code>, spremiti i učitati <code>state_dict</code> i prebaciti model na GPU kad je dostupan.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji D2 napisali smo backpropagation ručno. Za svaki novi sloj to bi značilo novi izvod i novu provjeru gradijenta, a i NumPy ne zna za GPU. <b>PyTorch</b> rješava oboje: njegovi <b>tenzori</b> izgledaju kao NumPy polja, ali svaka operacija nad njima usput gradi računski graf, pa se gradijent svih parametara dobiva jednim pozivom <code>backward()</code>. Na IOAI je PyTorch standardni alat za sve što nije tabularno – ova lekcija daje osnovu koju lekcije D4–D6 i V3–V6 pretpostavljaju.</p>
+
+<h3>Instalacija</h3>
+<p>Verzija za CPU je dovoljna za sve lekcije kurikuluma i instalira se brzo; na računalu s NVIDIA karticom ili u Colabu instalira se verzija s CUDA-om prema uputama na <a href="https://pytorch.org/get-started/locally/">pytorch.org</a>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="c1"># u terminalu (ne u Pythonu):</span>
+<span class="c1">#   pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cpu</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">())</span>    <span class="c1"># npr. "2.x.y+cpu False"</span></code></pre></div>
+
+<h3>Tenzori</h3>
+<div class="pojam">
+<h4>Tenzor</h4>
+<p><b>Tenzor</b> (<code>torch.Tensor</code>) je višedimenzionalno polje brojeva jednog tipa (<code>dtype</code>) smješteno na jednom uređaju (<code>device</code>: <code>cpu</code> ili <code>cuda</code>). Skalar je tenzor dimenzije $0$, vektor dimenzije $1$, matrica dimenzije $2$; mini-skup slika je tenzor dimenzije $4$ oblika $(n, \text{kanali}, \text{visina}, \text{širina})$. Uz podatke, tenzor može nositi i gradijent (<code>.grad</code>) i vezu na operaciju koja ga je stvorila (<code>.grad_fn</code>).</p>
+</div>
+<p>Gotovo sve iz lekcije P3 vrijedi doslovno: indeksiranje, <code>reshape</code>/<code>view</code>, broadcasting, <code>@</code> za matrično množenje, redukcije <code>sum</code>, <code>mean</code>, <code>argmax</code> s argumentom <code>dim</code> (umjesto <code>axis</code>). Tri razlike koje stalno izazivaju greške:</p>
+<ul>
+<li><b>Zadani tip je <code>float32</code></b>, a NumPy-jev <code>float64</code>. <code>torch.tensor(np_polje)</code> zadržava <code>float64</code>, što se sudara s težinama mreže (<code>float32</code>). Pretvaraj eksplicitno: <code>torch.tensor(polje, dtype=torch.float32)</code> ili <code>.float()</code>. Oznake klasa za <code>CrossEntropyLoss</code> moraju biti <code>int64</code> (<code>torch.long</code>).</li>
+<li><code>torch.from_numpy(polje)</code> i <code>tenzor.numpy()</code> <b>dijele memoriju</b> – promjena jednog mijenja drugo; <code>torch.tensor(polje)</code> kopira.</li>
+<li>Operacije sa završnim <code>_</code> (<code>add_</code>, <code>zero_</code>, <code>mul_</code>) rade <b>na mjestu</b> (engl. <i>in-place</i>) i ne stvaraju novi tenzor; za parametre s gradijentom dopuštene su samo unutar <code>torch.no_grad()</code>.</li>
+</ul>
+
+<h3>Autograd</h3>
+<div class="pojam">
+<h4>Dinamični računski graf</h4>
+<p>Ako tenzor ima <code>requires_grad=True</code>, svaka operacija koja ga koristi vraća tenzor koji pamti svoje ulaze i funkciju za prolaz unatrag (<code>grad_fn</code>). Graf se gradi <em>tijekom izvođenja</em> (engl. <i>define-by-run</i>) i razgrađuje nakon <code>backward()</code>; zato petlje i grananja u <code>forward</code> smiju biti običan Python. Poziv <code>L.backward()</code> na skalaru $L$ računa $\partial L/\partial\theta$ za svaki list grafa $\theta$ s <code>requires_grad=True</code> i <b>pribraja</b> ga u <code>θ.grad</code>.</p>
+</div>
+<div class="trener-umetak">
+<p>„Pribraja”, ne „postavlja”: dva uzastopna <code>backward()</code> daju dvostruki gradijent. Zato svaka iteracija treniranja počinje s <code>optimizer.zero_grad()</code> (ili <code>θ.grad = None</code>). Zaboravljen <code>zero_grad()</code> jedna je od tri najčešće greške početnika; druge dvije su pogrešan <code>dtype</code> i ocjenjivanje modela bez <code>model.eval()</code> i <code>torch.no_grad()</code>.</p>
+</div>
+<p>Tri alata za izlazak iz grafa: <code>with torch.no_grad():</code> isključuje bilježenje (ocjenjivanje, ručno ažuriranje težina – štedi i memoriju i vrijeme), <code>t.detach()</code> vraća isti tenzor bez povijesti, a <code>t.item()</code> pretvara jednočlani tenzor u Python broj (za ispis i spremanje gubitka; <code>float(t)</code> radi isto).</p>
+
+<h3>Slojevi: <code>nn.Module</code></h3>
+<p><code>torch.nn.Module</code> je bazni razred za sve što ima parametre. <code>nn.Linear(d, m)</code> računa $y = xW^\top + b$ s $W\in\mathbb R^{m\times d}$ (primijeti: PyTorch sprema težine kao <em>izlaz × ulaz</em>, transponirano u odnosu na zapis iz lekcije D2) i $b\in\mathbb R^m$; parametri su objekti <code>nn.Parameter</code> – tenzori s <code>requires_grad=True</code> koje modul automatski prijavljuje u <code>parameters()</code>. Složene mreže grade se na dva načina:</p>
+<ul>
+<li><code>nn.Sequential(sloj1, sloj2, …)</code> – slojevi se primjenjuju redom; dovoljno za svaki MLP.</li>
+<li>Vlastita potklasa <code>nn.Module</code>: u <code>__init__</code> stvoriš podmodule (obavezno prvo <code>super().__init__()</code>), a u <code>forward(self, x)</code> napišeš izračun običnim Pythonom. Model se poziva kao funkcija, <code>model(x)</code>, nikad <code>model.forward(x)</code> izravno.</li>
+</ul>
+<p>Aktivacije postoje kao moduli (<code>nn.ReLU()</code>, <code>nn.Tanh()</code>) i kao funkcije (<code>torch.relu</code>, <code>torch.nn.functional</code>, uobičajeno <code>F</code>). Zadana inicijalizacija <code>nn.Linear</code> je slučajna i uniformna, ovisna o širini ulaza, pa rezultate čini ponovljivima samo <code>torch.manual_seed(…)</code> <em>prije</em> stvaranja modela.</p>
+
+<h3>Gubici i optimizatori</h3>
+<p>Gubitak je također modul: <code>nn.MSELoss()</code> za regresiju, <code>nn.CrossEntropyLoss()</code> za klasifikaciju. Potonji <b>prima logite</b> oblika $(n, K)$ i cjelobrojne oznake oblika $(n,)$ te interno radi <code>log_softmax</code> + negativnu log-izglednost – točno kombinaciju iz lekcije D2. Ne stavljaj softmax na kraj mreže; dvostruki softmax „spljošti” gradijente i model uči sporije.</p>
+<p>Optimizator (<code>torch.optim</code>) dobiva <code>model.parameters()</code> i stopu učenja te u <code>step()</code> ažurira parametre iz njihovih <code>.grad</code>. <code>SGD(lr, momentum)</code> je gradijentni spust (po mini-skupovima) s opcionalnim momentumom; <code>Adam(lr)</code> prilagođava korak svakom parametru posebno i obično radi dobro već sa zadanim <code>lr=1e-3</code>, pa je uobičajen prvi izbor na natjecanju. Usporedba i podešavanje su tema lekcije D4.</p>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (petlja treniranja).</strong> Jedna iteracija učenja na mini-skupu $(x_b,y_b)$ uvijek ima pet koraka, uvijek istim redom:</p>
+<ol>
+<li><code>optimizer.zero_grad()</code> – poništi stare gradijente;</li>
+<li><code>izlaz = model(x_b)</code> – prolaz unaprijed;</li>
+<li><code>gubitak = kriterij(izlaz, y_b)</code> – skalar;</li>
+<li><code>gubitak.backward()</code> – gradijenti u <code>.grad</code> svih parametara;</li>
+<li><code>optimizer.step()</code> – korak optimizatora.</li>
+</ol>
+<p>Epoha je prolaz kroz sve mini-skupove. Ocjenjivanje ide uz <code>model.eval()</code> i <code>with torch.no_grad()</code>, a nakon njega <code>model.train()</code>.</p>
+</div>
+
+<h3>Podaci: <code>Dataset</code> i <code>DataLoader</code></h3>
+<p><code>Dataset</code> je bilo što s <code>__len__</code> i <code>__getitem__(i)</code> koji vraća $i$-ti primjer; za tenzore u memoriji služi <code>TensorDataset(X, y)</code>. <code>DataLoader(skup, batch_size, shuffle)</code> ga reže na mini-skupove, miješa ih svake epohe i po potrebi puni podatke u više procesa (<code>num_workers</code>). Za ponovljivo miješanje predaj mu <code>generator=torch.Generator().manual_seed(0)</code>. Veličina mini-skupa je hiperparametar: manji daje šumnije ali češće korake, veći bolje iskorištava hardver (lekcija D4).</p>
+
+<h3>Spremanje modela i uređaj</h3>
+<p><code>model.state_dict()</code> je rječnik <em>ime parametra → tenzor</em>. Sprema se s <code>torch.save(model.state_dict(), "model.pt")</code>, a učitava u <em>već stvoren</em> model iste arhitekture s <code>model.load_state_dict(torch.load("model.pt"))</code>. Spremati samo <code>state_dict</code>, a ne cijeli objekt modela, standardna je praksa – datoteka ne ovisi o izvornom kodu razreda. Na natjecanju spremaj najbolji model tijekom treninga, ne samo zadnji.</p>
+<p>Uređaj se bira jednom, <code>device = torch.device("cuda" if torch.cuda.is_available() else "cpu")</code>, pa se model (<code>model.to(device)</code>) i <em>svaki</em> mini-skup (<code>x_b.to(device)</code>) šalju na njega; tenzori na različitim uređajima ne mogu se kombinirati. Za ispis ili NumPy tenzor se vraća s <code>.cpu()</code>. Isti kod radi na CPU-u i GPU-u – samo na GPU-u desetke puta brže za velike mreže.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Ponovi račune iz lekcije D2 u PyTorchu: (a) stvori tenzore iz Python lista i NumPy polja i provjeri tipove; (b) izračunaj gradijent funkcije $f(x,y,z)=(x+y)z$ i jednog neurona sa sigmoidom autogradom i usporedi s ručnim rezultatom; (c) pokaži da se gradijenti pribrajaju i kako se parametri ručno ažuriraju.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: tenzori i tipovi.</b> Obrati pažnju na <code>dtype</code> u svakom retku ispisa.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+
+<span class="n">a</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">]])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">a</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>         <span class="c1"># cijeli brojevi -&gt; int64</span>
+
+<span class="n">polje</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">polje</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">polje</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+<span class="n">t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">polje</span><span class="p">)</span>                         <span class="c1"># dijeli memoriju s poljem</span>
+<span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mf">100.0</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">polje</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">t</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">a</span> <span class="o">@</span> <span class="n">a</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">(),</span> <span class="n">a</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">a</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">sep</span><span class="o">=</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>torch.Size([2, 2]) torch.float32 cpu
+torch.int64
+torch.float64 torch.float32
+[100.     0.25] [100.     0.25]
+[[ 5. 11.]
+ [11. 25.]]
+tensor([4., 6.])
+tensor([1, 1])</code></pre>
+<p><b>Korak 2: autograd na malom grafu.</b> Isti graf kao u Primjeru 1 lekcije D2: označimo ulaze s <code>requires_grad=True</code>, izračunamo $f$ običnim operatorima i pozovemo <code>backward()</code>. Atribut <code>grad_fn</code> pokazuje koja operacija je stvorila tenzor.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">z</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"f ="</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="s2">" grad_fn:"</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">grad_fn</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">f</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"df/dx = </span><span class="si">%.1f</span><span class="s2">, df/dy = </span><span class="si">%.1f</span><span class="s2">, df/dz = </span><span class="si">%.1f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">z</span><span class="o">.</span><span class="n">grad</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>f = -4.0  grad_fn: MulBackward0
+df/dx = 4.0, df/dy = 4.0, df/dz = -1.0</code></pre>
+<p><b>Korak 3: neuron sa sigmoidom.</b> U D2 smo za $x=(1,-2)$, $y=1$, $w=(0{,}5;\,-0{,}3)$, $b=0{,}1$ ručno dobili $\partial L/\partial w=(-0{,}082356;\;0{,}164713)$ i $\partial L/\partial b=-0{,}082356$. Ovdje koristimo <code>float64</code> da se decimale točno poklope.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">x_n</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<span class="n">w_n</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.3</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">b_n</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">w_n</span> <span class="o">@</span> <span class="n">x_n</span> <span class="o">+</span> <span class="n">b_n</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">L</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"L = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">L</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"dL/dw ="</span><span class="p">,</span> <span class="n">w_n</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">),</span> <span class="s2">" dL/db = </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">b_n</span><span class="o">.</span><span class="n">grad</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>L = 0.0536
+dL/dw = [-0.082356  0.164713]  dL/db = -0.082356</code></pre>
+<p><b>Korak 4: gradijenti se pribrajaju; ručni korak.</b> Drugi <code>backward()</code> bez poništavanja udvostruči gradijent. Ažuriranje parametara mora ići unutar <code>torch.no_grad()</code>, inače bi i sam korak ušao u graf (i izazvao grešku jer je operacija na mjestu nad listom grafa).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">w_n</span> <span class="o">@</span> <span class="n">x_n</span> <span class="o">+</span> <span class="n">b_n</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">L</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"nakon drugog backward(): dL/db = </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">b_n</span><span class="o">.</span><span class="n">grad</span><span class="p">)</span>
+
+<span class="n">w_n</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">zero_</span><span class="p">();</span> <span class="n">b_n</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>                  <span class="c1"># isto što radi optimizer.zero_grad()</span>
+<span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">w_n</span> <span class="o">@</span> <span class="n">x_n</span> <span class="o">+</span> <span class="n">b_n</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">L</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">w_n</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">w_n</span><span class="o">.</span><span class="n">grad</span>
+    <span class="n">b_n</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">b_n</span><span class="o">.</span><span class="n">grad</span>
+<span class="n">L_novi</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">w_n</span> <span class="o">@</span> <span class="n">x_n</span> <span class="o">+</span> <span class="n">b_n</span><span class="p">)</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gubitak prije </span><span class="si">%.4f</span><span class="s2">  poslije koraka </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">L</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">L_novi</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"requires_grad novog gubitka:"</span><span class="p">,</span> <span class="n">L_novi</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">,</span> <span class="s2">" detach:"</span><span class="p">,</span> <span class="n">L_novi</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>nakon drugog backward(): dL/db = -0.164713
+gubitak prije 0.0536  poslije koraka 0.0363
+requires_grad novog gubitka: True  detach: False</code></pre>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka make_moons</span></h3>
+<div class="zadatak">
+<p>Mrežu $2\to16\to2$ iz lekcije D2 sastavi s <code>nn.Sequential</code>, ispiši njezine parametre i istreniraj je punim gradijentnim spustom (SGD, $\eta=0{,}5$, $600$ epoha) na <code>make_moons</code>. Zatim istu arhitekturu istreniraj Adamom i usporedi krivulje gubitka.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci kao tenzori.</b> Ulazi u <code>float32</code>, oznake u <code>int64</code> (to <code>torch.tensor</code> napravi sam iz NumPy-jevih cijelih brojeva).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_moons</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">make_moons</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">y_tr</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">y_te</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">y_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">y_tr</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>torch.Size([300, 2]) torch.float32 torch.Size([300]) torch.int64</code></pre>
+<p><b>Korak 2: model.</b> Zadnji sloj daje logite; softmax je unutar gubitka. Sjeme postavljamo prije stvaranja modela da inicijalizacija bude ponovljiva.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-10s</span><span class="s2"> oblik </span><span class="si">%-9s</span><span class="s2"> requires_grad=</span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ukupno parametara:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"početni gubitak: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">model</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>Sequential(
+  (0): Linear(in_features=2, out_features=16, bias=True)
+  (1): ReLU()
+  (2): Linear(in_features=16, out_features=2, bias=True)
+)
+0.weight   oblik (16, 2)   requires_grad=True
+0.bias     oblik (16,)     requires_grad=True
+2.weight   oblik (2, 16)   requires_grad=True
+2.bias     oblik (2,)      requires_grad=True
+ukupno parametara: 82
+početni gubitak: 0.7558</code></pre>
+<p>Težina sloja <code>0.weight</code> ima oblik $(16, 2)$ – izlaz puta ulaz. Ukupno $2\cdot16+16+16\cdot2+2=82$ parametra, a početni gubitak je blizu $\ln 2\approx0{,}693$, kako i treba za neutralni model s dvije klase.</p>
+<p><b>Korak 3: petlja treniranja.</b> Pet koraka iz teorije, bez ijednog ručnog gradijenta. Točnost mjerimo pod <code>no_grad</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">rezultat</span> <span class="o">=</span> <span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">rezultat</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">treniraj_puni</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">optimizator</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">ispis</span><span class="o">=</span><span class="p">()):</span>
+    <span class="n">kriterij</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+    <span class="n">povijest</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">epohe</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">optimizator</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>                     <span class="c1"># 1</span>
+        <span class="n">logiti</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>                           <span class="c1"># 2</span>
+        <span class="n">gubitak</span> <span class="o">=</span> <span class="n">kriterij</span><span class="p">(</span><span class="n">logiti</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>               <span class="c1"># 3</span>
+        <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>                          <span class="c1"># 4</span>
+        <span class="n">optimizator</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>                          <span class="c1"># 5</span>
+        <span class="n">povijest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="n">ispis</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"epoha </span><span class="si">%3d</span><span class="s2">  gubitak </span><span class="si">%.4f</span><span class="s2">  točnost test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">epoha</span><span class="p">,</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">povijest</span>
+
+<span class="n">opt_sgd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">pov_sgd</span> <span class="o">=</span> <span class="n">treniraj_puni</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">opt_sgd</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">ispis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>epoha   1  gubitak 0.7558  točnost test 0.720
+epoha 100  gubitak 0.2540  točnost test 0.910
+epoha 300  gubitak 0.1250  točnost test 0.940
+epoha 600  gubitak 0.0841  točnost test 0.960</code></pre>
+<p>Isti zadatak kao u D2 i slična točnost, ali ovaj put bez ijednog izvoda: formule iz D2 sada izvodi autograd. Ako je u tvojoj NumPy verziji trebalo mijenjati <code>unatrag</code> za svaki novi sloj ili gubitak, ovdje mijenjaš samo <code>forward</code>.</p>
+<p><b>Korak 4: Adam umjesto SGD-a.</b> Mijenjamo samo jedan redak. Adam s malim <code>lr</code> napreduje sigurno i glatko; detalji zašto u lekciji D4.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model_adam</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">opt_adam</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model_adam</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+<span class="n">pov_adam</span> <span class="o">=</span> <span class="n">treniraj_puni</span><span class="p">(</span><span class="n">model_adam</span><span class="p">,</span> <span class="n">opt_adam</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">ispis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">600</span><span class="p">))</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">5.5</span><span class="p">,</span> <span class="mf">3.5</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pov_sgd</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"SGD, lr = 0.5"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pov_adam</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"Adam, lr = 0.01"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"epoha"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"unakrsna entropija"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"moons_sgd_adam.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>epoha   1  gubitak 0.7558  točnost test 0.530
+epoha 100  gubitak 0.2484  točnost test 0.910
+epoha 300  gubitak 0.0929  točnost test 0.960
+epoha 600  gubitak 0.0639  točnost test 0.950</code></pre>
+<p>Na slici obje krivulje padaju; Adamova brže dođe na nisku razinu gubitka iako je korak sto puta manji – Adam skalira korak svakog parametra prema povijesti njegovih gradijenata, pa stopa učenja nije izravno usporediva sa SGD-ovom.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3 <span class="izvor-oznaka">skup podataka load_digits</span></h3>
+<div class="zadatak">
+<p>Za skup <code>load_digits</code> napiši vlastiti <code>nn.Module</code> (MLP $64\to64\to10$), podatke puni kroz <code>DataLoader</code> s mini-skupovima od $32$, treniraj Adamom $20$ epoha i prati gubitak i točnost. Spremi <code>state_dict</code>, učitaj ga u novi model i provjeri da daje iste predikcije; na kraju kod prilagodi za GPU.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: Dataset i DataLoader.</b> Podjelu radimo na NumPy poljima, pa polja pretvaramo u tenzore; <code>TensorDataset</code> ih upakira u parove, a <code>DataLoader</code> ih miješa i reže. <code>len(loader)</code> je broj mini-skupova po epohi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_digits</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch.utils.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">TensorDataset</span><span class="p">,</span> <span class="n">DataLoader</span>
+
+<span class="n">znamenke</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">()</span>
+<span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">yd_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
+    <span class="n">znamenke</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">,</span> <span class="n">znamenke</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">znamenke</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+<span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_te</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">yd_tr</span><span class="p">,</span> <span class="n">yd_te</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">yd_tr</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">yd_te</span><span class="p">)</span>
+
+<span class="n">skup_tr</span> <span class="o">=</span> <span class="n">TensorDataset</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span>
+<span class="n">loader_tr</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">skup_tr</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                       <span class="n">generator</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"primjera:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">skup_tr</span><span class="p">),</span> <span class="s2">" mini-skupova po epohi:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader_tr</span><span class="p">))</span>
+<span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">loader_tr</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"jedan mini-skup:"</span><span class="p">,</span> <span class="n">xb</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">yb</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">" prve oznake:"</span><span class="p">,</span> <span class="n">yb</span><span class="p">[:</span><span class="mi">8</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>primjera: 1347  mini-skupova po epohi: 43
+jedan mini-skup: torch.Size([32, 64]) torch.Size([32])  prve oznake: [8, 5, 5, 7, 3, 7, 3, 3]</code></pre>
+<p><b>Korak 2: model kao potklasa <code>nn.Module</code>.</b> Podmoduli se stvaraju u <code>__init__</code>, a <code>forward</code> ih povezuje. Ovdje je to isto što i <code>Sequential</code>, ali ovaj oblik dopušta grananja, preskakanja i više ulaza (lekcije D5, D6).</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">MLP</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_ulaz</span><span class="p">,</span> <span class="n">d_skriveni</span><span class="p">,</span> <span class="n">broj_klasa</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sloj1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_ulaz</span><span class="p">,</span> <span class="n">d_skriveni</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sloj2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_skriveni</span><span class="p">,</span> <span class="n">broj_klasa</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sloj1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sloj2</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>                        <span class="c1"># logiti</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model_zn</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model_zn</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model_zn</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>MLP(
+  (sloj1): Linear(in_features=64, out_features=64, bias=True)
+  (sloj2): Linear(in_features=64, out_features=10, bias=True)
+)
+parametara: 4810</code></pre>
+<p><b>Korak 3: treniranje po mini-skupovima.</b> Unutarnja petlja ide po <code>DataLoaderu</code>; gubitak epohe je prosjek po mini-skupovima. Na kraju svake epohe mjerimo točnost na testu (u pravom zadatku to bi bio <em>validacijski</em> skup – lekcija M5).</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">treniraj</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">loader</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">ispis</span><span class="o">=</span><span class="p">()):</span>
+    <span class="n">kriterij</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">povijest</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">epohe</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">zbroj</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+            <span class="n">gubitak</span> <span class="o">=</span> <span class="n">kriterij</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">),</span> <span class="n">yb</span><span class="p">)</span>
+            <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">zbroj</span> <span class="o">+=</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">yb</span><span class="p">)</span>
+        <span class="n">povijest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">zbroj</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader</span><span class="o">.</span><span class="n">dataset</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="n">ispis</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"epoha </span><span class="si">%2d</span><span class="s2">  gubitak </span><span class="si">%.4f</span><span class="s2">  točnost test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">epoha</span><span class="p">,</span> <span class="n">povijest</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">povijest</span>
+
+<span class="n">pov_zn</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">model_zn</span><span class="p">,</span> <span class="n">loader_tr</span><span class="p">,</span> <span class="n">ispis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>epoha  1  gubitak 2.1884  točnost test 0.709
+epoha  2  gubitak 1.8255  točnost test 0.831
+epoha  5  gubitak 0.7156  točnost test 0.909
+epoha 10  gubitak 0.3055  točnost test 0.936
+epoha 20  gubitak 0.1486  točnost test 0.964</code></pre>
+<p>Nakon deset epoha mreža prepoznaje oko $94\,\%$ testnih znamenki, nakon dvadeset oko $96\,\%$, a gubitak na treningu još uvijek pada – s više epoha ili većom stopom učenja došli bismo brže do razine iz lekcije D2. Kada stati, kako birati stopu učenja i što raditi kad trening nastavi padati a test ne, tema je lekcije D4.</p>
+<p><b>Korak 4: spremanje i učitavanje.</b> <code>state_dict</code> ima jedan tenzor po parametru. Učitamo ga u svježe stvoren model i usporedimo predikcije.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">sd</span> <span class="o">=</span> <span class="n">model_zn</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">({</span><span class="n">ime</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">sd</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">"mlp_digits.pt"</span><span class="p">)</span>
+
+<span class="n">model_ucitan</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>                      <span class="c1"># nova, slučajna inicijalizacija</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prije učitavanja: točnost </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model_ucitan</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">))</span>
+<span class="n">model_ucitan</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"mlp_digits.pt"</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"nakon učitavanja: točnost </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model_ucitan</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">))</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"iste predikcije:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">equal</span><span class="p">(</span><span class="n">model_ucitan</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">model_zn</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>{'sloj1.weight': (64, 64), 'sloj1.bias': (64,), 'sloj2.weight': (10, 64), 'sloj2.bias': (10,)}
+prije učitavanja: točnost 0.182
+nakon učitavanja: točnost 0.964
+iste predikcije: True</code></pre>
+<p><b>Korak 5: uređaj.</b> Isti kod radi na GPU-u ako model i podatke pošaljemo na <code>device</code>. Na računalu bez CUDA-e ispis je <code>cpu</code> i ništa se ne mijenja; u Colabu s GPU-om bio bi <code>cuda</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">"cuda"</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">"cpu"</span><span class="p">)</span>
+<span class="n">model_zn</span> <span class="o">=</span> <span class="n">model_zn</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="o">=</span> <span class="n">xb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">yb</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">logiti</span> <span class="o">=</span> <span class="n">model_zn</span><span class="p">(</span><span class="n">xb</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">logiti</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">logiti</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"natrag na CPU za NumPy:"</span><span class="p">,</span> <span class="n">logiti</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()[:</span><span class="mi">8</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>cpu cpu torch.Size([32, 10])
+natrag na CPU za NumPy: [8 5 5 7 3 7 3 3]</code></pre>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Što se dogodi kad u <code>nn.Linear(3, 1)</code> pošalješ (a) <code>torch.tensor([1, 2, 3])</code>, (b) <code>torch.tensor(np.array([1.0, 2.0, 3.0]))</code>? Isprobaj, pročitaj poruke o grešci i popravi oba poziva.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) Lista cijelih brojeva daje <code>int64</code>; (b) NumPy polje daje <code>float64</code>. Težine sloja su <code>float32</code>, a matrično množenje zahtijeva isti tip. Lijek: <code>.float()</code> ili <code>dtype=torch.float32</code> pri stvaranju.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">sloj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ulaz</span> <span class="ow">in</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">]))):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">sloj</span><span class="p">(</span><span class="n">ulaz</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"dtype </span><span class="si">%-13s</span><span class="s2"> -&gt;"</span> <span class="o">%</span> <span class="n">ulaz</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"popravljeno:"</span><span class="p">,</span> <span class="n">sloj</span><span class="p">(</span><span class="n">ulaz</span><span class="o">.</span><span class="n">float</span><span class="p">())</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">sloj</span><span class="p">(</span><span class="n">ulaz</span><span class="o">.</span><span class="n">float</span><span class="p">())</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>dtype torch.int64   -&gt; mat1 and mat2 must have the same dtype
+popravljeno: torch.Size([1]) torch.float32
+dtype torch.float64 -&gt; mat1 and mat2 must have the same dtype
+popravljeno: torch.Size([1]) torch.float32</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Bez pokretanja koda odredi oblik <code>weight</code> i <code>bias</code> sloja <code>nn.Linear(64, 32)</code>, oblik izlaza za ulaz oblika $(16, 64)$ i ukupan broj parametara mreže $64\to32\to10$. Zatim provjeri.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p><code>weight</code> je $(32, 64)$ (izlaz × ulaz), <code>bias</code> je $(32,)$, izlaz je $(16, 32)$. Parametara: $64\cdot32+32+32\cdot10+10=2410$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">sloj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">sloj</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sloj</span><span class="o">.</span><span class="n">bias</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sloj</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">64</span><span class="p">))</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>(32, 64) (32,) (16, 32)
+2410</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Napiši kratki eksperiment koji pokazuje što se događa kad se u petlji treniranja zaboravi <code>zero_grad()</code>: za $L(\theta)=\theta^2$ u $\theta=3$ pozovi <code>backward()</code> tri puta i ispiši <code>θ.grad</code> nakon svakog poziva. Koji bi gradijent trebao biti?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Točan gradijent je $2\theta=6$; bez poništavanja dobivamo $6, 12, 18$ – svaki <code>backward()</code> pribraja. U petlji treniranja to bi značilo da korak u iteraciji $t$ koristi zbroj gradijenata svih dosadašnjih mini-skupova.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">theta</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+    <span class="p">(</span><span class="n">theta</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"nakon </span><span class="si">%d</span><span class="s2">. backward(): grad = </span><span class="si">%.0f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">theta</span><span class="o">.</span><span class="n">grad</span><span class="p">))</span>
+<span class="n">theta</span><span class="o">.</span><span class="n">grad</span> <span class="o">=</span> <span class="kc">None</span>                                   <span class="c1"># alternativa za zero_()</span>
+<span class="p">(</span><span class="n">theta</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"nakon poništavanja: grad = </span><span class="si">%.0f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">theta</span><span class="o">.</span><span class="n">grad</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>nakon 1. backward(): grad = 6
+nakon 2. backward(): grad = 12
+nakon 3. backward(): grad = 18
+nakon poništavanja: grad = 6</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Linearnu regresiju iz lekcije M1 (podaci $y=3x+2+\varepsilon$, <code>default_rng(0)</code>, $n=200$) riješi gradijentnim spustom u PyTorchu bez <code>nn</code> i <code>optim</code>: parametri $w, b$ su tenzori s <code>requires_grad</code>, gubitak je MSE, $2000$ koraka s $\eta=0{,}05$. Usporedi s normalnom jednadžbom ($b=2{,}0471$, $w=2{,}9494$).</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Petlja: izračunaj gubitak, <code>backward()</code>, pod <code>no_grad()</code> oduzmi $\eta\cdot$grad, poništi gradijente. Koristi <code>float64</code> da se decimale točno slože.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">x_np</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">y_np</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">x_np</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">x_t</span><span class="p">,</span> <span class="n">y_t</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">x_np</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">y_np</span><span class="p">)</span>           <span class="c1"># float64</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2000</span><span class="p">):</span>
+    <span class="n">gubitak</span> <span class="o">=</span> <span class="p">((</span><span class="n">w</span> <span class="o">*</span> <span class="n">x_t</span> <span class="o">+</span> <span class="n">b</span> <span class="o">-</span> <span class="n">y_t</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="n">w</span> <span class="o">-=</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">w</span><span class="o">.</span><span class="n">grad</span>
+        <span class="n">b</span> <span class="o">-=</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">b</span><span class="o">.</span><span class="n">grad</span>
+    <span class="n">w</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">zero_</span><span class="p">();</span> <span class="n">b</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">zero_</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"b = </span><span class="si">%.4f</span><span class="s2">, w = </span><span class="si">%.4f</span><span class="s2">, MSE = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">w</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>b = 2.0471, w = 2.9494, MSE = 1.0421</code></pre>
+<p>Isti brojevi kao u M1 – autograd je izračunao $\partial L/\partial w=\frac2n\sum x_i(wx_i+b-y_i)$ i $\partial L/\partial b=\frac2n\sum(wx_i+b-y_i)$ umjesto nas. Četiri retka unutar petlje upravo su ono što <code>optim.SGD</code> radi u <code>step()</code> i <code>zero_grad()</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Dokaži eksperimentom da je <code>torch.optim.SGD(lr=η)</code> bez momentuma točno pravilo $\theta\leftarrow\theta-\eta\,\nabla L$: napravi dvije kopije istog modela (<code>copy.deepcopy</code>), jednu treniraj optimizatorom, drugu ručnim koracima pod <code>no_grad()</code>, $100$ koraka na <code>make_moons</code>, pa usporedi sve parametre s <code>torch.allclose</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">m_opt</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">m_rucno</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">m_opt</span><span class="p">)</span>
+<span class="n">kriterij</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()</span>
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">m_opt</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+    <span class="n">kriterij</span><span class="p">(</span><span class="n">m_opt</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m_rucno</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">grad</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">kriterij</span><span class="p">(</span><span class="n">m_rucno</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m_rucno</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">p</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">p</span><span class="o">.</span><span class="n">grad</span>
+
+<span class="n">isti</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">m_opt</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">m_rucno</span><span class="o">.</span><span class="n">parameters</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametri jednaki nakon 100 koraka:"</span><span class="p">,</span> <span class="n">isti</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gubitak: </span><span class="si">%.4f</span><span class="s2">  </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">kriterij</span><span class="p">(</span><span class="n">m_opt</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">kriterij</span><span class="p">(</span><span class="n">m_rucno</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>parametri jednaki nakon 100 koraka: True
+gubitak: 0.2434  0.2434</code></pre>
+<p>Optimizator ne radi ništa „magično” – samo uredno primjenjuje pravilo ažuriranja na sve parametre. S <code>momentum=0.9</code> ili Adamom pravilo je složenije (lekcija D4), ali struktura petlje ostaje ista.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Pokaži da je <code>nn.CrossEntropyLoss</code> jednak $-\frac1n\sum_i\log\operatorname{softmax}(z_i)_{y_i}$ izračunatom „ručno” s <code>torch.log_softmax</code>, i da je gradijent po logitima jednak $\frac1n(P-Y)$ iz lekcije D2. Što se dogodi s gradijentom ako na logite prije gubitka greškom primijeniš još jedan <code>softmax</code>?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Logite stvori kao list grafa s <code>requires_grad=True</code>, pa nakon <code>backward()</code> pročitaj <code>logiti.grad</code>. Za $P-Y$ koristi <code>torch.softmax</code> i <code>torch.nn.functional.one_hot</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">logiti</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">klase</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+
+<span class="n">L1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">logiti</span><span class="p">,</span> <span class="n">klase</span><span class="p">)</span>
+<span class="n">L2</span> <span class="o">=</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log_softmax</span><span class="p">(</span><span class="n">logiti</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">klase</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"CrossEntropyLoss </span><span class="si">%.6f</span><span class="s2">   ručno </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">L1</span><span class="o">.</span><span class="n">item</span><span class="p">(),</span> <span class="n">L2</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
+
+<span class="n">L1</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="n">P_minus_Y</span> <span class="o">=</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">logiti</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">klase</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gradijent = (P - Y)/n:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">logiti</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">P_minus_Y</span><span class="o">.</span><span class="n">detach</span><span class="p">()))</span>
+
+<span class="n">logiti2</span> <span class="o">=</span> <span class="n">logiti</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">nn</span><span class="o">.</span><span class="n">CrossEntropyLoss</span><span class="p">()(</span><span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">logiti2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">klase</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"|grad| ispravno </span><span class="si">%.4f</span><span class="s2">   s dvostrukim softmaxom </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">logiti</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">norm</span><span class="p">(),</span> <span class="n">logiti2</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">norm</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>CrossEntropyLoss 0.935686   ručno 0.935686
+gradijent = (P - Y)/n: True
+|grad| ispravno 0.3673   s dvostrukim softmaxom 0.1141</code></pre>
+<p>Vrijednosti i gradijent poklapaju se s izvodom iz D2. S dvostrukim softmaxom gubitak prima „logite” koji su već u $[0,1]$, pa su razlike među klasama male: gradijent je nekoliko puta manji i model uči sporije, a najgore je što se greška ne vidi – kod se izvršava bez ikakve poruke. Mreža za klasifikaciju završava linearnim slojem, i ništa poslije njega.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Istreniraj model iz Primjera 3 (<code>MLP(64, 64, 10)</code>, Adam, <code>lr=1e-3</code>, $10$ epoha) s veličinama mini-skupa $8$, $32$ i $256$. Za svaku ispiši broj koraka optimizatora po epohi, konačni gubitak na treningu i točnost na testu. Objasni razlike.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Broj koraka je <code>len(loader)</code>. Pri istom broju epoha manji mini-skup znači više ažuriranja parametara, ali svako je šumnije.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">velicina</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">256</span><span class="p">):</span>
+    <span class="n">loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">skup_tr</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">velicina</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">generator</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">pov</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">loader</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"batch </span><span class="si">%3d</span><span class="s2">   koraka/epohi </span><span class="si">%3d</span><span class="s2">   gubitak </span><span class="si">%.4f</span><span class="s2">   točnost test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span>
+          <span class="p">(</span><span class="n">velicina</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">loader</span><span class="p">),</span> <span class="n">pov</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>batch   8   koraka/epohi 169   gubitak 0.1352   točnost test 0.964
+batch  32   koraka/epohi  43   gubitak 0.3047   točnost test 0.933
+batch 256   koraka/epohi   6   gubitak 1.6764   točnost test 0.860</code></pre>
+<p>Pri istom broju epoha i istoj stopi učenja mali mini-skup napravi puno više koraka pa gubitak padne niže, dok veliki mini-skup napravi samo šest koraka po epohi i nakon $10$ epoha još je daleko od konvergencije – trebao bi veći <code>lr</code> ili više epoha. Mali mini-skupovi su po koraku jeftini, ali svaki korak ima režijske troškove, pa je na GPU-u epoha s <code>batch_size=8</code> znatno sporija od one s $256$. Tipičan kompromis je $32$–$128$; detalji u lekciji D4.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Napiši vlastiti sloj <code>MojLinear(nn.Module)</code> s parametrima <code>W</code> oblika (ulaz, izlaz) i <code>b</code> kao <code>nn.Parameter</code>, inicijaliziranima kao u lekciji D2 (He-ova inicijalizacija, pomak nula). Kopiraj težine iz jednog <code>nn.Linear</code> (pazi na transponiranje) i provjeri da oba sloja daju iste izlaze i iste gradijente; zatim mrežu od dva <code>MojLinear</code> sloja istreniraj na <code>make_moons</code> i usporedi s Primjerom 2.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Običan tenzor dodijeljen atributu modula <em>nije</em> parametar – optimizator ga ne vidi. Omotaj ga u <code>nn.Parameter</code>, pa će se pojaviti u <code>parameters()</code> i <code>state_dict()</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">MojLinear</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_ulaz</span><span class="p">,</span> <span class="n">d_izlaz</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_ulaz</span><span class="p">,</span> <span class="n">d_izlaz</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">d_ulaz</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d_izlaz</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">ref</span><span class="p">,</span> <span class="n">moj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">MojLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">moj</span><span class="o">.</span><span class="n">W</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>                        <span class="c1"># (16, 2) -&gt; (2, 16)</span>
+    <span class="n">moj</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">bias</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti izlaz:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">ref</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">moj</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)))</span>
+<span class="n">ref</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">moj</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti gradijent W:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">moj</span><span class="o">.</span><span class="n">W</span><span class="o">.</span><span class="n">grad</span><span class="p">),</span>
+      <span class="s2">" b:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">bias</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">moj</span><span class="o">.</span><span class="n">b</span><span class="o">.</span><span class="n">grad</span><span class="p">))</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model_moj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">MojLinear</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">MojLinear</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"parametara:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model_moj</span><span class="o">.</span><span class="n">parameters</span><span class="p">()),</span> <span class="nb">list</span><span class="p">(</span><span class="n">model_moj</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+<span class="n">treniraj_puni</span><span class="p">(</span><span class="n">model_moj</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">model_moj</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">ispis</span><span class="o">=</span><span class="p">(</span><span class="mi">600</span><span class="p">,))</span></code></pre></div>
+<pre class="izlaz"><code>isti izlaz: True
+isti gradijent W: True  b: True
+parametara: 82 ['0.W', '0.b', '2.W', '2.b']
+epoha 600  gubitak 0.0761  točnost test 0.950</code></pre>
+<p>Sloj je matematički identičan <code>nn.Linear</code>, a jer je <code>W</code> <code>nn.Parameter</code>, automatski se pojavljuje u <code>parameters()</code> (optimizator ga ažurira) i u <code>state_dict()</code> (sprema se). Točnost je u istom rasponu kao u Primjeru 2; razlika dolazi od drukčije inicijalizacije (He-ova normalna umjesto PyTorchove uniformne).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>PyTorch dopušta i vlastite operacije s ručno napisanim prolazom unatrag: potklasa <code>torch.autograd.Function</code> sa statičkim metodama <code>forward(ctx, x)</code> i <code>backward(ctx, grad_izlaz)</code>. Napiši tako sigmoidu (prolaz unatrag $\sigma(x)(1-\sigma(x))\cdot\bar y$ iz lekcije D2), provjeri je s <code>torch.autograd.gradcheck</code> u <code>float64</code> i pokaži da daje isti gradijent kao <code>torch.sigmoid</code>. Što <code>gradcheck</code> radi?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>ctx.save_for_backward(izlaz)</code> u <code>forward</code> sprema što treba za <code>backward</code>; tamo ga vraća <code>ctx.saved_tensors</code>. Funkcija se poziva s <code>MojaSigmoida.apply(x)</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">MojaSigmoida</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_izlaz</span><span class="p">):</span>
+        <span class="p">(</span><span class="n">s</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="k">return</span> <span class="n">grad_izlaz</span> <span class="o">*</span> <span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span>             <span class="c1"># lančano pravilo, kao u D2</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gradcheck:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">gradcheck</span><span class="p">(</span><span class="n">MojaSigmoida</span><span class="o">.</span><span class="n">apply</span><span class="p">,</span> <span class="p">(</span><span class="n">u</span><span class="p">,)))</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span><span class="o">.</span><span class="n">requires_grad_</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+<span class="p">(</span><span class="n">MojaSigmoida</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">7.0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float64</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti gradijent kao torch.sigmoid:"</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">grad</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">grad</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>gradcheck: True
+isti gradijent kao torch.sigmoid: True
+[0.14528 0.48939 0.274   0.92338 0.94409 0.95292]</code></pre>
+<p><code>gradcheck</code> je upravo numerička provjera gradijenta iz lekcije D2: za svaki element ulaza izračuna centralnu konačnu razliku i usporedi je s onim što vrati <code>backward</code>, u dvostrukoj preciznosti i uz zadanu toleranciju. Vlastite <code>Function</code> trebaju rijetko (operacije koje autograd ne pokriva ili ih želiš ubrzati), ali pokazuju da PyTorch iznutra radi točno ono što smo u D2 radili ručno – svaki ugrađeni operator ima svoj <code>forward</code> i <code>backward</code>.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Tenzor = NumPy polje + <code>dtype</code>/<code>device</code> + autograd. Zadani tip je <code>float32</code>; ulaze pretvaraj eksplicitno, oznake klasa drži u <code>int64</code>.</li>
+<li><code>requires_grad=True</code> uključuje bilježenje grafa, <code>L.backward()</code> računa i <em>pribraja</em> gradijente u <code>.grad</code>; zato <code>zero_grad()</code> na početku svake iteracije. Ocjenjivanje i ručna ažuriranja idu pod <code>torch.no_grad()</code>.</li>
+<li>Mreža je <code>nn.Module</code>: <code>nn.Sequential</code> za nizove slojeva, vlastita potklasa s <code>__init__</code> i <code>forward</code> za sve ostalo; <code>nn.Linear(d, m)</code> ima težinu oblika $(m, d)$.</li>
+<li>Petlja treniranja: <code>zero_grad → model(x) → kriterij → backward → step</code>. <code>nn.CrossEntropyLoss</code> prima logite; <code>Adam(lr=1e-3)</code> je dobar prvi izbor.</li>
+<li><code>TensorDataset</code> + <code>DataLoader(batch_size, shuffle, generator)</code> daju mini-skupove; <code>model.eval()</code>/<code>model.train()</code> prebacuju način rada.</li>
+<li>Spremaj <code>state_dict</code> (<code>torch.save</code>/<code>load_state_dict</code>); uređaj biraj jednom i šalji na njega i model i svaki mini-skup.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>Službeni vodiči PyTorcha: <a href="https://pytorch.org/tutorials/beginner/basics/intro.html">Learn the Basics</a> (tenzori, Dataset/DataLoader, autograd, optimizacija, spremanje) i <a href="https://pytorch.org/tutorials/beginner/pytorch_with_examples.html">Learning PyTorch with Examples</a>.</li>
+<li>Dokumentacija: <a href="https://pytorch.org/docs/stable/nn.html">torch.nn</a>, <a href="https://pytorch.org/docs/stable/optim.html">torch.optim</a>, <a href="https://pytorch.org/docs/stable/notes/autograd.html">Autograd mechanics</a>.</li>
+<li>E. Stevens, L. Antiga, T. Viehmann, <i>Deep Learning with PyTorch</i>, Manning, poglavlja 3–6 (tenzori, autograd, prvi modeli).</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 10 – isti pojmovi, drugi okvir; korisno za usporedbu.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="02-backpropagation.html"><small>← Prethodna lekcija</small>D2 · Backpropagation: kako mreža uči</a>
+                <a class="sljedeca" href="04-treniranje-u-praksi.html"><small>Sljedeća lekcija →</small>D4 · Treniranje mreža u praksi</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

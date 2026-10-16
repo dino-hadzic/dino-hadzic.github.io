@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Natjecanje 6: Interpretabilnost, pristranost i etika AI-ja</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#natjecanje">Natjecanje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Natjecanje · lekcija 6 od 6</p>
+            <h1><span class="broj-lekcije">N6</span> Interpretabilnost, pristranost i etika AI-ja</h1>
+            <p class="meta">Što model koristi, komu griješi i zašto visoka točnost nije dovoljan dokaz kvalitete</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 1.0" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>permutacijska važnost</li>
+                <li>SHAP</li>
+                <li>parcijalna ovisnost</li>
+                <li>demografski paritet</li>
+                <li>pristranost</li>
+                <li>privatnost</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Izmjeriti permutacijsku važnost i objasniti razliku između objašnjenja modela i uzročnosti.</li>
+<li>Protumačiti parcijalnu ovisnost i osnovnu ideju SHAP doprinosa.</li>
+<li>Izračunati stope pozitivnih odluka, točnost i stope pogrešaka po grupama na sintetičkom primjeru.</li>
+<li>Prepoznati curenje podataka, prenaučenost na benchmark, rizike privatnosti i halucinacije jezičnih modela.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<h3>Zašto rezultat nije cijela priča?</h3>
+<p>U pripremi za IOAI učiš što model koristi, kako se rezultat mjeri i kada mu ne treba vjerovati. Službene zahtjeve provjeri u pravilima; ova lekcija ne propisuje bodovanje etike.</p>
+<p><b>Interpretabilnost</b> (engl. <i>interpretability</i>) opisuje vezu ulaza i izlaza. <b>Globalno</b> objašnjenje opisuje skup, <b>lokalno</b> jednu predikciju. Može otkriti prečac, ali ne potvrđuje ispravnost, poštenost ni uzročnost.</p>
+
+<h3>Permutacijska važnost</h3>
+<div class="pojam">
+<h4>Koliko se model oslanja na značajku?</h4>
+<p>Neka je $s(f,X,y)$ metrika za koju je veće bolje. Permutacijska važnost (engl. <i>permutation importance</i>) značajke $j$ jest
+$$I_j=s(f,X,y)-\frac1R\sum_{r=1}^R s(f,X^{\pi_{j,r}},y),$$
+gdje $X^{\pi_{j,r}}$ nastaje slučajnim premještanjem vrijednosti samo stupca $j$. Model se ne uči ponovno. Velik pad metrike znači da se ovaj model na ovom skupu oslanja na taj stupac.</p>
+</div>
+<p>Računaj na izdvojenom skupu da ne mjeriš memoriranje. Raspršenje ponavljanja opisuje permutacije, <em>nije</em> interval pouzdanosti za populaciju. Negativna važnost može nastati zbog šuma ili štetne značajke. Zamjenjivi stupci mogu imati male pojedinačne važnosti jer nose isti signal; to ne dokazuje nevažnost cijele grupe.</p>
+
+<h3>Parcijalna ovisnost i lokalni doprinosi</h3>
+<div class="pojam">
+<h4>Parcijalna ovisnost</h4>
+<p>Parcijalna ovisnost (engl. <i>partial dependence</i>) za značajku $j$ i vrijednost $z$ jest
+$$PD_j(z)=\frac1n\sum_{i=1}^n f(z,x_{i,-j}).$$
+Ostale značajke svakog retka ostaju kakve jesu, a $j$-tu zamijenimo s $z$. U binarnoj klasifikaciji ovdje je $f$ predviđena vjerojatnost pozitivnog razreda.</p>
+</div>
+<p>To je prosjek odgovora modela, ne očekivana posljedica stvarne intervencije. Ako su dob i iskustvo povezani, zamjena samo dobi može stvoriti nestvarne kombinacije. Prosjek može sakriti i suprotne učinke u podgrupama. Lokalna krivulja jedne osobe i prosječna krivulja ne moraju izgledati jednako.</p>
+<p><b>SHAP</b> raspodjeljuje odstupanje predikcije od referentne vrijednosti na značajke, prema ideji Shapleyjevih vrijednosti iz teorije igara. Promatra doprinos značajke kada se dodaje različitim skupovima drugih značajki. Za određeni izlaz modela i zadanu referentnu raspodjelu vrijedi aditivno objašnjenje $f(x)=\phi_0+\sum_j\phi_j$. Pozitivan $\phi_j$ povisuje objašnjavani izlaz u odnosu na referenciju, a negativan ga snižava. Ovisi o izlaznoj skali, pozadinskim podatcima i načinu obrade zavisnosti značajki. Nije jedinstvena „istina o osobi”.</p>
+
+<h3>Poštenost: prvo odredi štetu i cilj</h3>
+<p><b>Pristranost</b> (engl. <i>bias</i>) može nastati pri uzorkovanju, mjerenju, označivanju ili uporabi modela. Ako povijesne oznake odražavaju nepravedne odluke, točno oponašanje oznaka može ponoviti nepravdu. Uklanjanje stupca s grupom nije dovoljno: poštanski broj ili administrativni bod mogu biti njegove zamjene. S druge strane, kontrolirano čuvanje grupe može biti potrebno za reviziju; pristup tim podatcima mora biti opravdan i ograničen.</p>
+<div class="pojam">
+<h4>Demografski paritet</h4>
+<p>Za grupu $A=a$ stopa pozitivnih odluka je $q_a=P(\hat Y=1\mid A=a)$. Demografski paritet (engl. <i>demographic parity</i>) traži jednake stope među grupama. Za dvije grupe promatramo apsolutni jaz
+$$\Delta_{DP}=|q_0-q_1|.$$
+Empirijski računamo broj pozitivnih odluka podijeljen brojem članova grupe. Jaz nula sam po sebi ne dokazuje poštenost.</p>
+</div>
+<p><b>Jednakost prilika</b> (engl. <i>equal opportunity</i>) umjesto toga uspoređuje odziv $TPR=P(\hat Y=1\mid Y=1,A=a)$. Jednakost stopa pogrešaka (engl. <i>equalized odds</i>) traži jednake TPR i FPR, gdje je $FPR=P(\hat Y=1\mid Y=0,A=a)$. Ti kriteriji mogu biti u napetosti, posebno uz različite osnovne stope. Odabir nije samo matematički: ovisi o namjeni, opravdanosti oznaka, trošku grešaka i ljudima koje odluke pogađaju.</p>
+
+<h3>Curenje, benchmark, privatnost i LLM-ovi</h3>
+<p><b>Curenje podataka</b> (engl. <i>data leakage</i>) koristi nedostupnu informaciju: testne oznake, budući ishod, statistike iz testa ili duplikat događaja. Dijeli po vremenu, osobi ili događaju kad to odgovara uporabi. Provjeri trenutak dostupnosti svake značajke.</p>
+<p><b>Prenaučenost na usporedni skup</b> (engl. <i>benchmark</i>) nastaje i brojnim pokušajima na istoj ljestvici. Zadrži lokalnu validaciju, dnevnik pokusa i neovisni završni test. Javni zadatci možda su bili dio učenja pretreniranog modela; bez podrijetla korpusa ne tvrdi da je provjera neovisna.</p>
+<p><b>Privatnost</b> nije samo brisanje imena: dob, mjesto i rijetka dijagnoza mogu otkriti osobu. Prikupljaj samo nužno, provjeri osnovu uporabe, ograniči pristup i zadržavanje. Ne šalji osjetljive podatke servisima bez odobrenja. Male grupe i sintetički podatci nastali memoriranjem također mogu otkriti pojedinca.</p>
+<p><b>Halucinacije velikih jezičnih modela</b> (engl. <i>LLM hallucinations</i>) uvjerljivi su, ali netočni ili nepotkrijepljeni odgovori: izmišljeni citati ili API-ji. Provjeri izvor, izvrši kod i odvoji provjereno od pretpostavljenoga. Dohvat izvora ne jamči istinu; tečan odgovor ne opravdava automatizaciju rizičnih odluka.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Na sintetičkim podatcima za izmišljenu odluku o pristupu radionici izmjeri važnost značajki. Nema stvarnih osoba ni tvrdnji o društvenim grupama.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podatci s namjerno ugrađenim problemom.</b> Grupa $A$ utječe i na administrativni bod i na povijesnu oznaku. Model ne dobiva $A$ izravno, ali dobiva povezani bod. Oznaka opisuje simuliranu povijesnu odluku, ne objektivnu zaslugu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomForestClassifier</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">accuracy_score</span><span class="p">,</span> <span class="n">roc_auc_score</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.inspection</span><span class="w"> </span><span class="kn">import</span> <span class="n">permutation_importance</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">n</span> <span class="o">=</span> <span class="mi">800</span>
+<span class="n">grupa</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">znanje</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="n">iskustvo</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="n">administracija</span> <span class="o">=</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="n">grupa</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">slucajno</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+<span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">znanje</span><span class="p">,</span> <span class="n">iskustvo</span><span class="p">,</span> <span class="n">administracija</span><span class="p">,</span> <span class="n">slucajno</span><span class="p">])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.4</span> <span class="o">*</span> <span class="n">znanje</span> <span class="o">+</span> <span class="mf">0.7</span> <span class="o">*</span> <span class="n">iskustvo</span> <span class="o">+</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="n">grupa</span>
+     <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.7</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">imena</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"znanje"</span><span class="p">,</span> <span class="s2">"iskustvo"</span><span class="p">,</span> <span class="s2">"administrativni bod"</span><span class="p">,</span> <span class="s2">"slučajni broj"</span><span class="p">]</span>
+<span class="n">tr</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">RandomForestClassifier</span><span class="p">(</span><span class="n">n_estimators</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">max_depth</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">min_samples_leaf</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+                               <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">tr</span><span class="p">])</span>
+<span class="n">vjerojatnosti</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">])[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">vjerojatnosti</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"učenje, revizijski skup:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">tr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">va</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"točnost </span><span class="si">%.3f</span><span class="s2">, ROC-AUC </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+    <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">pred</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">vjerojatnosti</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>učenje, revizijski skup: 560 240
+točnost 0.887, ROC-AUC 0.957</code></pre>
+<p><b>Korak 2: miješanje stupaca.</b> Koristimo ROC-AUC, koji procjenjuje poredak rezultata bez izbora jednoga praga. Skup <code>va</code> služi reviziji i razvoju, nije završni neovisni test.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">vaznost</span> <span class="o">=</span> <span class="n">permutation_importance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">"roc_auc"</span><span class="p">,</span>
+                                <span class="n">n_repeats</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">vaznost</span><span class="o">.</span><span class="n">importances_mean</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%s</span><span class="s2">: pad </span><span class="si">%.3f</span><span class="s2">, std </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">imena</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">vaznost</span><span class="o">.</span><span class="n">importances_mean</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">vaznost</span><span class="o">.</span><span class="n">importances_std</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>znanje: pad 0.337, std 0.028
+iskustvo: pad 0.123, std 0.020
+administrativni bod: pad 0.010, std 0.003
+slučajni broj: pad 0.000, std 0.002</code></pre>
+<p><b>Korak 3: tumačenje.</b> Znanje ima najveći pad ROC-AUC-a, $0{,}337$. Pad od $0{,}010$ za administrativni bod nije dokaz opravdanosti njegove uporabe ni odsutnosti štete. Zato mjerimo i grupne razlike.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Opiši kako se mijenja izlaz modela kada mijenjamo značajku „znanje”.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: ručna parcijalna ovisnost.</b> Na svakom koraku mijenjamo isti stupac svih revizijskih redaka, a ostale ne diramo.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mreza_z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+<span class="n">pd_rucno</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">mreza_z</span><span class="p">:</span>
+    <span class="n">izmijenjeno</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">izmijenjeno</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">z</span>
+    <span class="n">pd_rucno</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">izmijenjeno</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"znanje:"</span><span class="p">,</span> <span class="n">mreza_z</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prosječna vjerojatnost:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">pd_rucno</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>znanje: [-1.0, 0.0, 1.0]
+prosječna vjerojatnost: [0.087, 0.326, 0.856]</code></pre>
+<p><b>Korak 2: graf.</b> Biblioteka gradi finiju mrežu. PDP može stvoriti nestvarne kombinacije; neovisno generirano znanje ovdje je manje problematično od povezanih stvarnih značajki.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.inspection</span><span class="w"> </span><span class="kn">import</span> <span class="n">PartialDependenceDisplay</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">os_</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">PartialDependenceDisplay</span><span class="o">.</span><span class="n">from_estimator</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">features</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+    <span class="n">feature_names</span><span class="o">=</span><span class="n">imena</span><span class="p">,</span> <span class="n">grid_resolution</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"brute"</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">os_</span><span class="p">)</span>
+<span class="n">os_</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">"znanje"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"prosječna vjerojatnost odluke 1"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"parcijalna_ovisnost.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno parcijalna_ovisnost.png"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>spremljeno parcijalna_ovisnost.png</code></pre>
+<p>Prosjek raste od $0{,}087$ do $0{,}856$ za prikazane krajnje vrijednosti. To nije procjena učinka stvarnog tečaja: uzročnost traži drugi nacrt istraživanja.</p>
+<p><b>Korak 3: SHAP.</b> Biblioteka <code>shap</code> nije instalirana, pa je blok neizvršen. Nakon instalacije koristi pozadinu iz učenja. Objašnjavamo pozitivni izlaz šume u skali vjerojatnosti.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">shap</span>
+
+<span class="n">objasnjivac</span> <span class="o">=</span> <span class="n">shap</span><span class="o">.</span><span class="n">TreeExplainer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">[:</span><span class="mi">100</span><span class="p">]],</span>
+    <span class="n">feature_perturbation</span><span class="o">=</span><span class="s2">"interventional"</span><span class="p">,</span> <span class="n">model_output</span><span class="o">=</span><span class="s2">"probability"</span><span class="p">)</span>
+<span class="n">objasnjenja</span> <span class="o">=</span> <span class="n">objasnjivac</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">[:</span><span class="mi">3</span><span class="p">]])</span>
+<span class="n">doprinosi</span> <span class="o">=</span> <span class="n">objasnjenja</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">osnova</span> <span class="o">=</span> <span class="n">objasnjenja</span><span class="o">.</span><span class="n">base_values</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">rekonstrukcija</span> <span class="o">=</span> <span class="n">osnova</span> <span class="o">+</span> <span class="n">doprinosi</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">izravno</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">[:</span><span class="mi">3</span><span class="p">]])[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"aditivnost:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">rekonstrukcija</span><span class="p">,</span> <span class="n">izravno</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">naziv</span><span class="p">,</span> <span class="n">doprinos</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">imena</span><span class="p">,</span> <span class="n">doprinosi</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">doprinos</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span></code></pre></div>
+<p>Očekivana aditivnost je <code>True</code>; doprinosi nisu izmjereni. Pozadina ih može promijeniti bez promjene modela. Naziv „interventional” u API-ju ne jamči uzročnost.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Provedi reviziju razlika među dvjema sintetičkim grupama.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: nazivnici su dio rezultata.</b> Ispiši veličinu grupe, broj pozitivnih oznaka, točnost, stopu pozitivnih odluka, TPR i FPR. Ako nema relevantnih oznaka u grupi, stopa nije definirana; ne pretvaraj je u nulu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">siguran_udio</span><span class="p">(</span><span class="n">brojnik</span><span class="p">,</span> <span class="n">nazivnik</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">brojnik</span> <span class="o">/</span> <span class="n">nazivnik</span> <span class="k">if</span> <span class="n">nazivnik</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s2">"nan"</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">metrike_grupa</span><span class="p">(</span><span class="n">istina</span><span class="p">,</span> <span class="n">odluke</span><span class="p">,</span> <span class="n">grupe</span><span class="p">):</span>
+    <span class="n">rezultat</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">grupe</span><span class="p">):</span>
+        <span class="n">maska</span> <span class="o">=</span> <span class="n">grupe</span> <span class="o">==</span> <span class="n">a</span>
+        <span class="n">yy</span><span class="p">,</span> <span class="n">pp</span> <span class="o">=</span> <span class="n">istina</span><span class="p">[</span><span class="n">maska</span><span class="p">],</span> <span class="n">odluke</span><span class="p">[</span><span class="n">maska</span><span class="p">]</span>
+        <span class="n">pozitivni</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">yy</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="n">negativni</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">yy</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+        <span class="n">rezultat</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">a</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"n"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">yy</span><span class="p">),</span> <span class="s2">"pozitivni"</span><span class="p">:</span> <span class="n">pozitivni</span><span class="p">,</span>
+            <span class="s2">"točnost"</span><span class="p">:</span> <span class="nb">float</span><span class="p">((</span><span class="n">yy</span> <span class="o">==</span> <span class="n">pp</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span> <span class="s2">"stopa"</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+            <span class="s2">"TPR"</span><span class="p">:</span> <span class="n">siguran_udio</span><span class="p">(</span><span class="nb">int</span><span class="p">(((</span><span class="n">yy</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">pp</span> <span class="o">==</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="n">pozitivni</span><span class="p">),</span>
+            <span class="s2">"FPR"</span><span class="p">:</span> <span class="n">siguran_udio</span><span class="p">(</span><span class="nb">int</span><span class="p">(((</span><span class="n">yy</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">pp</span> <span class="o">==</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="n">negativni</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="n">rezultat</span>
+
+<span class="n">grupne</span> <span class="o">=</span> <span class="n">metrike_grupa</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">pred</span><span class="p">,</span> <span class="n">grupa</span><span class="p">[</span><span class="n">va</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">grupne</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"grupa </span><span class="si">%d</span><span class="s2">: n=</span><span class="si">%d</span><span class="s2">, Y=1: </span><span class="si">%d</span><span class="s2">, točnost </span><span class="si">%.3f</span><span class="s2">, stopa </span><span class="si">%.3f</span><span class="s2">, TPR </span><span class="si">%.3f</span><span class="s2">, FPR </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">a</span><span class="p">,</span> <span class="n">m</span><span class="p">[</span><span class="s2">"n"</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="s2">"pozitivni"</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="s2">"točnost"</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="s2">"stopa"</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="s2">"TPR"</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="s2">"FPR"</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>grupa 0: n=111, Y=1: 38, točnost 0.910, stopa 0.396, TPR 0.947, FPR 0.110
+grupa 1: n=129, Y=1: 66, točnost 0.868, stopa 0.442, TPR 0.803, FPR 0.063</code></pre>
+<p><b>Korak 2: kvantificiraj razlike.</b> Sve stope su udjeli od nule do jedan. Razliku od $0{,}1$ opisali bismo kao deset postotnih bodova, ne deset posto relativne promjene.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">naziv</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"točnost"</span><span class="p">,</span> <span class="s2">"stopa"</span><span class="p">,</span> <span class="s2">"TPR"</span><span class="p">,</span> <span class="s2">"FPR"</span><span class="p">]:</span>
+    <span class="n">jaz</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">grupne</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">naziv</span><span class="p">]</span> <span class="o">-</span> <span class="n">grupne</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="n">naziv</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"jaz </span><span class="si">%s</span><span class="s2">: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="n">jaz</span><span class="p">))</span>
+<span class="n">stope_y</span> <span class="o">=</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">][</span><span class="n">grupa</span><span class="p">[</span><span class="n">va</span><span class="p">]</span> <span class="o">==</span> <span class="n">a</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"osnovne stope Y=1:"</span><span class="p">,</span> <span class="n">stope_y</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>jaz točnost: 0.042
+jaz stopa: 0.045
+jaz TPR: 0.144
+jaz FPR: 0.046
+osnovne stope Y=1: [0.342, 0.512]</code></pre>
+<p><b>Korak 3: interpretacija.</b> Jaz pariteta je $0{,}045$, a jaz TPR-a $0{,}144$: različiti kriteriji daju različitu sliku. Oznake su problematična povijest, ne objektivna istina. Provjeri reprezentativnost i nesigurnost. Grupne pragove ne uvodi automatski: trebaju opravdanje, pravnu provjeru i sudjelovanje pogođenih ljudi.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Permutacijska važnost neke značajke je negativna. Dokazuje li to da je značajka beskorisna u svim modelima?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Ne. Mjeri se ovaj naučeni model, ova metrika i ovaj skup. Premještanje je slučajno moglo pomoći ili model štetno koristi značajku. Ponovi procjenu, provjeri raspršenje i korelirane značajke.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Model svima odbija pristup radionici. Zadovoljava li demografski paritet?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Da, sve stope pozitivnih odluka su nula, ali sustav može biti beskoristan i štetan. Paritet je jedan kriterij, ne cjelovita definicija poštenosti.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Zašto se iz rastuće PDP krivulje ne može zaključiti da intervencija koja povećava značajku uzrokuje bolji ishod?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Krivulja opisuje odgovor modela na umjetne ulaze. Ne kontrolira sve uzroke, ne provodi stvarnu intervenciju i može uključiti nemoguće kombinacije. Uzročnost ne slijedi iz predikcijske povezanosti.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>U prvoj grupi prihvaćeno je $30$ od $50$ osoba, u drugoj $20$ od $50$. Izračunaj jaz pariteta i omjer manje i veće stope.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">q0</span><span class="p">,</span> <span class="n">q1</span> <span class="o">=</span> <span class="mi">30</span> <span class="o">/</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">20</span> <span class="o">/</span> <span class="mi">50</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"jaz </span><span class="si">%.3f</span><span class="s2">, omjer </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">q0</span> <span class="o">-</span> <span class="n">q1</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">q1</span><span class="p">)</span> <span class="o">/</span> <span class="nb">max</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">q1</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>jaz 0.200, omjer 0.667</code></pre>
+<p>Jaz je $0{,}2$, odnosno $20$ postotnih bodova. Omjer je približno $0{,}667$. To nisu iste mjere; nijedan od tih brojeva sam ne donosi pravni ili etički zaključak.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Provjeri ponašanje funkcije kada grupa nema pozitivne oznake. Zašto TPR nije nula?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">bez_pozitivnih</span> <span class="o">=</span> <span class="n">metrike_grupa</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"TPR:"</span><span class="p">,</span> <span class="n">bez_pozitivnih</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"TPR"</span><span class="p">],</span> <span class="s2">"FPR:"</span><span class="p">,</span> <span class="n">bez_pozitivnih</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"FPR"</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>TPR: nan FPR: 0.5</code></pre>
+<p>TPR traži uvjet $Y=1$, a takvih redaka nema. Vrijednost <code>nan</code> čuva razliku između „nema podataka” i „nijedan pozitivan nije prepoznat”.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Promijeni zajednički prag na $0{,}3$ i $0{,}7$ te ponovno izmjeri točnost i jaz pariteta. Dokazuje li najmanji jaz da treba odabrati baš taj prag?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Ovo je dijagnostika revizijskog skupa. Usporedi i broj prihvaćenih osoba.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">prag</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">):</span>
+    <span class="n">odluke</span> <span class="o">=</span> <span class="p">(</span><span class="n">vjerojatnosti</span> <span class="o">&gt;=</span> <span class="n">prag</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">metrike_grupa</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">odluke</span><span class="p">,</span> <span class="n">grupa</span><span class="p">[</span><span class="n">va</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"prag </span><span class="si">%.1f</span><span class="s2">: točnost </span><span class="si">%.3f</span><span class="s2">, jaz DP </span><span class="si">%.3f</span><span class="s2">, prihvaćeno </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+        <span class="n">prag</span><span class="p">,</span> <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">odluke</span><span class="p">),</span>
+        <span class="nb">abs</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"stopa"</span><span class="p">]</span> <span class="o">-</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"stopa"</span><span class="p">]),</span> <span class="n">odluke</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>prag 0.3: točnost 0.846, jaz DP 0.059, prihvaćeno 133
+prag 0.5: točnost 0.887, jaz DP 0.045, prihvaćeno 101
+prag 0.7: točnost 0.838, jaz DP 0.063, prihvaćeno 73</code></pre>
+<p>Prag mijenja više posljedica. Minimiziranje jednog jaza može dati trivijalnu odluku za sve. Izbor traži zadani cilj i nove podatke, ne proglašavanje pobjednika na istoj reviziji.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Provjeri pada li točnost modela kad ukloniš administrativni bod. Je li to dovoljno za tvrdnju da je pristranost uklonjena?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Uči novi model samo na učenju; usporedi i grupni jaz na istim revizijskim redcima.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">clone</span>
+
+<span class="n">stupci</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+<span class="n">bez_boda</span> <span class="o">=</span> <span class="n">clone</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">][:,</span> <span class="n">stupci</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">tr</span><span class="p">])</span>
+<span class="n">p_bez</span> <span class="o">=</span> <span class="n">bez_boda</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">va</span><span class="p">][:,</span> <span class="n">stupci</span><span class="p">])</span>
+<span class="n">m_bez</span> <span class="o">=</span> <span class="n">metrike_grupa</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">p_bez</span><span class="p">,</span> <span class="n">grupa</span><span class="p">[</span><span class="n">va</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"bez boda: točnost </span><span class="si">%.3f</span><span class="s2">, jaz DP </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span>
+    <span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">va</span><span class="p">],</span> <span class="n">p_bez</span><span class="p">),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">m_bez</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"stopa"</span><span class="p">]</span> <span class="o">-</span> <span class="n">m_bez</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"stopa"</span><span class="p">])))</span></code></pre></div>
+<pre class="izlaz"><code>bez boda: točnost 0.879, jaz DP 0.004</code></pre>
+<p>Jaz pada na $0{,}004$, ali povijesne oznake ostaju pristrane. Uklanjanje stupca nije certifikat poštenosti ni odsutnosti drugih zamjenskih značajki.</p>
+</div>
+</div>
+</details>
+</section>
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Napiši kratku karticu modela za izmišljenu radionicu: namjena, granice uporabe, podatci, metrike, rizici i ljudski nadzor. Smiješ li sirove prijave poslati javnom LLM-u radi objašnjenja?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Odvoji tehničku sposobnost od dopuštenosti i zapiši postupak prigovora.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Namjena je nastava, ne odlučivanje o stvarnim osobama. Kartica navodi generator, podjelu, pristrane oznake i grupne metrike s nazivnicima. Rizici su zamjenske značajke, promjena populacije i automatizacija. Stvarna uporaba traži odgovornu osobu, reviziju, pravo ispravka i prigovora te praćenje promjena. Prijave ne šalji javnom LLM-u bez odobrenja i zaštite podataka. Objašnjenje može izmišljati razloge; usporedi ga s provjerenim ponašanjem modela.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Permutacijska važnost mjeri oslanjanje modela na stupac, ne uzročnu ili moralnu važnost.</li>
+<li>PDP usrednjuje odgovore na zamijenjene značajke; SHAP raspodjeljuje odstupanje od reference.</li>
+<li>Demografski paritet, jednakost prilika i točnost različiti su kriteriji; uvijek prikaži nazivnike.</li>
+<li>Pristrane oznake, zamjenske značajke i promjena populacije traže više od uklanjanja jednog stupca.</li>
+<li>Čuvaj neovisnost provjere i privatnost; LLM odgovore provjeravaj izvorima i izvršavanjem koda.</li>
+<li>Odgovorna uporaba uključuje ograničenja, dokumentaciju, mogućnost prigovora i ljudski nadzor.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li><a href="https://ioai-official.org/">Službena stranica IOAI-ja</a> za pravila i izvorne zadatke; <a href="https://www.kaggle.com/learn">Kaggle Learn</a> za kratke praktične tečajeve.</li>
+<li><a href="https://course.fast.ai/">fast.ai: Practical Deep Learning for Coders</a> i <a href="https://d2l.ai/">Dive into Deep Learning</a> za daljnju praksu i objašnjenja.</li>
+<li>I. Goodfellow, Y. Bengio i A. Courville: <a href="https://www.deeplearningbook.org/">Deep Learning</a>; S. Lundberg i S.-I. Lee: <a href="https://arxiv.org/abs/1705.07874">A Unified Approach to Interpreting Model Predictions</a>, rad o SHAP-u.</li>
+<li><a href="https://scikit-learn.org/stable/modules/inspection.html">Scikit-learn: pregled modela</a> i <a href="https://docs.pytorch.org/docs/stable/index.html">PyTorch dokumentacija</a> za provjeru API-ja i vlastite pokuse.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="05-cv-zadatak.html"><small>← Prethodna lekcija</small>N5 · Riješeni zadatak: klasifikacija slika (simulacija u stilu IOAI)</a>
+                <span class="lekcija-nav-prazno sljedeca"></span>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

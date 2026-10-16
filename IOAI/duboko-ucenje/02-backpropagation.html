@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Duboko učenje 2: Backpropagation: kako mreža uči</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#duboko-ucenje">Duboko učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Duboko učenje · lekcija 2 od 6</p>
+            <h1><span class="broj-lekcije">D2</span> Backpropagation: kako mreža uči</h1>
+            <p class="meta">Računski graf i lančano pravilo pretvaraju gradijent milijuna parametara u jedan prolaz unatrag – izvod, numerička provjera i cjelovit MLP u čistom NumPy-ju</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.2" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>računski graf</li>
+                <li>lančano pravilo</li>
+                <li>gradijent</li>
+                <li>softmax</li>
+                <li>unakrsna entropija</li>
+                <li>numerička provjera gradijenta</li>
+                <li>autograd</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Prikazati izračun funkcije računskim grafom i lančanim pravilom izračunati gradijent po svakom ulazu „unatrag” kroz graf.</li>
+<li>Izvesti gradijente jednog sloja MLP-a u matričnom obliku: $\partial L/\partial W=h^\top\delta$, $\partial L/\partial b=\sum\delta$, $\delta^{(l-1)}=(\delta^{(l)}W^\top)\odot\sigma'(z^{(l-1)})$.</li>
+<li>Izvesti gradijent gubitka MSE i kombinacije softmax + unakrsna entropija te svaki ručno izveden gradijent provjeriti konačnim razlikama.</li>
+<li>Napisati i istrenirati cijeli višeslojni perceptron u čistom NumPy-ju na skupovima <code>make_moons</code> i <code>load_digits</code> te pročitati krivulju gubitka.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji D1 definirali smo višeslojni perceptron (MLP): niz slojeva $z^{(l)}=h^{(l-1)}W^{(l)}+b^{(l)}$, $h^{(l)}=\sigma(z^{(l)})$. Učenje je gradijentni spust (lekcija M2) po svim težinama odjednom: $W\leftarrow W-\eta\,\partial L/\partial W$. Jedino pitanje koje ostaje jest <em>kako izračunati</em> $\partial L/\partial W^{(l)}$ za svaki sloj, i to brzo – mreža s milijun parametara ne smije zahtijevati milijun prolaza. Odgovor je <b>backpropagation</b> (engl. <i>backward propagation of errors</i>, širenje greške unatrag): lančano pravilo primijenjeno sustavno, od izlaza prema ulazu, uz pamćenje međurezultata iz prolaza unaprijed.</p>
+
+<h3>Računski graf</h3>
+<div class="pojam">
+<h4>Računski graf</h4>
+<p><b>Računski graf</b> (engl. <i>computational graph</i>) usmjereni je aciklički graf čiji su čvorovi ulazne varijable i elementarne operacije ($+$, $\cdot$, $\exp$, $\max$, matrično množenje, …), a bridovi pokazuju koji rezultat ulazi u koju operaciju. <b>Prolaz unaprijed</b> (engl. <i>forward pass</i>) računa vrijednost svakog čvora od ulaza prema izlazu; <b>prolaz unatrag</b> (engl. <i>backward pass</i>) računa derivaciju izlaza po svakom čvoru od izlaza prema ulazima.</p>
+</div>
+<p>Primjer: $f(x,y,z)=(x+y)\,z$ ima dva operacijska čvora, $q=x+y$ i $f=q\cdot z$. Svaki čvor zna samo svoju <b>lokalnu derivaciju</b>: čvor zbrajanja zna $\partial q/\partial x=\partial q/\partial y=1$, čvor množenja zna $\partial f/\partial q=z$ i $\partial f/\partial z=q$. Globalnu derivaciju $\partial f/\partial x$ dobivamo tako da lokalne derivacije duž puta od $f$ do $x$ <em>pomnožimo</em> – to je lančano pravilo.</p>
+
+<h3>Lančano pravilo</h3>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (lančano pravilo).</strong> Ako je $f=f(u_1,\dots,u_k)$ i svaki $u_j=u_j(x)$ derivabilan, onda je
+$$\frac{\partial f}{\partial x}=\sum_{j=1}^k\frac{\partial f}{\partial u_j}\,\frac{\partial u_j}{\partial x}.$$
+Za varijablu $x$ koja utječe na $f$ kroz više čvorova, doprinosi se <em>zbrajaju</em>; duž jednog puta lokalne derivacije se <em>množe</em>.</p>
+</div>
+<p>Backpropagation je lančano pravilo organizirano tako da se svaki čvor posjeti točno jednom. U prolazu unatrag svaki čvor $u$ primi $\bar u:=\partial L/\partial u$ (nazivamo ga <b>gradijent koji dolazi odozgo</b>, engl. <i>upstream gradient</i>), pomnoži ga svojom lokalnom derivacijom i rezultat proslijedi (zbroji) svakom od svojih ulaza. Za skalarni izlaz $L$ to daje gradijent po <em>svim</em> parametrima uz trošak otprilike dva prolaza unaprijed, neovisno o broju parametara – to je <b>obrnuti način</b> automatske derivacije (engl. <i>reverse-mode automatic differentiation</i>). Suprotni, „unaprijedni” način (derivirati svaki parametar posebno, ili konačne razlike) stoji jedan prolaz <em>po parametru</em>, što je za milijun parametara milijun puta sporije.</p>
+
+<div class="trener-umetak">
+<p>Backpropagation nije ništa mistično: to je <em>derivacija složene funkcije</em> iz srednjoškolske matematike, samo primijenjena na funkciju s milijun ulaza i organizirana tako da se ništa ne računa dvaput. Kad zapneš, nacrtaj graf i na svaki brid napiši lokalnu derivaciju.</p>
+</div>
+
+<h3>Gradijenti jednog sloja u matričnom obliku</h3>
+<p>Dogovor o oblicima (isti kao u PyTorchu): mini-skup od $n$ primjera čini redove, pa je ulaz u sloj $h^{(l-1)}\in\mathbb R^{n\times d}$, težine $W^{(l)}\in\mathbb R^{d\times m}$, pomak $b^{(l)}\in\mathbb R^{m}$ (dodaje se svakom retku), $z^{(l)}=h^{(l-1)}W^{(l)}+b^{(l)}\in\mathbb R^{n\times m}$ i $h^{(l)}=\sigma(z^{(l)})$ uz aktivaciju $\sigma$ primijenjenu po elementima. Označimo gradijent gubitka po predaktivaciji sloja s
+$$\delta^{(l)}:=\frac{\partial L}{\partial z^{(l)}}\in\mathbb R^{n\times m}.$$</p>
+<div class="tvrdnja">
+<p><strong>Teorem 2 (backpropagation kroz jedan sloj).</strong> Ako je poznat $\delta^{(l)}$, onda su
+$$\frac{\partial L}{\partial W^{(l)}}=\left(h^{(l-1)}\right)^{\!\top}\delta^{(l)},\qquad
+\frac{\partial L}{\partial b^{(l)}}=\sum_{i=1}^n\delta^{(l)}_{i,:},\qquad
+\frac{\partial L}{\partial h^{(l-1)}}=\delta^{(l)}\left(W^{(l)}\right)^{\!\top},$$
+a gradijent po predaktivaciji prethodnog sloja je
+$$\delta^{(l-1)}=\left(\delta^{(l)}\left(W^{(l)}\right)^{\!\top}\right)\odot\sigma'\!\left(z^{(l-1)}\right),$$
+gdje je $\odot$ množenje po elementima.</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Element $z_{ik}=\sum_j h_{ij}W_{jk}+b_k$ ovisi o $W_{jk}$ s lokalnom derivacijom $h_{ij}$, i to za svaki primjer $i$. Lančano pravilo zbraja po svim $z_{ik}$ koji sadrže $W_{jk}$: $\partial L/\partial W_{jk}=\sum_i \delta_{ik}h_{ij}=(h^\top\delta)_{jk}$. Pomak $b_k$ ulazi u $z_{ik}$ za svaki $i$ s derivacijom $1$, pa je $\partial L/\partial b_k=\sum_i\delta_{ik}$. Ulaz $h_{ij}$ ulazi u $z_{ik}$ za svaki $k$ s derivacijom $W_{jk}$: $\partial L/\partial h_{ij}=\sum_k\delta_{ik}W_{jk}=(\delta W^\top)_{ij}$. Konačno $h^{(l-1)}=\sigma(z^{(l-1)})$ po elementima, pa se gradijent po $h^{(l-1)}$ množi po elementima s $\sigma'(z^{(l-1)})$. <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<div class="trener-umetak">
+<p>Provjera oblika je najbrži test ispravnosti: $\partial L/\partial W$ mora imati oblik od $W$ ($d\times m$), što $h^\top\delta=(d\times n)(n\times m)$ i daje; $\delta W^\top=(n\times m)(m\times d)$ ima oblik ulaza. Ako se oblici ne slažu, formula je sigurno pogrešna; ako se slažu, još uvijek nije sigurno točna – zato slijedi numerička provjera.</p>
+</div>
+<p>Derivacije uobičajenih aktivacija: za sigmoidu $\sigma(z)=1/(1+e^{-z})$ vrijedi $\sigma'(z)=\sigma(z)(1-\sigma(z))$, za $\tanh$ je $\tanh'(z)=1-\tanh^2 z$, a za ReLU $\max(0,z)$ je $\sigma'(z)=1$ za $z\gt0$ i $0$ za $z\lt0$ (u $z=0$ derivacija ne postoji; u praksi se uzme $0$). Primijeti da je $\sigma'\le\frac14$ za sigmoidu: svaki sloj sa sigmoidom množi gradijent s brojem ne većim od $\frac14$, pa kroz $10$ slojeva gradijent prvog sloja padne barem $4^{10}\approx10^6$ puta – to je <b>nestajući gradijent</b> (engl. <i>vanishing gradient</i>) i glavni razlog zašto se u dubokim mrežama koristi ReLU.</p>
+
+<h3>Gradijent gubitka: MSE i softmax + unakrsna entropija</h3>
+<p>Backpropagation počinje gradijentom gubitka po izlazu mreže. Za regresiju s izlazom $\hat y\in\mathbb R^{n\times 1}$ i MSE $L=\frac1n\sum_i(\hat y_i-y_i)^2$ to je jednostavno
+$$\frac{\partial L}{\partial\hat y}=\frac2n(\hat y-y).$$
+Za klasifikaciju u $K$ klasa izlazni sloj daje <b>logite</b> $z\in\mathbb R^{n\times K}$ (nenormirane rezultate) koje <b>softmax</b> pretvara u vjerojatnosti.</p>
+<div class="pojam">
+<h4>Softmax i unakrsna entropija</h4>
+<p>Za jedan primjer s logitima $z\in\mathbb R^K$ i točnom klasom $y\in\{0,\dots,K-1\}$,
+$$p_k=\operatorname{softmax}(z)_k=\frac{e^{z_k}}{\sum_{j}e^{z_j}},\qquad \ell(z,y)=-\log p_y .$$
+<b>Unakrsna entropija</b> (engl. <i>cross-entropy</i>) na mini-skupu je prosjek $L=\frac1n\sum_i\ell(z_i,y_i)$. Ona je negativna log-izglednost: minimizirati je znači maksimizirati vjerojatnost koju model daje točnim klasama.</p>
+</div>
+<div class="tvrdnja">
+<p><strong>Teorem 3 (gradijent softmaxa s unakrsnom entropijom).</strong> Za jedan primjer je $\dfrac{\partial\ell}{\partial z_k}=p_k-[k=y]$, tj. u matričnom obliku na mini-skupu
+$$\delta^{(L)}=\frac{\partial L}{\partial z}=\frac1n\left(P-Y\right),$$
+gdje je $P$ matrica softmax vjerojatnosti, a $Y$ matrica s jedinicom na mjestu točne klase (engl. <i>one-hot</i>).</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Napišimo $\ell=-z_y+\log\sum_j e^{z_j}$. Derivacija drugog člana po $z_k$ je $e^{z_k}/\sum_j e^{z_j}=p_k$, a prvog je $-1$ ako je $k=y$, inače $0$. Dijeljenje s $n$ dolazi od prosjeka po mini-skupu. <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<p>Rezultat je elegantan: greška je naprosto „predviđena vjerojatnost minus istina”. Zato se softmax i unakrsna entropija uvijek deriviraju <em>zajedno</em> (u PyTorchu <code>nn.CrossEntropyLoss</code> prima logite, a ne vjerojatnosti). Numerički, $\exp$ velikih logita prelijeva se; prije eksponenciranja oduzmi $\max_k z_k$ – softmax se ne mijenja, a brojevi ostaju razumni.</p>
+
+<h3>Numerička provjera gradijenta</h3>
+<p>Svaki ručno izveden gradijent provjeri <b>konačnim razlikama</b> (engl. <i>gradient checking</i>): za pojedini parametar $\theta_j$
+$$\frac{\partial L}{\partial\theta_j}\approx\frac{L(\theta+\varepsilon e_j)-L(\theta-\varepsilon e_j)}{2\varepsilon},\qquad \varepsilon\approx10^{-5},$$
+a kao mjeru slaganja koristi <em>relativnu</em> grešku $|g_{\text{num}}-g_{\text{ana}}|/(|g_{\text{num}}|+|g_{\text{ana}}|)$. Vrijednosti ispod $10^{-6}$ znače da je izvod točan; iznad $10^{-3}$ gotovo sigurno je greška u kodu. Provjeru radi u <code>float64</code>, na malom modelu i malom uzorku parametara (puna provjera stoji dva prolaza po parametru) i isključi je prije treniranja.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>(a) Za $f(x,y,z)=(x+y)\,z$ u točki $(2,-3,4)$ izračunaj $f$ i sve tri parcijalne derivacije prolazom unatrag kroz graf. (b) Za jedan neuron sa sigmoidom, $a=\sigma(w^\top x+b)$ i gubitkom $L=(a-y)^2$, s $x=(1,-2)$, $y=1$, $w=(0{,}5;\,-0{,}3)$, $b=0{,}1$, izračunaj $\partial L/\partial w$ i $\partial L/\partial b$ ručno pa provjeri konačnim razlikama.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: graf s dva čvora.</b> Prolaz unaprijed sprema međuvrijednost $q=x+y$, jer je lokalna derivacija čvora množenja po $z$ upravo $q$. Prolaz unatrag kreće od $\partial f/\partial f=1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>                  <span class="c1"># čvor zbrajanja</span>
+<span class="n">f</span> <span class="o">=</span> <span class="n">q</span> <span class="o">*</span> <span class="n">z</span>                  <span class="c1"># čvor množenja</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"f ="</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+
+<span class="n">df_df</span> <span class="o">=</span> <span class="mf">1.0</span>                <span class="c1"># početak prolaza unatrag</span>
+<span class="n">df_dq</span> <span class="o">=</span> <span class="n">z</span> <span class="o">*</span> <span class="n">df_df</span>          <span class="c1"># lokalna derivacija množenja po q je z</span>
+<span class="n">df_dz</span> <span class="o">=</span> <span class="n">q</span> <span class="o">*</span> <span class="n">df_df</span>          <span class="c1"># ... a po z je q</span>
+<span class="n">df_dx</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">df_dq</span>        <span class="c1"># zbrajanje: lokalna derivacija 1, gradijent samo prolazi</span>
+<span class="n">df_dy</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">*</span> <span class="n">df_dq</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"df/dx = </span><span class="si">%.1f</span><span class="s2">, df/dy = </span><span class="si">%.1f</span><span class="s2">, df/dz = </span><span class="si">%.1f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">df_dx</span><span class="p">,</span> <span class="n">df_dy</span><span class="p">,</span> <span class="n">df_dz</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>f = -4.0
+df/dx = 4.0, df/dy = 4.0, df/dz = -1.0</code></pre>
+<p>Čvor zbrajanja gradijent koji dođe odozgo <em>kopira</em> oba ulaza, a čvor množenja ga <em>zamijeni</em>: svakom ulazu da gradijent pomnožen vrijednošću drugog ulaza. Te dvije „slike” vrijede za sve grafove.</p>
+<p><b>Korak 2: neuron sa sigmoidom.</b> Graf je $z=w^\top x+b\to a=\sigma(z)\to L=(a-y)^2$. Unatrag: $\partial L/\partial a=2(a-y)$, zatim $\partial L/\partial z=\partial L/\partial a\cdot a(1-a)$, pa $\partial L/\partial w=\partial L/\partial z\cdot x$ i $\partial L/\partial b=\partial L/\partial z$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">sigmoid</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">t</span><span class="p">))</span>
+
+<span class="n">x_n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">]);</span> <span class="n">y_n</span> <span class="o">=</span> <span class="mf">1.0</span>        <span class="c1"># ulaz i cilj</span>
+<span class="n">w_n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.3</span><span class="p">]);</span> <span class="n">b_n</span> <span class="o">=</span> <span class="mf">0.1</span>        <span class="c1"># parametri neurona</span>
+
+<span class="n">z</span> <span class="o">=</span> <span class="n">w_n</span> <span class="o">@</span> <span class="n">x_n</span> <span class="o">+</span> <span class="n">b_n</span>            <span class="c1"># unaprijed</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">sigmoid</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+<span class="n">L</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">y_n</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"z = </span><span class="si">%.3f</span><span class="s2">, a = </span><span class="si">%.4f</span><span class="s2">, L = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">L</span><span class="p">))</span>
+
+<span class="n">dL_da</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">y_n</span><span class="p">)</span>          <span class="c1"># unatrag</span>
+<span class="n">dL_dz</span> <span class="o">=</span> <span class="n">dL_da</span> <span class="o">*</span> <span class="n">a</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span>
+<span class="n">dL_dw</span> <span class="o">=</span> <span class="n">dL_dz</span> <span class="o">*</span> <span class="n">x_n</span>
+<span class="n">dL_db</span> <span class="o">=</span> <span class="n">dL_dz</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"dL/dw ="</span><span class="p">,</span> <span class="n">dL_dw</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">),</span> <span class="s2">" dL/db = </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">dL_db</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>z = 1.200, a = 0.7685, L = 0.0536
+dL/dw = [-0.082356  0.164713]  dL/db = -0.082356</code></pre>
+<p><b>Korak 3: provjera konačnim razlikama.</b> Pomaknemo svaki parametar za $\pm\varepsilon$ i podijelimo razliku gubitaka s $2\varepsilon$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">gubitak_neurona</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">w</span> <span class="o">@</span> <span class="n">x_n</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">-</span> <span class="n">y_n</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+
+<span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="n">num_w</span> <span class="o">=</span> <span class="p">[(</span><span class="n">gubitak_neurona</span><span class="p">(</span><span class="n">w_n</span> <span class="o">+</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">,</span> <span class="n">b_n</span><span class="p">)</span> <span class="o">-</span> <span class="n">gubitak_neurona</span><span class="p">(</span><span class="n">w_n</span> <span class="o">-</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">,</span> <span class="n">b_n</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+         <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">)]</span>
+<span class="n">num_b</span> <span class="o">=</span> <span class="p">(</span><span class="n">gubitak_neurona</span><span class="p">(</span><span class="n">w_n</span><span class="p">,</span> <span class="n">b_n</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">gubitak_neurona</span><span class="p">(</span><span class="n">w_n</span><span class="p">,</span> <span class="n">b_n</span> <span class="o">-</span> <span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"numerički: dL/dw ="</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">num_w</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="s2">" dL/db = </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">num_b</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>numerički: dL/dw = [-0.082356  0.164713]  dL/db = -0.082356</code></pre>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka make_moons</span></h3>
+<div class="zadatak">
+<p>Napiši MLP u čistom NumPy-ju (slojevi zadane širine, ReLU, softmax s unakrsnom entropijom, prolaz unaprijed, prolaz unatrag i korak gradijentnog spusta). Provjeri gradijent konačnim razlikama, zatim mrežu $2\to16\to2$ istreniraj na skupu <code>make_moons</code> i nacrtaj krivulju gubitka.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci.</b> Dva isprepletena „polumjeseca” nisu linearno odvojiva, pa je ovo najmanji zadatak na kojem skriveni sloj stvarno nešto radi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_moons</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">make_moons</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">noise</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">X_te</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"klase u treningu:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">y_tr</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(300, 2) (100, 2) klase u treningu: [153 147]</code></pre>
+<p><b>Korak 2: mreža.</b> Prolaz unaprijed pamti $h^{(l)}$ i $z^{(l)}$ svakog sloja jer ih prolaz unatrag treba. Metoda <code>unatrag</code> doslovno je teorem iz teorije: počinje s $\delta=(P-Y)/n$, pa za svaki sloj od zadnjeg prema prvom računa <code>dW = h.T @ delta</code>, <code>db = delta.sum(0)</code> i <code>delta = (delta @ W.T) * σ'(z)</code>. Težine inicijaliziramo iz $\mathcal N(0,\,2/d_{\text{ulaz}})$ (He-ova inicijalizacija, lekcija D4), pomake nulama. Aktivaciju i njezinu derivaciju biramo iz rječnika da bismo u zadacima mogli isprobati i $\tanh$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">AKTIVACIJE</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"relu"</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="p">(</span><span class="n">z</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)),</span>
+    <span class="s2">"tanh"</span><span class="p">:</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span>
+<span class="p">}</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">softmax</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">z</span> <span class="o">-</span> <span class="n">z</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>       <span class="c1"># stabilnost; softmax se ne mijenja</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">e</span> <span class="o">/</span> <span class="n">e</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">unakrsna_entropija</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)),</span> <span class="n">y</span><span class="p">]))</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MLP</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slojevi</span><span class="p">,</span> <span class="n">aktivacija</span><span class="o">=</span><span class="s2">"relu"</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">akt</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">akt_der</span> <span class="o">=</span> <span class="n">AKTIVACIJE</span><span class="p">[</span><span class="n">aktivacija</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W</span> <span class="o">=</span> <span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">d_in</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">d_in</span><span class="p">,</span> <span class="n">d_out</span><span class="p">))</span>
+                  <span class="k">for</span> <span class="n">d_in</span><span class="p">,</span> <span class="n">d_out</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">slojevi</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">slojevi</span><span class="p">[</span><span class="mi">1</span><span class="p">:])]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d_out</span><span class="p">)</span> <span class="k">for</span> <span class="n">d_out</span> <span class="ow">in</span> <span class="n">slojevi</span><span class="p">[</span><span class="mi">1</span><span class="p">:]]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">unaprijed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">z</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="p">],</span> <span class="p">[]</span>               <span class="c1"># h[l] = izlaz sloja l, h[0] = ulaz</span>
+        <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="p">(</span><span class="n">W</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">)):</span>
+            <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">@</span> <span class="n">W</span> <span class="o">+</span> <span class="n">b</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+            <span class="n">zadnji</span> <span class="o">=</span> <span class="n">l</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">z</span> <span class="k">if</span> <span class="n">zadnji</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">akt</span><span class="p">(</span><span class="n">z</span><span class="p">))</span>   <span class="c1"># zadnji sloj daje logite</span>
+        <span class="k">return</span> <span class="n">softmax</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">unatrag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">delta</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">y</span><span class="p">]</span> <span class="o">-=</span> <span class="mi">1</span>
+        <span class="n">delta</span> <span class="o">/=</span> <span class="n">n</span>                              <span class="c1"># dL/dz zadnjeg sloja = (P - Y) / n</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dW</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">),</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">))):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dW</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="n">l</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">delta</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">delta</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">l</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="p">(</span><span class="n">delta</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">akt_der</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">[</span><span class="n">l</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">korak</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dW</span><span class="p">[</span><span class="n">l</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">b</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">[</span><span class="n">l</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">predvidi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">mreza</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oblik P:"</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">" zbroj redaka:"</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"početni gubitak: </span><span class="si">%.4f</span><span class="s2">  (ln 2 = </span><span class="si">%.4f</span><span class="s2">)"</span> <span class="o">%</span> <span class="p">(</span><span class="n">unakrsna_entropija</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>oblik P: (300, 2)  zbroj redaka: [1. 1. 1.]
+početni gubitak: 0.6142  (ln 2 = 0.6931)</code></pre>
+<p>Prije učenja mreža „pogađa”: gubitak je blizu $\ln 2$, što je unakrsna entropija potpuno nesigurnog modela s dvije klase. To je koristan test – ako početni gubitak nije približno $\ln K$, inicijalizacija je prevelika.</p>
+<p><b>Korak 3: provjera gradijenta.</b> Za nasumičnih pet težina u svakom sloju usporedimo analitički gradijent s konačnim razlikama.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">provjeri_gradijent</span><span class="p">(</span><span class="n">mreza</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">mreza</span><span class="o">.</span><span class="n">unatrag</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span>
+    <span class="n">dW</span> <span class="o">=</span> <span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">mreza</span><span class="o">.</span><span class="n">dW</span><span class="p">]</span>
+    <span class="n">najveca</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">)):</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span> <span class="n">j</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">staro</span> <span class="o">=</span> <span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+            <span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">staro</span> <span class="o">+</span> <span class="n">eps</span>
+            <span class="n">L_plus</span> <span class="o">=</span> <span class="n">unakrsna_entropija</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">staro</span> <span class="o">-</span> <span class="n">eps</span>
+            <span class="n">L_minus</span> <span class="o">=</span> <span class="n">unakrsna_entropija</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">mreza</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">staro</span>
+            <span class="n">num</span><span class="p">,</span> <span class="n">ana</span> <span class="o">=</span> <span class="p">(</span><span class="n">L_plus</span> <span class="o">-</span> <span class="n">L_minus</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">),</span> <span class="n">dW</span><span class="p">[</span><span class="n">l</span><span class="p">][</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span>
+            <span class="n">najveca</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">najveca</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">num</span> <span class="o">-</span> <span class="n">ana</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">num</span><span class="p">)</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">ana</span><span class="p">)</span> <span class="o">+</span> <span class="mf">1e-15</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">najveca</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najveća relativna greška gradijenta: </span><span class="si">%.1e</span><span class="s2">"</span> <span class="o">%</span> <span class="n">provjeri_gradijent</span><span class="p">(</span><span class="n">mreza</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>najveća relativna greška gradijenta: 5.0e-10</code></pre>
+<p><b>Korak 4: treniranje punim skupom.</b> Svaka epoha je jedan prolaz unaprijed, jedan unatrag i jedan korak; gubitak spremamo za krivulju.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mreza</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+<span class="n">povijest</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">601</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)</span>
+    <span class="n">povijest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unakrsna_entropija</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">))</span>
+    <span class="n">mreza</span><span class="o">.</span><span class="n">unatrag</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+    <span class="n">mreza</span><span class="o">.</span><span class="n">korak</span><span class="p">(</span><span class="n">eta</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">600</span><span class="p">):</span>
+        <span class="n">tocnost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">predvidi</span><span class="p">(</span><span class="n">X_te</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_te</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"epoha </span><span class="si">%3d</span><span class="s2">  gubitak </span><span class="si">%.4f</span><span class="s2">  točnost test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">epoha</span><span class="p">,</span> <span class="n">povijest</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">tocnost</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>epoha   1  gubitak 0.6142  točnost test 0.860
+epoha  50  gubitak 0.2793  točnost test 0.900
+epoha 100  gubitak 0.2600  točnost test 0.900
+epoha 200  gubitak 0.1663  točnost test 0.930
+epoha 400  gubitak 0.0963  točnost test 0.960
+epoha 600  gubitak 0.0794  točnost test 0.950</code></pre>
+<p><b>Korak 5: krivulja gubitka i granica odluke.</b> Krivulju gubitka (engl. <i>loss curve</i>) crtaj uvijek: brzi pad pa zaravnjenje znači da učenje konvergira; skokovi i rast znače da je $\eta$ prevelik, a ravna linija od početka da je premalen ili da je gradijent pogrešan.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">"Agg"</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">lijevo</span><span class="p">,</span> <span class="n">desno</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mf">3.6</span><span class="p">))</span>
+<span class="n">lijevo</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">povijest</span><span class="p">)</span>
+<span class="n">lijevo</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"epoha"</span><span class="p">);</span> <span class="n">lijevo</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"unakrsna entropija"</span><span class="p">);</span> <span class="n">lijevo</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"krivulja gubitka"</span><span class="p">)</span>
+
+<span class="n">xx</span><span class="p">,</span> <span class="n">yy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">1.8</span><span class="p">,</span> <span class="mf">2.8</span><span class="p">,</span> <span class="mi">200</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mf">1.3</span><span class="p">,</span> <span class="mf">1.8</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span>
+<span class="n">mreza_odluka</span> <span class="o">=</span> <span class="n">mreza</span><span class="o">.</span><span class="n">predvidi</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">xx</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">yy</span><span class="o">.</span><span class="n">ravel</span><span class="p">()]))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">xx</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">desno</span><span class="o">.</span><span class="n">contourf</span><span class="p">(</span><span class="n">xx</span><span class="p">,</span> <span class="n">yy</span><span class="p">,</span> <span class="n">mreza_odluka</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">])</span>
+<span class="n">desno</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">X_te</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">X_te</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">c</span><span class="o">=</span><span class="n">y_te</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">edgecolor</span><span class="o">=</span><span class="s2">"k"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+<span class="n">desno</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">"granica odluke na testu"</span><span class="p">)</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"mlp_moons.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spremljeno mlp_moons.png"</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>spremljeno mlp_moons.png</code></pre>
+<p>Na slici lijevo gubitak strmo pada u prvih stotinjak epoha, zatim se polako spušta; desno granica odluke više nije pravac nego zakrivljena vrpca koja slijedi oba polumjeseca, sastavljena od ravnih komada – svaki komad je područje u kojem je aktivan drugi skup ReLU neurona.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3 <span class="izvor-oznaka">skup podataka load_digits</span></h3>
+<div class="zadatak">
+<p>Istu mrežu primijeni na rukom pisane znamenke <code>load_digits</code> ($1797$ slika $8\times8$, $10$ klasa): arhitektura $64\to32\to10$, mini-skupovi od $32$ primjera. Izmjeri točnost na testu i usporedi krivulje gubitka za nekoliko stopa učenja.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci.</b> Pikseli su cijeli brojevi $0$–$16$; dijeljenjem sa $16$ dovodimo ih u $[0,1]$ (mreže loše uče na velikim ulazima – lekcija D4). Podjela je stratificirana da svaka znamenka bude podjednako zastupljena.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.datasets</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_digits</span>
+
+<span class="n">znamenke</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">()</span>
+<span class="n">Xd</span> <span class="o">=</span> <span class="n">znamenke</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="mf">16.0</span>
+<span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">yd_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
+    <span class="n">Xd</span><span class="p">,</span> <span class="n">znamenke</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">znamenke</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">Xd_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">Xd_te</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"raspon piksela:"</span><span class="p">,</span> <span class="n">Xd</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">Xd</span><span class="o">.</span><span class="n">max</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>(1347, 64) (450, 64) raspon piksela: 0.0 1.0</code></pre>
+<p><b>Korak 2: mini-skupovi.</b> Umjesto jednog koraka po epohi radimo korak za svaki mini-skup (engl. <i>mini-batch</i>): podatke izmiješamo, režemo na komade od $32$ i za svaki komad napravimo unaprijed–unatrag–korak. Gradijent na mini-skupu je šumna procjena pravog gradijenta, ali korak je $40$ puta jeftiniji nego na cijelom skupu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">treniraj</span><span class="p">(</span><span class="n">mreza</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">velicina</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">povijest</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">velicina</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">velicina</span><span class="p">]</span>
+            <span class="n">mreza</span><span class="o">.</span><span class="n">unatrag</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">idx</span><span class="p">]),</span> <span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+            <span class="n">mreza</span><span class="o">.</span><span class="n">korak</span><span class="p">(</span><span class="n">eta</span><span class="p">)</span>
+        <span class="n">povijest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">unakrsna_entropija</span><span class="p">(</span><span class="n">mreza</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">y</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">povijest</span>
+
+<span class="n">mreza_zn</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+<span class="n">pov_zn</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">mreza_zn</span><span class="p">,</span> <span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gubitak nakon 1, 5, 10, 20, 30 epoha:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">([</span><span class="n">pov_zn</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">)],</span> <span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"točnost trening </span><span class="si">%.3f</span><span class="s2">  test </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">mreza_zn</span><span class="o">.</span><span class="n">predvidi</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">)</span> <span class="o">==</span> <span class="n">yd_tr</span><span class="p">),</span>
+                                           <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">mreza_zn</span><span class="o">.</span><span class="n">predvidi</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">)</span> <span class="o">==</span> <span class="n">yd_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>gubitak nakon 1, 5, 10, 20, 30 epoha: [1.445  0.3207 0.2739 0.1084 0.0764]
+točnost trening 0.987  test 0.967</code></pre>
+<p>Pedesetak redaka NumPy-ja prepoznaje znamenke s točnošću iznad $95\,\%$ – usporedi s logističkom regresijom iz lekcije M3. Preostale greške su uglavnom slične znamenke (npr. $3$/$5$, $4$/$9$) na malim slikama.</p>
+<p><b>Korak 3: utjecaj stope učenja.</b> Isti model s tri vrijednosti $\eta$; krivulje spremamo na sliku, a u ispisu gledamo gubitak nakon 5 i nakon 30 epoha.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mf">5.5</span><span class="p">,</span> <span class="mf">3.6</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">eta</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">):</span>
+    <span class="n">pov</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">MLP</span><span class="p">([</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">]),</span> <span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="n">eta</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">pov</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"eta = </span><span class="si">%g</span><span class="s2">"</span> <span class="o">%</span> <span class="n">eta</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"eta = </span><span class="si">%4g</span><span class="s2">   gubitak nakon 5 epoha </span><span class="si">%.4f</span><span class="s2">   nakon 30 epoha </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">pov</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">pov</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">yscale</span><span class="p">(</span><span class="s2">"log"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">"epoha"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">"gubitak (log)"</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">"mlp_digits_eta.png"</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>eta = 0.01   gubitak nakon 5 epoha 1.8309   nakon 30 epoha 0.5030
+eta =  0.1   gubitak nakon 5 epoha 0.3207   nakon 30 epoha 0.0764
+eta =    1   gubitak nakon 5 epoha 0.1736   nakon 30 epoha 0.1611</code></pre>
+<p>Premala stopa ($0{,}01$) uči sporo – krivulja se spušta gotovo pravocrtno i nakon $30$ epoha još je daleko od ostalih. Stopa $0{,}1$ brzo padne i glatko se zaravna. Stopa $1$ padne najbrže na početku, ali krivulja je izlomljena i ne spušta se ispod krivulje za $0{,}1$: koraci su preveliki da bi se model smirio u minimumu. Lekcija D4 sustavno obrađuje izbor stope učenja i njezino smanjivanje tijekom treninga.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za $f(x,y)=(xy+1)^2$ nacrtaj računski graf (čvorovi: množenje, zbrajanje konstante, kvadriranje) i prolazom unatrag izračunaj $\partial f/\partial x$ i $\partial f/\partial y$ u točki $(1,2)$. Provjeri rezultat eksplicitnim deriviranjem.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Graf: $u=xy$, $v=u+1$, $f=v^2$. Unaprijed: $u=2$, $v=3$, $f=9$. Unatrag: $\partial f/\partial v=2v=6$; čvor zbrajanja konstante gradijent samo propušta, $\partial f/\partial u=6$; čvor množenja ga zamijeni: $\partial f/\partial x=6\cdot y=12$, $\partial f/\partial y=6\cdot x=6$. Eksplicitno: $\partial f/\partial x=2(xy+1)\,y=2\cdot3\cdot2=12$ i $\partial f/\partial y=2(xy+1)\,x=6$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">x0</span><span class="p">,</span> <span class="n">y0</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span>
+<span class="n">u</span> <span class="o">=</span> <span class="n">x0</span> <span class="o">*</span> <span class="n">y0</span><span class="p">;</span> <span class="n">v</span> <span class="o">=</span> <span class="n">u</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span> <span class="n">f</span> <span class="o">=</span> <span class="n">v</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">df_dv</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">v</span><span class="p">;</span> <span class="n">df_du</span> <span class="o">=</span> <span class="n">df_dv</span><span class="p">;</span> <span class="n">df_dx</span> <span class="o">=</span> <span class="n">df_du</span> <span class="o">*</span> <span class="n">y0</span><span class="p">;</span> <span class="n">df_dy</span> <span class="o">=</span> <span class="n">df_du</span> <span class="o">*</span> <span class="n">x0</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"f = </span><span class="si">%.0f</span><span class="s2">, df/dx = </span><span class="si">%.0f</span><span class="s2">, df/dy = </span><span class="si">%.0f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">df_dx</span><span class="p">,</span> <span class="n">df_dy</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>f = 9, df/dx = 12, df/dy = 6</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Sloj ima $W\in\mathbb R^{64\times32}$ i $b\in\mathbb R^{32}$, a mini-skup ima $16$ primjera. Koji su oblici matrica $z$, $\delta$, $\partial L/\partial W$, $\partial L/\partial b$ i $\partial L/\partial h$ (gradijent po ulazu sloja)? Zašto se u $\partial L/\partial b$ zbraja po primjerima, a u $\partial L/\partial W$ ne „vidi se” zbroj?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$z,\delta\in\mathbb R^{16\times32}$ (kao izlaz sloja), $\partial L/\partial W\in\mathbb R^{64\times32}$ (kao $W$), $\partial L/\partial b\in\mathbb R^{32}$ (kao $b$), $\partial L/\partial h\in\mathbb R^{16\times64}$ (kao ulaz). Pomak $b_k$ sudjeluje u $z_{ik}$ za svih $16$ primjera, pa se njegovih $16$ doprinosa zbraja: $\sum_i\delta_{ik}$. Isti zbroj po primjerima postoji i u $\partial L/\partial W=h^\top\delta$ – samo je skriven u matričnom umnošku, jer je $(h^\top\delta)_{jk}=\sum_i h_{ij}\delta_{ik}$ upravo zbroj po $i$. Provjera oblikom: $(64\times16)(16\times32)=64\times32$.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Dokaži $\sigma'(z)=\sigma(z)(1-\sigma(z))$ za sigmoidu i pokaži da je $\sigma'(z)\le\frac14$. Ako mreža ima $10$ slojeva sa sigmoidom i sve težine su po apsolutnoj vrijednosti najviše $1$, koliko najviše puta gradijent ulaznog sloja može biti veći od gradijenta na izlazu (zanemari zbrajanje po neuronima)?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Uz $\sigma(z)=(1+e^{-z})^{-1}$ je $\sigma'(z)=e^{-z}(1+e^{-z})^{-2}=\sigma(z)\cdot\dfrac{e^{-z}}{1+e^{-z}}=\sigma(z)(1-\sigma(z))$. Funkcija $s(1-s)$ na $[0,1]$ ima maksimum $\frac14$ u $s=\frac12$. Duž jednog puta kroz $10$ slojeva gradijent se množi s $10$ faktora $\sigma'\le\frac14$ i $10$ težina $|w|\le1$, pa je najviše $4^{-10}\approx 9{,}5\cdot10^{-7}$ puta <em>manji</em> – nikad veći. Ulazni slojevi duboke sigmoidne mreže zato gotovo da ne uče; ReLU ima derivaciju točno $1$ na aktivnom dijelu i taj problem nema.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Za neuron iz Primjera 1 izračunaj relativnu grešku numeričkog gradijenta $\partial L/\partial b$ za $\varepsilon\in\{10^{-1},10^{-3},10^{-5},10^{-7},10^{-9},10^{-11}\}$. Zašto greška nije monotona u $\varepsilon$? Koji je $\varepsilon$ razuman izbor?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Dva su izvora greške: Taylorov ostatak reda $\varepsilon^2$ (prevelik $\varepsilon$) i oduzimanje gotovo jednakih brojeva u <code>float64</code> (premalen $\varepsilon$).</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">eps</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">1e-7</span><span class="p">,</span> <span class="mf">1e-9</span><span class="p">,</span> <span class="mf">1e-11</span><span class="p">):</span>
+    <span class="n">num</span> <span class="o">=</span> <span class="p">(</span><span class="n">gubitak_neurona</span><span class="p">(</span><span class="n">w_n</span><span class="p">,</span> <span class="n">b_n</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">gubitak_neurona</span><span class="p">(</span><span class="n">w_n</span><span class="p">,</span> <span class="n">b_n</span> <span class="o">-</span> <span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"eps = </span><span class="si">%5.0e</span><span class="s2">   rel. greška = </span><span class="si">%.1e</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">eps</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">num</span> <span class="o">-</span> <span class="n">dL_db</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">dL_db</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>eps = 1e-01   rel. greška = 1.9e-03
+eps = 1e-03   rel. greška = 2.0e-07
+eps = 1e-05   rel. greška = 8.7e-12
+eps = 1e-07   rel. greška = 2.0e-09
+eps = 1e-09   rel. greška = 2.2e-07
+eps = 1e-11   rel. greška = 2.1e-05</code></pre>
+<p>Za velik $\varepsilon$ dominira greška odbacivanja (centralna razlika točna je do člana reda $\varepsilon^2$), pa greška pada kvadratno s $\varepsilon$. Za vrlo mali $\varepsilon$ razlika $L(b+\varepsilon)-L(b-\varepsilon)$ je reda $\varepsilon$, a svaki od ta dva broja zaokružen je na relativnu točnost $\approx10^{-16}$; dijeljenjem s $2\varepsilon$ greška zaokruživanja naraste na $\approx10^{-16}/\varepsilon$. Minimum zbroja dvaju učinaka je oko $\varepsilon\approx10^{-5}$ do $10^{-6}$, što je i uobičajena preporuka.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Prilagodi mrežu za <em>regresiju</em>: izlazni sloj ima jedan neuron bez softmaxa, a gubitak je MSE. Izvedi $\delta$ zadnjeg sloja i istreniraj mrežu $1\to32\to1$ s $\tanh$ aktivacijom na $y=\sin(2\pi x)+\varepsilon$, $x\in[0,1]$, $\sigma_\varepsilon=0{,}1$. Kolika je MSE na testu u odnosu na varijancu šuma $0{,}01$?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za $L=\frac1n\sum_i(\hat y_i-y_i)^2$ je $\partial L/\partial\hat y=\frac2n(\hat y-y)$, a budući da zadnji sloj nema aktivaciju, to je ujedno $\delta$ zadnjeg sloja. Ostatak prolaza unatrag je identičan.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Jedina razlika prema klasi <code>MLP</code> je početni $\delta$: umjesto $(P-Y)/n$ koristimo $\frac2n(\hat y-y)$. Napišemo potklasu koja mijenja samo početak prolaza unatrag i izlaz prolaza unaprijed.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span><span class="w"> </span><span class="nc">MLPRegresija</span><span class="p">(</span><span class="n">MLP</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unaprijed</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                       <span class="c1"># logiti su izravno predikcija</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">unatrag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">y_hat</span> <span class="o">-</span> <span class="n">y</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dW</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">),</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">))):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dW</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">[</span><span class="n">l</span><span class="p">]</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">delta</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="p">[</span><span class="n">l</span><span class="p">]</span> <span class="o">=</span> <span class="n">delta</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">l</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">delta</span> <span class="o">=</span> <span class="p">(</span><span class="n">delta</span> <span class="o">@</span> <span class="bp">self</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="n">l</span><span class="p">]</span><span class="o">.</span><span class="n">T</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">akt_der</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">z</span><span class="p">[</span><span class="n">l</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">xs_tr</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">1</span><span class="p">));</span> <span class="n">ys_tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xs_tr</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<span class="n">xs_te</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">1</span><span class="p">));</span> <span class="n">ys_te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xs_te</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+
+<span class="n">reg</span> <span class="o">=</span> <span class="n">MLPRegresija</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">aktivacija</span><span class="o">=</span><span class="s2">"tanh"</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">epoha</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6000</span><span class="p">):</span>
+    <span class="n">y_hat</span> <span class="o">=</span> <span class="n">reg</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">xs_tr</span><span class="p">)</span>
+    <span class="n">reg</span><span class="o">.</span><span class="n">unatrag</span><span class="p">(</span><span class="n">y_hat</span><span class="p">,</span> <span class="n">ys_tr</span><span class="p">)</span>
+    <span class="n">reg</span><span class="o">.</span><span class="n">korak</span><span class="p">(</span><span class="n">eta</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">mse_te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">reg</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">xs_te</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">ys_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MSE trening </span><span class="si">%.4f</span><span class="s2">   MSE test </span><span class="si">%.4f</span><span class="s2">   (varijanca šuma 0.0100)"</span> <span class="o">%</span>
+      <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">reg</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">xs_tr</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">ys_tr</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span> <span class="n">mse_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>MSE trening 0.0120   MSE test 0.0115   (varijanca šuma 0.0100)</code></pre>
+<p>Testna MSE blizu je varijance šuma $0{,}01$ – mreža je naučila sinus, a ne šum. Puni gradijentni spust na ovom je zadatku spor (treba tisuće epoha; sa stopom $0{,}2$ već divergira, isprobaj), što je jedan od razloga za Adam i mini-skupove iz lekcije D4. Da smo trenirali puno dulje sa širim slojem bez ikakve kontrole, MSE na treningu bi padala ispod $0{,}01$, a na testu rasla: prenaučenost iz lekcije M1, sada u mreži.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Usporedi ReLU i $\tanh$ u klasi <code>MLP</code>: (a) najveću relativnu grešku provjere gradijenta na skupu <code>make_moons</code> – očekuješ li razliku i zašto? (b) točnost na testu skupa <code>load_digits</code> nakon $30$ epoha s istim postavkama kao u Primjeru 3.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>ReLU nije derivabilan u nuli i konačne razlike za težinu koja neki $z$ prebaci preko nule mjere nešto drugo od analitičke derivacije; vjerojatnost toga raste s $\varepsilon$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">akt</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"relu"</span><span class="p">,</span> <span class="s2">"tanh"</span><span class="p">):</span>
+    <span class="n">greska</span> <span class="o">=</span> <span class="n">provjeri_gradijent</span><span class="p">(</span><span class="n">MLP</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">aktivacija</span><span class="o">=</span><span class="n">akt</span><span class="p">),</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="mi">64</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="n">aktivacija</span><span class="o">=</span><span class="n">akt</span><span class="p">)</span>
+    <span class="n">treniraj</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-5s</span><span class="s2">  greška gradijenta </span><span class="si">%.1e</span><span class="s2">   točnost test (digits) </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span>
+          <span class="p">(</span><span class="n">akt</span><span class="p">,</span> <span class="n">greska</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">predvidi</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">)</span> <span class="o">==</span> <span class="n">yd_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>relu   greška gradijenta 5.0e-10   točnost test (digits) 0.967
+tanh   greška gradijenta 1.2e-09   točnost test (digits) 0.969</code></pre>
+<p>(a) Obje greške su sićušne – izvod je točan za obje aktivacije. Kod $\tanh$ funkcija gubitka je glatka pa je slaganje do granice zaokruživanja; kod ReLU moguće je da pomak $\pm\varepsilon$ neki $z_{ik}$ prebaci preko nule, što bi dalo veću grešku za tu težinu, ali uz $\varepsilon=10^{-5}$ i $300$ primjera to se rijetko dogodi. (b) Na ovako plitkoj mreži obje aktivacije daju sličnu točnost; prednost ReLU vidi se tek u dubljim mrežama, gdje $\tanh$ (čija je derivacija $\le1$ i blizu nule za velike $|z|$) guši gradijent.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Izvedi gradijent softmaxa s unakrsnom entropijom iz definicije softmaxa (ne preko $\log\sum e^{z_j}$): izračunaj $\partial p_k/\partial z_j$ za $k=j$ i $k\ne j$, pa primijeni lančano pravilo na $\ell=-\log p_y$. Zatim na slučajnim logitima za $K=5$ numerički provjeri formulu $\partial\ell/\partial z=p-e_y$.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za $k=j$: $\partial p_k/\partial z_k=p_k(1-p_k)$; za $k\ne j$: $\partial p_k/\partial z_j=-p_kp_j$. Obje formule stanu u jednu: $\partial p_k/\partial z_j=p_k([k=j]-p_j)$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Uz $S=\sum_j e^{z_j}$ je $p_k=e^{z_k}/S$. Za $k=j$: $\partial p_k/\partial z_k=(e^{z_k}S-e^{z_k}e^{z_k})/S^2=p_k-p_k^2=p_k(1-p_k)$. Za $k\ne j$: brojnik ne ovisi o $z_j$, pa $\partial p_k/\partial z_j=-e^{z_k}e^{z_j}/S^2=-p_kp_j$. Lančano pravilo za $\ell=-\log p_y$: $\partial\ell/\partial z_j=-\dfrac{1}{p_y}\dfrac{\partial p_y}{\partial z_j}=-\dfrac{p_y([y=j]-p_j)}{p_y}=p_j-[y=j]$, što je upravo $p-e_y$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">zl</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">));</span> <span class="n">klasa</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span><span class="p">])</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">l_od</span><span class="p">(</span><span class="n">zl</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">unakrsna_entropija</span><span class="p">(</span><span class="n">softmax</span><span class="p">(</span><span class="n">zl</span><span class="p">),</span> <span class="n">klasa</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">zl</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">analiticki</span> <span class="o">=</span> <span class="n">p</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">5</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">eps</span> <span class="o">=</span> <span class="mf">1e-6</span>
+<span class="n">numericki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">l_od</span><span class="p">(</span><span class="n">zl</span> <span class="o">+</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">)</span> <span class="o">-</span> <span class="n">l_od</span><span class="p">(</span><span class="n">zl</span> <span class="o">-</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">5</span><span class="p">)])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"p           ="</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"analitički  ="</span><span class="p">,</span> <span class="n">analiticki</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"numerički   ="</span><span class="p">,</span> <span class="n">numericki</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>p           = [0.07314 0.04338 0.12722 0.24833 0.50793]
+analitički  = [ 0.07314  0.04338 -0.87278  0.24833  0.50793]
+numerički   = [ 0.07314  0.04338 -0.87278  0.24833  0.50793]</code></pre>
+<p>Primijeti: gradijent po logitu točne klase negativan je (treba ga povećati), po ostalima pozitivan (treba ih smanjiti), a zbroj svih komponenata je nula jer softmax ne mijenja ako svim logitima dodamo istu konstantu.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Zašto se težine inicijaliziraju slučajno, a ne, recimo, sve na istu vrijednost $0{,}1$? Inicijaliziraj mrežu $2\to16\to2$ tako da su <em>svi</em> elementi $W^{(1)}$ jednaki $0{,}1$ i svi elementi $W^{(2)}$ jednaki $0{,}1$, istreniraj je na <code>make_moons</code> kao u Primjeru 2 i ispiši koliko se stupaca $W^{(1)}$ razlikuje nakon treninga te točnost. Objasni pojavu i dokaži je iz formula za backpropagation.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Ako su svi skriveni neuroni na početku identični (iste težine, isti pomaci), imaju iste aktivacije; pokaži da onda dobivaju i iste gradijente, pa ostaju identični zauvijek.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">sim</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="mi">0</span><span class="p">][:]</span> <span class="o">=</span> <span class="mf">0.1</span>
+<span class="n">sim</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="mi">1</span><span class="p">][:]</span> <span class="o">=</span> <span class="mf">0.1</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">600</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">unaprijed</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">unatrag</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+    <span class="n">sim</span><span class="o">.</span><span class="n">korak</span><span class="p">(</span><span class="n">eta</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">odstupanje</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">sim</span><span class="o">.</span><span class="n">W</span><span class="p">[</span><span class="mi">0</span><span class="p">][:,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]])</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najveća razlika među stupcima W1 nakon treninga: </span><span class="si">%.1e</span><span class="s2">"</span> <span class="o">%</span> <span class="n">odstupanje</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"točnost test: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sim</span><span class="o">.</span><span class="n">predvidi</span><span class="p">(</span><span class="n">X_te</span><span class="p">)</span> <span class="o">==</span> <span class="n">y_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>najveća razlika među stupcima W1 nakon treninga: 0.0e+00
+točnost test: 0.900</code></pre>
+<p>Svih $16$ stupaca ostaje identično do zaokruživanja – mreža je zapravo cijelo vrijeme imala <em>jedan</em> skriveni neuron, pa je granica odluke pravac (izlaz je afina funkcija jedne ReLU aktivacije) i točnost je na razini linearnog modela, daleko od $0{,}95$ iz Primjera 2. Dokaz: neka su u nekom trenutku svi stupci $W^{(1)}$ jednaki, svi $b^{(1)}_k$ jednaki i svi redci $W^{(2)}$ jednaki. Tada su za svaki primjer $i$ svi $z^{(1)}_{ik}$ jednaki, pa i $h^{(1)}_{ik}$. Gradijent $\delta^{(1)}=(\delta^{(2)}(W^{(2)})^\top)\odot\sigma'(z^{(1)})$ ima $k$-ti stupac $\sum_c\delta^{(2)}_{ic}W^{(2)}_{kc}\,\sigma'(z^{(1)}_{ik})$, koji ne ovisi o $k$ (svi redci $W^{(2)}$ jednaki, svi $z^{(1)}_{ik}$ jednaki). Stoga su svi stupci $\partial L/\partial W^{(1)}=(h^{(0)})^\top\delta^{(1)}$ jednaki, kao i komponente $\partial L/\partial b^{(1)}$, a redci $\partial L/\partial W^{(2)}=(h^{(1)})^\top\delta^{(2)}$ također (svi stupci $h^{(1)}$ su jednaki). Nakon koraka gradijentnog spusta simetrija je očuvana; indukcijom vrijedi zauvijek. Slučajna inicijalizacija <em>razbija simetriju</em> (engl. <i>symmetry breaking</i>) i zato je nužna.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Napiši mini-autograd: razred <code>Vrijednost</code> koji pamti skalar, gradijent, roditelje i operaciju; podrži zbrajanje, množenje, potenciranje realnim brojem i $\tanh$ te metodu <code>unatrag()</code> koja topološki sortira graf i primijeni lančano pravilo od izlaza prema ulazima. Provjeri ga na funkciji iz Primjera 1(a), zatim njime istreniraj mrežu $2\to4\to1$ s $\tanh$ na problemu XOR.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Svaka operacija stvara novi čvor i definira funkciju <code>_unatrag</code> koja <em>pribraja</em> (ne postavlja!) gradijent roditeljima – ista varijabla može se koristiti više puta. <code>unatrag()</code> postavi <code>grad = 1</code> na izlazu i poziva <code>_unatrag</code> čvorova obrnutim topološkim redom.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Ovo je skalarna verzija onoga što PyTorchov autograd radi s tenzorima (lekcija D3). Zbroj se u <code>_unatrag</code> koristi zato što lančano pravilo zbraja doprinose svih puteva.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Vrijednost</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">podatak</span><span class="p">,</span> <span class="n">roditelji</span><span class="o">=</span><span class="p">(),</span> <span class="n">op</span><span class="o">=</span><span class="s2">""</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">podatak</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">podatak</span><span class="p">),</span> <span class="mf">0.0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_roditelji</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_op</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_unatrag</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">roditelji</span><span class="p">),</span> <span class="n">op</span><span class="p">,</span> <span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drugi</span><span class="p">):</span>
+        <span class="n">drugi</span> <span class="o">=</span> <span class="n">drugi</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">drugi</span><span class="p">,</span> <span class="n">Vrijednost</span><span class="p">)</span> <span class="k">else</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="n">drugi</span><span class="p">)</span>
+        <span class="n">izlaz</span> <span class="o">=</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">podatak</span> <span class="o">+</span> <span class="n">drugi</span><span class="o">.</span><span class="n">podatak</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drugi</span><span class="p">),</span> <span class="s2">"+"</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_unatrag</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grad</span> <span class="o">+=</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">grad</span>
+            <span class="n">drugi</span><span class="o">.</span><span class="n">grad</span> <span class="o">+=</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">grad</span>
+        <span class="n">izlaz</span><span class="o">.</span><span class="n">_unatrag</span> <span class="o">=</span> <span class="n">_unatrag</span>
+        <span class="k">return</span> <span class="n">izlaz</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drugi</span><span class="p">):</span>
+        <span class="n">drugi</span> <span class="o">=</span> <span class="n">drugi</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">drugi</span><span class="p">,</span> <span class="n">Vrijednost</span><span class="p">)</span> <span class="k">else</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="n">drugi</span><span class="p">)</span>
+        <span class="n">izlaz</span> <span class="o">=</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">podatak</span> <span class="o">*</span> <span class="n">drugi</span><span class="o">.</span><span class="n">podatak</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drugi</span><span class="p">),</span> <span class="s2">"*"</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_unatrag</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grad</span> <span class="o">+=</span> <span class="n">drugi</span><span class="o">.</span><span class="n">podatak</span> <span class="o">*</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">grad</span>
+            <span class="n">drugi</span><span class="o">.</span><span class="n">grad</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">podatak</span> <span class="o">*</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">grad</span>
+        <span class="n">izlaz</span><span class="o">.</span><span class="n">_unatrag</span> <span class="o">=</span> <span class="n">_unatrag</span>
+        <span class="k">return</span> <span class="n">izlaz</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__pow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+        <span class="n">izlaz</span> <span class="o">=</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">podatak</span> <span class="o">**</span> <span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="p">,),</span> <span class="s2">"**"</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_unatrag</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grad</span> <span class="o">+=</span> <span class="n">k</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">podatak</span> <span class="o">**</span> <span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">grad</span>
+        <span class="n">izlaz</span><span class="o">.</span><span class="n">_unatrag</span> <span class="o">=</span> <span class="n">_unatrag</span>
+        <span class="k">return</span> <span class="n">izlaz</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">tanh</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">tanh</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">podatak</span><span class="p">)</span>
+        <span class="n">izlaz</span> <span class="o">=</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="p">,),</span> <span class="s2">"tanh"</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_unatrag</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">grad</span> <span class="o">+=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">izlaz</span><span class="o">.</span><span class="n">grad</span>
+        <span class="n">izlaz</span><span class="o">.</span><span class="n">_unatrag</span> <span class="o">=</span> <span class="n">_unatrag</span>
+        <span class="k">return</span> <span class="n">izlaz</span>
+
+    <span class="fm">__radd__</span> <span class="o">=</span> <span class="fm">__add__</span>
+    <span class="fm">__rmul__</span> <span class="o">=</span> <span class="fm">__mul__</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drugi</span><span class="p">):</span> <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="n">drugi</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">drugi</span><span class="p">):</span> <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="p">)</span> <span class="o">+</span> <span class="n">drugi</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">unatrag</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">poredak</span><span class="p">,</span> <span class="n">posjeceno</span> <span class="o">=</span> <span class="p">[],</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">obidji</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">v</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">posjeceno</span><span class="p">:</span>
+                <span class="n">posjeceno</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">_roditelji</span><span class="p">:</span>
+                    <span class="n">obidji</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+                <span class="n">poredak</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="n">obidji</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grad</span> <span class="o">=</span> <span class="mf">1.0</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">poredak</span><span class="p">):</span>
+            <span class="n">v</span><span class="o">.</span><span class="n">_unatrag</span><span class="p">()</span>
+
+<span class="n">xa</span><span class="p">,</span> <span class="n">ya</span><span class="p">,</span> <span class="n">za</span> <span class="o">=</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="mf">2.0</span><span class="p">),</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="o">-</span><span class="mf">3.0</span><span class="p">),</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="mf">4.0</span><span class="p">)</span>
+<span class="n">fa</span> <span class="o">=</span> <span class="p">(</span><span class="n">xa</span> <span class="o">+</span> <span class="n">ya</span><span class="p">)</span> <span class="o">*</span> <span class="n">za</span>
+<span class="n">fa</span><span class="o">.</span><span class="n">unatrag</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"f = </span><span class="si">%.1f</span><span class="s2">, df/dx = </span><span class="si">%.1f</span><span class="s2">, df/dy = </span><span class="si">%.1f</span><span class="s2">, df/dz = </span><span class="si">%.1f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">fa</span><span class="o">.</span><span class="n">podatak</span><span class="p">,</span> <span class="n">xa</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">ya</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">za</span><span class="o">.</span><span class="n">grad</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>f = -4.0, df/dx = 4.0, df/dy = 4.0, df/dz = -1.0</code></pre>
+<p>Isti rezultat kao ručni račun u Primjeru 1. Sad mreža: parametri su objekti <code>Vrijednost</code>, prolaz unaprijed je običan Python s operatorima, a <code>unatrag()</code> na gubitku daje gradijente svih parametara. Prije svakog koraka gradijente treba <em>poništiti</em> jer se pribrajaju – isto kao <code>optimizer.zero_grad()</code> u PyTorchu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">ulazi</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+<span class="n">ciljevi</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span>                     <span class="c1"># XOR, kodiran s -1/1 za tanh izlaz</span>
+
+<span class="n">W1</span> <span class="o">=</span> <span class="p">[[</span><span class="n">Vrijednost</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">2</span><span class="p">)]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]</span>
+<span class="n">b1</span> <span class="o">=</span> <span class="p">[</span><span class="n">Vrijednost</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]</span>
+<span class="n">W2</span> <span class="o">=</span> <span class="p">[</span><span class="n">Vrijednost</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]</span>
+<span class="n">b2</span> <span class="o">=</span> <span class="n">Vrijednost</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+<span class="n">parametri</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span> <span class="k">for</span> <span class="n">red</span> <span class="ow">in</span> <span class="n">W1</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">red</span><span class="p">]</span> <span class="o">+</span> <span class="n">b1</span> <span class="o">+</span> <span class="n">W2</span> <span class="o">+</span> <span class="p">[</span><span class="n">b2</span><span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">mreza_xor</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="n">skriveni</span> <span class="o">=</span> <span class="p">[(</span><span class="n">w</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">w</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span><span class="o">.</span><span class="n">tanh</span><span class="p">()</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">W1</span><span class="p">,</span> <span class="n">b1</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">h</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">W2</span><span class="p">,</span> <span class="n">skriveni</span><span class="p">))</span> <span class="o">+</span> <span class="n">b2</span><span class="p">)</span><span class="o">.</span><span class="n">tanh</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">korak</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">301</span><span class="p">):</span>
+    <span class="n">gubitak</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">((</span><span class="n">mreza_xor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ulazi</span><span class="p">,</span> <span class="n">ciljevi</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parametri</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">grad</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="n">gubitak</span><span class="o">.</span><span class="n">unatrag</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parametri</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">podatak</span> <span class="o">-=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">p</span><span class="o">.</span><span class="n">grad</span>
+    <span class="k">if</span> <span class="n">korak</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"korak </span><span class="si">%3d</span><span class="s2">  gubitak </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">korak</span><span class="p">,</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">podatak</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"predikcije:"</span><span class="p">,</span> <span class="p">[</span><span class="nb">round</span><span class="p">(</span><span class="n">mreza_xor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">podatak</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ulazi</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>korak   1  gubitak 4.7276
+korak  50  gubitak 0.1370
+korak 100  gubitak 0.0396
+korak 300  gubitak 0.0087
+predikcije: [-0.97, 0.95, 0.95, -0.94]</code></pre>
+<p>Gubitak pada prema nuli i predikcije se približavaju ciljevima $-1,1,1,-1$: mreža je naučila XOR, što jedan perceptron ne može (lekcija D1). Ovaj razred je u suštini <i>micrograd</i> A. Karpathyja; PyTorch radi isto, samo s tenzorima umjesto skalara i s kernelima pisanima u C++-u.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Backpropagation = lančano pravilo na računskom grafu: svaki čvor primi gradijent odozgo, pomnoži ga lokalnom derivacijom i proslijedi ulazima; doprinosi različitih puteva se zbrajaju. Trošak je neovisan o broju parametara.</li>
+<li>Jedan sloj $z=hW+b$: $\partial L/\partial W=h^\top\delta$, $\partial L/\partial b=\sum_i\delta_{i,:}$, $\delta^{(l-1)}=(\delta^{(l)}W^\top)\odot\sigma'(z^{(l-1)})$. Prvo provjeri oblike.</li>
+<li>Gradijent gubitka po izlazu: MSE $\frac2n(\hat y-y)$; softmax + unakrsna entropija $\frac1n(P-Y)$ – zato se uvijek deriviraju zajedno i modelu se predaju logiti.</li>
+<li>Svaki ručni gradijent provjeri centralnim konačnim razlikama ($\varepsilon\approx10^{-5}$, relativna greška, <code>float64</code>); greška iznad $10^{-3}$ znači bug.</li>
+<li>Krivulja gubitka je prvi dijagnostički alat: početni gubitak $\approx\ln K$, zatim brz pad i zaravnjenje; skokovi znače prevelik $\eta$. Slučajna inicijalizacija je nužna da se razbije simetrija neurona.</li>
+<li>Autograd (PyTorch) automatizira sve ovo za proizvoljne grafove; razumijevanje ručnog izvoda i dalje je ključno za pronalaženje grešaka i čitanje gradijenata.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press, poglavlje 6.5 (Back-Propagation and Other Differentiation Algorithms); besplatno na <a href="https://www.deeplearningbook.org/">deeplearningbook.org</a>.</li>
+<li>M. Nielsen, <i>Neural Networks and Deep Learning</i>, poglavlje 2 (How the backpropagation algorithm works), <a href="http://neuralnetworksanddeeplearning.com/chap2.html">neuralnetworksanddeeplearning.com</a>.</li>
+<li>Stanford CS231n, bilješke <a href="https://cs231n.github.io/optimization-2/">Backpropagation, Intuitions</a>.</li>
+<li>A. Karpathy, <i>micrograd</i> i videopredavanje „The spelled-out intro to neural networks and backpropagation”, <a href="https://github.com/karpathy/micrograd">github.com/karpathy/micrograd</a>.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="01-perceptron-mlp.html"><small>← Prethodna lekcija</small>D1 · Perceptron i višeslojne mreže</a>
+                <a class="sljedeca" href="03-pytorch-osnove.html"><small>Sljedeća lekcija →</small>D3 · PyTorch: tenzori, autograd i prva mreža</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

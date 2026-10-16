@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Jezik i vid 1: Obrada teksta: od znakova do značajki</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#jezik-i-vid">Jezik i vid</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Jezik i vid · lekcija 1 od 6</p>
+            <h1><span class="broj-lekcije">V1</span> Obrada teksta: od znakova do značajki</h1>
+            <p class="meta">Kako niz znakova pretvoriti u brojeve koje model može učiti: normalizacija, tokenizacija, n-grami, bag-of-words i TF-IDF</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.0" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>normalizacija</li>
+                <li>tokenizacija</li>
+                <li>BPE</li>
+                <li>stop-riječi</li>
+                <li>n-grami</li>
+                <li>bag-of-words</li>
+                <li>TF-IDF</li>
+                <li>Naive Bayes</li>
+                <li>regularni izrazi</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Opisati cjevovod obrade teksta (normalizacija → tokenizacija → značajke → model) i znati gdje hrvatski jezik stvara posebne probleme (dijakritici, padeži).</li>
+<li>Tokenizirati tekst na riječi, znakove i podriječi te objasniti ideju algoritma BPE.</li>
+<li>Izračunati bag-of-words i TF-IDF reprezentaciju ručno i pomoću <code>CountVectorizer</code>/<code>TfidfVectorizer</code> te znati koja se formula zapravo primjenjuje.</li>
+<li>Istrenirati klasifikator teksta (logistička regresija, Naive Bayes) na malom korpusu i pročitati koje riječi odlučuju o klasi.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Modeli iz modula M i D rade s matricama brojeva. Tekst je, s druge strane, niz znakova promjenjive duljine, bez očite numeričke strukture: rečenica „Pas je lajao” i „Lajao je pas” znače isto, a ne dijele nijedan zajednički prefiks. <b>Obrada prirodnog jezika</b> (engl. <i>natural language processing</i>, NLP) počinje zato uvijek istim pitanjem: <em>kako tekst pretvoriti u vektor značajki, a da izgubimo što manje značenja?</em> Ova lekcija obrađuje klasični odgovor – vreću riječi i TF-IDF – koji je i danas prvi model koji isprobaš na svakom tekstualnom zadatku, jer se trenira u sekundi i teško ga je pobijediti na malim skupovima. Lekcije V2 i V3 zatim grade bolje reprezentacije (embeddinzi, transformeri).</p>
+
+<h3>Cjevovod obrade teksta</h3>
+<p>Gotovo svaki sustav za tekst sastoji se od istih koraka:</p>
+<ol>
+<li><b>Normalizacija</b> – ujednačavanje zapisa: mala slova, Unicode, interpunkcija, razmaci.</li>
+<li><b>Tokenizacija</b> – rezanje niza znakova na jedinice (<b>tokene</b>): riječi, znakove ili podriječi.</li>
+<li><b>Izgradnja rječnika</b> – svakom tokenu pridružimo cijeli broj (indeks).</li>
+<li><b>Vektorizacija</b> – dokument postaje vektor duljine veličine rječnika (ova lekcija) ili niz gustih vektora (V2, V3).</li>
+<li><b>Model</b> – bilo koji klasifikator ili regresor iz modula M.</li>
+</ol>
+<p>Pogreška u ranom koraku ne može se ispraviti kasnije: ako tokenizator „Zagreb,” i „Zagreb” smatra različitim tokenima, model mora dvaput naučiti isto.</p>
+
+<h3>Normalizacija i specifičnosti hrvatskog</h3>
+<p>Najčešće operacije: pretvaranje u mala slova (<code>str.lower()</code>; „Pas” i „pas” su ista riječ), uklanjanje ili izdvajanje interpunkcije, sažimanje višestrukih razmaka te <b>Unicode normalizacija</b>. Znak „č” može biti zapisan kao jedan kodni element (U+010D) ili kao „c” + kombinirajući kvačić (U+0063 U+030C); izgledaju jednako, a za Python su različiti nizovi. Funkcija <code>unicodedata.normalize("NFC", s)</code> spaja ih u jedan oblik, a <code>"NFD"</code> ih razdvaja, što omogućuje jednostavno <em>uklanjanje dijakritika</em> („čćžšđ” → „cczsd”). Je li to pametno, ovisi o podacima: tekst s interneta često je napisan bez dijakritika, pa uklanjanje spaja „kuca” i „kuća” i time pomaže; u uredno pisanom tekstu time gubimo informaciju (pogledaj Zadatak 2).</p>
+<p>Druga posebnost hrvatskog je <b>bogata morfologija</b>: imenice se mijenjaju kroz sedam padeža i dva broja, pridjevi se slažu s njima, a glagoli imaju mnogo oblika. Riječi „pas”, „psa”, „psu”, „psi”, „pasa” model vreće riječi vidi kao pet nepovezanih značajki. Rješenja su <b>lematizacija</b> (svođenje na rječnički oblik – zahtijeva jezični alat ili rječnik), <b>stemming</b> (odsijecanje nastavaka grubim pravilima) ili, najjednostavnije i često najbolje, <b>znakovni n-grami</b> (vidi dolje), koji automatski dijele zajedničku osnovu „ps”. Posljedica je i da je rječnik hrvatskog korpusa znatno veći od engleskog iste veličine, pa su matrice rjeđe i modelu treba više podataka.</p>
+
+<h3>Tokenizacija</h3>
+<div class="pojam">
+<h4>Token i tokenizacija</h4>
+<p><b>Tokenizacija</b> je funkcija koja niz znakova preslikava u konačan niz <b>tokena</b> iz fiksnog <b>rječnika</b> $V$. Prema granularnosti razlikujemo tokenizaciju na <b>riječi</b> (razdvajanje po razmacima i interpunkciji), na <b>znakove</b> (svaki znak je token, $|V|$ je malen, nizovi su dugi) i na <b>podriječi</b> (engl. <i>subword</i>): česte riječi ostaju cijele, rijetke se razbijaju na manje dijelove, npr. „nevjerojatno” → „ne”, „vjerojat”, „no”.</p>
+</div>
+<p>Tokenizacija na riječi ima problem <b>nepoznatih riječi</b> (engl. <i>out-of-vocabulary</i>, OOV): svaka riječ koja se ne pojavljuje u skupu za učenje ispada iz modela. Podriječi taj problem uklanjaju – svaki se niz može zapisati barem znakovima – a istodobno zadržavaju kratke zapise za česte riječi. Zato ih koriste svi moderni jezični modeli.</p>
+<div class="pojam">
+<h4>BPE (byte-pair encoding)</h4>
+<p>Algoritam gradi rječnik podriječi iz korpusa ovako: (1) početni rječnik su svi znakovi, a svaka riječ zapisana je kao niz znakova s oznakom kraja riječi; (2) prebroji sve <em>parove susjednih tokena</em> u korpusu; (3) najčešći par spoji u novi token i dodaj ga u rječnik; (4) ponavljaj (2)–(3) zadani broj puta. Novi tekst tokenizira se primjenom naučenih spajanja istim redoslijedom.</p>
+</div>
+<p>Broj spajanja je hiperparametar: BERT ima oko $30\,000$ tokena, GPT-ovi od $50\,000$ naviše. Za hrvatski tekst tokenizator učen pretežno na engleskom razbija riječi na više dijelova nego za engleski, što znači dulje nizove i slabiju kvalitetu – jedan od razloga da u lekciji V3 spominjemo višejezične i hrvatske modele.</p>
+
+<h3>Stop-riječi i n-grami</h3>
+<p><b>Stop-riječi</b> (engl. <i>stop words</i>) su vrlo česte riječi koje nose malo informacije o temi: „i”, „je”, „se”, „u”, „na”, „da”. Klasični cjevovodi ih izbacuju da smanje šum i dimenziju; TF-IDF ih automatski prigušuje, a za zadatke poput prepoznavanja autora upravo one mogu biti najkorisnije. Scikit-learn nema ugrađeni popis za hrvatski, pa ga zadaješ sam parametrom <code>stop_words=[...]</code>.</p>
+<div class="pojam">
+<h4>n-gram</h4>
+<p><b>n-gram</b> je niz od $n$ uzastopnih tokena. Za riječi „pas je lajao” unigrami su $\{$pas, je, lajao$\}$, bigrami $\{$pas je, je lajao$\}$. Niz od $m$ tokena ima $m-n+1$ n-grama. <b>Znakovni n-grami</b> režu riječi na nizove od $n$ znakova: „pas” → „pa”, „as” (bigrami), a varijanta <code>char_wb</code> u scikit-learnu dodaje razmak na rubove riječi, pa postoje i „ p”, „s ”.</p>
+</div>
+<p>Vreća unigrama gubi redoslijed: „nije dobro, nego loše” i „nije loše, nego dobro” imaju isti vektor. Bigrami djelomično vraćaju kontekst („nije dobro” postaje značajka), ali broj mogućih n-grama raste eksponencijalno s $n$, pa se u praksi koriste $n\le 3$ i rijetki n-grami odbacuju (<code>min_df</code>).</p>
+
+<h3>Vreća riječi i TF-IDF</h3>
+<div class="pojam">
+<h4>Bag-of-words (BoW)</h4>
+<p>Uz rječnik $V=\{t_1,\dots,t_{|V|}\}$ dokument $d$ predstavljamo vektorom $x\in\mathbb R^{|V|}$ u kojem je $x_j=\mathrm{tf}(t_j,d)$ broj pojavljivanja tokena $t_j$ u $d$ (engl. <i>term frequency</i>). Korpus od $n$ dokumenata je matrica $X\in\mathbb R^{n\times|V|}$, u pravilu <b>rijetka</b> (gotovo sve nule), pa je scikit-learn pohranjuje kao <code>scipy.sparse</code> matricu.</p>
+</div>
+<p>Mana sirovih brojača: riječ koja se pojavljuje u svim dokumentima („je”) ima velike vrijednosti, a ne razlikuje ništa. Lijek je težinski faktor koji kažnjava sveprisutne tokene.</p>
+<div class="pojam">
+<h4>TF-IDF</h4>
+<p>Neka je $\mathrm{df}(t)$ broj dokumenata u korpusu koji sadrže token $t$ (engl. <i>document frequency</i>). <b>Inverzna dokumentna frekvencija</b> u izvornom je obliku $\mathrm{idf}(t)=\ln\frac{n}{\mathrm{df}(t)}$, a scikit-learn (zadane postavke <code>smooth_idf=True</code>) koristi izglađenu inačicu
+$$\mathrm{idf}(t)=\ln\frac{1+n}{1+\mathrm{df}(t)}+1 ,$$
+koja nikad nije nula i ne dijeli nulom. TF-IDF težina je $\mathrm{tfidf}(t,d)=\mathrm{tf}(t,d)\cdot\mathrm{idf}(t)$, a vektor dokumenta zatim se <b>normalizira</b> na jediničnu euklidsku duljinu (<code>norm="l2"</code>), tako da dugi i kratki dokumenti budu usporedivi.</p>
+</div>
+<div class="trener-umetak">
+<p>Razlike između „udžbeničke” i implementirane formule čest su izvor zbunjenosti kad ručni račun ne odgovara ispisu biblioteke. Prije nego što na natjecanju pokušaš nešto „ispraviti”, provjeri dokumentaciju ili reproduciraj izračun ručno kao u Primjeru 2. Ista pouka vrijedi za sve metrike i gubitke.</p>
+</div>
+<p>Nakon TF-IDF-a dokument je točka na jediničnoj sferi, a <b>kosinusna sličnost</b> dvaju dokumenata $\cos(x,x')=\frac{x^\top x'}{\lVert x\rVert\lVert x'\rVert}$ postaje običan skalarni produkt – temelj pretraživanja dokumenata i tema kojoj se vraćamo u V2.</p>
+
+<h3>Klasifikacija teksta</h3>
+<p>Kad je tekst vektor, klasifikacija je zadatak iz lekcije M3. Dva modela posebno dobro rade s rijetkim, visokodimenzionalnim BoW značajkama:</p>
+<ul>
+<li><b>Logistička regresija</b> (i linearni SVM) – linearna granica u prostoru značajki; koeficijent $w_j$ izravno kaže koliko token $t_j$ „vuče” prema klasi, pa je model lako tumačiti. Regularizacija $C$ je ključna jer je značajki obično više nego dokumenata.</li>
+<li><b>Multinomijalni Naive Bayes</b> – generativni model koji pretpostavlja da su tokeni unutar klase nezavisni (odatle „naivni”): $$P(c\mid d)\propto P(c)\prod_{t\in d}P(t\mid c)^{\mathrm{tf}(t,d)},\qquad P(t\mid c)=\frac{N_{t,c}+\alpha}{N_c+\alpha|V|},$$ gdje je $N_{t,c}$ broj pojavljivanja tokena $t$ u dokumentima klase $c$, $N_c$ ukupan broj tokena u toj klasi, a $\alpha\gt0$ <b>Laplaceovo izglađivanje</b> koje sprječava nulu za token neviđen u klasi. Umnošci se računaju kao zbrojevi logaritama. Naive Bayes nema hiperparametara osim $\alpha$, trenira se jednim prolazom kroz podatke i iznenađujuće je jak na vrlo malim skupovima.</li>
+</ul>
+
+<h3>Regularni izrazi</h3>
+<p><b>Regularni izraz</b> (engl. <i>regular expression</i>, regex) je kompaktan zapis uzorka nad znakovima, u Pythonu u modulu <code>re</code>. Služi za tokenizaciju, čišćenje (uklanjanje URL-ova, brojeva, HTML oznaka) i za izvlačenje strukturiranih podataka iz teksta. Osnovni gradivni elementi:</p>
+<ul>
+<li><code>\w</code> slovo, znamenka ili podvlaka (uz <code>re.UNICODE</code>, koji je u Pythonu 3 zadan, uključuje i „čćžšđ”); <code>\d</code> znamenka; <code>\s</code> razmak; <code>.</code> bilo koji znak;</li>
+<li>kvantifikatori: <code>+</code> jedan ili više, <code>*</code> nula ili više, <code>?</code> nula ili jedan, <code>{2,4}</code> od dva do četiri;</li>
+<li>skupovi <code>[a-z]</code>, <code>[^0-9]</code> (negacija); alternacija <code>a|b</code>; grupe <code>( )</code>; sidra <code>^</code> i <code>$</code>; <code>\b</code> granica riječi;</li>
+<li>funkcije: <code>re.findall</code> (sva podudaranja), <code>re.sub</code> (zamjena), <code>re.split</code>, <code>re.compile</code> (predkompilirani uzorak, brže u petlji).</li>
+</ul>
+<p>Tipični tokenizator na riječi je <code>re.findall(r"\w+", tekst.lower())</code> – upravo to (uz uvjet od barem dva znaka) koristi i <code>CountVectorizer</code> sa zadanim <code>token_pattern=r"(?u)\b\w\w+\b"</code>. Primijeti posljedicu: jednoslovne riječi „i”, „u”, „a”, „s” scikit-learn u zadanim postavkama uopće ne vidi.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Zadan je mali korpus hrvatskih rečenica. Normaliziraj ga, tokeniziraj na riječi regularnim izrazom, prebroji najčešće riječi prije i nakon uklanjanja stop-riječi te ispiši bigrame prve rečenice i znakovne trigrame jedne riječi.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: korpus i normalizacija.</b> Tekst najprije prevodimo u Unicode oblik NFC (da „č” bude uvijek jedan kodni element) i mala slova. Devet rečenica iz tri teme (sport, kuhanje, tehnologija) – prvi dio većeg korpusa iz Primjera 3.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">unicodedata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+
+<span class="n">korpus</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">"Vatreni su sinoć pobijedili 2:1 i plasirali se u polufinale."</span><span class="p">,</span>
+    <span class="s2">"Golman je obranio jedanaesterac u posljednjoj minuti utakmice."</span><span class="p">,</span>
+    <span class="s2">"Trener je nakon poraza najavio promjene u momčadi."</span><span class="p">,</span>
+    <span class="s2">"Za ovaj recept trebaš 200 g brašna, dva jaja i prstohvat soli."</span><span class="p">,</span>
+    <span class="s2">"Tijesto ostavi da se diže sat vremena, pa ga peci 25 minuta."</span><span class="p">,</span>
+    <span class="s2">"Juha od rajčice najbolja je sa svježim bosiljkom i maslinovim uljem."</span><span class="p">,</span>
+    <span class="s2">"Novi procesor ima 16 jezgri i troši manje energije od prethodnika."</span><span class="p">,</span>
+    <span class="s2">"Ažuriranje sustava popravlja sigurnosni propust u pregledniku."</span><span class="p">,</span>
+    <span class="s2">"Baterija mobitela traje dva dana uz uključen Wi-Fi i Bluetooth."</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">normaliziraj</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">"NFC"</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">s</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">normaliziraj</span><span class="p">(</span><span class="s2">"Čćž ŠĐ"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"čćž šđ"</span><span class="p">)</span>
+<span class="c1"># isti znak, dva zapisa: NFC ih izjednačuje</span>
+<span class="n">c1</span><span class="p">,</span> <span class="n">c2</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\u010d</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"c</span><span class="se">\u030c</span><span class="s2">"</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">c1</span> <span class="o">==</span> <span class="n">c2</span><span class="p">,</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">"NFC"</span><span class="p">,</span> <span class="n">c1</span><span class="p">)</span> <span class="o">==</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">"NFC"</span><span class="p">,</span> <span class="n">c2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>True
+False True</code></pre>
+<p><b>Korak 2: tokenizacija regularnim izrazom.</b> Uzorak <code>\w+</code> hvata nizove slova i znamenki; brojevi poput „2:1” raspadaju se na „2” i „1”, što je za ovaj zadatak prihvatljivo. Prebrojimo riječi u cijelom korpusu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">tokeni</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\w+"</span><span class="p">,</span> <span class="n">normaliziraj</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+
+<span class="n">dokumenti</span> <span class="o">=</span> <span class="p">[</span><span class="n">tokeni</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">korpus</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">dokumenti</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">sve</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dokumenti</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">d</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"broj tokena:"</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sve</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="s2">" veličina rječnika:"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sve</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najčešće:"</span><span class="p">,</span> <span class="n">sve</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>['vatreni', 'su', 'sinoć', 'pobijedili', '2', '1', 'i', 'plasirali', 'se', 'u', 'polufinale']
+broj tokena: 91  veličina rječnika: 79
+najčešće: [('i', 5), ('u', 4), ('je', 3), ('se', 2), ('dva', 2), ('od', 2)]</code></pre>
+<p>Na vrhu su, očekivano, stop-riječi „i”, „u”, „je” – riječi koje ne govore ništa o temi rečenice. Zanimljivo je tek ono što ostane nakon njihova uklanjanja.</p>
+<p><b>Korak 3: stop-riječi i n-grami.</b> Popis stop-riječi za hrvatski zadajemo ručno. Bigrame gradimo funkcijom <code>zip</code> nad nizom i njegovim pomakom za jedan.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">STOP</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"i"</span><span class="p">,</span> <span class="s2">"je"</span><span class="p">,</span> <span class="s2">"se"</span><span class="p">,</span> <span class="s2">"u"</span><span class="p">,</span> <span class="s2">"na"</span><span class="p">,</span> <span class="s2">"da"</span><span class="p">,</span> <span class="s2">"za"</span><span class="p">,</span> <span class="s2">"od"</span><span class="p">,</span> <span class="s2">"sa"</span><span class="p">,</span> <span class="s2">"pa"</span><span class="p">,</span> <span class="s2">"ga"</span><span class="p">,</span> <span class="s2">"su"</span><span class="p">,</span> <span class="s2">"uz"</span><span class="p">,</span> <span class="s2">"ovaj"</span><span class="p">}</span>
+
+<span class="n">bez_stop</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dokumenti</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">STOP</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">t</span><span class="o">.</span><span class="n">isdigit</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"bez stop-riječi:"</span><span class="p">,</span> <span class="n">bez_stop</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">ngrami</span><span class="p">(</span><span class="n">niz</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">niz</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">n</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">niz</span><span class="p">)</span> <span class="o">-</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">ngrami</span><span class="p">(</span><span class="n">dokumenti</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">r</span> <span class="o">=</span> <span class="s2">" pobijedili "</span>
+<span class="nb">print</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)][:</span><span class="mi">5</span><span class="p">])</span>   <span class="c1"># znakovni trigrami s rubnim razmacima</span></code></pre></div>
+<pre class="izlaz"><code>bez stop-riječi: [('dva', 2), ('vatreni', 1), ('sinoć', 1), ('pobijedili', 1), ('plasirali', 1)]
+['vatreni su', 'su sinoć', 'sinoć pobijedili', 'pobijedili 2', '2 1', '1 i', 'i plasirali', 'plasirali se', 'se u', 'u polufinale']
+[' po', 'pob', 'obi', 'bij', 'ije']</code></pre>
+<p>Bez stop-riječi gotovo svaka riječ pojavljuje se jednom – u tako malom korpusu brojači ne razlikuju važno od nevažnog, i upravo zato BoW modeli trebaju stotine, a ne desetke dokumenata. Riječ od $m$ znakova uz dva rubna razmaka ima $m$ znakovnih trigrama; trigrame „ po”, „pob”, „obi”, „bij” dijele i oblici „pobijedila”, „pobijedio”, a to je mehanizam kojim znakovni n-grami ublažuju padeže i glagolske oblike.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Za korpus iz Primjera 1 izračunaj bag-of-words matricu i TF-IDF matricu ručno u NumPy-ju, pa provjeri da se rezultat podudara s <code>CountVectorizer</code> i <code>TfidfVectorizer</code> iz scikit-learna. Koje su riječi s najvećom TF-IDF težinom u prvoj rečenici?</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: BoW ručno.</b> Rječnik je sortirani skup tokena duljine barem dva znaka (da odgovara zadanom <code>token_pattern</code> scikit-learna); matrica $X$ ima po redak za svaki dokument.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">doks</span> <span class="o">=</span> <span class="p">[[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">d</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dokumenti</span><span class="p">]</span>
+<span class="n">rjecnik</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">t</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">doks</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">d</span><span class="p">})</span>
+<span class="n">indeks</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">)}</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">doks</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">)</span>
+
+<span class="n">X_bow</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n</span><span class="p">,</span> <span class="n">V</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">doks</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
+        <span class="n">X_bow</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">indeks</span><span class="p">[</span><span class="n">t</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"oblik:"</span><span class="p">,</span> <span class="n">X_bow</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">" nenultih:"</span><span class="p">,</span> <span class="nb">int</span><span class="p">((</span><span class="n">X_bow</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="s2">"od"</span><span class="p">,</span> <span class="n">n</span> <span class="o">*</span> <span class="n">V</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>oblik: (9, 74)  nenultih: 79 od 666</code></pre>
+<p>Matrica je gotovo prazna – tek oko desetine polja je različito od nule – i to na devet rečenica; na pravim korpusima udio nenultih pada ispod jednog promila. Zato scikit-learn radi s rijetkim matricama.</p>
+<p><b>Korak 2: TF-IDF ručno.</b> Primjenjujemo točno formulu scikit-learna: izglađeni idf i L2 normalizacija redaka.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">df</span> <span class="o">=</span> <span class="p">(</span><span class="n">X_bow</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>                     <span class="c1"># u koliko dokumenata je svaki token</span>
+<span class="n">idf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="n">n</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">df</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
+<span class="n">X_tfidf</span> <span class="o">=</span> <span class="n">X_bow</span> <span class="o">*</span> <span class="n">idf</span>
+<span class="n">X_tfidf</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">X_tfidf</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"je"</span><span class="p">,</span> <span class="s2">"vatreni"</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-8s</span><span class="s2"> df = </span><span class="si">%d</span><span class="s2">  idf = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="n">indeks</span><span class="p">[</span><span class="n">t</span><span class="p">]],</span> <span class="n">idf</span><span class="p">[</span><span class="n">indeks</span><span class="p">[</span><span class="n">t</span><span class="p">]]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"norma 1. retka:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">X_tfidf</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>je       df = 3  idf = 1.9163
+vatreni  df = 1  idf = 2.6094
+norma 1. retka: 1.0</code></pre>
+<p>Riječ „je” pojavljuje se u tri od devet dokumenata pa ima znatno manji idf od riječi „vatreni”, koja je u samo jednom; TF-IDF je time automatski prigušio stop-riječ bez ikakva popisa.</p>
+<p><b>Korak 3: usporedba sa scikit-learnom.</b> <code>fit_transform</code> uči rječnik i vraća rijetku matricu; <code>.toarray()</code> je pretvara u običnu NumPy matricu za usporedbu. Oba vektorizatora zadano prevode u mala slova, a NFC normalizaciju moramo napraviti sami.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.feature_extraction.text</span><span class="w"> </span><span class="kn">import</span> <span class="n">CountVectorizer</span><span class="p">,</span> <span class="n">TfidfVectorizer</span>
+
+<span class="n">korpus_n</span> <span class="o">=</span> <span class="p">[</span><span class="n">normaliziraj</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">korpus</span><span class="p">]</span>
+<span class="n">cv</span> <span class="o">=</span> <span class="n">CountVectorizer</span><span class="p">()</span>
+<span class="n">X_cv</span> <span class="o">=</span> <span class="n">cv</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">korpus_n</span><span class="p">)</span>
+<span class="n">tv</span> <span class="o">=</span> <span class="n">TfidfVectorizer</span><span class="p">()</span>
+<span class="n">X_tv</span> <span class="o">=</span> <span class="n">tv</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">korpus_n</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti rječnik:"</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">cv</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">())</span> <span class="o">==</span> <span class="n">rjecnik</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti BoW:    "</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">X_cv</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span> <span class="n">X_bow</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"isti TF-IDF: "</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">X_tv</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span> <span class="n">X_tfidf</span><span class="p">))</span>
+
+<span class="n">red</span> <span class="o">=</span> <span class="n">X_tfidf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">red</span><span class="p">)[:</span><span class="mi">3</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  </span><span class="si">%-12s</span><span class="s2"> </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">rjecnik</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="n">red</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"  ...  se: </span><span class="si">%.3f</span><span class="s2">   broj nenultih: </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">red</span><span class="p">[</span><span class="n">indeks</span><span class="p">[</span><span class="s2">"se"</span><span class="p">]],</span> <span class="nb">int</span><span class="p">((</span><span class="n">red</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())))</span></code></pre></div>
+<pre class="izlaz"><code>isti rječnik: True
+isti BoW:     True
+isti TF-IDF:  True
+  su           0.386
+  polufinale   0.386
+  pobijedili   0.386
+  ...  se: 0.326   broj nenultih: 7</code></pre>
+<p>Sve tri usporedbe su istinite: znamo točno što biblioteka računa. U prvoj rečenici gotovo sve riječi imaju istu težinu – svaka se pojavljuje jednom i samo u tom dokumentu, pa ni „su” u ovako malom korpusu ne izgleda kao stop-riječ; jedino „se” (koja je i u drugim rečenicama) ima manju težinu, a „u” i „i” uopće nema jer su jednoslovne. Tek na stotinama dokumenata idf počinje pouzdano razlikovati sadržajne riječi od pomoćnih.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Na malom ručno napisanom korpusu rečenica iz tri teme (sport, kuhanje, tehnologija) istreniraj klasifikator teksta: TF-IDF + logistička regresija i TF-IDF + multinomijalni Naive Bayes. Usporedi točnost unakrsnom validacijom, ispiši riječi s najvećim težinama po klasi i klasificiraj nove rečenice – uključujući one s riječima u drugim padežima.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: korpus.</b> Šezdeset rečenica, po dvadeset za svaku temu. Ovo je sintetički korpus za vježbu (u stvarnom zadatku dobio bi tisuće dokumenata iz datoteke), ali dovoljan da se vide svi efekti.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">tekstovi</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># sport</span>
+    <span class="s2">"Vatreni su sinoć pobijedili 2:1 i plasirali se u polufinale."</span><span class="p">,</span>
+    <span class="s2">"Golman je obranio jedanaesterac u posljednjoj minuti utakmice."</span><span class="p">,</span>
+    <span class="s2">"Trener je nakon poraza najavio promjene u momčadi."</span><span class="p">,</span>
+    <span class="s2">"Košarkaši su slavili nakon produžetka, a najbolji strijelac ubacio je 30 koševa."</span><span class="p">,</span>
+    <span class="s2">"Maraton je startao u osam sati, a pobjednik je stigao na cilj nakon nešto više od dva sata."</span><span class="p">,</span>
+    <span class="s2">"Sudac je pokazao crveni karton braniču zbog grubog starta."</span><span class="p">,</span>
+    <span class="s2">"Tenisačica je osvojila turnir bez izgubljenog seta."</span><span class="p">,</span>
+    <span class="s2">"Navijači su ispunili stadion i pjevali cijelo drugo poluvrijeme."</span><span class="p">,</span>
+    <span class="s2">"Rukometaši imaju tri utakmice u skupini prije četvrtfinala."</span><span class="p">,</span>
+    <span class="s2">"Skijaš je u drugoj vožnji slaloma pao i ostao bez medalje."</span><span class="p">,</span>
+    <span class="s2">"Napadač je zabio dva gola i momčad je pobijedila 3:0."</span><span class="p">,</span>
+    <span class="s2">"Utakmica je završila bez golova, pa su navijači otišli razočarani."</span><span class="p">,</span>
+    <span class="s2">"Trener je na poluvremenu zamijenio golmana i dva braniča."</span><span class="p">,</span>
+    <span class="s2">"Plivačica je oborila državni rekord na 200 metara leptir."</span><span class="p">,</span>
+    <span class="s2">"Momčad je nakon pobjede skočila na vrh ljestvice prvenstva."</span><span class="p">,</span>
+    <span class="s2">"Igrač je ozlijedio koljeno i propušta ostatak sezone."</span><span class="p">,</span>
+    <span class="s2">"Reprezentacija trenira dvaput dnevno uoči kvalifikacijske utakmice."</span><span class="p">,</span>
+    <span class="s2">"Biciklisti su prošli brdsku etapu, a vodeći je zadržao žutu majicu."</span><span class="p">,</span>
+    <span class="s2">"Sudac je dosudio jedanaesterac u sudačkoj nadoknadi, a golman ga je obranio."</span><span class="p">,</span>
+    <span class="s2">"Klub je potpisao novog napadača koji je prošle sezone zabio 20 golova."</span><span class="p">,</span>
+    <span class="c1"># kuhanje</span>
+    <span class="s2">"Za ovaj recept trebaš 200 g brašna, dva jaja i prstohvat soli."</span><span class="p">,</span>
+    <span class="s2">"Tijesto ostavi da se diže sat vremena, pa ga peci 25 minuta."</span><span class="p">,</span>
+    <span class="s2">"Juha od rajčice najbolja je sa svježim bosiljkom i maslinovim uljem."</span><span class="p">,</span>
+    <span class="s2">"Luk nasjeckaj sitno i prži na laganoj vatri dok ne postane staklast."</span><span class="p">,</span>
+    <span class="s2">"Pećnicu zagrij na 180 stupnjeva prije nego što staviš kolač."</span><span class="p">,</span>
+    <span class="s2">"Rižoto miješaj stalno i dodaj temeljac kutlaču po kutlaču."</span><span class="p">,</span>
+    <span class="s2">"Palačinke poslužujemo s džemom od marelica ili s čokoladom."</span><span class="p">,</span>
+    <span class="s2">"Meso mariniraj preko noći u ulju, češnjaku i ružmarinu."</span><span class="p">,</span>
+    <span class="s2">"Salatu začini octom, uljem i malo šećera da ne bude kisela."</span><span class="p">,</span>
+    <span class="s2">"Kruh je gotov kad pri kucanju po dnu zvuči šuplje."</span><span class="p">,</span>
+    <span class="s2">"U tijesto za kruh dodaj kvasac, brašno i mlaku vodu, pa mijesi deset minuta."</span><span class="p">,</span>
+    <span class="s2">"Kolač peci 40 minuta na 170 stupnjeva i ostavi da se ohladi prije rezanja."</span><span class="p">,</span>
+    <span class="s2">"Umak od češnjaka i vrhnja odlično ide uz tjesteninu."</span><span class="p">,</span>
+    <span class="s2">"Juhu začini solju, paprom i svježim peršinom."</span><span class="p">,</span>
+    <span class="s2">"Meso peci u pećnici sat i pol i povremeno ga zalijevaj sokom."</span><span class="p">,</span>
+    <span class="s2">"Za palačinke umuti jaja, mlijeko i brašno u glatko tijesto."</span><span class="p">,</span>
+    <span class="s2">"Povrće kuhaj kratko da ostane hrskavo i zadrži boju."</span><span class="p">,</span>
+    <span class="s2">"Umjesto šećera u kolač možeš dodati med ili zrele banane."</span><span class="p">,</span>
+    <span class="s2">"Riža mora upiti svu vodu, a zatim je ostavi poklopljenu pet minuta."</span><span class="p">,</span>
+    <span class="s2">"Maslinovo ulje dodaj na kraju kuhanja da zadrži okus."</span><span class="p">,</span>
+    <span class="c1"># tehnologija</span>
+    <span class="s2">"Novi procesor ima 16 jezgri i troši manje energije od prethodnika."</span><span class="p">,</span>
+    <span class="s2">"Ažuriranje sustava popravlja sigurnosni propust u pregledniku."</span><span class="p">,</span>
+    <span class="s2">"Baterija mobitela traje dva dana uz uključen Wi-Fi i Bluetooth."</span><span class="p">,</span>
+    <span class="s2">"Programer je pronašao grešku u kodu koja je rušila aplikaciju."</span><span class="p">,</span>
+    <span class="s2">"Grafička kartica s 12 GB memorije pokreće igre u 4K rezoluciji."</span><span class="p">,</span>
+    <span class="s2">"Podaci se sinkroniziraju u oblaku čim se laptop spoji na internet."</span><span class="p">,</span>
+    <span class="s2">"Nova verzija Pythona donosi brži interpreter i bolje poruke o greškama."</span><span class="p">,</span>
+    <span class="s2">"Server je pao zbog preopterećenja nakon objave ažuriranja."</span><span class="p">,</span>
+    <span class="s2">"Tipkovnica se spaja bežično, a punjenje traje dva sata."</span><span class="p">,</span>
+    <span class="s2">"Algoritam preporuka uči iz povijesti pregledavanja korisnika."</span><span class="p">,</span>
+    <span class="s2">"Aplikacija se nakon ažuriranja sporije pokreće na starijim mobitelima."</span><span class="p">,</span>
+    <span class="s2">"Programeri su objavili zakrpu za grešku u sigurnosnom modulu softvera."</span><span class="p">,</span>
+    <span class="s2">"Laptop s novim procesorom i 32 GB memorije stiže u trgovine idući mjesec."</span><span class="p">,</span>
+    <span class="s2">"Lozinke čuvaj u upravitelju lozinki i uključi dvofaktorsku provjeru."</span><span class="p">,</span>
+    <span class="s2">"Internet je bio spor jer je ruter trebao ažuriranje softvera."</span><span class="p">,</span>
+    <span class="s2">"Mobitel ima zaslon od 6,5 inča i bateriju koja se puni za pola sata."</span><span class="p">,</span>
+    <span class="s2">"Kod je otvoren na GitHubu pa svatko može prijaviti grešku ili poslati zakrpu."</span><span class="p">,</span>
+    <span class="s2">"Operacijski sustav automatski preuzima sigurnosna ažuriranja preko interneta."</span><span class="p">,</span>
+    <span class="s2">"Procesor se pregrijava kad aplikacija koristi sve jezgre istodobno."</span><span class="p">,</span>
+    <span class="s2">"Podaci korisnika šifriraju se prije slanja na server u oblaku."</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">oznake</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"sport"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"kuhanje"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span> <span class="o">+</span> <span class="p">[</span><span class="s2">"tehnologija"</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="n">tekstovi</span> <span class="o">=</span> <span class="p">[</span><span class="n">normaliziraj</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tekstovi</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">),</span> <span class="s2">"rečenica;"</span><span class="p">,</span> <span class="n">Counter</span><span class="p">(</span><span class="n">oznake</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>60 rečenica; Counter({'sport': 20, 'kuhanje': 20, 'tehnologija': 20})</code></pre>
+<p><b>Korak 2: dva cjevovoda i unakrsna validacija.</b> <code>Pipeline</code> spaja vektorizator i model, pa se rječnik uči <em>samo</em> na podacima za učenje unutar svakog preklopa – inače bi informacija o testnim dokumentima procurila u idf (lekcija M5). Stop-riječi predajemo kao popis.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.linear_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.naive_bayes</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultinomialNB</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">cross_val_score</span><span class="p">,</span> <span class="n">StratifiedKFold</span>
+
+<span class="n">cv5</span> <span class="o">=</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">modeli</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"TF-IDF + log. regresija"</span><span class="p">:</span> <span class="n">make_pipeline</span><span class="p">(</span>
+        <span class="n">TfidfVectorizer</span><span class="p">(</span><span class="n">stop_words</span><span class="o">=</span><span class="nb">sorted</span><span class="p">(</span><span class="n">STOP</span><span class="p">)),</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">)),</span>
+    <span class="s2">"TF-IDF + Naive Bayes"</span><span class="p">:</span> <span class="n">make_pipeline</span><span class="p">(</span>
+        <span class="n">TfidfVectorizer</span><span class="p">(</span><span class="n">stop_words</span><span class="o">=</span><span class="nb">sorted</span><span class="p">(</span><span class="n">STOP</span><span class="p">)),</span> <span class="n">MultinomialNB</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)),</span>
+    <span class="s2">"znakovni 2-4-grami + NB"</span><span class="p">:</span> <span class="n">make_pipeline</span><span class="p">(</span>
+        <span class="n">TfidfVectorizer</span><span class="p">(</span><span class="n">analyzer</span><span class="o">=</span><span class="s2">"char_wb"</span><span class="p">,</span> <span class="n">ngram_range</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">MultinomialNB</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)),</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">modeli</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">toc</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">tekstovi</span><span class="p">,</span> <span class="n">oznake</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-26s</span><span class="s2"> točnost = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">toc</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>TF-IDF + log. regresija    točnost = 0.733
+TF-IDF + Naive Bayes       točnost = 0.783
+znakovni 2-4-grami + NB    točnost = 0.967</code></pre>
+<p>Sva tri modela rade daleko iznad slučajnog pogađanja ($0{,}333$), ali razlika je upečatljiva: modeli na riječima točno klasificiraju tri četvrtine rečenica, a znakovni n-grami gotovo sve. Razlog je morfologija – „utakmice”, „utakmica” i „utakmicu” za vektorizator riječi su tri nepovezane značajke, a dijele sve znakovne 2–4-grame osnove „utakmic”. Oprez s tumačenjem: jedan pogrešno klasificiran dokument mijenja točnost za $0{,}017$, pa je razlika između logističke regresije i Naive Bayesa ($0{,}05$) unutar šuma, dok je ona između riječi i znakova ($0{,}2$) stvarna.</p>
+<p><b>Korak 3: što je model naučio.</b> Logistička regresija s tri klase ima matricu koeficijenata oblika <code>(3, |V|)</code>; najveći koeficijenti po retku su riječi koje najjače guraju prema toj klasi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">lr</span> <span class="o">=</span> <span class="n">modeli</span><span class="p">[</span><span class="s2">"TF-IDF + log. regresija"</span><span class="p">]</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">,</span> <span class="n">oznake</span><span class="p">)</span>
+<span class="n">vec</span><span class="p">,</span> <span class="n">klf</span> <span class="o">=</span> <span class="n">lr</span><span class="o">.</span><span class="n">named_steps</span><span class="p">[</span><span class="s2">"tfidfvectorizer"</span><span class="p">],</span> <span class="n">lr</span><span class="o">.</span><span class="n">named_steps</span><span class="p">[</span><span class="s2">"logisticregression"</span><span class="p">]</span>
+<span class="n">rijeci</span> <span class="o">=</span> <span class="n">vec</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">klasa</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">klf</span><span class="o">.</span><span class="n">classes_</span><span class="p">):</span>
+    <span class="n">vrh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">klf</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="n">k</span><span class="p">])[:</span><span class="mi">5</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-12s</span><span class="s2">"</span> <span class="o">%</span> <span class="n">klasa</span><span class="p">,</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rijeci</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">vrh</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>kuhanje      minuta, kolač, dodaj, svježim, jaja
+sport        utakmice, bez, trener, momčad, nakon
+tehnologija  ažuriranja, grešku, traje, server, ažuriranje</code></pre>
+<p>Riječi su smislene („kolač”, „trener”, „server”) – model nije „varao” na nekom artefaktu. Vidi se i tipična zamka: „bez” i „nakon” jesu pomoćne riječi, ali ih nema u našem popisu stop-riječi, a u ovom se korpusu češće pojavljuju u sportskim rečenicama, pa ih je model uzeo kao dokaz za sport. Na natjecanju ovakav ispis uvijek napravi: ako su na vrhu riječi poput „je”, imena datoteka ili identifikatori, u podacima je curenje ili šum.</p>
+<p><b>Korak 4: nove rečenice i padeži.</b> Rečenice za test namjerno koriste druge oblike riječi („golmanu”, „utakmicu”, „brašnom”) od onih u korpusu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">nove</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">"Golmanu su navijači pljeskali nakon obranjenih jedanaesteraca."</span><span class="p">,</span>
+    <span class="s2">"Umijesi tijesto s brašnom i jajima, pa ga ostavi pola sata."</span><span class="p">,</span>
+    <span class="s2">"Aplikacije se ruše na starijim procesorima nakon zadnjih ažuriranja."</span><span class="p">,</span>
+    <span class="s2">"Strijelci su zabijali golove iz svih pozicija."</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="n">nove</span> <span class="o">=</span> <span class="p">[</span><span class="n">normaliziraj</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">nove</span><span class="p">]</span>
+<span class="n">nb_znak</span> <span class="o">=</span> <span class="n">modeli</span><span class="p">[</span><span class="s2">"znakovni 2-4-grami + NB"</span><span class="p">]</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">,</span> <span class="n">oznake</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-52s</span><span class="s2"> </span><span class="si">%-12s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="s2">"rečenica"</span><span class="p">,</span> <span class="s2">"riječi+LR"</span><span class="p">,</span> <span class="s2">"znakovi+NB"</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">nove</span><span class="p">,</span> <span class="n">lr</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">nove</span><span class="p">),</span> <span class="n">nb_znak</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">nove</span><span class="p">)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-52s</span><span class="s2"> </span><span class="si">%-12s</span><span class="s2"> </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">[:</span><span class="mi">50</span><span class="p">],</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>rečenica                                             riječi+LR    znakovi+NB
+golmanu su navijači pljeskali nakon obranjenih jed   sport        sport
+umijesi tijesto s brašnom i jajima, pa ga ostavi p   kuhanje      kuhanje
+aplikacije se ruše na starijim procesorima nakon z   tehnologija  tehnologija
+strijelci su zabijali golove iz svih pozicija.       tehnologija  sport</code></pre>
+<p>Prve tri rečenice oba modela pogađaju jer u njima ipak ima oblika koji se u korpusu pojavljuju doslovno („navijači”, „tijesto”, „ažuriranja”). Četvrta je rečenica sastavljena samo od oblika kojih u korpusu nema („strijelci” umjesto „strijelac”, „golove” umjesto „gola”/„golova”): model na riječima tu nema nijednu poznatu sadržajnu značajku i pogađa pogrešno, dok znakovni n-grami prepoznaju osnove „strijel” i „gol”. Za hrvatske tekstove na malim skupovima znakovni n-grami su zato gotovo uvijek dobar prvi izbor; na velikim skupovima riječi ili podriječi sustižu i prestižu jer nose manje šuma.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Napiši regularne izraze koji iz teksta <code>"Pišite na info@skola.hr ili ana.k@gmail.com do 15.3., najkasnije u 9:30. Cijena je 120 kn."</code> izvlače (a) sve e-mail adrese, (b) sve cijele brojeve, (c) sva vremena oblika <code>hh:mm</code>. Zatim <code>re.sub</code>-om zamijeni svaki broj oznakom <code>&lt;BROJ&gt;</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">t</span> <span class="o">=</span> <span class="s2">"Pišite na info@skola.hr ili ana.k@gmail.com do 15.3., najkasnije u 9:30. Cijena je 120 kn."</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"[\w.]+@[\w.]+\.\w+"</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\d+"</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\b\d{1,2}:\d</span><span class="si">{2}</span><span class="s2">\b"</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\d+"</span><span class="p">,</span> <span class="s2">"&lt;BROJ&gt;"</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>['info@skola.hr', 'ana.k@gmail.com']
+['15', '3', '9', '30', '120']
+['9:30']
+Pišite na info@skola.hr ili ana.k@gmail.com do &lt;BROJ&gt;.&lt;BROJ&gt;., najkasnije u &lt;BROJ&gt;:&lt;BROJ&gt;. Cijena je &lt;BROJ&gt; kn.</code></pre>
+<p>Zamjena brojeva jedinstvenim tokenom standardni je trik: model ne mora učiti zasebnu značajku za svaki broj, a informacija „ovdje stoji broj” ostaje.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Korpus su tri dokumenta: „pas trči”, „pas spava”, „mačka spava spava”. Ručno (na papiru) izračunaj TF-IDF vektor trećeg dokumenta prema formuli scikit-learna (izglađeni idf, L2 norma), pa provjeri s <code>TfidfVectorizer</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Rječnik (abecedno): mačka, pas, spava, trči; $n=3$. Dokumentne frekvencije: $\mathrm{df}=(1,2,2,1)$, pa je $\mathrm{idf}=\ln\frac{4}{1+\mathrm{df}}+1=(\ln2+1,\ \ln\frac43+1,\ \ln\frac43+1,\ \ln2+1)\approx(1{,}693,\ 1{,}288,\ 1{,}288,\ 1{,}693)$. Treći dokument ima $\mathrm{tf}=(1,0,2,0)$, pa je nenormirani vektor $(1{,}693,\ 0,\ 2{,}575,\ 0)$, norme $\sqrt{1{,}693^2+2{,}575^2}\approx3{,}082$, i konačno $(0{,}549,\ 0,\ 0{,}836,\ 0)$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mali</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"pas trči"</span><span class="p">,</span> <span class="s2">"pas spava"</span><span class="p">,</span> <span class="s2">"mačka spava spava"</span><span class="p">]</span>
+<span class="n">tv2</span> <span class="o">=</span> <span class="n">TfidfVectorizer</span><span class="p">()</span>
+<span class="n">M</span> <span class="o">=</span> <span class="n">tv2</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">mali</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">tv2</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">M</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>['mačka', 'pas', 'spava', 'trči']
+[0.549 0.    0.836 0.   ]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Rečenica ima $m$ tokena. Koliko ima n-grama riječi za $n=1,2,3$? Koliko bi <em>različitih</em> bigrama najviše moglo postojati nad rječnikom od $|V|=20\,000$ riječi, a koliko ih stvarno nastaje iz korpusa od milijun tokena? Što to govori o matrici bigrama?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Broj n-grama je $m-n+1$, dakle $m$, $m-1$ i $m-2$. Mogućih bigrama je $|V|^2=4\cdot10^8$, ali korpus od $10^6$ tokena sadrži najviše $10^6-1$ bigrama, pa je ostvareno manje od $0{,}25\,\%$ mogućih – i većina tih se pojavi samo jednom. Matrica bigrama je stoga još rjeđa i „šumnija” od matrice unigrama, zbog čega se bigrami s malom frekvencijom odbacuju (<code>min_df</code>) ili se broj stupaca ograničava (<code>max_features</code>).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Implementiraj BPE iz definicije: funkciju koja iz korpusa riječi (s brojem pojavljivanja) nauči $k$ spajanja. Primijeni je na riječi <code>{"niski": 5, "niže": 2, "nisko": 6, "novi": 3, "nove": 4}</code> uz $k=6$ i ispiši spajanja redom te konačni zapis svake riječi.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Riječ zapiši kao tuple znakova s oznakom <code>"&lt;/w&gt;"</code> na kraju. U svakom koraku prebroji parove susjednih simbola (težinski, prema broju pojavljivanja riječi), odaberi najčešći i zamijeni ga spojenim simbolom u svakoj riječi.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">bpe</span><span class="p">(</span><span class="n">rijeci</span><span class="p">,</span> <span class="n">k</span><span class="p">):</span>
+    <span class="n">zapis</span> <span class="o">=</span> <span class="p">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="s2">"&lt;/w&gt;"</span><span class="p">,):</span> <span class="n">c</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">rijeci</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">spajanja</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+        <span class="n">parovi</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">simboli</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">zapis</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">simboli</span><span class="p">,</span> <span class="n">simboli</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+                <span class="n">parovi</span><span class="p">[(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)]</span> <span class="o">+=</span> <span class="n">c</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">parovi</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">par</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">parovi</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="n">parovi</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">p</span><span class="p">))</span>   <span class="c1"># najčešći; kod izjednačenja abecedno</span>
+        <span class="n">spajanja</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">par</span><span class="p">)</span>
+        <span class="n">novi</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">simboli</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">zapis</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">s</span><span class="p">,</span> <span class="n">i</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
+            <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">simboli</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">simboli</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">simboli</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">simboli</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="n">par</span><span class="p">:</span>
+                    <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">simboli</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">simboli</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]);</span> <span class="n">i</span> <span class="o">+=</span> <span class="mi">2</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">s</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">simboli</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span> <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">novi</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">s</span><span class="p">)]</span> <span class="o">=</span> <span class="n">c</span>
+        <span class="n">zapis</span> <span class="o">=</span> <span class="n">novi</span>
+    <span class="k">return</span> <span class="n">spajanja</span><span class="p">,</span> <span class="n">zapis</span>
+
+<span class="n">spajanja</span><span class="p">,</span> <span class="n">zapis</span> <span class="o">=</span> <span class="n">bpe</span><span class="p">({</span><span class="s2">"niski"</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">"niže"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"nisko"</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span> <span class="s2">"novi"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"nove"</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span> <span class="mi">6</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"spajanja:"</span><span class="p">,</span> <span class="p">[</span><span class="s2">" + "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">spajanja</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">simboli</span> <span class="ow">in</span> <span class="n">zapis</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  "</span><span class="p">,</span> <span class="s2">" | "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">simboli</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>spajanja: ['n + i', 's + k', 'ni + sk', 'i + &lt;/w&gt;', 'o + v', 'n + ov']
+   nisk | i&lt;/w&gt;
+   ni | ž | e | &lt;/w&gt;
+   nisk | o | &lt;/w&gt;
+   nov | i&lt;/w&gt;
+   nov | e | &lt;/w&gt;</code></pre>
+<p>Prvo spajanje je „n”+„i”, jer se taj par pojavljuje u riječima „niski”, „niže” i „nisko”, ukupno $5+2+6=13$ puta; slijede „s”+„k” i „ni”+„sk” (po $11$). Nakon šest koraka česte riječi „niski” i „novi” zapisane su s dva tokena, „nisko” i „nove” s tri, dok rijetka „niže” ostaje razbijena na znakove. Upravo tako nastaje rječnik u kojem su česte riječi cijele ili gotovo cijele, a rijetke sastavljene od komadića koji se dijele s drugim riječima („nov”, „nisk”).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napiši funkciju <code>bez_dijakritika(s)</code> pomoću <code>unicodedata.normalize("NFD", s)</code> i uklanjanja kombinirajućih znakova (kategorija <code>Mn</code>). Primijeni je na popis riječi <code>["kuća", "kuca", "čelo", "celo", "šal", "sal", "pokrći", "pokrci", "žena", "zena", "ćup", "cup"]</code> i ispiši koji se parovi različitih riječi stope u isti oblik. Kad bi to u klasifikaciji tema bio problem, a kad korist?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">bez_dijakritika</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="n">nfd</span> <span class="o">=</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">"NFD"</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="s2">""</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">nfd</span> <span class="k">if</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">category</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="o">!=</span> <span class="s2">"Mn"</span><span class="p">)</span>
+
+<span class="n">rijeci_d</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"kuća"</span><span class="p">,</span> <span class="s2">"kuca"</span><span class="p">,</span> <span class="s2">"čelo"</span><span class="p">,</span> <span class="s2">"celo"</span><span class="p">,</span> <span class="s2">"šal"</span><span class="p">,</span> <span class="s2">"sal"</span><span class="p">,</span> <span class="s2">"pokrći"</span><span class="p">,</span> <span class="s2">"pokrci"</span><span class="p">,</span> <span class="s2">"žena"</span><span class="p">,</span> <span class="s2">"zena"</span><span class="p">,</span> <span class="s2">"ćup"</span><span class="p">,</span> <span class="s2">"cup"</span><span class="p">]</span>
+<span class="n">grupe</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rijeci_d</span><span class="p">:</span>
+    <span class="n">grupe</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">bez_dijakritika</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">bez_dijakritika</span><span class="p">(</span><span class="s2">"Đačka škola čeka ćevape"</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">oblik</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">grupe</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">oblik</span><span class="p">,</span> <span class="s2">"&lt;-"</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>Đacka skola ceka cevape
+kuca &lt;- ['kuća', 'kuca']
+celo &lt;- ['čelo', 'celo']
+sal &lt;- ['šal', 'sal']
+pokrci &lt;- ['pokrći', 'pokrci']
+zena &lt;- ['žena', 'zena']
+cup &lt;- ['ćup', 'cup']</code></pre>
+<p>Primijeti da NFD ne razbija „đ” (to je samostalno slovo bez kombinirajućeg oblika), pa ga treba zamijeniti ručno (<code>s.replace("đ", "d")</code>). Stapanje je problem kad su u istom korpusu obje riječi s različitim značenjem („kuća” i „kuca”, „čelo” i „celo”) i kad su podaci uredno napisani; korist je kad dio korpusa (komentari, poruke) dijakritike ne koristi, jer tada bez uklanjanja isti pojam ima dvije značajke s pola podataka svaka. Dobra praksa: pogledaj udio riječi s dijakriticima po dokumentu i odluči prema podacima.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Implementiraj multinomijalni Naive Bayes ručno nad BoW brojačima (<code>CountVectorizer</code>) s izglađivanjem $\alpha=1$: funkcije za učenje (log-apriori $\ln P(c)$ i log-vjerojatnosti $\ln P(t\mid c)$) i predikciju. Usporedi predikcije i <code>predict_log_proba</code>-u sa <code>sklearn.naive_bayes.MultinomialNB</code> na korpusu iz Primjera 3.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>$\ln P(c\mid d)=\ln P(c)+\sum_t \mathrm{tf}(t,d)\ln P(t\mid c)+\text{konst.}$ je matrični produkt $X\,W^\top+b$. Za usporedbu log-vjerojatnosti normaliziraj redove funkcijom <code>scipy.special.logsumexp</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">scipy.special</span><span class="w"> </span><span class="kn">import</span> <span class="n">logsumexp</span>
+
+<span class="n">cv3</span> <span class="o">=</span> <span class="n">CountVectorizer</span><span class="p">()</span>
+<span class="n">Xc</span> <span class="o">=</span> <span class="n">cv3</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">)</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">oznake</span><span class="p">)</span>
+<span class="n">klase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">nb_uci</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="n">log_prior</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span> <span class="o">==</span> <span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">klase</span><span class="p">])</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">X</span><span class="p">[</span><span class="n">y</span> <span class="o">==</span> <span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">klase</span><span class="p">])</span>        <span class="c1"># (K, V) brojači po klasi</span>
+    <span class="n">log_uvj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">((</span><span class="n">N</span> <span class="o">+</span> <span class="n">alpha</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">N</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">+</span> <span class="n">alpha</span> <span class="o">*</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">log_prior</span><span class="p">,</span> <span class="n">log_uvj</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">nb_log_proba</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">log_prior</span><span class="p">,</span> <span class="n">log_uvj</span><span class="p">):</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">X</span> <span class="o">@</span> <span class="n">log_uvj</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="n">log_prior</span>
+    <span class="k">return</span> <span class="n">s</span> <span class="o">-</span> <span class="n">logsumexp</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">lp</span><span class="p">,</span> <span class="n">lu</span> <span class="o">=</span> <span class="n">nb_uci</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">moje</span> <span class="o">=</span> <span class="n">nb_log_proba</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">lp</span><span class="p">,</span> <span class="n">lu</span><span class="p">)</span>
+<span class="n">sk</span> <span class="o">=</span> <span class="n">MultinomialNB</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xc</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"iste predikcije:      "</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">klase</span><span class="p">[</span><span class="n">moje</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)],</span> <span class="n">sk</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">Xc</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"iste log-vjerojatnosti:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">moje</span><span class="p">,</span> <span class="n">sk</span><span class="o">.</span><span class="n">predict_log_proba</span><span class="p">(</span><span class="n">Xc</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"točnost na treningu:"</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sk</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">Xc</span><span class="p">)</span> <span class="o">==</span> <span class="n">y</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>iste predikcije:       True
+iste log-vjerojatnosti: True
+točnost na treningu: 1.0</code></pre>
+<p>Cijeli model je nekoliko redaka: brojanje, logaritam i jedan matrični produkt. Točnost na treningu od $1{,}0$ ne govori ništa o generalizaciji (model je zapamtio rijetke riječi), ali potvrđuje da je implementacija ispravna.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Vektorizator na riječima slijep je za padeže. Napiši jednostavan <em>stemmer</em> za hrvatski koji odsiječe jedan od čestih nastavaka (<code>ima, ama, oga, ega, om, em, og, eg, ih, im, ov, ev, a, e, i, o, u</code> – prvo najdulji) ako riječ nakon toga ostaje duljine barem 3, i upotrijebi ga kao <code>preprocessor</code>/<code>tokenizer</code> u <code>CountVectorizer</code>. Za koliko se smanji rječnik korpusa iz Primjera 3? Ispiši nekoliko riječi koje su se stopile i barem jedan primjer gdje je stemmer pogriješio.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>CountVectorizer(tokenizer=f, token_pattern=None)</code> koristi tvoju funkciju koja vraća popis tokena.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">NASTAVCI</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="s2">"ima"</span><span class="p">,</span> <span class="s2">"ama"</span><span class="p">,</span> <span class="s2">"oga"</span><span class="p">,</span> <span class="s2">"ega"</span><span class="p">,</span> <span class="s2">"om"</span><span class="p">,</span> <span class="s2">"em"</span><span class="p">,</span> <span class="s2">"og"</span><span class="p">,</span> <span class="s2">"eg"</span><span class="p">,</span> <span class="s2">"ih"</span><span class="p">,</span> <span class="s2">"im"</span><span class="p">,</span> <span class="s2">"ov"</span><span class="p">,</span> <span class="s2">"ev"</span><span class="p">,</span>
+                   <span class="s2">"a"</span><span class="p">,</span> <span class="s2">"e"</span><span class="p">,</span> <span class="s2">"i"</span><span class="p">,</span> <span class="s2">"o"</span><span class="p">,</span> <span class="s2">"u"</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">stem</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">nast</span> <span class="ow">in</span> <span class="n">NASTAVCI</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">nast</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">nast</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">r</span><span class="p">[:</span><span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">nast</span><span class="p">)]</span>
+    <span class="k">return</span> <span class="n">r</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">tokeni_stem</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">stem</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="sa">r</span><span class="s2">"\b\w\w+\b"</span><span class="p">,</span> <span class="n">s</span><span class="p">)]</span>
+
+<span class="n">cv_s</span> <span class="o">=</span> <span class="n">CountVectorizer</span><span class="p">(</span><span class="n">tokenizer</span><span class="o">=</span><span class="n">tokeni_stem</span><span class="p">,</span> <span class="n">token_pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">Xs</span> <span class="o">=</span> <span class="n">cv_s</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"rječnik: </span><span class="si">%d</span><span class="s2"> -&gt; </span><span class="si">%d</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">Xc</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">Xs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+<span class="n">osnove</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">cv3</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">():</span>
+    <span class="n">osnove</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">stem</span><span class="p">(</span><span class="n">r</span><span class="p">),</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="n">stopljene</span> <span class="o">=</span> <span class="p">{</span><span class="n">o</span><span class="p">:</span> <span class="n">g</span> <span class="k">for</span> <span class="n">o</span><span class="p">,</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">osnove</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">}</span>
+<span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">stopljene</span><span class="p">)[:</span><span class="mi">6</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  </span><span class="si">%-10s</span><span class="s2"> &lt;- </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">o</span><span class="p">,</span> <span class="n">stopljene</span><span class="p">[</span><span class="n">o</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">([</span><span class="n">stem</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"sat"</span><span class="p">,</span> <span class="s2">"sata"</span><span class="p">,</span> <span class="s2">"sati"</span><span class="p">,</span> <span class="s2">"soli"</span><span class="p">,</span> <span class="s2">"solju"</span><span class="p">,</span> <span class="s2">"gola"</span><span class="p">,</span> <span class="s2">"golova"</span><span class="p">,</span> <span class="s2">"kod"</span><span class="p">,</span> <span class="s2">"koja"</span><span class="p">)])</span></code></pre></div>
+<pre class="izlaz"><code>rječnik: 390 -&gt; 352
+  aplikacij  &lt;- ['aplikacija', 'aplikaciju']
+  ažuriranj  &lt;- ['ažuriranja', 'ažuriranje']
+  baterij    &lt;- ['baterija', 'bateriju']
+  branič     &lt;- ['braniča', 'braniču']
+  brašn      &lt;- ['brašna', 'brašno']
+  golman     &lt;- ['golman', 'golmana']
+['sat', 'sat', 'sat', 'sol', 'solj', 'gol', 'golov', 'kod', 'koj']</code></pre>
+<p>Rječnik se smanji za desetak posto, a stopile su se smislene skupine („aplikacija”/„aplikaciju”, „brašna”/„brašno”, „golman”/„golmana”). Greške su neizbježne u oba smjera: „soli” i „solju” ostaju razdvojeni („sol” i „solj”), kao i „gola” i „golova” („gol” i „golov”), jer stemmer ne zna za nastavak „-ju” ni za umetnuto „-ov-”; s druge strane „koja” → „koj” i „kod” → „kod” su bezopasni, ali bi se „sata” i „sati” (vrijeme) stopili i s imenicom „sat” (predmet). Pravi stemmer ima stotine pravila i iznimki; alternativa koja ne zahtijeva jezično znanje su znakovni n-grami iz Primjera 3, a lematizatore za hrvatski nude alati poput CLASSLA/Stanza (zahtijevaju download modela).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><em>(Simulacija zadatka u stilu IOAI.)</em> Na korpusu iz Primjera 3 pronađi najbolji TF-IDF cjevovod pretraživanjem po rešetki: <code>analyzer</code> ∈ {riječi s unigramima, riječi s uni+bigramima, znakovi 2–4, znakovi 3–5} × <code>MultinomialNB(alpha)</code> ∈ {0,01; 0,1; 1}. Koristi <code>GridSearchCV</code> s istom petostrukom stratificiranom podjelom. Ispiši najbolju kombinaciju i tablicu srednje točnosti po postavkama vektorizatora. Zašto se rezultat na ovako malom korpusu ne smije uzeti zdravo za gotovo?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Parametri koraka u <code>Pipeline</code>-u adresiraju se kao <code>"tfidfvectorizer__ngram_range"</code>; za promjenu više parametara odjednom predaj <em>popis rječnika</em> kao <code>param_grid</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">GridSearchCV</span>
+
+<span class="n">cjev</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">TfidfVectorizer</span><span class="p">(),</span> <span class="n">MultinomialNB</span><span class="p">())</span>
+<span class="n">mreza</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="s2">"tfidfvectorizer__analyzer"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"word"</span><span class="p">],</span> <span class="s2">"tfidfvectorizer__ngram_range"</span><span class="p">:</span> <span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)],</span>
+     <span class="s2">"multinomialnb__alpha"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]},</span>
+    <span class="p">{</span><span class="s2">"tfidfvectorizer__analyzer"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"char_wb"</span><span class="p">],</span> <span class="s2">"tfidfvectorizer__ngram_range"</span><span class="p">:</span> <span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+     <span class="s2">"multinomialnb__alpha"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]},</span>
+<span class="p">]</span>
+<span class="n">gs</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span><span class="n">cjev</span><span class="p">,</span> <span class="n">mreza</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">tekstovi</span><span class="p">,</span> <span class="n">oznake</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"najbolje:"</span><span class="p">,</span> <span class="n">gs</span><span class="o">.</span><span class="n">best_params_</span><span class="p">,</span> <span class="s2">" točnost = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">gs</span><span class="o">.</span><span class="n">best_score_</span><span class="p">)</span>
+
+<span class="n">rez</span> <span class="o">=</span> <span class="n">gs</span><span class="o">.</span><span class="n">cv_results_</span>
+<span class="k">for</span> <span class="n">an</span><span class="p">,</span> <span class="n">ng</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"word"</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="p">(</span><span class="s2">"word"</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="p">(</span><span class="s2">"char_wb"</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="p">(</span><span class="s2">"char_wb"</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">))]:</span>
+    <span class="n">toc</span> <span class="o">=</span> <span class="p">[</span><span class="n">rez</span><span class="p">[</span><span class="s2">"mean_test_score"</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rez</span><span class="p">[</span><span class="s2">"params"</span><span class="p">])</span>
+           <span class="k">if</span> <span class="n">p</span><span class="p">[</span><span class="s2">"tfidfvectorizer__analyzer"</span><span class="p">]</span> <span class="o">==</span> <span class="n">an</span> <span class="ow">and</span> <span class="n">p</span><span class="p">[</span><span class="s2">"tfidfvectorizer__ngram_range"</span><span class="p">]</span> <span class="o">==</span> <span class="n">ng</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-8s</span><span class="s2"> </span><span class="si">%-7s</span><span class="s2">  točnost po alpha: </span><span class="si">%s</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">an</span><span class="p">,</span> <span class="n">ng</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">toc</span><span class="p">,</span> <span class="mi">3</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>najbolje: {'multinomialnb__alpha': 1.0, 'tfidfvectorizer__analyzer': 'char_wb', 'tfidfvectorizer__ngram_range': (2, 4)}  točnost = 0.967
+word     (1, 1)   točnost po alpha: [0.817 0.817 0.783]
+word     (1, 2)   točnost po alpha: [0.817 0.817 0.783]
+char_wb  (2, 4)   točnost po alpha: [0.967 0.967 0.967]
+char_wb  (3, 5)   točnost po alpha: [0.95 0.95 0.95]</code></pre>
+<p>Jedan je zaključak robustan: znakovni n-grami dosljedno pobjeđuju riječi za oko $0{,}15$. Sve ostalo je unutar šuma – sa šezdeset dokumenata standardna greška procjene točnosti iznosi oko $\sqrt{0{,}9\cdot0{,}1/60}\approx0{,}04$, pa razlike između vrijednosti $\alpha$ (nema ih ili su $0{,}017$, tj. jedna rečenica) ili između raspona $2$–$4$ i $3$–$5$ ne znače ništa, a bigrami riječi ne pomažu jer se nijedan bigram ne ponavlja dovoljno često. „Najbolja” kombinacija bi se s drugim <code>random_state</code> lako promijenila. Pretraživanje po rešetki na malom skupu ujedno <em>prenaučuje validaciju</em>: od dvanaest kombinacija neka će slučajno izgledati dobro. Na natjecanju zato (1) biraj među malo kandidata, (2) rezultat provjeri na odvojenom skupu koji nisi koristio za izbor, (3) kad su razlike male, uzmi jednostavniju postavku.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Umjesto rječnika, <code>HashingVectorizer</code> indeks značajke računa kao hash tokena modulo $m$ (<code>n_features</code>), pa ne treba <code>fit</code> i radi na neograničenom toku teksta. Cijena su <b>kolizije</b>: različiti tokeni mogu završiti u istom stupcu. Za rječnik korpusa iz Primjera 3 izbroji kolizije za $m\in\{2^6,2^8,2^{10},2^{20}\}$ i usporedi s teorijskim očekivanjem za $k$ tokena u $m$ pretinaca, $\mathbb E[\text{broj kolizija}]= k-m\left(1-(1-\tfrac1m)^k\right)$. Zatim usporedi točnost unakrsne validacije <code>HashingVectorizer</code> + logističke regresije za $m\in\{2^8,2^{12},2^{16}\}$ s osnovnim cjevovodom iz Primjera 3.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Kolizija = broj tokena minus broj različitih stupaca koje zauzmu; stupce dobiješ iz <code>transform(rječnik)</code> (svaki token kao zaseban „dokument”) i njegovih <code>.indices</code>. Očekivani broj zauzetih pretinaca je $m\left(1-(1-\frac1m)^k\right)$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.feature_extraction.text</span><span class="w"> </span><span class="kn">import</span> <span class="n">HashingVectorizer</span>
+
+<span class="n">rj</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">cv3</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">())</span>
+<span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rj</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"tokena:"</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">hv</span> <span class="o">=</span> <span class="n">HashingVectorizer</span><span class="p">(</span><span class="n">n_features</span><span class="o">=</span><span class="n">m</span><span class="p">,</span> <span class="n">alternate_sign</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">stupci</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">hv</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">rj</span><span class="p">)</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+    <span class="n">ocek</span> <span class="o">=</span> <span class="n">k</span> <span class="o">-</span> <span class="n">m</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">m</span><span class="p">)</span> <span class="o">**</span> <span class="n">k</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"m = </span><span class="si">%7d</span><span class="s2">  kolizija: </span><span class="si">%3d</span><span class="s2">  očekivano: </span><span class="si">%6.1f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">k</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">stupci</span><span class="p">),</span> <span class="n">ocek</span><span class="p">))</span>
+
+<span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">):</span>
+    <span class="n">hash_lr</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">HashingVectorizer</span><span class="p">(</span><span class="n">n_features</span><span class="o">=</span><span class="mi">2</span><span class="o">**</span><span class="n">e</span><span class="p">,</span> <span class="n">alternate_sign</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                            <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"hashing 2^</span><span class="si">%-2d</span><span class="s2"> + LR: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">hash_lr</span><span class="p">,</span> <span class="n">tekstovi</span><span class="p">,</span> <span class="n">oznake</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"TF-IDF + LR:        </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">modeli</span><span class="p">[</span><span class="s2">"TF-IDF + log. regresija"</span><span class="p">],</span>
+                                                   <span class="n">tekstovi</span><span class="p">,</span> <span class="n">oznake</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>tokena: 390
+m =      64  kolizija: 326  očekivano:  326.1
+m =     256  kolizija: 185  očekivano:  189.6
+m =    1024  kolizija:  65  očekivano:   65.5
+m = 1048576  kolizija:   0  očekivano:    0.1
+hashing 2^8  + LR: 0.567
+hashing 2^12 + LR: 0.750
+hashing 2^16 + LR: 0.733
+TF-IDF + LR:        0.733</code></pre>
+<p>Broj kolizija prati teorijsku formulu (odstupanja su slučajna), a s $m=2^{20}$ ih praktički nema. Uz samo $2^8$ pretinaca gotovo polovica tokena dijeli stupac s nekim drugim i točnost osjetno pada; već s $2^{12}$ kolizija je malo i rezultat je na razini osnovnog cjevovoda (hashing nema idf težina, ali to ovdje očito ne smeta). Pravilo: $m$ mora biti znatno veći od broja <em>važnih</em> tokena, a tipične vrijednosti su $2^{18}$–$2^{20}$. Hashing je standardni izbor kad korpus ne stane u memoriju ili kad model mora raditi na tekstu koji dolazi u stvarnom vremenu; cijena je da se iz koeficijenata više ne može pročitati koja riječ što znači.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Cjevovod za tekst: normalizacija (mala slova, NFC, dijakritici) → tokenizacija (riječi, znakovi, podriječi/BPE) → rječnik → vektor → model. Pogreške na početku ne mogu se ispraviti kasnije.</li>
+<li>Hrvatski: bogata morfologija (padeži) umnožava rječnik; lijekovi su lematizacija, stemming i, najjednostavnije, znakovni n-grami (<code>analyzer="char_wb"</code>).</li>
+<li>BoW broji tokene; TF-IDF ih množi s $\ln\frac{1+n}{1+\mathrm{df}}+1$ i normalizira redak na jediničnu duljinu – time stop-riječi gube težinu bez popisa, a kosinusna sličnost postaje skalarni produkt.</li>
+<li>Logistička regresija i multinomijalni Naive Bayes jaki su osnovni modeli za rijetke BoW značajke; uvijek ispiši riječi s najvećim težinama da provjeriš što je model naučio.</li>
+<li>Rječnik uči se samo na podacima za učenje (<code>Pipeline</code> + unakrsna validacija); na malim skupovima razlike među modelima su unutar šuma.</li>
+<li>Regularni izrazi (<code>re.findall</code>, <code>re.sub</code>) su alat za tokenizaciju i čišćenje; zadani <code>token_pattern</code> scikit-learna odbacuje jednoslovne riječi.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>D. Jurafsky, J. H. Martin, <i>Speech and Language Processing</i>, 3. izd. (nacrt, besplatno na mreži), poglavlja o regularnim izrazima, tokenizaciji i Naive Bayesu.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/feature_extraction.html#text-feature-extraction">Text feature extraction</a> i <a href="https://scikit-learn.org/stable/tutorial/text_analytics/working_with_text_data.html">Working with text data</a>.</li>
+<li>R. Sennrich, B. Haddow, A. Birch, <i>Neural Machine Translation of Rare Words with Subword Units</i> (ACL 2016) – izvorni rad o BPE-u za NLP.</li>
+<li>Hugging Face, <a href="https://huggingface.co/learn/nlp-course/chapter6/1">NLP Course, poglavlje 6: Tokenizers</a>.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <span class="lekcija-nav-prazno prethodna"></span>
+                <a class="sljedeca" href="02-vektorske-reprezentacije-rijeci.html"><small>Sljedeća lekcija →</small>V2 · Vektorske reprezentacije riječi (embeddings)</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

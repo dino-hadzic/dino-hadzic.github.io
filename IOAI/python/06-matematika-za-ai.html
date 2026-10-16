@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Python i alati 6: Matematika za strojno učenje</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#python">Python i alati</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Python i alati · lekcija 6 od 6</p>
+            <h1><span class="broj-lekcije">P6</span> Matematika za strojno učenje</h1>
+            <p class="meta">Linearna algebra, derivacije i gradijent, vjerojatnost, entropija i statistika – točno onoliko koliko treba da razumiješ što model radi, sve provjereno u NumPy-ju</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 1.0" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>vektori i norme</li>
+                <li>matrice i svojstvene vrijednosti</li>
+                <li>gradijent</li>
+                <li>lančano pravilo</li>
+                <li>Bayesova formula</li>
+                <li>očekivanje i varijanca</li>
+                <li>unakrsna entropija</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Računati s vektorima i matricama (skalarni produkt, norme, množenje, transponiranje, inverz) i znati što govore svojstvene vrijednosti simetrične matrice.</li>
+<li>Derivirati funkcije više varijabli: parcijalne derivacije, gradijent i lančano pravilo – i svaku formulu provjeriti konačnim razlikama.</li>
+<li>Koristiti uvjetnu vjerojatnost i Bayesovu formulu, očekivanje i varijancu te Bernoullijevu i normalnu razdiobu.</li>
+<li>Razumjeti entropiju i unakrsnu entropiju kao gubitak klasifikacije te osnovnu statistiku: prosjek, standardnu devijaciju i korelaciju.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Model strojnog učenja je funkcija s parametrima; učenje je minimizacija gubitka po tim parametrima; podaci su slučajni uzorak. Iza te tri rečenice stoje tri grane matematike: <b>linearna algebra</b> (kako se funkcija računa nad mnogo podataka odjednom), <b>analiza</b> (kako se parametri pomiču da gubitak padne) i <b>vjerojatnost sa statistikom</b> (što podaci uopće govore). Ova lekcija sabire ono što ćeš u modulima M i D koristiti svaki dan. Svaku formulu odmah provjeravamo u NumPy-ju – navika koja te na natjecanju spašava od tihih grešaka.</p>
+
+<h3>Vektori</h3>
+<div class="pojam">
+<h4>Skalarni produkt i norme</h4>
+<p>Za $x,y\in\mathbb R^d$ <b>skalarni produkt</b> je $x^\top y=\sum_{i=1}^d x_iy_i$. <b>Euklidska norma</b> (duljina) je $\lVert x\rVert_2=\sqrt{x^\top x}=\sqrt{\sum_i x_i^2}$, a <b>$L_1$ norma</b> $\lVert x\rVert_1=\sum_i|x_i|$. Kut $\theta$ između vektora zadovoljava $\cos\theta=\dfrac{x^\top y}{\lVert x\rVert\,\lVert y\rVert}$; ta se veličina zove <b>kosinusna sličnost</b>.</p>
+</div>
+<p>Skalarni produkt je <em>mjera sličnosti</em>: pozitivan za vektore koji „gledaju” u istom smjeru, nula za okomite, negativan za suprotne. Zato je u srcu svakog modela: $w^\top x$ u linearnoj regresiji pita „koliko je $x$ nalik smjeru $w$”, a u jezičnim modelima (lekcije V2, D6) kosinusna sličnost vektorskih reprezentacija riječi mjeri značenjsku sličnost. Udaljenost $\lVert x-y\rVert_2$ koristi $k$-NN i klasteriranje (M6); $L_1$ norma pojavit će se kao regularizacija koja gasi značajke (M2).</p>
+
+<h3>Matrice</h3>
+<p>Matrica $A\in\mathbb R^{n\times d}$ ima $n$ redaka i $d$ stupaca. Umnožak $AB$ definiran je samo kad je broj stupaca $A$ jednak broju redaka $B$: $(n\times d)(d\times m)=(n\times m)$, s elementima $(AB)_{ij}=\sum_k A_{ik}B_{kj}$ – svaki element je skalarni produkt retka $A$ i stupca $B$. Množenje nije komutativno ($AB\ne BA$), ali je asocijativno. <b>Transponiranje</b> zamjenjuje retke i stupce, $(A^\top)_{ij}=A_{ji}$, uz pravilo $(AB)^\top=B^\top A^\top$. Jedinična matrica $I$ ne mijenja ništa ($AI=A$), a <b>inverz</b> kvadratne matrice, ako postoji, zadovoljava $A^{-1}A=I$.</p>
+<p>Zašto matrice? Jer jedan umnožak $Xw$ izračuna predikciju za <em>svih</em> $n$ primjera odjednom (lekcija M1), a sloj neuronske mreže $h=\varphi(Wx+b)$ (lekcija D1) je samo matrica puta vektor plus nelinearnost. Provjera dimenzija – „$(n\times d)$ puta $(d\times1)$ daje $(n\times1)$” – prva je stvar koju napraviš kad kod baci grešku o oblicima.</p>
+<div class="pojam">
+<h4>Svojstvene vrijednosti</h4>
+<p>Broj $\lambda$ i vektor $v\ne0$ za koje vrijedi $Av=\lambda v$ zovu se <b>svojstvena vrijednost</b> i <b>svojstveni vektor</b> matrice $A$: na smjeru $v$ matrica djeluje samo kao skaliranje faktorom $\lambda$.</p>
+</div>
+<p>Simetrična matrica ($A=A^\top$) ima realne svojstvene vrijednosti i međusobno okomite svojstvene vektore, a u strojnom učenju je najvažnija takva matrica <b>kovarijacijska</b>: njezini svojstveni vektori su smjerovi u kojima podaci najviše variraju, a svojstvene vrijednosti su varijance u tim smjerovima – to je metoda glavnih komponenata (PCA, lekcija M6). Simetrična matrica sa svim $\lambda\gt0$ zove se <b>pozitivno definitna</b>; Hesseova matrica gubitka je takva upravo kad je gubitak konveksan s jedinstvenim minimumom (dokaz normalne jednadžbe u M1). U NumPy-ju: <code>np.linalg.eigh</code> za simetrične matrice (brže i stabilnije od općeg <code>eig</code>).</p>
+
+<h3>Derivacije i gradijent</h3>
+<p>Derivacija $f'(x)=\lim_{h\to0}\frac{f(x+h)-f(x)}h$ je nagib: koliko se $f$ promijeni po jedinici promjene $x$. Pravila koja trebaš: $(x^n)'=nx^{n-1}$, $(e^x)'=e^x$, $(\ln x)'=\frac1x$, linearnost, pravilo umnoška i lančano pravilo (dolje). Derivacije aktivacija: za sigmoidu $\sigma(z)=\frac1{1+e^{-z}}$ vrijedi $\sigma'(z)=\sigma(z)\bigl(1-\sigma(z)\bigr)$, za $\tanh$ je $\tanh'(z)=1-\tanh^2z$, a ReLU $\max(0,z)$ ima derivaciju $1$ za $z\gt0$ i $0$ za $z\lt0$.</p>
+<div class="pojam">
+<h4>Parcijalna derivacija i gradijent</h4>
+<p>Za $f:\mathbb R^d\to\mathbb R$ <b>parcijalna derivacija</b> $\dfrac{\partial f}{\partial x_i}$ je derivacija po $x_i$ uz ostale varijable zamrznute. <b>Gradijent</b> je vektor svih parcijalnih derivacija,
+$$\nabla f(x)=\left(\frac{\partial f}{\partial x_1},\dots,\frac{\partial f}{\partial x_d}\right)^{\!\top}.$$</p>
+</div>
+<p>Gradijent pokazuje smjer <em>najbržeg rasta</em> funkcije, a njegova duljina kaže koliko je rast strm; u minimumu je $\nabla f=0$. Odatle <b>gradijentni spust</b>: $w\leftarrow w-\eta\,\nabla L(w)$ s korakom (stopom učenja) $\eta$ – korak niz najstrmiji pad (lekcija M2). Dvije formule koje vrijedi znati napamet: $\nabla_w\,(w^\top x)=x$ i $\nabla_w\lVert Xw-y\rVert^2=2X^\top(Xw-y)$.</p>
+<div class="trener-umetak">
+<p>Svaki gradijent koji izvedeš rukom provjeri <b>konačnim razlikama</b>: $\dfrac{\partial f}{\partial x_i}\approx\dfrac{f(x+\varepsilon e_i)-f(x-\varepsilon e_i)}{2\varepsilon}$ za $\varepsilon\approx10^{-6}$ (središnja razlika ima grešku reda $\varepsilon^2$). Slaganje na $6$ decimala znači da je formula točna; neslaganje znači grešku u izvodu ili u kodu. Ovaj test koristit ćeš opet u lekciji D2.</p>
+</div>
+
+<h3>Lančano pravilo</h3>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (lančano pravilo).</strong> Ako je $y=f(u)$ i $u=g(x)$, onda je $\dfrac{dy}{dx}=\dfrac{dy}{du}\cdot\dfrac{du}{dx}=f'(g(x))\,g'(x)$. Za funkciju više varijabli $L(w)=\ell\bigl(z(w)\bigr)$, gdje $z\in\mathbb R^m$ ovisi o $w$, vrijedi $\dfrac{\partial L}{\partial w_j}=\sum_{k=1}^m\dfrac{\partial\ell}{\partial z_k}\dfrac{\partial z_k}{\partial w_j}$.</p>
+</div>
+<p>Model je kompozicija: $L=\ell(\hat y)$, $\hat y=\sigma(z)$, $z=w^\top x+b$. Lančano pravilo daje $\frac{\partial L}{\partial w}=\frac{\partial L}{\partial\hat y}\cdot\frac{\partial\hat y}{\partial z}\cdot\frac{\partial z}{\partial w}$ – umnožak lokalnih derivacija duž lanca. <b>Backpropagation</b> (lekcija D2) nije ništa drugo nego lančano pravilo primijenjeno sustavno od izlaza prema ulazu, pri čemu se svaka međuderivacija izračuna jedanput i ponovno koristi. Tko razumije lančano pravilo za tri karike, razumije backprop za sto slojeva.</p>
+
+<h3>Vjerojatnost</h3>
+<div class="pojam">
+<h4>Uvjetna vjerojatnost i Bayesova formula</h4>
+<p><b>Uvjetna vjerojatnost</b> događaja $A$ ako znamo da se dogodio $B$ je $P(A\mid B)=\dfrac{P(A\cap B)}{P(B)}$. Događaji su <b>nezavisni</b> ako $P(A\cap B)=P(A)P(B)$. <b>Bayesova formula</b> okreće uvjet:
+$$P(A\mid B)=\frac{P(B\mid A)\,P(A)}{P(B)},\qquad P(B)=P(B\mid A)P(A)+P(B\mid A^c)P(A^c).$$</p>
+</div>
+<p>Klasifikator vraća $P(y\mid x)$ – vjerojatnost klase uz dane značajke. Bayesova formula kaže kako se ta vjerojatnost sastavlja od <b>apriorne</b> $P(y)$ (koliko je klasa česta) i <b>izglednosti</b> $P(x\mid y)$; na njoj se temelji naivni Bayesov klasifikator (V1) i objašnjenje zašto je, kod rijetke klase, i vrlo točan test često pogrešan (Primjer 3).</p>
+<div class="pojam">
+<h4>Očekivanje i varijanca</h4>
+<p>Za slučajnu varijablu $X$ s vrijednostima $x_i$ i vjerojatnostima $p_i$ <b>očekivanje</b> je $\mathbb E[X]=\sum_i x_ip_i$ (za neprekidnu $\int x\,p(x)\,dx$), a <b>varijanca</b> $\operatorname{Var}X=\mathbb E\bigl[(X-\mathbb E X)^2\bigr]=\mathbb E[X^2]-(\mathbb E X)^2$. <b>Standardna devijacija</b> je $\sigma=\sqrt{\operatorname{Var}X}$ i ima iste jedinice kao $X$.</p>
+</div>
+<p>Očekivanje je linearno: $\mathbb E[aX+bY]=a\,\mathbb E X+b\,\mathbb E Y$ uvijek, a $\operatorname{Var}(X+Y)=\operatorname{Var}X+\operatorname{Var}Y$ samo za nezavisne (općenito se dodaje $2\operatorname{Cov}(X,Y)$). Prosjek $n$ nezavisnih mjerenja ima varijancu $\sigma^2/n$ – zato veći minibatch daje mirniji gradijent, a prosjek više modela (ansambl, M4) manju grešku.</p>
+<p>Dvije razdiobe koje trebaš: <b>Bernoullijeva</b> $\mathrm{Bern}(p)$ – ishod $1$ s vjerojatnošću $p$, inače $0$; $\mathbb E=p$, $\operatorname{Var}=p(1-p)$; to je model binarne oznake i izlaz sigmoide. <b>Normalna</b> $\mathcal N(\mu,\sigma^2)$ s gustoćom $p(x)=\dfrac1{\sigma\sqrt{2\pi}}\exp\!\left(-\dfrac{(x-\mu)^2}{2\sigma^2}\right)$: oko $68$ % mase je unutar $\mu\pm\sigma$, $95$ % unutar $\mu\pm2\sigma$, $99{,}7$ % unutar $\mu\pm3\sigma$. Model je za šum, inicijalizaciju težina i – preko središnjeg graničnog teorema – za prosjek mnogo malih nezavisnih utjecaja. Standardizacija $z=\frac{x-\mu}\sigma$ svaku normalnu pretvara u $\mathcal N(0,1)$.</p>
+
+<h3>Entropija i unakrsna entropija</h3>
+<div class="pojam">
+<h4>Entropija, unakrsna entropija, KL-divergencija</h4>
+<p>Za razdiobu $p=(p_1,\dots,p_k)$ nad $k$ klasa <b>entropija</b> je $H(p)=-\sum_i p_i\ln p_i$ (uz $0\ln0=0$). Za „pravu” razdiobu $p$ i model $q$ <b>unakrsna entropija</b> je $H(p,q)=-\sum_i p_i\ln q_i$, a <b>Kullback–Leiblerova divergencija</b> $D_{KL}(p\,\Vert\,q)=\sum_i p_i\ln\dfrac{p_i}{q_i}=H(p,q)-H(p)$.</p>
+</div>
+<p>Entropija mjeri neizvjesnost: $0$ za sigurnu razdiobu, najveća ($\ln k$) za uniformnu. Vrijedi $D_{KL}\ge0$ s jednakošću samo za $p=q$ (Zadatak 9), pa je $H(p,q)\ge H(p)$: unakrsna entropija je najmanja kad model pogodi pravu razdiobu. Kad je oznaka primjera klasa $c$ (razdioba $p$ je <i>one-hot</i>), ostaje samo $H(p,q)=-\ln q_c$ – <b>gubitak unakrsne entropije</b> iz lekcija M3 i D1: model plaća $-\ln$ vjerojatnosti koju je dao točnoj klasi, pa je samouvjerena pogreška ($q_c\approx0$) kažnjena enormno. Za binarni slučaj: $-\bigl[y\ln\hat p+(1-y)\ln(1-\hat p)\bigr]$. Minimizirati unakrsnu entropiju na podacima isto je što i maksimizirati vjerojatnost (izglednost) podataka pod modelom.</p>
+
+<h3>Statistika uzorka</h3>
+<p>Iz uzorka $x_1,\dots,x_n$ procjenjujemo: <b>prosjek</b> $\bar x=\frac1n\sum x_i$, <b>varijancu</b> $s^2=\frac1{n-1}\sum(x_i-\bar x)^2$ (nazivnik $n-1$ ispravlja pristranost; NumPy zadano dijeli s $n$, pandas s $n-1$ – <code>ddof</code>), <b>kovarijancu</b> $s_{xy}=\frac1{n-1}\sum(x_i-\bar x)(y_i-\bar y)$ i <b>Pearsonovu korelaciju</b> $r=\dfrac{s_{xy}}{s_xs_y}\in[-1,1]$ – kosinusnu sličnost centriranih vektora. Korelacija mjeri samo <em>linearnu</em> povezanost: $r\approx0$ ne znači nezavisnost ($x$ i $x^2$ su savršeno zavisni, a nekorelirani), a visok $|r|$ ne znači uzročnost. Prosjek uzorka s rastom $n$ konvergira očekivanju (zakon velikih brojeva), uz nesigurnost reda $\sigma/\sqrt n$ – zato točnost izmjerena na $50$ testnih primjera ima nesigurnost od nekoliko postotaka i razlika modela od $1$ % na tako malom testu ništa ne znači.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Na malim „vektorskim reprezentacijama” riječi provjeri skalarni produkt, norme i kosinusnu sličnost; provjeri pravila za dimenzije i transponiranje matrica; zatim za kovarijacijsku matricu dvodimenzionalnih podataka izračunaj svojstvene vrijednosti i vektore i provjeri $Av=\lambda v$.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: vektori.</b> Tri izmišljena vektora: „pas” i „mačka” slični, „auto” drukčiji. Kosinusna sličnost ne ovisi o duljini vektora.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="n">pas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>
+<span class="n">macka</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.8</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">])</span>
+<span class="n">auto</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">])</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">kosinus</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span> <span class="o">@</span> <span class="n">y</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"pas . macka = </span><span class="si">%.2f</span><span class="s2">   pas . auto = </span><span class="si">%.2f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">pas</span> <span class="o">@</span> <span class="n">macka</span><span class="p">,</span> <span class="n">pas</span> <span class="o">@</span> <span class="n">auto</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"||pas||_2 = </span><span class="si">%.3f</span><span class="s2">  ||pas||_1 = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pas</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">pas</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"kosinus(pas, macka) = </span><span class="si">%.3f</span><span class="s2">   kosinus(pas, auto) = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">kosinus</span><span class="p">(</span><span class="n">pas</span><span class="p">,</span> <span class="n">macka</span><span class="p">),</span> <span class="n">kosinus</span><span class="p">(</span><span class="n">pas</span><span class="p">,</span> <span class="n">auto</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"kosinus ne ovisi o skali:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">kosinus</span><span class="p">(</span><span class="n">pas</span><span class="p">,</span> <span class="n">macka</span><span class="p">),</span> <span class="n">kosinus</span><span class="p">(</span><span class="mi">5</span> <span class="o">*</span> <span class="n">pas</span><span class="p">,</span> <span class="n">macka</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>pas . macka = 1.46   pas . auto = 0.18
+||pas||_2 = 1.208  ||pas||_1 = 1.800
+kosinus(pas, macka) = 0.990   kosinus(pas, auto) = 0.165
+kosinus ne ovisi o skali: True</code></pre>
+<p><b>Korak 2: matrice.</b> Dimenzije umnoška, $(AB)^\top=B^\top A^\top$, inverz. Umnožak nekompatibilnih oblika baca <code>ValueError</code> – ta poruka će ti postati dobra znanica.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">A</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">A</span> <span class="o">@</span> <span class="n">B</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">"   (AB)^T = B^T A^T:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">((</span><span class="n">A</span> <span class="o">@</span> <span class="n">B</span><span class="p">)</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span><span class="p">))</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">B</span> <span class="o">@</span> <span class="n">A</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"B @ A:"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+<span class="n">S</span> <span class="o">=</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">A</span>                                   <span class="c1"># (3, 3), simetrična</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"simetrična:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">S</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="s2">"  S^-1 S = I:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">inv</span><span class="p">(</span><span class="n">S</span><span class="p">)</span> <span class="o">@</span> <span class="n">S</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>(4, 2)    (AB)^T = B^T A^T: True
+B @ A: matmul: Input operand 1 has a mismatch in its core dimension 0, with gufunc signature (n?,k),(k,m?)-&gt;(n?,m?) (size 4 is different from 2)
+simetrična: True   S^-1 S = I: True</code></pre>
+<p><b>Korak 3: svojstvene vrijednosti kovarijacijske matrice.</b> Generiramo $500$ točaka razvučenih duž smjera $(1,1)$ i rotiranih; <code>eigh</code> vraća svojstvene vrijednosti uzlazno i pripadne vektore u stupcima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Z</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">500</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">3.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>      <span class="c1"># varijance 9 i 0.25 duž osi</span>
+<span class="n">kut</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">4</span>
+<span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">kut</span><span class="p">),</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">kut</span><span class="p">)],</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">kut</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">kut</span><span class="p">)]])</span>
+<span class="n">P</span> <span class="o">=</span> <span class="n">Z</span> <span class="o">@</span> <span class="n">R</span><span class="o">.</span><span class="n">T</span>                                                 <span class="c1"># rotirano za 45 stupnjeva</span>
+<span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cov</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">rowvar</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">lam</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"kovarijacijska matrica:</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">C</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"svojstvene vrijednosti:"</span><span class="p">,</span> <span class="n">lam</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">"  zbroj = trag:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">lam</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">C</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"glavni smjer:"</span><span class="p">,</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">"  okomiti vektori:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">V</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">@</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="mi">0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"A v = lambda v:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">C</span> <span class="o">@</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">lam</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>kovarijacijska matrica:
+ [[4.451 4.222]
+ [4.222 4.46 ]]
+svojstvene vrijednosti: [0.233 8.677]   zbroj = trag: True
+glavni smjer: [0.707 0.707]   okomiti vektori: True
+A v = lambda v: True</code></pre>
+<p>Najveća svojstvena vrijednost ($\approx8{,}7$, teorijski $9$) je varijanca duž glavnog smjera, koji je $\approx(0{,}71, 0{,}71)$ – smjer $(1,1)$ u koji smo podatke razvukli; druga je varijanca okomito na njega ($\approx0{,}23$, teorijski $0{,}25$). Kovarijacijska matrica „zna” geometriju oblaka točaka, a svojstveni rastav je čita. Projekcija na glavni smjer zadržava $8{,}68/(8{,}68+0{,}23)\approx97$ % varijance – to je PCA s jednom komponentom (Zadatak 8).</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>(a) Za $f(x,y)=x^2y+\sin y$ izračunaj parcijalne derivacije i provjeri ih u točki $(1,2)$ konačnim razlikama. (b) Za jedan primjer $(x,y)$ i model $\hat p=\sigma(w^\top x+b)$ s gubitkom $L=(\hat p-y)^2$ izvedi gradijent po $w$ i $b$ lančanim pravilom, provjeri ga numerički, pa napravi $200$ koraka gradijentnog spusta i prati gubitak.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: parcijalne derivacije.</b> $\frac{\partial f}{\partial x}=2xy$ (derivacija po $x$, $y$ je konstanta), $\frac{\partial f}{\partial y}=x^2+\cos y$. Središnja razlika s $\varepsilon=10^{-6}$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">y</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">grad_f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">y</span><span class="p">)])</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">numericki_gradijent</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">tocka</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">):</span>
+    <span class="n">tocka</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">tocka</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tocka</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tocka</span><span class="p">)):</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">tocka</span><span class="p">);</span> <span class="n">e</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">eps</span>
+        <span class="n">g</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">fun</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">tocka</span> <span class="o">+</span> <span class="n">e</span><span class="p">))</span> <span class="o">-</span> <span class="n">fun</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">tocka</span> <span class="o">-</span> <span class="n">e</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">g</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"analitički:"</span><span class="p">,</span> <span class="n">grad_f</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"numerički: "</span><span class="p">,</span> <span class="n">numericki_gradijent</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>analitički: [4.       0.583853]
+numerički:  [4.       0.583853]</code></pre>
+<p><b>Korak 2: lanac za jedan neuron.</b> Karike: $z=w^\top x+b$, $\hat p=\sigma(z)$, $L=(\hat p-y)^2$. Lokalne derivacije: $\frac{\partial L}{\partial\hat p}=2(\hat p-y)$, $\frac{\partial\hat p}{\partial z}=\hat p(1-\hat p)$, $\frac{\partial z}{\partial w}=x$, $\frac{\partial z}{\partial b}=1$. Umnožak duž lanca:
+$$\frac{\partial L}{\partial w}=2(\hat p-y)\,\hat p(1-\hat p)\,x,\qquad\frac{\partial L}{\partial b}=2(\hat p-y)\,\hat p(1-\hat p).$$
+Zajednički faktor $\delta=2(\hat p-y)\hat p(1-\hat p)$ računamo jednom – to je „signal greške” koji backprop šalje unatrag.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">sigma</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">z</span><span class="p">))</span>
+
+<span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="mf">1.0</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">L</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">sigma</span><span class="p">(</span><span class="n">w</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">grad_L</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">(</span><span class="n">w</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">p</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">delta</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span> <span class="n">delta</span>
+
+<span class="n">w0</span><span class="p">,</span> <span class="n">b0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">]),</span> <span class="mf">0.0</span>
+<span class="n">gw</span><span class="p">,</span> <span class="n">gb</span> <span class="o">=</span> <span class="n">grad_L</span><span class="p">(</span><span class="n">w0</span><span class="p">,</span> <span class="n">b0</span><span class="p">)</span>
+<span class="n">num</span> <span class="o">=</span> <span class="n">numericki_gradijent</span><span class="p">(</span><span class="k">lambda</span> <span class="o">*</span><span class="n">t</span><span class="p">:</span> <span class="n">L</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">t</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span> <span class="n">t</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span> <span class="p">[</span><span class="o">*</span><span class="n">w0</span><span class="p">,</span> <span class="n">b0</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"analitički:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gw</span><span class="p">,</span> <span class="n">gb</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"numerički: "</span><span class="p">,</span> <span class="n">num</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>analitički: [-0.300732  0.100244 -0.400977 -0.200488]
+numerički:  [-0.300732  0.100244 -0.400977 -0.200488]</code></pre>
+<p><b>Korak 3: gradijentni spust.</b> Svaki korak ide suprotno gradijentu; gubitak monotono pada i $\hat p$ se približava $y=1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">w</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">w0</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">b0</span>
+<span class="k">for</span> <span class="n">korak</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">201</span><span class="p">):</span>
+    <span class="n">gw</span><span class="p">,</span> <span class="n">gb</span> <span class="o">=</span> <span class="n">grad_L</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">gw</span><span class="p">;</span> <span class="n">b</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">gb</span>
+    <span class="k">if</span> <span class="n">korak</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">200</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"korak </span><span class="si">%3d</span><span class="s2">: L = </span><span class="si">%.5f</span><span class="s2">   p = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">korak</span><span class="p">,</span> <span class="n">L</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="n">sigma</span><span class="p">(</span><span class="n">w</span> <span class="o">@</span> <span class="n">x</span> <span class="o">+</span> <span class="n">b</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>korak   1: L = 0.06220   p = 0.7506
+korak  10: L = 0.00774   p = 0.9120
+korak  50: L = 0.00148   p = 0.9616
+korak 200: L = 0.00035   p = 0.9812</code></pre>
+<p>Primijeti da gradijent sadrži faktor $\hat p(1-\hat p)$, koji je blizu nule kad je sigmoida „zasićena” ($\hat p\approx0$ ili $1$): neuron koji je sigurno u krivu uči <em>sporo</em>. To je jedan od razloga zašto se uz sigmoidu koristi unakrsna entropija umjesto kvadratnog gubitka (Zadatak 6) i zašto duboke mreže pate od iščezavajućih gradijenata (D4).</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>(a) Bolest ima $1$ % oboljelih; test je pozitivan u $99$ % oboljelih i u $5$ % zdravih. Kolika je vjerojatnost bolesti ako je test pozitivan? Izračunaj Bayesovom formulom i simulacijom. (b) Provjeri očekivanje i varijancu Bernoullijeve i normalne razdiobe te pravilo $68$–$95$–$99{,}7$. (c) Izračunaj entropiju nekoliko razdioba i unakrsnu entropiju dviju predikcija za istu oznaku.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: Bayes.</b> $P(B\mid+)=\dfrac{P(+\mid B)P(B)}{P(+\mid B)P(B)+P(+\mid Z)P(Z)}=\dfrac{0{,}99\cdot0{,}01}{0{,}99\cdot0{,}01+0{,}05\cdot0{,}99}$. Simulacija: generiramo milijun ljudi i prebrojimo.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pB</span><span class="p">,</span> <span class="n">osjetljivost</span><span class="p">,</span> <span class="n">lazno_poz</span> <span class="o">=</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">,</span> <span class="mf">0.05</span>
+<span class="n">posterior</span> <span class="o">=</span> <span class="n">osjetljivost</span> <span class="o">*</span> <span class="n">pB</span> <span class="o">/</span> <span class="p">(</span><span class="n">osjetljivost</span> <span class="o">*</span> <span class="n">pB</span> <span class="o">+</span> <span class="n">lazno_poz</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">pB</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"P(bolest | pozitivan) = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">posterior</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">N</span> <span class="o">=</span> <span class="mi">1_000_000</span>
+<span class="n">bolestan</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">pB</span>
+<span class="n">pozitivan</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bolestan</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">osjetljivost</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">lazno_poz</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"simulacija: </span><span class="si">%.4f</span><span class="s2">   (pozitivnih: </span><span class="si">%d</span><span class="s2">, od toga bolesnih: </span><span class="si">%d</span><span class="s2">)"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">bolestan</span><span class="p">[</span><span class="n">pozitivan</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">pozitivan</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="p">(</span><span class="n">bolestan</span> <span class="o">&amp;</span> <span class="n">pozitivan</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>P(bolest | pozitivan) = 0.1667
+simulacija: 0.1670   (pozitivnih: 59176, od toga bolesnih: 9880)</code></pre>
+<p>Samo oko $17$ % pozitivnih doista je bolesno, iako je test „$99$ % točan” – zdravih je sto puta više, pa i $5$ % lažnih pozitiva među njima brojčano premaši prave pozitive. Ista matematika stoji iza <b>preciznosti</b> klasifikatora na neuravnoteženim klasama (M3): točnost od $99$ % ne znači ništa ako je pozitivna klasa rijetka.</p>
+<p><b>Korak 2: Bernoulli i normalna.</b> Uzorak od $100\,000$ vrijednosti; prosjek i varijanca uzorka trebaju biti blizu teorijskih.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">p</span> <span class="o">=</span> <span class="mf">0.3</span>
+<span class="n">bern</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="mi">100_000</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">p</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Bernoulli: prosjek </span><span class="si">%.4f</span><span class="s2"> (p = </span><span class="si">%.1f</span><span class="s2">)   varijanca </span><span class="si">%.4f</span><span class="s2"> (p(1-p) = </span><span class="si">%.2f</span><span class="s2">)"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">bern</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">p</span><span class="p">,</span> <span class="n">bern</span><span class="o">.</span><span class="n">var</span><span class="p">(),</span> <span class="n">p</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p</span><span class="p">)))</span>
+<span class="n">mu</span><span class="p">,</span> <span class="n">sig</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="mf">2.0</span>
+<span class="n">norm</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">sig</span><span class="p">,</span> <span class="mi">100_000</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"normalna: prosjek </span><span class="si">%.3f</span><span class="s2">  std </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">norm</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">norm</span><span class="o">.</span><span class="n">std</span><span class="p">()))</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"  udio unutar mu ± </span><span class="si">%d</span><span class="s2"> sigma: </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">norm</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">k</span> <span class="o">*</span> <span class="n">sig</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"prosjek 100 uzoraka ima std </span><span class="si">%.3f</span><span class="s2">  (sigma/sqrt(n) = </span><span class="si">%.3f</span><span class="s2">)"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">norm</span><span class="p">[:</span><span class="mi">100_000</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span> <span class="n">sig</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">100</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>Bernoulli: prosjek 0.3009 (p = 0.3)   varijanca 0.2104 (p(1-p) = 0.21)
+normalna: prosjek 9.991  std 1.997
+  udio unutar mu ± 1 sigma: 0.6824
+  udio unutar mu ± 2 sigma: 0.9555
+  udio unutar mu ± 3 sigma: 0.9972
+prosjek 100 uzoraka ima std 0.205  (sigma/sqrt(n) = 0.200)</code></pre>
+<p><b>Korak 3: entropija i unakrsna entropija.</b> Razdiobe nad $4$ klase: uniformna, umjereno sigurna, gotovo sigurna. Zatim oznaka je klasa $2$, a dva modela daju različite predikcije.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">entropija</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="n">p</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">p</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">unakrsna</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">):</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">q</span><span class="p">)))</span>
+
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">raz</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">"uniformna"</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">]</span> <span class="o">*</span> <span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="s2">"umjerena"</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">]),</span>
+                 <span class="p">(</span><span class="s2">"gotovo sigurna"</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.97</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">])]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="si">%-15s</span><span class="s2"> H = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">entropija</span><span class="p">(</span><span class="n">raz</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ln 4 = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+
+<span class="n">y_onehot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>
+<span class="n">q1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">])</span>          <span class="c1"># točna klasa s vjerojatnošću 0.7</span>
+<span class="n">q2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.7</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.09</span><span class="p">])</span>        <span class="c1"># točna klasa s vjerojatnošću 0.01</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"H(y, q1) = </span><span class="si">%.3f</span><span class="s2"> = -ln 0.7     H(y, q2) = </span><span class="si">%.3f</span><span class="s2"> = -ln 0.01"</span> <span class="o">%</span> <span class="p">(</span><span class="n">unakrsna</span><span class="p">(</span><span class="n">y_onehot</span><span class="p">,</span> <span class="n">q1</span><span class="p">),</span> <span class="n">unakrsna</span><span class="p">(</span><span class="n">y_onehot</span><span class="p">,</span> <span class="n">q2</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"D_KL(q1 || q2) = </span><span class="si">%.3f</span><span class="s2">  &gt;= 0"</span> <span class="o">%</span> <span class="p">(</span><span class="n">unakrsna</span><span class="p">(</span><span class="n">q1</span><span class="p">,</span> <span class="n">q2</span><span class="p">)</span> <span class="o">-</span> <span class="n">entropija</span><span class="p">(</span><span class="n">q1</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>uniformna       H = 1.386
+umjerena        H = 0.940
+gotovo sigurna  H = 0.168
+ln 4 = 1.386
+H(y, q1) = 0.357 = -ln 0.7     H(y, q2) = 4.605 = -ln 0.01
+D_KL(q1 || q2) = 2.721  &gt;= 0</code></pre>
+<p>Uniformna razdioba ima najveću entropiju $\ln4\approx1{,}386$; što je razdioba „šiljastija”, to je entropija manja. Model $q_2$ koji točnoj klasi daje $1$ % plaća gubitak $4{,}6$ – trinaest puta više od $q_1$ – iako je oboje „jedna pogrešna predikcija” po točnosti. Unakrsna entropija nagrađuje <em>kalibrirane</em> vjerojatnosti, ne samo točan argmax; na natjecanju gdje se ocjenjuje log-loss nikad ne predaj vjerojatnosti $0$ ili $1$.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za $x=(1,2,2)$ i $y=(2,0,1)$ izračunaj rukom $x^\top y$, $\lVert x\rVert_2$, $\lVert y\rVert_2$, $\lVert x\rVert_1$ i kosinus kuta među njima. Provjeri u NumPy-ju i izračunaj kut u stupnjevima.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$x^\top y=2+0+2=4$, $\lVert x\rVert_2=\sqrt{1+4+4}=3$, $\lVert y\rVert_2=\sqrt5$, $\lVert x\rVert_1=5$, $\cos\theta=\dfrac4{3\sqrt5}\approx0{,}596$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">kosinus</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="n">yv</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">xv</span> <span class="o">@</span> <span class="n">yv</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">xv</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yv</span><span class="p">),</span> <span class="mi">4</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">xv</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"cos = </span><span class="si">%.4f</span><span class="s2">   kut = </span><span class="si">%.1f</span><span class="s2"> stupnjeva"</span> <span class="o">%</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">degrees</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arccos</span><span class="p">(</span><span class="n">c</span><span class="p">))))</span></code></pre></div>
+<pre class="izlaz"><code>4.0 3.0 2.2361 5.0
+cos = 0.5963   kut = 53.4 stupnjeva</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Matrice imaju oblike $X\in\mathbb R^{100\times5}$, $W\in\mathbb R^{5\times3}$, $b\in\mathbb R^{3}$, $U\in\mathbb R^{3\times3}$. Koji su od umnožaka $XW$, $WX$, $X^\top X$, $XX^\top$, $(XW)U$, $XW+b$ definirani i kojeg su oblika? Što radi $+b$ s obzirom na oblike? Provjeri u NumPy-ju.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$XW$: $(100\times3)$; $WX$: nije definiran ($3\ne100$); $X^\top X$: $(5\times5)$; $XX^\top$: $(100\times100)$; $(XW)U$: $(100\times3)$; $XW+b$: definirano preko <b>emitiranja</b> (engl. <i>broadcasting</i>) – vektor $b$ oblika $(3,)$ dodaje se svakom od $100$ redaka. To je upravo sloj mreže $XW+b$ za $100$ primjera odjednom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Xm</span><span class="p">,</span> <span class="n">Wm</span><span class="p">,</span> <span class="n">bm</span><span class="p">,</span> <span class="n">Um</span> <span class="o">=</span> <span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">[(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">Xm</span> <span class="o">@</span> <span class="n">Wm</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">Xm</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Xm</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">Xm</span> <span class="o">@</span> <span class="n">Xm</span><span class="o">.</span><span class="n">T</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">Xm</span> <span class="o">@</span> <span class="n">Wm</span> <span class="o">@</span> <span class="n">Um</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="n">Xm</span> <span class="o">@</span> <span class="n">Wm</span> <span class="o">+</span> <span class="n">bm</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">Wm</span> <span class="o">@</span> <span class="n">Xm</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"WX:"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>(100, 3) (5, 5) (100, 100) (100, 3) (100, 3)
+WX: matmul: Input operand 1 has a mismatch in its core dimension 0, with gufunc signature (n?,k),(k,m?)-&gt;(n?,m?) (size 100 is different from 3)</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Deriviraj rukom: (a) $\sigma(z)=\dfrac1{1+e^{-z}}$ i pokaži da je $\sigma'=\sigma(1-\sigma)$; (b) <i>softplus</i> $s(z)=\ln(1+e^z)$; (c) $g(z)=z\,e^{-z^2}$. Provjeri sve tri u $z=0{,}7$ konačnim razlikama.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) $\sigma=(1+e^{-z})^{-1}$, pa lančano $\sigma'=(1+e^{-z})^{-2}e^{-z}=\sigma\cdot\dfrac{e^{-z}}{1+e^{-z}}=\sigma(1-\sigma)$, jer je $1-\sigma=\dfrac{e^{-z}}{1+e^{-z}}$. (b) $s'(z)=\dfrac{e^z}{1+e^z}=\sigma(z)$ – softplus je „glatki ReLU” čija je derivacija sigmoida. (c) pravilo umnoška: $g'=e^{-z^2}+z\cdot(-2z)e^{-z^2}=(1-2z^2)e^{-z^2}$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">z0</span><span class="p">,</span> <span class="n">eps</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">,</span> <span class="mf">1e-6</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">num_der</span><span class="p">(</span><span class="n">fun</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">fun</span><span class="p">(</span><span class="n">z</span> <span class="o">+</span> <span class="n">eps</span><span class="p">)</span> <span class="o">-</span> <span class="n">fun</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">eps</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">(</span><span class="n">z0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"sigma': </span><span class="si">%.6f</span><span class="s2">  </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">s</span><span class="p">),</span> <span class="n">num_der</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">z0</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"softplus': </span><span class="si">%.6f</span><span class="s2">  </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">num_der</span><span class="p">(</span><span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span><span class="p">)),</span> <span class="n">z0</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"g': </span><span class="si">%.6f</span><span class="s2">  </span><span class="si">%.6f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">z0</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">z0</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="n">num_der</span><span class="p">(</span><span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="n">z</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">z</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="n">z0</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>sigma': 0.221713  0.221713
+softplus': 0.668188  0.668188
+g': 0.012253  0.012253</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Izvedi gradijent regulariziranog gubitka $L(w)=\lVert Xw-y\rVert^2+\lambda\lVert w\rVert^2$ po $w$ i provjeri ga numerički na slučajnim podacima ($n=20$, $d=4$, $\lambda=0{,}5$). Zatim pokaži da je rješenje $\nabla L=0$ upravo $w=(X^\top X+\lambda I)^{-1}X^\top y$.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Prvi član je iz teorije; za drugi raspiši $\lVert w\rVert^2=\sum_j w_j^2$ i deriviraj po $w_j$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$\nabla_w\lVert Xw-y\rVert^2=2X^\top(Xw-y)$ i $\nabla_w\lambda\lVert w\rVert^2=2\lambda w$, pa je $\nabla L=2X^\top(Xw-y)+2\lambda w$. Izjednačimo s nulom: $X^\top Xw+\lambda w=X^\top y$, tj. $(X^\top X+\lambda I)w=X^\top y$ – grebena regresija iz lekcije M2, čije rješenje postoji i kad $X^\top X$ nije invertibilna.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Xg</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">4</span><span class="p">));</span> <span class="n">yg</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">20</span><span class="p">);</span> <span class="n">lam_reg</span> <span class="o">=</span> <span class="mf">0.5</span>
+<span class="n">wg</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">Lg</span><span class="p">(</span><span class="o">*</span><span class="n">w</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">Xg</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">yg</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">lam_reg</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">analit</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">Xg</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">Xg</span> <span class="o">@</span> <span class="n">wg</span> <span class="o">-</span> <span class="n">yg</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">lam_reg</span> <span class="o">*</span> <span class="n">wg</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"analitički:"</span><span class="p">,</span> <span class="n">analit</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"numerički: "</span><span class="p">,</span> <span class="n">numericki_gradijent</span><span class="p">(</span><span class="n">Lg</span><span class="p">,</span> <span class="n">wg</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="n">w_ridge</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">Xg</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Xg</span> <span class="o">+</span> <span class="n">lam_reg</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">Xg</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">yg</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"gradijent u rješenju ~ 0:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">Xg</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">Xg</span> <span class="o">@</span> <span class="n">w_ridge</span> <span class="o">-</span> <span class="n">yg</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">lam_reg</span> <span class="o">*</span> <span class="n">w_ridge</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>analitički: [  2.4667   50.9563  -33.83104  22.56774]
+numerički:  [  2.4667   50.9563  -33.83104  22.56774]
+gradijent u rješenju ~ 0: True</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Filtar neželjene pošte: $30$ % poruka je neželjeno. Riječ „besplatno” pojavljuje se u $40$ % neželjenih i u $2$ % običnih poruka. Kolika je vjerojatnost da je poruka s tom riječju neželjena? Kolika bi bila kad bi neželjenih bilo samo $1$ %? Provjeri prvi slučaj simulacijom.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$P(S\mid b)=\dfrac{0{,}4\cdot0{,}3}{0{,}4\cdot0{,}3+0{,}02\cdot0{,}7}=\dfrac{0{,}12}{0{,}134}\approx0{,}896$. S apriornom $1$ %: $\dfrac{0{,}004}{0{,}004+0{,}0198}\approx0{,}168$ – isti dokaz (riječ), posve drugi zaključak. Apriorna vjerojatnost (udio klase) je dio modela, i zato klasifikator treniran na uravnoteženim podacima daje iskrivljene vjerojatnosti kad su klase u primjeni neuravnotežene.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">bayes</span><span class="p">(</span><span class="n">prior</span><span class="p">,</span> <span class="n">p_dokaz_ako_da</span><span class="p">,</span> <span class="n">p_dokaz_ako_ne</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">prior</span> <span class="o">*</span> <span class="n">p_dokaz_ako_da</span> <span class="o">/</span> <span class="p">(</span><span class="n">prior</span> <span class="o">*</span> <span class="n">p_dokaz_ako_da</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">prior</span><span class="p">)</span> <span class="o">*</span> <span class="n">p_dokaz_ako_ne</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"P(spam | besplatno) = </span><span class="si">%.3f</span><span class="s2">   uz apriornu 1 </span><span class="si">%%</span><span class="s2">: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">bayes</span><span class="p">(</span><span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">),</span> <span class="n">bayes</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">)))</span>
+<span class="n">Nm</span> <span class="o">=</span> <span class="mi">500_000</span>
+<span class="n">spam</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">Nm</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.3</span>
+<span class="n">rijec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">spam</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">Nm</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.4</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">Nm</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.02</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"simulacija: </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="n">spam</span><span class="p">[</span><span class="n">rijec</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>P(spam | besplatno) = 0.896   uz apriornu 1 %: 0.168
+simulacija: 0.896</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p><i>Softmax</i> pretvara vektor rezultata (logita) $z\in\mathbb R^k$ u razdiobu $q_i=\dfrac{e^{z_i}}{\sum_j e^{z_j}}$. (a) Pokaži da se $q$ ne mijenja ako svim $z_i$ dodamo istu konstantu i objasni zašto se u praksi prije eksponenciranja oduzima $\max z$. (b) Za oznaku $c$ i gubitak $L=-\ln q_c$ dokaži da je $\dfrac{\partial L}{\partial z_i}=q_i-y_i$, gdje je $y$ one-hot vektor, i provjeri numerički. Zašto je ta formula važna?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>$\ln q_c=z_c-\ln\sum_j e^{z_j}$; deriviraj po $z_i$ razlikujući $i=c$ i $i\ne c$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) $\dfrac{e^{z_i+a}}{\sum_j e^{z_j+a}}=\dfrac{e^a e^{z_i}}{e^a\sum_j e^{z_j}}=q_i$. Oduzimanje $\max z$ čini najveći eksponent nulom pa <code>exp</code> ne može preliti (<code>inf</code>) – bez toga softmax za $z=1000$ vraća <code>nan</code>. (b) $L=-z_c+\ln\sum_j e^{z_j}$, pa je $\dfrac{\partial L}{\partial z_i}=-[i=c]+\dfrac{e^{z_i}}{\sum_j e^{z_j}}=q_i-y_i$. Gradijent gubitka po logitima je jednostavno „predikcija minus istina”: to je signal koji backprop šalje u mrežu iz zadnjeg sloja (D2), isti oblik kao $\hat p-y$ kod sigmoide s binarnom unakrsnom entropijom – bez faktora $\hat p(1-\hat p)$ koji je usporavao učenje u Primjeru 2.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span><span class="w"> </span><span class="nf">softmax</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="n">e</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">e</span> <span class="o">/</span> <span class="n">e</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+<span class="n">zl</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"pomak ne mijenja softmax:"</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">softmax</span><span class="p">(</span><span class="n">zl</span><span class="p">),</span> <span class="n">softmax</span><span class="p">(</span><span class="n">zl</span> <span class="o">+</span> <span class="mi">100</span><span class="p">)))</span>
+<span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">over</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+    <span class="n">naivno</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1000.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">]))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"bez oduzimanja maksimuma:"</span><span class="p">,</span> <span class="n">naivno</span> <span class="o">/</span> <span class="n">naivno</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="n">c</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">yv_onehot</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">4</span><span class="p">)[</span><span class="n">c</span><span class="p">]</span>
+<span class="n">analit</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">zl</span><span class="p">)</span> <span class="o">-</span> <span class="n">yv_onehot</span>
+<span class="n">num</span> <span class="o">=</span> <span class="n">numericki_gradijent</span><span class="p">(</span><span class="k">lambda</span> <span class="o">*</span><span class="n">z</span><span class="p">:</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">softmax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">z</span><span class="p">))[</span><span class="n">c</span><span class="p">]),</span> <span class="n">zl</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"q - y:      "</span><span class="p">,</span> <span class="n">analit</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"numerički:  "</span><span class="p">,</span> <span class="n">num</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>pomak ne mijenja softmax: True
+bez oduzimanja maksimuma: [nan  0.]
+q - y:       [ 0.60946   0.030343 -0.864011  0.224208]
+numerički:   [ 0.60946   0.030343 -0.864011  0.224208]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Simulacijom provjeri: (a) $\operatorname{Var}(X+Y)=\operatorname{Var}X+\operatorname{Var}Y$ za nezavisne $X,Y$, a ne vrijedi za zavisne (uzmi $Y=X+\varepsilon$ s malim šumom); (b) prosjek $n$ nezavisnih kopija ima standardnu devijaciju $\sigma/\sqrt n$ za $n\in\{1,4,16,64\}$. Što to govori o veličini minibatcha i o ansamblima modela?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">Xs</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">200_000</span><span class="p">)</span>
+<span class="n">Ys</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">200_000</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"nezavisni: Var(X+Y) = </span><span class="si">%.3f</span><span class="s2">   Var X + Var Y = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Xs</span> <span class="o">+</span> <span class="n">Ys</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Ys</span><span class="p">)))</span>
+<span class="n">Yz</span> <span class="o">=</span> <span class="n">Xs</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">200_000</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"zavisni:   Var(X+Y) = </span><span class="si">%.3f</span><span class="s2">   Var X + Var Y = </span><span class="si">%.3f</span><span class="s2">   + 2 Cov = </span><span class="si">%.3f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Xs</span> <span class="o">+</span> <span class="n">Yz</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Yz</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">Yz</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cov</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="n">Yz</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">64</span><span class="p">):</span>
+    <span class="n">prosjeci</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">20_000</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"n = </span><span class="si">%2d</span><span class="s2">: std prosjeka = </span><span class="si">%.3f</span><span class="s2">   sigma/sqrt(n) = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">prosjeci</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>nezavisni: Var(X+Y) = 5.005   Var X + Var Y = 5.008
+zavisni:   Var(X+Y) = 16.273   Var X + Var Y = 8.261   + 2 Cov = 16.273
+n =  1: std prosjeka = 1.994   sigma/sqrt(n) = 2.000
+n =  4: std prosjeka = 1.001   sigma/sqrt(n) = 1.000
+n = 16: std prosjeka = 0.498   sigma/sqrt(n) = 0.500
+n = 64: std prosjeka = 0.250   sigma/sqrt(n) = 0.250</code></pre>
+<p>Gradijent na minibatchu je prosjek gradijenata pojedinih primjera: četiri puta veći batch daje dvostruko mirniju procjenu – ali ne i četiri puta brže učenje, pa se batch bira kao kompromis (D4). Ansambl od $n$ modela smanjuje varijancu greške za $\sqrt n$ <em>samo ako su greške nezavisne</em>; modeli trenirani na istim podacima istim postupkom griješe zavisno (kao $X$ i $Y=X+\varepsilon$), pa slučajne šume namjerno uvode raznolikost (M4).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Metoda glavnih komponenata s jednom komponentom: za podatke $P$ iz Primjera 1 centriraj ih, projiciraj na svojstveni vektor $v_1$ najveće svojstvene vrijednosti ($t=\tilde P v_1$) i rekonstruiraj $\hat P=t\,v_1^\top$. Pokaži da je varijanca projekcije jednaka $\lambda_1$, da je udio objašnjene varijance $\lambda_1/(\lambda_1+\lambda_2)$ i da je srednja kvadratna greška rekonstrukcije jednaka $\lambda_2$ (do faktora $\frac{n-1}n$). Zašto bi projekcija na $v_2$ bila loš izbor?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>$\operatorname{Var}(\tilde Pv)=v^\top Cv$, a za svojstveni vektor je $Cv=\lambda v$ i $v^\top v=1$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Za jedinični $v$ je varijanca projekcije $v^\top Cv$; za svojstveni vektor to je $\lambda$. Od sve varijance ($\lambda_1+\lambda_2=\operatorname{tr}C$) smjer $v_1$ zadržava najveći mogući dio, a ono što se gubi je varijanca u okomitom smjeru, $\lambda_2$ – to je upravo greška rekonstrukcije. Projekcija na $v_2$ zadržala bi samo $\approx3$ % varijance: točke bi se slile u kratku crtu i izgubili bismo gotovo svu strukturu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Pc</span> <span class="o">=</span> <span class="n">P</span> <span class="o">-</span> <span class="n">P</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">v1</span> <span class="o">=</span> <span class="n">V</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">Pc</span> <span class="o">@</span> <span class="n">v1</span>
+<span class="n">P_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">v1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"var projekcije = </span><span class="si">%.3f</span><span class="s2">   lambda_1 = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">ddof</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">lam</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"udio objašnjene varijance = </span><span class="si">%.3f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">lam</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">lam</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"MSE rekonstrukcije = </span><span class="si">%.3f</span><span class="s2">   lambda_2 * (n-1)/n = </span><span class="si">%.3f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">Pc</span> <span class="o">-</span> <span class="n">P_hat</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)),</span> <span class="n">lam</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">P</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">P</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"projekcija na v2 zadržava </span><span class="si">%.1f</span><span class="s2"> </span><span class="si">%%</span><span class="s2"> varijance"</span> <span class="o">%</span> <span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="n">lam</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">lam</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>var projekcije = 8.677   lambda_1 = 8.677
+udio objašnjene varijance = 0.974
+MSE rekonstrukcije = 0.233   lambda_2 * (n-1)/n = 0.233
+projekcija na v2 zadržava 2.6 % varijance</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>(a) Dokaži $D_{KL}(p\,\Vert\,q)\ge0$ koristeći nejednakost $\ln x\le x-1$. (b) Skup binarnih oznaka ima udio jedinica $\hat p$. Pokaži da konstantnu predikciju $q$ koja minimizira prosječnu binarnu unakrsnu entropiju $-\frac1n\sum_i\bigl[y_i\ln q+(1-y_i)\ln(1-q)\bigr]$ daje upravo $q=\hat p$, i provjeri to numerički na mreži vrijednosti $q$ te na simuliranim oznakama s $\hat p\approx0{,}3$. Što je minimalna vrijednost gubitka?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>(a) $-D_{KL}=\sum_ip_i\ln\frac{q_i}{p_i}\le\sum_ip_i\left(\frac{q_i}{p_i}-1\right)$. (b) Gubitak je $-[\hat p\ln q+(1-\hat p)\ln(1-q)]$; deriviraj po $q$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) $-D_{KL}=\sum_ip_i\ln\dfrac{q_i}{p_i}\le\sum_ip_i\left(\dfrac{q_i}{p_i}-1\right)=\sum_iq_i-\sum_ip_i=0$, pa je $D_{KL}\ge0$; jednakost u $\ln x\le x-1$ vrijedi samo za $x=1$, dakle samo kad je $q_i=p_i$ za sve $i$. (b) Prosječni gubitak ovisi o podacima samo preko $\hat p$: $\ell(q)=-\hat p\ln q-(1-\hat p)\ln(1-q)$. Derivacija $\ell'(q)=-\dfrac{\hat p}q+\dfrac{1-\hat p}{1-q}=0$ daje $\hat p(1-q)=(1-\hat p)q$, tj. $q=\hat p$; $\ell''\gt0$ pa je to minimum. Minimalna vrijednost je $\ell(\hat p)=H(\hat p)$ – entropija oznaka: ni najbolji konstantni model ne može ispod entropije podataka, a model sa značajkama smanjuje gubitak upravo onoliko koliko značajke smanjuju neizvjesnost o $y$. To je (a) u drugom ruhu: $H(p,q)=H(p)+D_{KL}(p\Vert q)\ge H(p)$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">]);</span> <span class="n">qk</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"D_KL(p||q) = </span><span class="si">%.4f</span><span class="s2">   D_KL(p||p) = </span><span class="si">%.4f</span><span class="s2">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pk</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">pk</span> <span class="o">/</span> <span class="n">qk</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">pk</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">pk</span> <span class="o">/</span> <span class="n">pk</span><span class="p">))))</span>
+
+<span class="n">oznake</span> <span class="o">=</span> <span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="mi">10_000</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.3</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">p_hat</span> <span class="o">=</span> <span class="n">oznake</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="n">mreza_q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">,</span> <span class="mi">981</span><span class="p">)</span>
+<span class="n">gubici</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">oznake</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">oznake</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">q</span><span class="p">))</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">mreza_q</span><span class="p">]</span>
+<span class="n">q_best</span> <span class="o">=</span> <span class="n">mreza_q</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">gubici</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"p_hat = </span><span class="si">%.4f</span><span class="s2">   najbolji q na mreži = </span><span class="si">%.3f</span><span class="s2">   min gubitak = </span><span class="si">%.4f</span><span class="s2">   H(p_hat) = </span><span class="si">%.4f</span><span class="s2">"</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">p_hat</span><span class="p">,</span> <span class="n">q_best</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">gubici</span><span class="p">),</span> <span class="o">-</span><span class="p">(</span><span class="n">p_hat</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p_hat</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_hat</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_hat</span><span class="p">))))</span></code></pre></div>
+<pre class="izlaz"><code>D_KL(p||q) = 0.2749   D_KL(p||p) = 0.0000
+p_hat = 0.2965   najbolji q na mreži = 0.297   min gubitak = 0.6079   H(p_hat) = 0.6079</code></pre>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Skalarni produkt $x^\top y$ je sličnost, $\lVert x\rVert_2$ duljina, $\cos\theta=x^\top y/(\lVert x\rVert\lVert y\rVert)$; umnožak $(n\times d)(d\times m)=(n\times m)$, $(AB)^\top=B^\top A^\top$; $Xw$ računa sve predikcije odjednom.</li>
+<li>Simetrična matrica (kovarijacijska, Hesseova) ima realne svojstvene vrijednosti i okomite svojstvene vektore: smjerovi najveće varijance (PCA), pozitivna definitnost = konveksnost. <code>np.linalg.eigh</code>.</li>
+<li>Gradijent $\nabla f$ je smjer najbržeg rasta; učenje je $w\leftarrow w-\eta\nabla L$. Lančano pravilo množi lokalne derivacije duž lanca – to je backprop. Svaki gradijent provjeri konačnim razlikama.</li>
+<li>$P(A\mid B)=P(B\mid A)P(A)/P(B)$: apriorna vjerojatnost klase mijenja zaključak; $\mathbb E$ je linearno, varijanca nezavisnih se zbraja, prosjek $n$ mjerenja ima std $\sigma/\sqrt n$. Bernoulli: $p$, $p(1-p)$; normalna: $68$–$95$–$99{,}7$.</li>
+<li>Entropija = neizvjesnost; unakrsna entropija $-\sum p_i\ln q_i\ge H(p)$ s jednakošću za $q=p$; za one-hot oznaku gubitak je $-\ln q_c$, a gradijent po logitima softmaxa je $q-y$.</li>
+<li>Prosjek, std (<code>ddof</code>!), korelacija $r\in[-1,1]$ mjeri samo linearnu vezu; metrika na malom testu ima nesigurnost reda $\sigma/\sqrt n$.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>M. P. Deisenroth, A. A. Faisal, C. S. Ong, <i>Mathematics for Machine Learning</i>, Cambridge University Press (besplatno na <a href="https://mml-book.github.io/">mml-book.github.io</a>) – poglavlja 2–6.</li>
+<li>G. Strang, <i>Introduction to Linear Algebra</i>, i MIT OCW 18.06 <a href="https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/">Linear Algebra</a> (videozapisi).</li>
+<li>3Blue1Brown, serije <i>Essence of linear algebra</i> i <i>Essence of calculus</i> (YouTube) – vizualna intuicija za vektore, matrice i lančano pravilo.</li>
+<li>I. Goodfellow, Y. Bengio, A. Courville, <i>Deep Learning</i>, MIT Press (besplatno na <a href="https://www.deeplearningbook.org/">deeplearningbook.org</a>), poglavlja 2–4: linearna algebra, vjerojatnost, numerika.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="05-vizualizacija.html"><small>← Prethodna lekcija</small>P5 · Vizualizacija podataka: Matplotlib</a>
+                <span class="lekcija-nav-prazno sljedeca"></span>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

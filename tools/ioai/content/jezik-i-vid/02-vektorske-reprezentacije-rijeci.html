@@ -1,0 +1,676 @@
+@@ meta
+naslov = Vektorske reprezentacije riječi (embeddings)
+podnaslov = Od one-hot vektora preko ko-okurencija i SVD-a do word2veca: kako riječi dobivaju geometriju u kojoj „sličan” znači „blizu”
+oznake = one-hot, distribucijska hipoteza, ko-okurencijska matrica, PPMI, SVD, word2vec, skip-gram, negativno uzorkovanje, kosinusna sličnost, nn.Embedding
+
+@@ ciljevi
+<li>Objasniti zašto one-hot kodiranje riječi ne nosi značenje i kako ga distribucijska hipoteza zamjenjuje gustim vektorima.</li>
+<li>Izgraditi prvi embedding ručno: ko-okurencijska matrica, PPMI težine i SVD; mjeriti sličnost kosinusom i rješavati analogije.</li>
+<li>Razumjeti skip-gram s negativnim uzorkovanjem (word2vec) i implementirati ga u PyTorchu od nule; znati što je <code>nn.Embedding</code>.</li>
+<li>Vizualizirati embeddinge PCA-om i razlikovati statične od kontekstualnih reprezentacija (uvod u transformere, lekcija V3).</li>
+
+@@ teorija
+<p>U lekciji V1 dokument je bio vektor duljine $|V|$ s brojem pojavljivanja svake riječi. Ta reprezentacija ima skrivenu pretpostavku: <em>svake dvije različite riječi jednako su različite</em>. „Pas” je od „mačke” udaljen točno koliko i od „procesora”. Model koji je na treningu vidio samo „pas” ne zna ništa o rečenici s „psom”, a kamoli s „mačkom”. <b>Vektorske reprezentacije riječi</b> (engl. <i>word embeddings</i>) rješavaju to tako da svakoj riječi pridruže <em>gusti</em> vektor u $\mathbb R^d$ s $d\approx50$–$300$, naučen iz podataka tako da riječi sličnog značenja imaju bliske vektore.</p>
+
+<h3>Zašto one-hot ne radi</h3>
+<definicija naslov="One-hot kodiranje">
+Uz rječnik $V=\{t_1,\dots,t_{|V|}\}$ riječ $t_j$ predstavlja se vektorom $e_j\in\{0,1\}^{|V|}$ koji ima jedinicu na mjestu $j$ i nule drugdje. BoW vektor dokumenta iz lekcije V1 upravo je zbroj one-hot vektora njegovih riječi.
+</definicija>
+<p>Za $i\ne j$ vrijedi $e_i^\top e_j=0$ i $\lVert e_i-e_j\rVert=\sqrt2$: svi parovi riječi su međusobno okomiti i jednako udaljeni, pa iz samog kodiranja ne možemo pročitati nikakvu sličnost. Uz to je dimenzija golema ($|V|$ je desetci tisuća), a model s one-hot ulazom mora za svaku riječ zasebno naučiti sve što o njoj zna – znanje se ne prenosi s „pas” na „psa”.</p>
+
+<h3>Distribucijska hipoteza</h3>
+<p>Odakle uopće učiti značenje bez rječnika i označenih podataka? Iz konteksta. <b>Distribucijska hipoteza</b> (Harris, 1954; Firth: „<i>You shall know a word by the company it keeps</i>”) kaže: riječi koje se pojavljuju u sličnim kontekstima imaju slično značenje. „Pas” i „mačka” oboje se javljaju uz „hrani”, „spava”, „dlaka”, „veterinar”; „procesor” se javlja uz „jezgre”, „brzina”, „računalo”. Ako riječ opišemo <em>statistikom njezinih susjeda</em>, sličnost tih statistika postaje sličnost značenja. Sve metode u ovoj lekciji – i transformeri u sljedećoj – samo su različiti načini da se ta ideja pretvori u brojeve.</p>
+
+<h3>Ko-okurencijska matrica i SVD</h3>
+<definicija naslov="Ko-okurencijska matrica">
+Za prozor širine $k$ neka je $C_{ij}$ broj puta kad se riječ $t_j$ pojavila najviše $k$ mjesta lijevo ili desno od riječi $t_i$ u korpusu. Redak $C_{i\cdot}\in\mathbb R^{|V|}$ je <em>distribucijski profil</em> riječi $t_i$ i već je prva (visokodimenzionalna, rijetka) vektorska reprezentacija.
+</definicija>
+<p>Sirovi brojači imaju isti problem kao u V1: dominiraju ih česte riječi („je”, „i”). Rješenje je <b>pozitivna točkasta uzajamna informacija</b> (engl. <i>positive pointwise mutual information</i>):
+$$\mathrm{PPMI}(i,j)=\max\!\left(0,\ \ln\frac{P(i,j)}{P(i)\,P(j)}\right),\qquad P(i,j)=\frac{C_{ij}}{\sum_{a,b}C_{ab}},$$
+koja mjeri koliko se par pojavljuje <em>češće nego slučajno</em>; za neovisne riječi je nula. Matrica PPMI je i dalje $|V|\times|V|$, pa je smanjimo <b>dekompozicijom singularnih vrijednosti</b> (SVD): $M=U\Sigma W^\top$, a prvih $d$ stupaca matrice $U\Sigma$ (ili $U\sqrt\Sigma$) daje $d$-dimenzionalni vektor svake riječi. To je u suštini metoda poznata kao LSA (<i>latent semantic analysis</i>), prvi uspješni embedding iz 1990-ih. Lekcija M6 objašnjava SVD i PCA detaljnije; ovdje je dovoljno znati da SVD bira $d$ smjerova koji najbolje rekonstruiraju matricu.</p>
+
+<h3>word2vec: skip-gram s negativnim uzorkovanjem</h3>
+<p>Umjesto brojanja pa faktorizacije, word2vec (Mikolov i sur., 2013) embedding uči izravno <em>predviđanjem</em>. Svaka riječ ima dva vektora: $v_t$ kad je <b>središnja</b> i $u_t$ kad je <b>kontekstna</b>.</p>
+<definicija naslov="Skip-gram">
+Za svaku poziciju u korpusu središnja riječ $c$ treba predvidjeti svaku kontekstnu riječ $o$ u prozoru. Vjerojatnost modeliramo softmaxom nad skalarnim produktima:
+$$P(o\mid c)=\frac{\exp(u_o^\top v_c)}{\sum_{t\in V}\exp(u_t^\top v_c)},$$
+a učimo maksimizirajući $\sum\ln P(o\mid c)$ po svim parovima (središnja, kontekstna) u korpusu. Varijanta <b>CBOW</b> (<i>continuous bag of words</i>) radi obrnuto: iz zbroja konteksta predviđa središnju riječ.
+</definicija>
+<p>Nazivnik softmaxa zbraja po cijelom rječniku – za $|V|=10^5$ to je preskupo za svaki par. <b>Negativno uzorkovanje</b> (engl. <i>negative sampling</i>) zamjenjuje višeklasni problem binarnim: za pravi par $(c,o)$ model treba reći „da”, a za $K$ slučajno izvučenih <b>negativnih</b> riječi $n_1,\dots,n_K$ „ne”:
+$$L(c,o)=-\ln\sigma(u_o^\top v_c)-\sum_{k=1}^{K}\ln\sigma(-u_{n_k}^\top v_c),\qquad \sigma(z)=\frac1{1+e^{-z}} .$$
+Negativne riječi vuku se iz raspodjele $P(t)\propto f(t)^{3/4}$ ($f$ je frekvencija), koja rijetke riječi izvlači nešto češće od njihove frekvencije. Tipično je $K=5$–$20$, $d=100$–$300$, prozor $2$–$5$. Pokazano je (Levy i Goldberg, 2014) da SGNS implicitno faktorizira matricu pomaknutog PMI-ja – obje metode iz ove lekcije rade u suštini isto, samo što je word2vec skalabilan na milijarde tokena.</p>
+<napomena>Gradijent gubitka po $v_c$ je $(\sigma(u_o^\top v_c)-1)\,u_o+\sum_k\sigma(u_{n_k}^\top v_c)\,u_{n_k}$: središnji vektor privlači se k pravom kontekstu i odguruje od negativnih primjera, jače što je model „sigurniji” u pogrešku. Izvedi to u Zadatku 4 i provjeri autogradom – isti račun je u pozadini svakog <code>loss.backward()</code>.</napomena>
+
+<h3>Sličnost i analogije</h3>
+<definicija naslov="Kosinusna sličnost">
+$$\cos(a,b)=\frac{a^\top b}{\lVert a\rVert\,\lVert b\rVert}\in[-1,1].$$
+Mjeri kut, ne duljinu: vektori čestih riječi imaju veću normu, a kosinus to ignorira. Za normirane vektore vrijedi $\lVert a-b\rVert^2=2-2\cos(a,b)$, pa su kosinusna sličnost i euklidska udaljenost tada ekvivalentne.
+</definicija>
+<p><b>Analogije</b> su najpoznatiji test embeddinga: „kralj : kraljica = princ : ?”. Metoda 3CosAdd traži riječ $x$ koja maksimizira $\cos(x,\ v_{\text{kraljica}}-v_{\text{kralj}}+v_{\text{princ}})$, isključujući tri zadane riječi. Radi kad je razlika „ženski rod − muški rod” u prostoru približno isti vektor za sve parove – a to se u dobrim embeddinzima stvarno događa, jer parovi dijele istu razliku u kontekstima („ona”, „njezin” umjesto „on”, „njegov”).</p>
+
+<h3>nn.Embedding</h3>
+<p>U PyTorchu je <code>nn.Embedding(V, d)</code> jednostavno matrica $E\in\mathbb R^{|V|\times d}$ koja za niz indeksa vraća odgovarajuće retke: <code>emb(torch.tensor([3, 7]))</code> daje $E_3$ i $E_7$. Matematički je to one-hot vektor pomnožen matricom, $e_j^\top E=E_j$, ali implementirano kao <em>pretraživanje tablice</em> (lookup), bez množenja s golemim rijetkim vektorom. Slojevi embeddinga mogu se (a) učiti od nule zajedno s ostatkom mreže (prvi sloj svakog NLP modela), (b) inicijalizirati prethodno naučenim vektorima (<code>nn.Embedding.from_pretrained</code>) i po želji zamrznuti (<code>freeze=True</code>). Isti sloj koristi se i za bilo koju kategorijsku varijablu u tabularnim zadacima: umjesto one-hot stupaca za „grad” ili „ID proizvoda”, model uči $d$-dimenzionalni vektor za svaku kategoriju.</p>
+
+<h3>Statični i kontekstualni embeddinzi</h3>
+<p>Sve reprezentacije iz ove lekcije su <b>statične</b>: riječ ima jedan vektor bez obzira na rečenicu. „Grad” u „oluja s gradom” i „grad Zagreb” dobit će isti vektor – nužno negdje između dvaju značenja (Zadatak 6). Modeli iz lekcije V3 (BERT i srodnici) računaju <b>kontekstualne</b> embeddinge: vektor riječi ovisi o cijeloj rečenici, pa dva značenja dobiju dva različita vektora. Statični embeddinzi i dalje su koristan alat (brzi, mali, prikladni za pretraživanje i kao inicijalizacija), a ideje iz ove lekcije – lookup tablica, kosinus, predviđanje konteksta kao cilj učenja – ostaju identične u transformerima.</p>
+
+@@ primjeri
+<primjer>
+<p>Generiraj sintetički korpus u kojem riječi imaju jasnu „značenjsku” strukturu (osobe s rodom i ulogom, životinje, hrana, gradovi, vrijeme), izgradi ko-okurencijsku matricu s prozorom $2$, primijeni PPMI i SVD na $d=10$ dimenzija te provjeri daju li kosinusne sličnosti smislene susjede.</p>
+<rjesenje>
+<p><b>Korak 1: korpus.</b> Pravi korpus bi tražio download; ovdje gradimo igračku s poznatom istinom, što omogućuje da provjerimo radi li metoda. Svaka rečenica opisuje jednu „ciljnu” riječ okruženu kontekstnim riječima koje ovise o njezinim svojstvima: osobe imaju rod (kontekst „on”/„ona”…) i ulogu (dvor, obitelj, škola), a ostale kategorije svoje kontekste. Frekvencije ciljnih riječi padaju po Zipfovu zakonu (prva riječ popisa najčešća), a u 15 % rečenica jedna je kontekstna riječ nasumična – „šum” kakvog u pravom tekstu ima napretek. Gramatika je namjerno zanemarena.</p>
+<kod jezik="python">
+import numpy as np
+
+rng = np.random.default_rng(0)
+
+OSOBE = {"kralj": ("m", "dvor"), "kraljica": ("ž", "dvor"), "princ": ("m", "dvor"),
+         "princeza": ("ž", "dvor"), "otac": ("m", "obitelj"), "majka": ("ž", "obitelj"),
+         "brat": ("m", "obitelj"), "sestra": ("ž", "obitelj"), "učitelj": ("m", "škola"),
+         "učiteljica": ("ž", "škola")}
+ROD = {"m": ["on", "njegov", "gospodin", "muškarac"], "ž": ["ona", "njezin", "gospođa", "žena"]}
+ULOGA = {"dvor": ["dvorac", "kruna", "prijestolje", "kraljevstvo"],
+         "obitelj": ["dom", "večera", "obitelj", "vrt"],
+         "škola": ["škola", "razred", "učenici", "ploča"]}
+KATEGORIJE = {
+    "životinja": (["pas", "mačka", "konj", "krava", "ovca"],
+                  ["trči", "spava", "štala", "dvorište", "livada", "dlaka"]),
+    "hrana": (["kruh", "sir", "juha", "jabuka", "riža"],
+              ["jede", "kuha", "ručak", "tanjur", "ukusno", "kuhinja"]),
+    "grad": (["zagreb", "split", "osijek", "zadar"],
+             ["vlak", "ulica", "putuje", "trg", "stanovnici", "most"]),
+    "vrijeme": (["kiša", "snijeg", "vjetar", "magla"],
+                ["oluja", "pada", "oblak", "hladno", "prognoza", "jutros"]),
+}
+GLAGOLI = ["voli", "gleda", "traži", "čuva", "ima"]
+CILJNE = list(OSOBE) + sum([c for c, _ in KATEGORIJE.values()], [])
+KONTEKSTNE = sum(ROD.values(), []) + sum(ULOGA.values(), []) + sum([k for _, k in KATEGORIJE.values()], [])
+
+def zipf(lista):
+    """Zipfov izbor: i-ta riječ popisa ima vjerojatnost razmjernu 1/i (kao u pravom jeziku)."""
+    p = 1 / np.arange(1, len(lista) + 1)
+    return str(rng.choice(lista, p=p / p.sum()))
+
+def recenica():
+    if rng.random() < 0.5:
+        osoba = zipf(list(OSOBE))
+        rod, uloga = OSOBE[osoba]
+        rijeci = [rng.choice(ROD[rod]), osoba, rng.choice(GLAGOLI), rng.choice(ULOGA[uloga])]
+        if rng.random() < 0.5:
+            rijeci[0], rijeci[1] = rijeci[1], rijeci[0]
+    else:
+        cilj, kontekst = KATEGORIJE[rng.choice(list(KATEGORIJE))]
+        rijeci = [rng.choice(kontekst), zipf(cilj), rng.choice(GLAGOLI), rng.choice(kontekst)]
+    rijeci = [str(t) for t in rijeci]
+    if rng.random() < 0.15:                       # šum: 15 % rečenica ima jednu nasumičnu riječ
+        rijeci[rng.choice([0, 3])] = str(rng.choice(KONTEKSTNE))
+    return rijeci
+
+korpus = [recenica() for _ in range(8000)]
+for r in korpus[:3]:
+    print(" ".join(r))
+rjecnik = sorted({t for r in korpus for t in r})
+idx = {t: j for j, t in enumerate(rjecnik)}
+V = len(rjecnik)
+print("rečenica:", len(korpus), " tokena:", sum(map(len, korpus)), " rječnik:", V)
+</kod>
+<izlaz>
+ulica zagreb voli vlak
+trg osijek čuva trg
+vlak osijek traži vlak
+rečenica: 8000  tokena: 32000  rječnik: 77
+</izlaz>
+<p><b>Korak 2: ko-okurencijska matrica.</b> Za svaku poziciju gledamo $k=2$ mjesta lijevo i desno; matrica je simetrična.</p>
+<kod jezik="python">
+def kookurencije(korpus, k=2):
+    C = np.zeros((V, V))
+    for r in korpus:
+        ind = [idx[t] for t in r]
+        for i, ci in enumerate(ind):
+            for j in range(max(0, i - k), min(len(ind), i + k + 1)):
+                if j != i:
+                    C[ci, ind[j]] += 1
+    return C
+
+C = kookurencije(korpus, k=2)
+print("simetrična:", np.array_equal(C, C.T), " ukupno parova:", int(C.sum()))
+for t in ("kralj", "pas"):
+    red = C[idx[t]]
+    vrh = np.argsort(-red)[:5]
+    print("%-6s najčešći susjedi:" % t, [(rjecnik[j], int(red[j])) for j in vrh])
+</kod>
+<izlaz>
+simetrična: True  ukupno parova: 80000
+kralj  najčešći susjedi: [('muškarac', 335), ('gospodin', 328), ('on', 291), ('njegov', 288), ('voli', 264)]
+pas    najčešći susjedi: [('dlaka', 143), ('štala', 137), ('trči', 134), ('dvorište', 132), ('spava', 126)]
+</izlaz>
+<p>Najčešći susjedi su upravo glagoli i kontekstne riječi koje su ušle u rečenice – ali glagoli („ima”, „voli”) stoje uz <em>sve</em> ciljne riječi i ne razlikuju ništa. To je razlog za PPMI.</p>
+<p><b>Korak 3: PPMI i SVD.</b> PPMI računamo vektorski; SVD daje $U\Sigma W^\top$, a embedding su prvih $d$ stupaca od $U\Sigma$.</p>
+<kod jezik="python">
+def ppmi(C):
+    P = C / C.sum()
+    pi, pj = P.sum(axis=1, keepdims=True), P.sum(axis=0, keepdims=True)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        M = np.log(P / (pi * pj))
+    M[~np.isfinite(M)] = 0
+    return np.maximum(M, 0)
+
+M = ppmi(C)
+print("PPMI(kralj, kruna) = %.2f   PPMI(kralj, ima) = %.2f   PPMI(kralj, štala) = %.2f"
+      % (M[idx["kralj"], idx["kruna"]], M[idx["kralj"], idx["ima"]], M[idx["kralj"], idx["štala"]]))
+
+U, S, Wt = np.linalg.svd(M)
+d = 10
+E_svd = U[:, :d] * S[:d]                       # (V, d) embedding
+print("prvih 6 singularnih vrijednosti:", S[:6].round(1))
+print("udio „energije” u prvih %d:" % d, round((S[:d] ** 2).sum() / (S ** 2).sum(), 3))
+</kod>
+<izlaz>
+PPMI(kralj, kruna) = 1.10   PPMI(kralj, ima) = 0.28   PPMI(kralj, štala) = 0.00
+prvih 6 singularnih vrijednosti: [16.5 14.2 13.8 13.6 13.6 12.8]
+udio „energije” u prvih 10: 0.816
+</izlaz>
+<p>PPMI je visok za par koji se pojavljuje mnogo češće nego slučajno („kralj”–„kruna”), oko nule za glagol koji ide uza sve i nula za riječi koje se nikad ne sreću. Deset dimenzija zadržava većinu informacije iz matrice veličine $V\times V$.</p>
+<p><b>Korak 4: kosinusna sličnost i susjedi.</b> Normiramo retke pa su sve sličnosti jedan matrični produkt.</p>
+<kod jezik="python">
+def normiraj(E):
+    return E / np.linalg.norm(E, axis=1, keepdims=True)
+
+def susjedi(E, rijec, n=4):
+    En = normiraj(E)
+    sl = En @ En[idx[rijec]]
+    sl[idx[rijec]] = -np.inf
+    return [(rjecnik[j], round(float(sl[j]), 2)) for j in np.argsort(-sl)[:n]]
+
+for t in ("kralj", "pas", "zagreb", "ona"):
+    print("%-7s" % t, susjedi(E_svd, t))
+</kod>
+<izlaz>
+kralj   [('princ', 1.0), ('prijestolje', 0.99), ('dvorac', 0.99), ('kruna', 0.99)]
+pas     [('konj', 1.0), ('krava', 1.0), ('mačka', 1.0), ('ovca', 1.0)]
+zagreb  [('zadar', 1.0), ('split', 1.0), ('osijek', 1.0), ('čuva', 0.48)]
+ona     [('žena', 1.0), ('gospođa', 1.0), ('njezin', 1.0), ('obitelj', 0.99)]
+</izlaz>
+<p>Susjedi su točno ono što smo ugradili u korpus: „kralj” je najbliži „princu” (isti rod i uloga) i riječima dvora, „pas” ostalim životinjama, „zagreb” gradovima, a kontekstna riječ „ona” drugim ženskim kontekstnim riječima. Nitko modelu nije rekao što je životinja – strukturu je rekonstruirao samo iz susjedstava, što je distribucijska hipoteza na djelu.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Implementiraj skip-gram s negativnim uzorkovanjem u PyTorchu i istreniraj ga na korpusu iz Primjera 1 ($d=10$, prozor $2$, $K=5$ negativnih). Usporedi susjede s onima iz SVD-a.</p>
+<rjesenje>
+<p><b>Korak 1: parovi za učenje.</b> Iz korpusa izvlačimo sve parove (središnja, kontekstna) unutar prozora; to je isti račun kao za matricu $C$, samo bez zbrajanja. Raspodjela za negativno uzorkovanje je $f^{3/4}$ normirana.</p>
+<kod jezik="python">
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+torch.manual_seed(0)
+
+def parovi(korpus, k=2):
+    c, o = [], []
+    for r in korpus:
+        ind = [idx[t] for t in r]
+        for i, ci in enumerate(ind):
+            for j in range(max(0, i - k), min(len(ind), i + k + 1)):
+                if j != i:
+                    c.append(ci); o.append(ind[j])
+    return torch.tensor(c), torch.tensor(o)
+
+sred, kont = parovi(korpus)
+frek = torch.bincount(sred, minlength=V).float()
+p_neg = frek ** 0.75
+p_neg /= p_neg.sum()
+print("parova za učenje:", len(sred))
+print("P_neg najčešće : %.3f   najrjeđe: %.3f" % (p_neg.max(), p_neg.min()))
+</kod>
+<izlaz>
+parova za učenje: 80000
+P_neg najčešće : 0.045   najrjeđe: 0.003
+</izlaz>
+<p><b>Korak 2: model i gubitak.</b> Dvije tablice <code>nn.Embedding</code>: za središnje ($v$) i kontekstne ($u$) vektore. Gubitak je formula iz teorije; <code>F.logsigmoid</code> je numerički stabilan $\ln\sigma$.</p>
+<kod jezik="python">
+class SkipGram(nn.Module):
+    def __init__(self, V, d):
+        super().__init__()
+        self.v = nn.Embedding(V, d)       # središnji vektori
+        self.u = nn.Embedding(V, d)       # kontekstni vektori
+        nn.init.uniform_(self.v.weight, -0.5 / d, 0.5 / d)
+        nn.init.zeros_(self.u.weight)
+
+    def forward(self, c, o, neg):
+        vc, uo, un = self.v(c), self.u(o), self.u(neg)          # (B,d), (B,d), (B,K,d)
+        poz = F.logsigmoid((vc * uo).sum(1))                     # (B,)
+        ng = F.logsigmoid(-torch.bmm(un, vc.unsqueeze(2)).squeeze(2)).sum(1)
+        return -(poz + ng).mean()
+
+def treniraj_sgns(d=10, K=5, epohe=5, B=512, lr=0.02, seed=0):
+    torch.manual_seed(seed)
+    model = SkipGram(V, d)
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    n = len(sred)
+    for ep in range(epohe):
+        perm = torch.randperm(n)
+        ukupno = 0.0
+        for s in range(0, n, B):
+            b = perm[s:s + B]
+            neg = torch.multinomial(p_neg, len(b) * K, replacement=True).view(len(b), K)
+            gubitak = model(sred[b], kont[b], neg)
+            opt.zero_grad(); gubitak.backward(); opt.step()
+            ukupno += gubitak.item() * len(b)
+        print("epoha %d  gubitak = %.3f" % (ep + 1, ukupno / n))
+    return model.v.weight.detach().numpy()
+
+E_sg = treniraj_sgns()
+</kod>
+<izlaz>
+epoha 1  gubitak = 2.670
+epoha 2  gubitak = 2.059
+epoha 3  gubitak = 2.016
+epoha 4  gubitak = 2.005
+epoha 5  gubitak = 1.999
+</izlaz>
+<p>Gubitak pada i stabilizira se – ne može do nule, jer su konteksti slučajni (riječ „kralj” ne može sa sigurnošću predvidjeti hoće li iza nje stajati „kruna” ili „dvorac”). Pet epoha nad stotinjak tisuća parova traje nekoliko sekundi na procesoru.</p>
+<p><b>Korak 3: usporedba sa SVD-om.</b></p>
+<kod jezik="python">
+for t in ("kralj", "pas", "zagreb", "ona"):
+    print("%-7s" % t, susjedi(E_sg, t))
+
+def preklapanje_susjeda(E1, E2, n=3):
+    """Prosječni udio zajedničkih među n najbližih susjeda, po svim ciljnim riječima."""
+    uk = 0
+    for t in CILJNE:
+        a = {w for w, _ in susjedi(E1, t, n)}
+        b = {w for w, _ in susjedi(E2, t, n)}
+        uk += len(a & b) / n
+    return uk / len(CILJNE)
+
+print("preklapanje 3 najbliža susjeda, SVD vs SGNS: %.2f" % preklapanje_susjeda(E_svd, E_sg))
+</kod>
+<izlaz>
+kralj   [('princ', 0.97), ('otac', 0.69), ('brat', 0.67), ('učitelj', 0.67)]
+pas     [('konj', 0.99), ('mačka', 0.99), ('ovca', 0.99), ('krava', 0.97)]
+zagreb  [('split', 1.0), ('osijek', 1.0), ('zadar', 0.99), ('konj', 0.62)]
+ona     [('gospođa', 0.99), ('njezin', 0.99), ('žena', 0.99), ('muškarac', 0.56)]
+preklapanje 3 najbliža susjeda, SVD vs SGNS: 0.81
+</izlaz>
+<p>Obje metode uglavnom nalaze iste susjede – u skladu s rezultatom da SGNS implicitno faktorizira (pomaknutu) PMI matricu. Brojevi sličnosti razlikuju se (SVD gura sve riječi iste skupine na gotovo isti vektor, SGNS ih razmazuje jer je učenje stohastičko i kratko), a razlike u susjedima tiču se riječi na granici skupina. <em>Poredak</em> susjeda, ne apsolutna vrijednost kosinusa, ono je što embeddinge čini korisnima.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Pomoću embeddinga iz Primjera 1 i 2: (a) riješi analogije „kralj : kraljica = princ : ?” i „otac : majka = brat : ?”; (b) nacrtaj PCA projekciju svih riječi u ravninu; (c) pokaži da je <code>nn.Embedding</code> lookup jednak množenju one-hot vektora matricom i upotrijebi ga kao zamrznuti prvi sloj koji rečenicu pretvara u prosjek vektora.</p>
+<rjesenje>
+<p><b>Korak 1: analogije (3CosAdd).</b> Tražimo riječ najbližu vektoru $b-a+c$, isključujući $a,b,c$.</p>
+<kod jezik="python">
+def analogija(E, a, b, c, n=3):
+    En = normiraj(E)
+    cilj = En[idx[b]] - En[idx[a]] + En[idx[c]]
+    sl = En @ (cilj / np.linalg.norm(cilj))
+    for t in (a, b, c):
+        sl[idx[t]] = -np.inf
+    return [(rjecnik[j], round(float(sl[j]), 2)) for j in np.argsort(-sl)[:n]]
+
+for ime, E in (("SVD ", E_svd), ("SGNS", E_sg)):
+    print(ime, "kralj:kraljica = princ:?", analogija(E, "kralj", "kraljica", "princ"))
+    print(ime, "otac:majka = brat:?    ", analogija(E, "otac", "majka", "brat"))
+    print(ime, "kralj:dvorac = otac:?  ", analogija(E, "kralj", "dvorac", "otac"))
+</kod>
+<izlaz>
+SVD  kralj:kraljica = princ:? [('princeza', 1.0), ('majka', 1.0), ('sestra', 1.0)]
+SVD  otac:majka = brat:?     [('sestra', 1.0), ('kraljica', 1.0), ('princeza', 1.0)]
+SVD  kralj:dvorac = otac:?   [('princeza', 0.99), ('kraljica', 0.99), ('brat', 0.99)]
+SGNS kralj:kraljica = princ:? [('princeza', 0.97), ('učiteljica', 0.77), ('majka', 0.75)]
+SGNS otac:majka = brat:?     [('sestra', 0.96), ('učiteljica', 0.75), ('kraljica', 0.75)]
+SGNS kralj:dvorac = otac:?   [('obitelj', 0.8), ('dom', 0.79), ('večera', 0.77)]
+</izlaz>
+<p>Analogija radi jer je razlika „kraljica − kralj” u korpusu doslovno razlika konteksta „ona/njezin/gospođa/žena” prema „on/njegov/gospodin/muškarac”, a ista razlika vrijedi i za „princeza − princ” i za „majka − otac”. Treća analogija traži smjer „uloga” (od osobe prema njezinu mjestu): SGNS ga nalazi („obitelj”, „dom”, „večera”), a SVD ne – njegovi vektori osoba gotovo su identični (kosinus $1{,}0$), pa razlika „dvorac − kralj” ne nosi informaciju o ulozi nego uglavnom razliku između ciljnih i kontekstnih riječi. Analogije su osjetljiv test: rade samo kad je traženi smjer u prostoru dosljedan i dovoljno izražen.</p>
+<p><b>Korak 2: vizualizacija PCA-om.</b> Projiciramo normirane vektore na dvije glavne komponente i obojimo ih po kategoriji koju znamo iz generatora korpusa.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+
+kategorija = {}
+for o, (rod, uloga) in OSOBE.items():
+    kategorija[o] = "osoba (%s)" % rod
+for ime, (cilj, kontekst) in KATEGORIJE.items():
+    for t in cilj:
+        kategorija[t] = ime
+ciljne = [t for t in rjecnik if t in kategorija]
+
+pca = PCA(n_components=2, random_state=0)
+Z = pca.fit_transform(normiraj(E_sg)[[idx[t] for t in ciljne]])
+print("objašnjena varijanca:", pca.explained_variance_ratio_.round(3))
+
+fig, ax = plt.subplots(figsize=(7, 5))
+for kat in sorted(set(kategorija.values())):
+    m = [i for i, t in enumerate(ciljne) if kategorija[t] == kat]
+    ax.scatter(Z[m, 0], Z[m, 1], label=kat, s=40)
+for i, t in enumerate(ciljne):
+    ax.annotate(t, Z[i], fontsize=8, xytext=(3, 3), textcoords="offset points")
+ax.legend(fontsize=8); fig.tight_layout(); fig.savefig("embeddinzi_pca.png", dpi=120)
+print("spremljeno embeddinzi_pca.png")
+</kod>
+<izlaz>
+objašnjena varijanca: [0.284 0.228]
+spremljeno embeddinzi_pca.png
+</izlaz>
+<p>Na slici su četiri zbijene, jasno odvojene nakupine (gradovi, hrana, vrijeme, životinje) i raspršenija skupina osoba u donjem desnom dijelu. Rod se u prve dvije komponente <em>ne</em> vidi – muške i ženske osobe su izmiješane („kralj” je nacrtan uz „učiteljicu”) iako analogije pokazuju da je smjer roda u prostoru jasno prisutan: dvije komponente objašnjavaju tek polovicu varijance i troše je na razlike među kategorijama. PCA je za embeddinge alat za <em>pregled</em>, ne za mjerenje; udaljenosti na slici znaju varati.</p>
+<p><b>Korak 3: nn.Embedding kao sloj.</b> Učitavamo SVD vektore u zamrznuti sloj, provjeravamo jednakost s one-hot množenjem i rečenicu pretvaramo u prosjek vektora njezinih riječi – najjednostavniji „embedding rečenice”, koji se zatim predaje bilo kojem klasifikatoru.</p>
+<kod jezik="python">
+emb = nn.Embedding.from_pretrained(torch.tensor(E_svd, dtype=torch.float32), freeze=True)
+ind = torch.tensor([idx["kralj"], idx["pas"]])
+one_hot = F.one_hot(ind, num_classes=V).float()             # (2, V)
+print("lookup == one-hot @ E:", torch.allclose(emb(ind), one_hot @ emb.weight))
+print("broj parametara: one-hot ulaz %d, embedding %d" % (V * V, emb.weight.numel()))
+
+def vektor_recenice(rijeci):
+    return emb(torch.tensor([idx[t] for t in rijeci])).mean(dim=0)
+
+r1 = vektor_recenice("kraljica gleda prijestolje".split())
+r2 = vektor_recenice("princ ima krunu".replace("krunu", "kruna").split())
+r3 = vektor_recenice("pas trči livada".split())
+cos = nn.CosineSimilarity(dim=0)
+print("cos(dvor, dvor) = %.2f   cos(dvor, životinja) = %.2f" % (cos(r1, r2), cos(r1, r3)))
+print("zahtijeva gradijent:", emb.weight.requires_grad)
+</kod>
+<izlaz>
+lookup == one-hot @ E: True
+broj parametara: one-hot ulaz 5929, embedding 770
+cos(dvor, dvor) = 0.96   cos(dvor, životinja) = 0.21
+zahtijeva gradijent: False
+</izlaz>
+<p>Dvije rečenice o dvoru bliže su jedna drugoj nego rečenici o psu, iako ne dijele nijednu riječ – upravo ono što BoW iz V1 ne može. Prosjek embeddinga gubi redoslijed riječi (kao i BoW), ali prenosi znanje između sličnih riječi; u lekciji D6 prosjek zamjenjuje mehanizam pažnje koji riječi važe ovisno o kontekstu.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za rječnik od $|V|=50\,000$ riječi usporedi one-hot kodiranje i embedding dimenzije $d=300$: koliko brojeva treba za jednu riječ, a koliko za tablicu svih riječi? Provjeri u NumPy-ju da je kosinusna sličnost bilo kojih dviju različitih one-hot riječi $0$, a euklidska udaljenost $\sqrt2$.</p>
+<rjesenje>
+<p>One-hot: $50\,000$ brojeva po riječi (od kojih jedan nije nula), tablica je identiteta $50\,000\times50\,000=2{,}5\cdot10^9$ brojeva, ali ne sadrži nikakvu informaciju. Embedding: $300$ brojeva po riječi, tablica $50\,000\times300=1{,}5\cdot10^7$ brojeva (60 MB u <code>float32</code>), i ti brojevi nose sličnost.</p>
+<kod jezik="python">
+I = np.eye(50)
+e_i, e_j = I[3], I[17]
+print("cos =", e_i @ e_j / (np.linalg.norm(e_i) * np.linalg.norm(e_j)), " udaljenost =", round(np.linalg.norm(e_i - e_j), 4))
+print("tablica embeddinga: %d brojeva" % (50_000 * 300))
+</kod>
+<izlaz>
+cos = 0.0  udaljenost = 1.4142
+tablica embeddinga: 15000000 brojeva
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Ručno izračunaj kosinusnu sličnost vektora $a=(1,2,2)$ i $b=(2,0,1)$. Zatim dokaži identitet $\lVert a-b\rVert^2=2-2\cos(a,b)$ za jedinične vektore i provjeri ga numerički na dva normirana retka iz <code>E_svd</code>.</p>
+<rjesenje>
+<p>$a^\top b=2+0+2=4$, $\lVert a\rVert=\sqrt{1+4+4}=3$, $\lVert b\rVert=\sqrt5$, pa je $\cos=\frac{4}{3\sqrt5}\approx0{,}596$. Za jedinične $a,b$: $\lVert a-b\rVert^2=a^\top a-2a^\top b+b^\top b=1-2\cos(a,b)+1$.</p>
+<kod jezik="python">
+a, b = np.array([1., 2., 2.]), np.array([2., 0., 1.])
+print("cos =", round(a @ b / np.linalg.norm(a) / np.linalg.norm(b), 4))
+En = normiraj(E_svd)
+x, y = En[idx["kralj"]], En[idx["pas"]]
+print(round(np.sum((x - y) ** 2), 6), round(2 - 2 * x @ y, 6))
+</kod>
+<izlaz>
+cos = 0.5963
+1.897433 1.897433
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za rečenicu „pas trči i pas spava” ručno napiši ko-okurencijsku matricu s prozorom $k=1$ (rječnik abecedno: i, pas, spava, trči). Provjeri kodom (napiši malu funkciju neovisnu o globalnom rječniku).</p>
+<rjesenje>
+<p>Susjedni parovi su (pas, trči), (trči, i), (i, pas), (pas, spava), svaki brojimo u oba smjera. Redak „pas”: i $1$, spava $1$, trči $1$; redak „i”: pas $1$, trči $1$; redak „spava”: pas $1$; redak „trči”: i $1$, pas $1$. Dijagonala je nula.</p>
+<kod jezik="python">
+def mala_kook(rijeci, k=1):
+    rj = sorted(set(rijeci))
+    ix = {t: j for j, t in enumerate(rj)}
+    Cm = np.zeros((len(rj), len(rj)), dtype=int)
+    for i, t in enumerate(rijeci):
+        for j in range(max(0, i - k), min(len(rijeci), i + k + 1)):
+            if j != i:
+                Cm[ix[t], ix[rijeci[j]]] += 1
+    return rj, Cm
+
+rj, Cm = mala_kook("pas trči i pas spava".split())
+print(rj)
+print(Cm)
+</kod>
+<izlaz>
+['i', 'pas', 'spava', 'trči']
+[[0 1 0 1]
+ [1 0 1 1]
+ [0 1 0 0]
+ [1 1 0 0]]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Umjesto PPMI-ja primijeni SVD izravno na sirove brojače $C$. Usporedi susjede riječi „kralj” s onima iz Primjera 1, a zatim izračunaj korelaciju između prvog lijevog singularnog vektora i frekvencije riječi za $C$ i za PPMI matricu. Što prva (najvažnija) komponenta sirovih brojača zapravo opisuje?</p>
+<rjesenje>
+<kod jezik="python">
+frekvencija = C.sum(axis=1)
+for ime, Mx in (("sirovi C", C), ("PPMI    ", M)):
+    Ux, Sx, _ = np.linalg.svd(Mx)
+    Ex = Ux[:, :10] * Sx[:10]
+    kor = abs(np.corrcoef(Ux[:, 0], frekvencija)[0, 1])
+    print("%s  |korelacija(U[:,0], frekvencija)| = %.2f   kralj: %s"
+          % (ime, kor, susjedi(Ex, "kralj", 4)))
+</kod>
+<izlaz>
+sirovi C  |korelacija(U[:,0], frekvencija)| = 0.91   kralj: [('princ', 1.0), ('brat', 0.99), ('otac', 0.99), ('učitelj', 0.99)]
+PPMI      |korelacija(U[:,0], frekvencija)| = 0.33   kralj: [('princ', 1.0), ('prijestolje', 0.99), ('dvorac', 0.99), ('kruna', 0.99)]
+</izlaz>
+<p>Prvi singularni vektor sirove matrice jako je koreliran s frekvencijom riječi ($0{,}91$, prema $0{,}33$ za PPMI): najvažnija dimenzija embeddinga ne opisuje značenje, nego koliko je riječ česta, i tako troši kapacitet modela. Susjedi „kralja” ovdje su još uvijek razumni jer je korpus igračka s jakom strukturom – rod je u najbližem susjedstvu pa prevlada i daje muške osobe svih uloga – no PPMI uz to ističe i riječi dvora, jer uklanja očekivani broj pojavljivanja i ostavlja samo „iznenađenje”. U pravim korpusima, gdje frekvencije variraju tisuću puta, sirovi brojači daju gotovo neupotrebljive susjede (sve je slično riječima „je” i „i”).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Izgradi PPMI+SVD embeddinge s prozorom $k=1$ i $k=3$ i usporedi susjede riječi „kralj” i glagola „voli”. Kako širina prozora mijenja ono što embedding „zna”? (U pravim korpusima uski prozori daju sintaktičke, a široki tematske sličnosti.)</p>
+<rjesenje>
+<kod jezik="python">
+for k in (1, 3):
+    Uk, Sk, _ = np.linalg.svd(ppmi(kookurencije(korpus, k=k)))
+    Ek = Uk[:, :10] * Sk[:10]
+    print("k = %d  kralj:" % k, susjedi(Ek, "kralj", 3), " voli:", susjedi(Ek, "voli", 3))
+</kod>
+<izlaz>
+k = 1  kralj: [('otac', 1.0), ('učitelj', 1.0), ('princ', 1.0)]  voli: [('gleda', 1.0), ('traži', 0.99), ('ima', 0.96)]
+k = 3  kralj: [('princ', 1.0), ('kruna', 0.98), ('kraljevstvo', 0.98)]  voli: [('gleda', 0.98), ('traži', 0.97), ('ima', 0.93)]
+</izlaz>
+<p>Uz $k=1$ „kralj” vidi samo neposredne susjede (riječ roda i glagol), pa su mu najbliže druge <em>muške</em> osobe bez obzira na ulogu – rod je „sintaktičko” svojstvo neposrednog susjedstva. Uz $k=3$ vidi i riječ uloge na kraju rečenice, pa se približavaju riječi dvora („kruna”, „kraljevstvo”) i „princ” kao jedina osoba istog roda <em>i</em> uloge. Glagoli su uz svaki prozor međusobno slični (svi stoje na istom mjestu uz iste riječi) i to je ispravno: embedding ne zna značenje glagola jer ga korpus ne razlikuje.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Sastavi skup od svih parova (muška osoba, ženska osoba) iste uloge iz <code>OSOBE</code> i izmjeri <b>točnost analogija</b>: za svaki uređeni par parova $(a,b),(c,d)$ s $(a,b)\ne(c,d)$ provjeri daje li 3CosAdd za $a:b=c:?$ upravo $d$. Usporedi SVD i SGNS te SGNS s $d=2$ i $d=30$ dimenzija (koristi <code>treniraj_sgns</code>; ispis epoha možeš ostaviti).</p>
+<naputak>Parova je pet, pa je upita $5\cdot4=20$. Točnost je udio upita u kojima je prva vraćena riječ jednaka $d$.</naputak>
+<rjesenje>
+<kod jezik="python">
+parovi_rod = [("kralj", "kraljica"), ("princ", "princeza"), ("otac", "majka"),
+              ("brat", "sestra"), ("učitelj", "učiteljica")]
+
+def tocnost_analogija(E):
+    pogodaka, upita = 0, 0
+    for a, b in parovi_rod:
+        for c, dd in parovi_rod:
+            if (a, b) != (c, dd):
+                upita += 1
+                pogodaka += analogija(E, a, b, c, n=1)[0][0] == dd
+    return pogodaka / upita
+
+print("SVD d=10 : %.2f" % tocnost_analogija(E_svd))
+print("SGNS d=10: %.2f" % tocnost_analogija(E_sg))
+for d_ in (2, 30):
+    E_d = treniraj_sgns(d=d_, epohe=3)
+    print("SGNS d=%-2d: %.2f" % (d_, tocnost_analogija(E_d)))
+</kod>
+<izlaz>
+SVD d=10 : 0.45
+SGNS d=10: 0.70
+epoha 1  gubitak = 2.907
+epoha 2  gubitak = 2.567
+epoha 3  gubitak = 2.491
+SGNS d=2 : 0.25
+epoha 1  gubitak = 2.441
+epoha 2  gubitak = 2.017
+epoha 3  gubitak = 2.004
+SGNS d=30: 0.75
+</izlaz>
+<p>Sa skip-gramom deset ili trideset dimenzija dovoljno je da rod i uloga budu zasebni smjerovi, pa analogije rade u oko tri četvrtine upita (griješe uglavnom tako da vrate ženu iste <em>uloge</em> umjesto ženu istog para, npr. „kraljica” umjesto „princeza”). S $d=2$ prostor je pretijesan: dvije dimenzije moraju istodobno kodirati kategoriju, rod i ulogu, pa se smjerovi miješaju. SVD je ovdje lošiji od SGNS-a iz istog razloga kao u Primjeru 3: osobe iste uloge sabija na gotovo isti vektor. U pravim korpusima isti zaključak vrijedi u većem mjerilu – ispod pedesetak dimenzija kvaliteta brzo pada.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Izvedi gradijent gubitka negativnog uzorkovanja $L=-\ln\sigma(u_o^\top v_c)-\sum_k\ln\sigma(-u_{n_k}^\top v_c)$ po $v_c$ i po $u_o$, a zatim ga provjeri PyTorchovim autogradom na slučajnim vektorima.</p>
+<naputak>$\frac{d}{dz}\ln\sigma(z)=1-\sigma(z)$ i $\frac{d}{dz}\ln\sigma(-z)=-\sigma(z)$.</naputak>
+<rjesenje>
+<p>Uz $z_o=u_o^\top v_c$ i $z_k=u_{n_k}^\top v_c$: $\nabla_{v_c}L=-(1-\sigma(z_o))\,u_o+\sum_k\sigma(z_k)\,u_{n_k}$ i $\nabla_{u_o}L=-(1-\sigma(z_o))\,v_c$, a za negativnu riječ $\nabla_{u_{n_k}}L=\sigma(z_k)\,v_c$. Prvi član privlači $v_c$ prema $u_o$ razmjerno tome koliko model još „ne vjeruje” paru, drugi ga odguruje od negativnih razmjerno tome koliko ih pogrešno smatra kontekstom.</p>
+<kod jezik="python">
+torch.manual_seed(1)
+d_, K_ = 6, 4
+vc = torch.randn(d_, requires_grad=True)
+uo = torch.randn(d_, requires_grad=True)
+un = torch.randn(K_, d_, requires_grad=True)
+L = -F.logsigmoid(uo @ vc) - F.logsigmoid(-(un @ vc)).sum()
+L.backward()
+
+s_o, s_k = torch.sigmoid(uo @ vc), torch.sigmoid(un @ vc)
+grad_vc = -(1 - s_o) * uo + (s_k[:, None] * un).sum(0)
+grad_uo = -(1 - s_o) * vc
+print("grad v_c isti:", torch.allclose(vc.grad, grad_vc.detach(), atol=1e-6))
+print("grad u_o isti:", torch.allclose(uo.grad, grad_uo.detach(), atol=1e-6))
+print("grad u_n isti:", torch.allclose(un.grad, (s_k[:, None] * vc).detach(), atol=1e-6))
+</kod>
+<izlaz>
+grad v_c isti: True
+grad u_o isti: True
+grad u_n isti: True
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Implementiraj varijantu <b>CBOW</b> s negativnim uzorkovanjem: iz <em>prosjeka</em> kontekstnih vektora riječi u prozoru ($k=2$) predviđa se središnja riječ. Treniraj je na istom korpusu i usporedi susjede za „kralj” i „pas” te točnost analogija sa skip-gramom. Koja je varijanta brža po epohi i zašto?</p>
+<naputak>Za svaku poziciju jedan primjer: (indeksi konteksta, središnja riječ). Rečenice imaju četiri riječi pa konteksti nemaju jednaku duljinu – za jednostavnost nadopuni ih na $2k$ indeksa posebnim tokenom <code>PAD</code> čiji vektor isključiš iz prosjeka (maskom) ili uzmi samo pozicije s punim prozorom.</naputak>
+<rjesenje>
+<kod jezik="python">
+PAD = V                                  # dodatni indeks za nadopunu
+def primjeri_cbow(korpus, k=2):
+    X, y = [], []
+    for r in korpus:
+        ind = [idx[t] for t in r]
+        for i, ci in enumerate(ind):
+            okolina = [ind[j] for j in range(max(0, i - k), min(len(ind), i + k + 1)) if j != i]
+            X.append(okolina + [PAD] * (2 * k - len(okolina))); y.append(ci)
+    return torch.tensor(X), torch.tensor(y)
+
+Xc, yc = primjeri_cbow(korpus)
+
+class CBOW(nn.Module):
+    def __init__(self, V, d):
+        super().__init__()
+        self.v = nn.Embedding(V + 1, d, padding_idx=PAD)   # kontekstni ulaz, PAD = nulvektor
+        self.u = nn.Embedding(V, d)                        # izlazni (središnji) vektori
+        nn.init.uniform_(self.v.weight, -0.5 / d, 0.5 / d)
+        nn.init.zeros_(self.u.weight)
+
+    def forward(self, okolina, c, neg):
+        maska = (okolina != PAD).float().unsqueeze(2)                   # (B, 2k, 1)
+        h = (self.v(okolina) * maska).sum(1) / maska.sum(1)             # prosjek konteksta
+        poz = F.logsigmoid((h * self.u(c)).sum(1))
+        ng = F.logsigmoid(-torch.bmm(self.u(neg), h.unsqueeze(2)).squeeze(2)).sum(1)
+        return -(poz + ng).mean()
+
+torch.manual_seed(0)
+cbow = CBOW(V, 10)
+opt = torch.optim.Adam(cbow.parameters(), lr=0.02)
+n, B, K = len(yc), 512, 5
+for ep in range(5):
+    perm = torch.randperm(n); ukupno = 0.0
+    for s in range(0, n, B):
+        b = perm[s:s + B]
+        neg = torch.multinomial(p_neg, len(b) * K, replacement=True).view(len(b), K)
+        g = cbow(Xc[b], yc[b], neg)
+        opt.zero_grad(); g.backward(); opt.step(); ukupno += g.item() * len(b)
+print("CBOW gubitak nakon 5 epoha: %.3f   (primjera: %d, skip-gram parova: %d)" % (ukupno / n, n, len(sred)))
+
+E_cbow = cbow.u.weight.detach().numpy()          # vektori središnjih riječi
+for t in ("kralj", "pas"):
+    print("%-6s" % t, susjedi(E_cbow, t, 3))
+print("točnost analogija CBOW: %.2f" % tocnost_analogija(E_cbow))
+</kod>
+<izlaz>
+CBOW gubitak nakon 5 epoha: 1.277   (primjera: 32000, skip-gram parova: 80000)
+kralj  [('princ', 0.99), ('učitelj', 0.97), ('otac', 0.96)]
+pas    [('mačka', 1.0), ('konj', 1.0), ('ovca', 1.0)]
+točnost analogija CBOW: 0.65
+</izlaz>
+<p>CBOW daje slične susjede i sličnu točnost analogija, a epoha mu je oko dva i pol puta brža: ima jedan primjer po <em>poziciji</em>, a skip-gram jedan po <em>paru</em> (ovdje $2{,}5$ para po poziciji). Cijena je što prosjek konteksta „razmazuje” rijetke riječi – zato se skip-gram smatra boljim za rijetke riječi i male korpuse, a CBOW za velike. Primijeti da smo kao embedding uzeli <em>izlaznu</em> tablicu <code>u</code>, jer se u CBOW-u u njoj nalaze vektori središnjih riječi; u praksi se često uzima i zbroj obiju tablica.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Dodaj u korpus višeznačnu riječ <b>„grad”</b>: u polovici njezinih rečenica ponaša se kao grad (konteksti kategorije „grad”), a u polovici kao tuča (konteksti kategorije „vrijeme”). Izgradi PPMI+SVD embedding i ispiši kosinusnu sličnost riječi „grad” prema „zagreb” i prema „kiša” te njezine susjede. Zatim simuliraj što radi kontekstualni model: označi dvije uporabe kao „grad₁” i „grad₂” prema kontekstu i ponovi račun. Što zaključuješ o statičnim embeddinzima?</p>
+<naputak>Generator rečenica ne diraj – dodaj posebnu funkciju koja gradi rečenice za „grad” i nadopuni korpus, pa izgradi novi rječnik (funkcije iz Primjera 1 koriste globalne <code>idx</code>, <code>rjecnik</code>, <code>V</code>; napiši lokalnu inačicu ili ih privremeno zamijeni).</naputak>
+<rjesenje>
+<kod jezik="python">
+def recenice_grad(n, razdvoji=False):
+    out = []
+    for i in range(n):
+        kat = "grad" if i % 2 == 0 else "vrijeme"
+        kontekst = KATEGORIJE[kat][1]
+        rijec = "grad" if not razdvoji else ("grad₁" if kat == "grad" else "grad₂")
+        out.append([rng.choice(kontekst), rijec, rng.choice(GLAGOLI), rng.choice(kontekst)])
+    return out
+
+def embedding_korpusa(korpus_x, d=10, k=2):
+    rj = sorted({t for r in korpus_x for t in r})
+    ix = {t: j for j, t in enumerate(rj)}
+    Cx = np.zeros((len(rj), len(rj)))
+    for r in korpus_x:
+        ind = [ix[t] for t in r]
+        for i, ci in enumerate(ind):
+            for j in range(max(0, i - k), min(len(ind), i + k + 1)):
+                if j != i:
+                    Cx[ci, ind[j]] += 1
+    Ux, Sx, _ = np.linalg.svd(ppmi(Cx))
+    return rj, ix, normiraj(Ux[:, :d] * Sx[:d])
+
+for razdvoji in (False, True):
+    rj, ix, En = embedding_korpusa(korpus + recenice_grad(800, razdvoji))
+    for w in (["grad"] if not razdvoji else ["grad₁", "grad₂"]):
+        sl = En @ En[ix[w]]
+        sl_sort = [(rj[j], round(float(sl[j]), 2)) for j in np.argsort(-sl)[1:4]]
+        print("%-6s cos(zagreb) = %.2f  cos(kiša) = %.2f  susjedi: %s"
+              % (w, sl[ix["zagreb"]], sl[ix["kiša"]], sl_sort))
+</kod>
+<izlaz>
+grad   cos(zagreb) = 0.70  cos(kiša) = 0.71  susjedi: [('magla', 0.72), ('vjetar', 0.71), ('kiša', 0.71)]
+grad₁  cos(zagreb) = 1.00  cos(kiša) = -0.00  susjedi: [('split', 1.0), ('zadar', 1.0), ('zagreb', 1.0)]
+grad₂  cos(zagreb) = -0.00  cos(kiša) = 1.00  susjedi: [('kiša', 1.0), ('snijeg', 1.0), ('vjetar', 1.0)]
+</izlaz>
+<p>Statični vektor riječi „grad” završi <em>između</em> dviju skupina: umjereno sličan i gradovima i vremenskim pojavama, a nijednoj onako blizak kao što su jednoznačne riječi svojoj kategoriji. Nijedna rečenica ne znači „pola Zagreb, pola tuča”, ali embedding to ne može izraziti – jedan vektor po riječi. Čim uporabe razdvojimo po kontekstu (što kontekstualni model radi automatski, za svaku rečenicu posebno), svaka dobije „čist” vektor u svojoj skupini. To je glavni razlog zašto su kontekstualni embeddinzi iz lekcije V3 potisnuli statične u gotovo svim zadacima razumijevanja teksta.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>One-hot vektori su međusobno okomiti i jednako udaljeni – ne nose sličnost; embedding je gusti vektor u $\mathbb R^d$ naučen iz konteksta (distribucijska hipoteza).</li>
+<li>Prvi embedding: ko-okurencijska matrica → PPMI (uklanja efekt frekvencije) → SVD na $d$ dimenzija. Bez PPMI-ja prva komponenta mjeri frekvenciju riječi, ne značenje.</li>
+<li>word2vec (skip-gram) uči vektore predviđanjem konteksta; negativno uzorkovanje zamjenjuje softmax nad rječnikom s $K$ binarnih odluka, gubitak $-\ln\sigma(u_o^\top v_c)-\sum_k\ln\sigma(-u_{n_k}^\top v_c)$. SGNS implicitno faktorizira PMI matricu.</li>
+<li>Sličnost mjerimo kosinusom; analogije rješava 3CosAdd ($b-a+c$) i rade kad je razlika kategorija (npr. rod) konzistentan smjer u prostoru. PCA je za pregled embeddinga, ne za mjerenje.</li>
+<li><code>nn.Embedding</code> je lookup tablica $E\in\mathbb R^{|V|\times d}$ ekvivalentna one-hot množenju; može se učiti, inicijalizirati prethodno naučenim vektorima i zamrznuti.</li>
+<li>Statični embeddinzi daju jedan vektor po riječi pa višeznačnice završe „između” značenja; kontekstualni modeli (V3) računaju vektor ovisno o rečenici.</li>
+</ul>
+
+@@ literatura
+<li>D. Jurafsky, J. H. Martin, <i>Speech and Language Processing</i>, 3. izd. (nacrt), poglavlje „Vector Semantics and Embeddings”.</li>
+<li>T. Mikolov i sur., <i>Distributed Representations of Words and Phrases and their Compositionality</i> (NeurIPS 2013) – skip-gram s negativnim uzorkovanjem.</li>
+<li>O. Levy, Y. Goldberg, <i>Neural Word Embedding as Implicit Matrix Factorization</i> (NeurIPS 2014).</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html">torch.nn.Embedding</a>; Stanford CS224N, predavanja 1–2 (Word Vectors).</li>
