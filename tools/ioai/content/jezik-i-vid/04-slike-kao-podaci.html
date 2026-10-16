@@ -1,0 +1,550 @@
+@@ meta
+naslov = Slike kao podaci: obrada i augmentacija
+podnaslov = Slika je tenzor brojeva: kanali, normalizacija, rezanje i okretanje, konvolucijski filtri, histogrami i augmentacija podataka
+oznake = tenzor $H\times W\times C$, uint8 i float, normalizacija, sivi tonovi, konvolucija, histogram, augmentacija, torchvision.transforms, Pillow
+
+@@ ciljevi
+<li>Opisati sliku kao tenzor oblika $H\times W\times C$, razlikovati <code>uint8</code> od <code>float</code> zapisa i znati zašto se ulazi normaliziraju.</li>
+<li>U NumPy-ju izrezati, okrenuti i zarotirati sliku, promijeniti joj svjetlinu i pretvoriti je u sive tonove.</li>
+<li>Napisati 2D konvoluciju i primijeniti filtre za zamućenje i rubove; pročitati histogram slike.</li>
+<li>Objasniti zašto augmentacija pomaže, odabrati augmentacije koje ne mijenjaju oznaku i složiti cjevovod u <code>torchvision.transforms</code>.</li>
+
+@@ teorija
+<p>Za računalo slika nije „slika” nego pravokutna tablica brojeva. Sve što model računalnog vida radi – od konvolucijske mreže (lekcija D5) do CLIP-a (lekcija V6) – počinje tim brojevima, pa prije bilo kakvog modela moraš znati kako su složeni, koji im je raspon i što im smiješ raditi, a da se oznaka slike ne promijeni.</p>
+
+<h3>Slika kao tenzor</h3>
+<definicija naslov="Slika kao tenzor">
+Slika visine $H$ i širine $W$ piksela s $C$ <b>kanala</b> (engl. <i>channels</i>) je tenzor $I\in\mathbb R^{H\times W\times C}$; vrijednost $I_{y,x,c}$ je intenzitet kanala $c$ u retku $y$ i stupcu $x$. Siva slika ima $C=1$ (ili uopće nema osi kanala), RGB slika $C=3$. Poredak osi $H\times W\times C$ zove se <b>HWC</b> (NumPy, Pillow, Matplotlib); PyTorch koristi <b>CHW</b>, a uz dimenziju serije (engl. <i>batch</i>) $N\times C\times H\times W$.
+</definicija>
+<p>Dva su zapisa vrijednosti. U datotekama i u Pillowu pikseli su <b>cijeli brojevi</b> <code>uint8</code> od $0$ do $255$: jedan bajt po kanalu, slika $1920\times1080$ RGB zauzima $1920\cdot1080\cdot3\approx6{,}2$ MB. Za račun se slika pretvara u <b>realne brojeve</b> (<code>float32</code>) u rasponu $[0,1]$ dijeljenjem s $255$. S <code>uint8</code> nikad ne računaj izravno: $200+100$ u jednom bajtu nije $300$ nego $44$ (prelijevanje), a $50-100$ nije $-50$ nego $206$.</p>
+<definicija naslov="Normalizacija">
+Za svaki kanal $c$ odrede se srednja vrijednost $\mu_c$ i standardna devijacija $\sigma_c$ na <em>skupu za učenje</em>, pa se svaki piksel transformira
+$$I'_{y,x,c}=\frac{I_{y,x,c}/255-\mu_c}{\sigma_c}.$$
+Nakon toga svaki kanal ima približno srednju vrijednost $0$ i raspršenje $1$. Pretrenirane mreže na ImageNetu očekuju svoje konstante $\mu=(0{,}485,\,0{,}456,\,0{,}406)$ i $\sigma=(0{,}229,\,0{,}224,\,0{,}225)$ – ako ih zaboraviš, model i dalje radi, ali lošije (lekcija V5).
+</definicija>
+<p>Zašto normalizirati? Gradijentni spust (lekcija M2) najbolje radi kad su sve ulazne veličine sličnog reda; ulazi oko nule drže aktivacije i gradijente u „zdravom” rasponu i omogućuju veću stopu učenja. Isti razlog zbog kojeg se u tabularnim zadacima standardiziraju stupci.</p>
+
+<h3>Kanali boja i sivi tonovi</h3>
+<p>RGB zapis slaže boju iz tri intenziteta: crvenog, zelenog i plavog. Pretvorba u <b>sive tonove</b> (engl. <i>grayscale</i>) nije običan prosjek jer oko nije jednako osjetljivo na sve boje; standardna formula (ITU-R BT.601, koju koristi i Pillow) daje <b>luminanciju</b>
+$$Y=0{,}299\,R+0{,}587\,G+0{,}114\,B.$$
+Siva slika ima tri puta manje brojeva, pa je prvi izbor kad boja nije bitna (rukopis, dokumenti, rendgen). Kad jest bitna (voće, semafor, koža), odbacivanjem boje bacaš informaciju – odluku donosi zadatak, ne navika.</p>
+
+<h3>Osnovne operacije su indeksiranje</h3>
+<p>Većina geometrijskih operacija u NumPy-ju su samo rezovi i permutacije osi, bez petlji:</p>
+<ul>
+<li><b>rez</b> (engl. <i>crop</i>): <code>I[y0:y1, x0:x1]</code> – prvo retci (visina), pa stupci (širina);</li>
+<li><b>vodoravno okretanje</b> (engl. <i>horizontal flip</i>): <code>I[:, ::-1]</code>; okomito: <code>I[::-1]</code>;</li>
+<li><b>rotacija za 90°</b>: transponiranje prostornih osi pa okretanje, <code>I.transpose(1, 0, 2)[::-1]</code> (ulijevo), ili gotovo <code>np.rot90(I)</code>;</li>
+<li><b>svjetlina</b>: <code>np.clip(I.astype(int) + 40, 0, 255)</code> – zbroj u <code>int</code>, pa odsijecanje, pa natrag u <code>uint8</code>; <b>kontrast</b>: množenje odstupanja od srednje vrijednosti faktorom $\alpha$, $I'=\mu+\alpha(I-\mu)$.</li>
+</ul>
+<napomena>Najčešća pogreška: zamjena osi. Pillow vraća <code>img.size == (W, H)</code>, NumPy <code>arr.shape == (H, W, C)</code>, a Matplotlib <code>imshow</code> očekuje HWC. Kad slika izgleda „izduženo” ili boje „pobjegnu”, prvo provjeri oblik i poredak osi, pa tek onda model.</napomena>
+
+<h3>Konvolucijski filtri</h3>
+<definicija naslov="2D konvolucija">
+Za sivu sliku $I$ i <b>jezgru</b> (engl. <i>kernel</i>) $K\in\mathbb R^{k\times k}$ konvolucija je slika
+$$(I*K)_{y,x}=\sum_{u=0}^{k-1}\sum_{v=0}^{k-1} K_{u,v}\,I_{y+u,\,x+v},$$
+dakle svaki izlazni piksel je težinski zbroj okoline $k\times k$ oko njega s težinama iz $K$. Bez dopune (engl. <i>padding</i>) izlaz ima $(H-k+1)\times(W-k+1)$ piksela; s dopunom od $p$ nula sa svake strane $(H+2p-k+1)\times(W+2p-k+1)$, pa za $p=(k-1)/2$ veličina ostaje ista.
+</definicija>
+<p>(Strogo matematički, ovo je <i>križna korelacija</i>; prava konvolucija jezgru još zrcali. Biblioteke za duboko učenje računaju upravo gornji izraz i zovu ga konvolucijom; za simetrične jezgre razlike ionako nema.)</p>
+<p>Jezgra određuje što filtar radi. <b>Zamućenje</b> (engl. <i>blur</i>): sve težine jednake, $K=\frac19\mathbf 1_{3\times3}$ (box filtar) ili Gaussove težine koje padaju s udaljenošću od sredine – zbroj težina je $1$, pa se ukupna svjetlina čuva. <b>Rubovi</b>: Sobelove jezgre
+$$S_x=\begin{pmatrix}-1&0&1\\-2&0&2\\-1&0&1\end{pmatrix},\qquad S_y=S_x^\top$$
+aproksimiraju derivaciju po $x$ odnosno $y$; zbroj težina je $0$, pa na jednoličnoj površini daju $0$, a na prijelazu tamno–svijetlo velik odziv. Jačina ruba je $\sqrt{G_x^2+G_y^2}$. Konvolucijska mreža (D5) ne koristi ručno zadane jezgre nego ih <em>uči</em> – ali prvi slojevi naučenih mreža redovito nalikuju upravo na detektore rubova i zamućenja.</p>
+
+<h3>Histogram</h3>
+<p><b>Histogram</b> slike broji koliko piksela ima koju vrijednost (ili pada u koji od $B$ razreda). Ne govori ništa o rasporedu piksela, ali puno o ekspoziciji i kontrastu: histogram stisnut u uski raspon znači slabu iskorištenost raspona $[0,255]$, gomila na $0$ ili $255$ znači podeksponirane ili „izgorjele” dijelove. <b>Izjednačavanje histograma</b> (engl. <i>histogram equalization</i>) preslikava vrijednosti kroz kumulativnu razdiobu tako da histogram postane približno ravan (Zadatak 7). Prije bilo kakvog treniranja isplati se pogledati histogram cijelog skupa: skup u kojem su rukopisi bijeli na crnom, a tvoje testne slike crne na bijelom, nijedan model neće spasiti.</p>
+
+<h3>Augmentacija podataka</h3>
+<definicija naslov="Augmentacija">
+<b>Augmentacija podataka</b> (engl. <i>data augmentation</i>) je stvaranje novih primjera za učenje slučajnim transformacijama postojećih koje <em>ne mijenjaju oznaku</em>: $(T(x),y)$ za slučajnu transformaciju $T$. Primjenjuje se samo na skup za učenje, u svakoj epohi iznova; testne slike se ne augmentiraju.
+</definicija>
+<p>Zašto pomaže? Model vidi više različitih slika iste klase, pa teže zapamti pojedine piksele (regularizacija protiv prenaučenosti, lekcija M2), a istodobno uči <b>invarijantnost</b>: mačka ostaje mačka i pomaknuta, zrcaljena, u sjeni. Standardni izbor za fotografije:</p>
+<ul>
+<li><b>vodoravno okretanje</b> (<code>RandomHorizontalFlip</code>) – prirodno za većinu objekata, ali <em>ne</em> za tekst, znamenke ($6$ nije $9$, okomito) ni za prometne znakove „lijevo/desno”;</li>
+<li><b>slučajni rez i promjena veličine</b> (<code>RandomResizedCrop</code>) – objekt nije uvijek u sredini ni iste veličine;</li>
+<li><b>podrhtavanje boje</b> (engl. <i>color jitter</i>, <code>ColorJitter</code>) – slučajna svjetlina, kontrast, zasićenje; simulira različito osvjetljenje;</li>
+<li>male rotacije i pomaci, slučajno brisanje dijela slike (engl. <i>cutout</i>).</li>
+</ul>
+<p>Pravilo: augmentacija mora biti vjerojatna u testnim podacima. Prejake augmentacije (rotacija za 180°, ekstremne boje) stvaraju slike kakvih na testu nema i trošenje kapaciteta modela na njih škodi. U <code>torchvision.transforms</code> augmentacije se slažu u <code>Compose</code> i obično završavaju s <code>ToTensor()</code> (HWC <code>uint8</code> → CHW <code>float</code> u $[0,1]$) i <code>Normalize(mean, std)</code>.</p>
+
+<h3>Skupovi podataka za vježbu</h3>
+<p>Tri standardna skupa, od najmanjeg: <code>sklearn.datasets.load_digits</code> – $1797$ sivih slika znamenki $8\times8$ s vrijednostima $0$–$16$, ugrađen u scikit-learn (bez downloada; koristimo ga u svim primjerima). <b>MNIST</b> – $70\,000$ sivih slika rukom pisanih znamenki $28\times28$ ($60\,000$ za učenje, $10\,000$ za test), <code>torchvision.datasets.MNIST</code>. <b>CIFAR-10</b> – $60\,000$ RGB slika $32\times32$ u $10$ klasa (avion, auto, ptica, mačka, …), <code>torchvision.datasets.CIFAR10</code>; prvi skup na kojem su konvolucijske mreže nužne, a augmentacija presudna. Na natjecanju podatke dobivaš u datotekama, pa je ključno znati ih učitati i pregledati – za to služi <b>Pillow</b>: <code>Image.open(put)</code>, <code>img.size</code>, <code>img.mode</code> (<code>"RGB"</code>, <code>"L"</code>, <code>"RGBA"</code>), <code>img.convert("RGB")</code>, <code>img.resize((W, H))</code>, a <code>np.asarray(img)</code> daje tenzor HWC <code>uint8</code> i <code>Image.fromarray(arr)</code> obrnuto.</p>
+
+@@ primjeri
+<primjer>
+<p>Napravi sintetičku RGB sliku $48\times64$: crveni kanal raste slijeva nadesno, zeleni odozgo prema dolje, a desno je plavi krug. Ispiši oblik, tip i veličinu u bajtovima, pretvori je u <code>float</code>, normaliziraj po kanalima, pretvori u sive tonove i provjeri da Pillow sliku zapiše i pročita bez gubitka.</p>
+<rjesenje>
+<p><b>Korak 1: slika kao polje.</b> Koordinatne mreže <code>np.mgrid</code> daju $y$ i $x$ svakog piksela, pa boje zadajemo formulama. Krug je Booleova maska – indeksiranje maskom postavlja sve piksele unutar kruga odjednom.</p>
+<kod jezik="python">
+import numpy as np
+
+H, W = 48, 64
+yy, xx = np.mgrid[0:H, 0:W]                      # yy[y, x] = y, xx[y, x] = x
+slika = np.zeros((H, W, 3), dtype=np.uint8)
+slika[..., 0] = 255 * xx // (W - 1)              # crveni kanal raste slijeva nadesno
+slika[..., 1] = 255 * yy // (H - 1)              # zeleni raste odozgo prema dolje
+krug = (xx - 44) ** 2 + (yy - 24) ** 2 < 12 ** 2
+slika[krug] = (30, 60, 220)                      # plavi krug
+print(slika.shape, slika.dtype, slika.nbytes, "bajtova")
+print("piksel (0, 0):", slika[0, 0], " piksel (47, 63):", slika[47, 63], " u krugu:", slika[24, 44])
+print("udio piksela u krugu: %.3f" % krug.mean())
+</kod>
+<izlaz>
+(48, 64, 3) uint8 9216 bajtova
+piksel (0, 0): [0 0 0]  piksel (47, 63): [255 255   0]  u krugu: [ 30  60 220]
+udio piksela u krugu: 0.142
+</izlaz>
+<p><b>Korak 2: float i normalizacija.</b> Dijeljenje s $255$ daje raspon $[0,1]$; srednja vrijednost i devijacija računaju se po kanalu, dakle preko osi $0$ i $1$. Usput pokazujemo zamku s <code>uint8</code>.</p>
+<kod jezik="python">
+f = slika.astype(np.float32) / 255.0
+print(f.dtype, "raspon [%.2f, %.2f]" % (f.min(), f.max()))
+mu, sigma = f.mean(axis=(0, 1)), f.std(axis=(0, 1))
+print("mu    =", mu.round(3))
+print("sigma =", sigma.round(3))
+norm = (f - mu) / sigma
+print("nakon normalizacije: mu =", norm.mean(axis=(0, 1)).round(3), " sigma =", norm.std(axis=(0, 1)).round(3))
+
+a = np.array([200, 50], dtype=np.uint8)
+print("uint8: 200 + 100 =", (a + np.uint8(100))[0], "  50 - 100 =", (a - np.uint8(100))[1])
+print("ispravno:", np.clip(a.astype(int) + 100, 0, 255))
+</kod>
+<izlaz>
+float32 raspon [0.00, 1.00]
+mu    = [0.416 0.459 0.123]
+sigma = [0.305 0.305 0.301]
+nakon normalizacije: mu = [-0. -0.  0.]  sigma = [1. 1. 1.]
+uint8: 200 + 100 = 44   50 - 100 = 206
+ispravno: [255 150]
+</izlaz>
+<p>Plavi kanal ima malu srednju vrijednost ($0{,}123$) jer je plav samo krug; nakon normalizacije sva tri kanala imaju $\mu=0$ i $\sigma=1$ (ispisana $-0$ je nula zaokružena s negativne strane). Zbroj u <code>uint8</code> daje $44$ umjesto $300$ – zato svjetlinu uvijek mijenjaj u <code>int</code> ili <code>float</code> pa odsijeci.</p>
+<p><b>Korak 3: sivi tonovi i Pillow.</b> Luminancija je skalarni produkt svakog piksela s težinama $(0{,}299,\,0{,}587,\,0{,}114)$ – <code>@</code> po zadnjoj osi. PNG je zapis bez gubitaka, pa se nakon spremanja i čitanja mora dobiti točno isto polje. Pillowova pretvorba u <code>"L"</code> koristi iste težine, uz zaokruživanje.</p>
+<kod jezik="python">
+from PIL import Image
+
+tezine = np.array([0.299, 0.587, 0.114])
+siva = (slika @ tezine).round().astype(np.uint8)
+print("siva:", siva.shape, siva.dtype, " u krugu:", siva[24, 44])
+
+img = Image.fromarray(slika)
+print("Pillow: size =", img.size, "(W, H)  mode =", img.mode)
+img.save("gradijent.png")
+natrag = np.asarray(Image.open("gradijent.png"))
+print("isto nakon PNG-a:", np.array_equal(natrag, slika))
+siva_pil = np.asarray(img.convert("L"))
+print("Pillow 'L' vs ručno, najveća razlika:", int(np.abs(siva_pil.astype(int) - siva.astype(int)).max()))
+mala = np.asarray(img.resize((32, 24)))
+print("resize((32, 24)) -> shape", mala.shape, "  HWC -> CHW:", np.transpose(f, (2, 0, 1)).shape)
+</kod>
+<izlaz>
+siva: (48, 64) uint8  u krugu: 69
+Pillow: size = (64, 48) (W, H)  mode = RGB
+isto nakon PNG-a: True
+Pillow 'L' vs ručno, najveća razlika: 0
+resize((32, 24)) -> shape (24, 32, 3)   HWC -> CHW: (3, 48, 64)
+</izlaz>
+<p>Krug $(30,60,220)$ u sivom postaje $0{,}299\cdot30+0{,}587\cdot60+0{,}114\cdot220\approx69$: tamnoplava je tamna i u sivom. Primijeti <code>size=(64, 48)</code>, a <code>shape=(48, 64, 3)</code>; <code>resize</code> također prima $(W,H)$.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Napiši funkciju za 2D konvoluciju bez dopune i primijeni box zamućenje $3\times3$ i Sobelove filtre na sivu sliku $40\times40$ sa svijetlim kvadratom u sredini. Zatim na skupu <code>load_digits</code> izračunaj histogram vrijednosti piksela.</p>
+<rjesenje>
+<p><b>Korak 1: konvolucija.</b> Umjesto dvostruke petlje po pikselima (sporo u Pythonu) petlja ide po $k^2$ elemenata jezgre, a svaki pribraja pomaknuti isječak cijele slike – vektorizacija umjesto petlje po pikselima.</p>
+<kod jezik="python">
+def konvolucija(I, K):
+    """Križna korelacija slike I (H, W) i jezgre K (k, k) bez dopune."""
+    k = K.shape[0]
+    h, w = I.shape[0] - k + 1, I.shape[1] - k + 1
+    izlaz = np.zeros((h, w))
+    for u in range(k):
+        for v in range(k):
+            izlaz += K[u, v] * I[u:u + h, v:v + w]
+    return izlaz
+
+kvadrat = np.zeros((40, 40))
+kvadrat[12:28, 12:28] = 1.0
+box = np.ones((3, 3)) / 9
+Sx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=float)
+Sy = Sx.T
+
+zamucen = konvolucija(kvadrat, box)
+print("ulaz", kvadrat.shape, "-> izlaz", zamucen.shape)
+print("redak 20, stupci 9..15 nakon zamućenja:", zamucen[19, 9:16].round(3))
+print("zbroj svih vrijednosti prije %.1f, poslije %.1f" % (kvadrat.sum(), zamucen.sum()))
+</kod>
+<izlaz>
+ulaz (40, 40) -> izlaz (38, 38)
+redak 20, stupci 9..15 nakon zamućenja: [0.    0.333 0.667 1.    1.    1.    1.   ]
+zbroj svih vrijednosti prije 256.0, poslije 256.0
+</izlaz>
+<p>Izlaz je manji za $k-1=2$ u svakoj dimenziji (izlazni piksel $(i,j)$ odgovara ulaznom $(i+1,j+1)$). Oštar prijelaz $0\to1$ na rubu kvadrata zamućenje razvuče na tri piksela $\frac13,\frac23,1$; ukupna svjetlina (zbroj svih vrijednosti, $16\cdot16=256$) ostaje ista jer je zbroj težina $1$ – zamućenje samo preraspodjeljuje svjetlinu među susjedima.</p>
+<p><b>Korak 2: rubovi.</b> Sobel $S_x$ reagira na okomite rubove (promjena duž $x$), $S_y$ na vodoravne. Na jednoličnim dijelovima odziv je $0$.</p>
+<kod jezik="python">
+Gx, Gy = konvolucija(kvadrat, Sx), konvolucija(kvadrat, Sy)
+print("Gx, redak 20, stupci 9..15:", Gx[19, 9:16])
+print("Gy, redak 20, stupci 9..15:", Gy[19, 9:16])
+jacina = np.sqrt(Gx ** 2 + Gy ** 2)
+print("piksela s rubom (jačina > 0):", int((jacina > 0).sum()), " najveća jačina: %.3f" % jacina.max())
+print("odziv Sobela na jednoličnoj površini:", Gx[19, 19], Gy[19, 19])
+</kod>
+<izlaz>
+Gx, redak 20, stupci 9..15: [0. 4. 4. 0. 0. 0. 0.]
+Gy, redak 20, stupci 9..15: [0. 0. 0. 0. 0. 0. 0.]
+piksela s rubom (jačina > 0): 128  najveća jačina: 4.243
+odziv Sobela na jednoličnoj površini: 0.0 0.0
+</izlaz>
+<p>Lijevi rub kvadrata daje $G_x=+4$ (tamno→svijetlo) u dva susjedna stupca, desni $-4$; jačina je najveća u kutovima, gdje djeluju oba filtra ($G_x=G_y=3$, jačina $3\sqrt2\approx4{,}243$). Prebroji: svaki od četiri ruba daje pojas širine $2$ piksela duž $18$ redaka ($16$ redaka kvadrata plus po jedan iznad i ispod), $4\cdot36=144$, minus $16$ kutnih piksela koji su u dva pojasa – točno $128$.</p>
+<p><b>Korak 3: histogram.</b> <code>np.histogram</code> vraća brojeve po razredima i granice razreda. Vrijednosti u <code>load_digits</code> su cjelobrojne od $0$ do $16$, pa uzimamo $17$ razreda širine $1$.</p>
+<kod jezik="python">
+from sklearn.datasets import load_digits
+
+digits = load_digits()
+slike = digits.images                            # oblik (1797, 8, 8), vrijednosti 0..16
+print(slike.shape, slike.dtype, slike.min(), slike.max())
+brojevi, granice = np.histogram(slike, bins=17, range=(0, 17))
+print("histogram:", brojevi)
+print("udio nula: %.3f   udio >= 14: %.3f" % (brojevi[0] / slike.size, brojevi[14:].sum() / slike.size))
+print("prosječna slika znamenke 0 (zaokruženo):")
+print(slike[digits.target == 0].mean(axis=0).round(0).astype(int))
+</kod>
+<izlaz>
+(1797, 8, 8) float64 0.0 16.0
+histogram: [56272  4095  3296  2944  3261  2803  2559  2627  3464  2585  2711  2845
+  3668  3509  3609  4304 10456]
+udio nula: 0.489   udio >= 14: 0.160
+prosječna slika znamenke 0 (zaokruženo):
+[[ 0  0  4 13 11  3  0  0]
+ [ 0  1 13 13 11 11  1  0]
+ [ 0  4 14  5  2 12  4  0]
+ [ 0  5 13  2  0  9  6  0]
+ [ 0  6 12  1  0  9  7  0]
+ [ 0  3 13  2  2 11  6  0]
+ [ 0  1 13 10 10 13  2  0]
+ [ 0  0  4 14 13  5  0  0]]
+</izlaz>
+<p>Histogram je dvogrb: skoro polovica piksela je $0$ (pozadina), drugi vrh je kod $16$ (zasićeni potezi), a između su rubovi poteza. Prosječna slika nule doista izgleda kao nula – prazna sredina, svijetli prsten. Takav pogled na podatke traje minutu i otkriva pogreške (obrnute boje, pogrešno skaliranje) koje bi inače tražio satima u modelu.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Na skupu <code>load_digits</code> istreniraj logističku regresiju na samo $100$ slika za učenje, bez i s augmentacijom pomacima za jedan piksel. Ocijeni oba modela na izvornom (centriranom) testu i na testu u kojem je svaka znamenka slučajno pomaknuta za najviše jedan piksel – simulacija skenera koji ne centrira savršeno. Zatim složi cjevovod augmentacija u <code>torchvision.transforms</code> i primijeni ga na sliku iz Primjera 1.</p>
+<rjesenje>
+<p><b>Korak 1: podaci i pomak.</b> Mali skup za učenje odabiremo stratificirano (po $10$ slika svake znamenke), test je sve ostalo. Pomak slike za $(dy,dx)$ piksela radi se dopunom nulama i rezom – pikseli koji „ispadnu” nestaju, upražnjeni rub je crn. Za znamenke je pomak sigurna augmentacija, a okretanje nije ($6\leftrightarrow9$, $2\leftrightarrow5$ zrcaljeno).</p>
+<kod jezik="python">
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+Xd, yd = digits.images, digits.target
+Xd_tr, Xd_te, yd_tr, yd_te = train_test_split(Xd, yd, train_size=100, random_state=0, stratify=yd)
+
+def pomakni(slike, dy, dx):
+    """Pomakne sve slike (N, 8, 8) za dy redaka i dx stupaca; upražnjeni rub je 0."""
+    p = np.pad(slike, ((0, 0), (1, 1), (1, 1)))
+    return p[:, 1 - dy:9 - dy, 1 - dx:9 - dx]
+
+print("original, redak 3:", Xd_tr[0, 3].astype(int))
+print("dx=+1,    redak 3:", pomakni(Xd_tr, 0, 1)[0, 3].astype(int))
+print("dy=-1,    redak 3:", pomakni(Xd_tr, -1, 0)[0, 3].astype(int), "(= originalni redak 4)")
+</kod>
+<izlaz>
+original, redak 3: [ 0  0  1  9 15 16 10  0]
+dx=+1,    redak 3: [ 0  0  0  1  9 15 16 10]
+dy=-1,    redak 3: [ 0  0 13 15 16  8  2  0] (= originalni redak 4)
+</izlaz>
+<p><b>Korak 2: učenje bez i s augmentacijom.</b> Augmentirani skup je original plus četiri pomaka ($\pm1$ po svakoj osi), pet puta više slika iste oznake. Slike spljoštimo u vektore od $64$ značajke i skaliramo na $[0,1]$. Pomaknuti test nastaje tako da svakoj testnoj slici slučajno dodijelimo jedan od pet pomaka (uključujući „bez pomaka”).</p>
+<kod jezik="python">
+pomaci = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+
+def slucajni_pomak(slike, rng):
+    out = slike.copy()
+    k = rng.integers(0, 5, size=len(slike))          # 0 = bez pomaka, 1..4 = jedan od pomaka
+    for i, (dy, dx) in enumerate(pomaci, start=1):
+        out[k == i] = pomakni(slike[k == i], dy, dx)
+    return out
+
+Xd_te_pom = slucajni_pomak(Xd_te, np.random.default_rng(0))
+
+def nauci(slike_tr, oznake_tr):
+    model = LogisticRegression(max_iter=3000, C=0.5)
+    return model.fit(slike_tr.reshape(len(slike_tr), -1) / 16.0, oznake_tr)
+
+def tocnost(model, slike, oznake):
+    return model.score(slike.reshape(len(slike), -1) / 16.0, oznake)
+
+aug = np.concatenate([Xd_tr] + [pomakni(Xd_tr, dy, dx) for dy, dx in pomaci])
+y_aug = np.tile(yd_tr, 5)
+okrenuto = np.concatenate([Xd_tr, Xd_tr[:, :, ::-1]])
+print("skup za učenje            slika  centrirani test  pomaknuti test")
+for ime, S, y in [("bez augmentacije", Xd_tr, yd_tr), ("+ pomaci", aug, y_aug),
+                  ("+ vodoravno okretanje", okrenuto, np.tile(yd_tr, 2))]:
+    m = nauci(S, y)
+    print("%-24s %5d      %.3f            %.3f" % (ime, len(S), tocnost(m, Xd_te, yd_te), tocnost(m, Xd_te_pom, yd_te)))
+</kod>
+<izlaz>
+skup za učenje            slika  centrirani test  pomaknuti test
+bez augmentacije           100      0.899            0.497
++ pomaci                   500      0.871            0.710
++ vodoravno okretanje      200      0.853            0.445
+</izlaz>
+<p>Dvije pouke. Prvo: na pomaknutom testu model bez augmentacije pada na polovicu, a augmentirani zadržava oko $70\,\%$ – naučio je da položaj poteza smije varirati za piksel, iako nije vidio nijednu novu znamenku. Drugo: na <em>centriranom</em> testu ista augmentacija malo <em>škodi</em>. Slike u <code>load_digits</code> su već centrirane, pa pomaci unose varijaciju kakve na tom testu nema, a model troši kapacitet na nju. Zrcaljenje, koje mijenja izgled znamenki, škodi na oba testa. Augmentacija vrijedi točno onoliko koliko je vjerna stvarnoj varijaciji u podacima na kojima će se model primjenjivati.</p>
+<p><b>Korak 3: cjevovod u torchvisionu.</b> Transformacije primaju Pillow sliku i slažu se u <code>Compose</code>. Svaki poziv daje <em>drugačiju</em> slučajnu varijantu; <code>ToTensor</code> prebacuje u CHW <code>float</code> na $[0,1]$, a <code>Normalize</code> primjenjuje ImageNet konstante.</p>
+<kod jezik="python">
+import torch
+from torchvision import transforms
+
+torch.manual_seed(0)
+cjevovod = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomResizedCrop(32, scale=(0.6, 1.0)),
+    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+t1, t2 = cjevovod(img), cjevovod(img)
+print(type(t1).__name__, tuple(t1.shape), t1.dtype)
+print("raspon nakon Normalize: [%.2f, %.2f]" % (t1.min(), t1.max()))
+print("dva poziva daju različite slike:", not torch.equal(t1, t2))
+samo_tenzor = transforms.ToTensor()(img)
+print("ToTensor:", tuple(samo_tenzor.shape), "raspon [%.3f, %.3f]" % (samo_tenzor.min(), samo_tenzor.max()))
+print("ToTensor = HWC/255 u CHW:", torch.allclose(samo_tenzor, torch.from_numpy(f).permute(2, 0, 1)))
+</kod>
+<izlaz>
+Tensor (3, 32, 32) torch.float32
+raspon nakon Normalize: [-2.03, 1.59]
+dva poziva daju različite slike: True
+ToTensor: (3, 48, 64) raspon [0.000, 1.000]
+ToTensor = HWC/255 u CHW: True
+</izlaz>
+<p>Isti cjevovod u lekciji V5 stoji ispred pretrenirane mreže; za testne slike koristi se deterministička inačica bez slučajnih koraka (<code>Resize</code>, <code>CenterCrop</code>, <code>ToTensor</code>, <code>Normalize</code>). Standardni skupovi učitavaju se jednim pozivom koji skine podatke s interneta – zato ga ovdje ne pokrećemo, ali ovako izgleda:</p>
+<kod jezik="python" pokreni="ne">
+from torchvision import datasets
+
+mnist = datasets.MNIST(root="podaci", train=True, download=True, transform=transforms.ToTensor())
+cifar = datasets.CIFAR10(root="podaci", train=True, download=True, transform=cjevovod)
+x, y = mnist[0]
+print(len(mnist), tuple(x.shape), y)        # 60000 torch.Size([1, 28, 28]) 5
+x, y = cifar[0]
+print(len(cifar), tuple(x.shape), cifar.classes[y])   # 50000 (3, 32, 32) frog
+</kod>
+<p>Očekivani ispis: <code>60000 (1, 28, 28) 5</code> za MNIST (prva slika za učenje je znamenka $5$) i $50\,000$ slika oblika $(3,32,32)$ za CIFAR-10 s imenom klase. Podatke iz <code>DataLoader</code>-a model dobiva u serijama oblika $N\times C\times H\times W$.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Koliko bajtova zauzima RGB slika $1920\times1080$ u <code>uint8</code>, a koliko ista slika u <code>float32</code>? Koliko slika <code>float32</code> stane u $8$ GB radne memorije? Što iz toga zaključuješ o učitavanju cijelog skupa od $100\,000$ fotografija u memoriju odjednom?</p>
+<rjesenje>
+<p>$1920\cdot1080\cdot3=6\,220\,800$ bajtova $\approx6{,}2$ MB u <code>uint8</code>; <code>float32</code> ima $4$ bajta po broju, dakle $24\,883\,200$ bajtova $\approx24{,}9$ MB. U $8$ GB stane $8\cdot10^9/24{,}9\cdot10^6\approx321$ takvih slika. Zato se skupovi fotografija nikad ne drže u memoriji kao <code>float</code>: na disku ostaju komprimirani (JPEG/PNG), učitavaju se u serijama kroz <code>DataLoader</code>, a smanjuju se na radnu veličinu ($224\times224$ je uobičajeno: $224\cdot224\cdot3\cdot4\approx0{,}6$ MB po slici) prije pretvorbe u <code>float</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za svaki zadatak navedi koje su od augmentacija vodoravno okretanje, okomito okretanje, rotacija za 90° i podrhtavanje boje <em>sigurne</em> (čuvaju oznaku), a koje nisu: (a) razlikovanje mačaka i pasa; (b) prepoznavanje rukom pisanih slova; (c) klasifikacija prometnih znakova; (d) razlikovanje zrelih i nezrelih rajčica; (e) satelitske snimke: šuma, polje, grad.</p>
+<rjesenje>
+<p>(a) od geometrijskih je sigurno samo vodoravno okretanje (mačka naglavačke je rijetka na testu), okomito okretanje i rotacija nisu; podrhtavanje boje sigurno. (b) nijedno okretanje ni rotacija: <code>b</code>↔<code>d</code>, <code>p</code>↔<code>q</code>, <code>n</code>↔<code>u</code>; male rotacije i pomaci jesu sigurni, boja nebitna. (c) vodoravno okretanje mijenja znakove „obavezno lijevo/desno”, pa je nesigurno; boja je ključna informacija pa i jitter treba biti blag. (d) sve geometrijske sigurne (rajčica nema „gore”), ali podrhtavanje boje <em>nije</em> – zrelost se vidi upravo po boji. (e) sve geometrijske sigurne (snimka odozgo nema orijentaciju), umjereni jitter u redu. Zaključak: popis augmentacija ovisi o zadatku, a ne o modelu.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Pillow javlja <code>img.size == (300, 200)</code>. Koji je oblik polja <code>np.asarray(img)</code> ako je <code>img.mode == "RGB"</code>, a koji za <code>"L"</code>? Koji oblik očekuje PyTorch za seriju od $16$ takvih RGB slika i kojom NumPy naredbom iz jedne HWC slike dobivaš CHW?</p>
+<rjesenje>
+<p>Pillow vraća $(W,H)$, pa je visina $200$ i širina $300$: za <code>"RGB"</code> oblik je <code>(200, 300, 3)</code>, za <code>"L"</code> <code>(200, 300)</code> (bez osi kanala). PyTorch očekuje <code>(16, 3, 200, 300)</code>, tj. $N\times C\times H\times W$. Iz HWC u CHW: <code>arr.transpose(2, 0, 1)</code> (ili <code>np.moveaxis(arr, -1, 0)</code>); u PyTorchu <code>t.permute(2, 0, 1)</code>. Sivoj slici os kanala dodaj s <code>arr[None]</code> ili <code>arr[np.newaxis]</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Rotaciju slike za 90° u smjeru suprotnom od kazaljke na satu ostvari samo transponiranjem prostornih osi i okretanjem. Provjeri na slici iz Primjera 1 da se rezultat podudara s <code>np.rot90(slika)</code>, da četiri uzastopne rotacije vraćaju original te da se oblik promijenio u $(W,H,3)$. Kamo odlazi gornji desni piksel?</p>
+<naputak>Transponiranje osi $0$ i $1$ zrcali sliku preko glavne dijagonale. Koja os se nakon toga mora okrenuti da zrcaljenje postane rotacija?</naputak>
+<rjesenje>
+<kod jezik="python">
+def rot90(I):
+    return I.transpose(1, 0, 2)[::-1]           # dijagonalno zrcaljenje pa okomito okretanje
+
+r = rot90(slika)
+print("oblik:", slika.shape, "->", r.shape)
+print("isto kao np.rot90:", np.array_equal(r, np.rot90(slika)))
+print("4 rotacije = original:", np.array_equal(rot90(rot90(rot90(rot90(slika)))), slika))
+print("gornji desni piksel", slika[0, W - 1], "-> gornji lijevi", r[0, 0])
+</kod>
+<izlaz>
+oblik: (48, 64, 3) -> (64, 48, 3)
+isto kao np.rot90: True
+4 rotacije = original: True
+gornji desni piksel [255   0   0] -> gornji lijevi [255   0   0]
+</izlaz>
+<p>Transponiranje preslikava piksel $(y,x)$ u $(x,y)$; okomito okretanje zatim $(x,y)$ u $(W-1-x,\,y)$. Gornji desni piksel $(0,W-1)$ odlazi u $(0,0)$ – pri rotaciji ulijevo gornji desni kut postaje gornji lijevi. Za rotaciju udesno okreni drugu os: <code>I.transpose(1, 0, 2)[:, ::-1]</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši funkciju koja za zadani $k$ (neparan) i $\sigma$ vraća Gaussovu jezgru $K_{u,v}\propto\exp\!\left(-\frac{(u-c)^2+(v-c)^2}{2\sigma^2}\right)$, $c=(k-1)/2$, normiranu tako da je zbroj $1$. Za $k=5$, $\sigma=1$ ispiši jezgru, zamuti kvadrat iz Primjera 2 i usporedi: koliko je piksela s vrijednošću strogo između $0$ i $1$ nakon box zamućenja $3\times3$, a koliko nakon Gaussova $5\times5$?</p>
+<naputak>Jezgra je vanjski produkt jednodimenzionalnog Gaussova profila sa samim sobom; normiraj dijeljenjem zbrojem.</naputak>
+<rjesenje>
+<kod jezik="python">
+def gauss_jezgra(k, sigma):
+    c = (k - 1) / 2
+    profil = np.exp(-(np.arange(k) - c) ** 2 / (2 * sigma ** 2))
+    K = np.outer(profil, profil)
+    return K / K.sum()
+
+G5 = gauss_jezgra(5, 1.0)
+print(G5.round(3))
+print("zbroj:", round(G5.sum(), 6), " sredina / kut: %.1f" % (G5[2, 2] / G5[0, 0]))
+zam_box = konvolucija(kvadrat, box)
+zam_gauss = konvolucija(kvadrat, G5)
+for ime, z in [("box 3x3", zam_box), ("gauss 5x5", zam_gauss)]:
+    print("%-9s izlaz %s, prijelaznih piksela (0 < v < 1): %d" % (ime, z.shape, ((z > 0) & (z < 1)).sum()))
+</kod>
+<izlaz>
+[[0.003 0.013 0.022 0.013 0.003]
+ [0.013 0.06  0.098 0.06  0.013]
+ [0.022 0.098 0.162 0.098 0.022]
+ [0.013 0.06  0.098 0.06  0.013]
+ [0.003 0.013 0.022 0.013 0.003]]
+zbroj: 1.0  sredina / kut: 54.6
+box 3x3   izlaz (38, 38), prijelaznih piksela (0 < v < 1): 128
+gauss 5x5 izlaz (36, 36), prijelaznih piksela (0 < v < 1): 400
+</izlaz>
+<p>Gaussova jezgra daje sredini oko $55$ puta veću težinu nego kutovima, pa zamućenje blijedi glatko umjesto u „stepenicama”. Širi filtar razmaže rub na više piksela: broj prijelaznih piksela je veći, a izlaz je manji za $4$ umjesto za $2$. Zamućenje se u obradi slika koristi za uklanjanje šuma prije detekcije rubova – Sobel na šumovitoj slici bez zamućenja daje rubove posvuda.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Primijeni Sobelove filtre na sve slike znamenki iz <code>load_digits</code> i izračunaj za svaku sliku prosječnu jačinu ruba $\overline{\sqrt{G_x^2+G_y^2}}$. Koja znamenka u prosjeku ima najjače rubove, a koja najslabije? Zatim upotrijebi jačinu rubova kao jedinu značajku (uz prosječnu svjetlinu) u logističkoj regresiji i usporedi točnost s modelom na svih $64$ piksela iz Primjera 3. Što zaključuješ o ručno izrađenim značajkama?</p>
+<naputak>Konvolucija bez dopune na slici $8\times8$ daje $6\times6$. Značajke po slici složi u matricu oblika <code>(1797, 2)</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def jacina_rubova(slike):
+    out = np.empty(len(slike))
+    for i, s in enumerate(slike):
+        gx, gy = konvolucija(s, Sx), konvolucija(s, Sy)
+        out[i] = np.sqrt(gx ** 2 + gy ** 2).mean()
+    return out
+
+jr = jacina_rubova(Xd)
+po_znamenci = np.array([jr[yd == c].mean() for c in range(10)])
+print("prosječna jačina ruba po znamenci:", po_znamenci.round(1))
+print("najjači rubovi:", po_znamenci.argmax(), " najslabiji:", po_znamenci.argmin())
+
+Z = np.column_stack([jr, Xd.reshape(len(Xd), -1).mean(axis=1)])
+Z_tr, Z_te, yz_tr, yz_te = train_test_split(Z, yd, train_size=100, random_state=0, stratify=yd)
+m2 = LogisticRegression(max_iter=3000).fit(Z_tr, yz_tr)
+print("2 ručne značajke: točnost %.3f  (64 piksela: %.3f, slučajno pogađanje: 0.100)"
+      % (m2.score(Z_te, yz_te), tocnost(nauci(Xd_tr, yd_tr), Xd_te, yd_te)))
+</kod>
+<izlaz>
+prosječna jačina ruba po znamenci: [37.5 40.2 35.4 35.1 38.3 36.7 36.  37.1 35.1 35.3]
+najjači rubovi: 1  najslabiji: 8
+2 ručne značajke: točnost 0.191  (64 piksela: 0.899, slučajno pogađanje: 0.100)
+</izlaz>
+<p>Suprotno naivnom očekivanju, najjače rubove ima $1$: jedan debeo potez punog intenziteta uz praznu pozadinu daje oštre prijelaze, dok se potezi osmice na $8\times8$ piksela gusto prepliću i rubovi se „razmažu” u srednje vrijednosti. Razlike među znamenkama su ionako male (oko $35$–$40$), pa dvije ručne značajke sažimaju sliku prejako – točnost je tek nešto bolja od pogađanja, dok sirovi pikseli daju gotovo $90\,\%$. Za slike ručne značajke rijetko pobjeđuju; zato su konvolucijske mreže, koje značajke <em>uče</em>, u računalnom vidu standard (D5), a sljedeća lekcija pokazuje kako posuditi značajke koje je netko već naučio.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Napravi sivu sliku slabog kontrasta: vrijednosti sive slike iz Primjera 1 stisni u raspon $[100,140]$. Provedi <b>izjednačavanje histograma</b>: za svaku vrijednost $v$ nova je vrijednost $255\cdot F(v)$, gdje je $F$ kumulativna razdioba (udio piksela s vrijednošću $\le v$). Usporedi standardnu devijaciju i raspon prije i poslije te provjeri da je poredak piksela po svjetlini očuvan.</p>
+<naputak><code>np.bincount(v.ravel(), minlength=256)</code> daje histogram, <code>np.cumsum</code> kumulativnu razdiobu; nova slika je <code>tablica[v]</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+slab = (100 + siva.astype(float) * 40 / 255).round().astype(np.uint8)
+hist = np.bincount(slab.ravel(), minlength=256)
+F = np.cumsum(hist) / slab.size                  # F[v] = udio piksela <= v
+tablica = (255 * F).round().astype(np.uint8)
+izj = tablica[slab]
+for ime, s in [("slab kontrast", slab), ("izjednačeno", izj)]:
+    print("%-14s raspon [%3d, %3d]  std %.1f  razreda u uporabi: %d"
+          % (ime, s.min(), s.max(), s.std(), len(np.unique(s))))
+i, j = np.unravel_index([100, 2000], slab.shape)
+print("poredak očuvan:", bool(np.all((slab[i] <= slab[j]) == (izj[i] <= izj[j]))))
+print("monotono:", bool(np.all(np.diff(tablica.astype(int)) >= 0)))
+</kod>
+<izlaz>
+slab kontrast  raspon [100, 135]  std 7.9  razreda u uporabi: 36
+izjednačeno    raspon [  0, 255]  std 71.0  razreda u uporabi: 36
+poredak očuvan: True
+monotono: True
+</izlaz>
+<p>Izjednačavanje razvuče $36$ upotrijebljenih razreda (najsvjetliji sivi piksel, žuti kut, ima vrijednost $226$, pa stisnuta slika seže samo do $135$) na cijeli raspon $[0,255]$ i poveća raspršenje nekoliko puta, a broj različitih vrijednosti ostaje isti – nova informacija ne nastaje, samo se postojeća raširi. Preslikavanje je monotono (kumulativna razdioba ne pada), pa svjetliji piksel ostaje svjetliji. Za model to je jeftina normalizacija kontrasta koja čini slike snimljene u različitim uvjetima usporedivima; <code>PIL.ImageOps.equalize</code> radi isto.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Konvoluciju iz Primjera 2 zapiši kao <em>jedno</em> matrično množenje postupkom <b>im2col</b>: od slike složi matricu u kojoj je svaki redak jedna okolina $k\times k$ spljoštena u vektor duljine $k^2$, pa je konvolucija umnožak te matrice i spljoštene jezgre. Uopći na $m$ jezgri odjednom (matrica $k^2\times m$). Provjeri jednakost s funkcijom <code>konvolucija</code> na slici kvadrata za box, $S_x$ i $S_y$ te izmjeri koliko je im2col brži za $100$ nasumičnih jezgri $3\times3$ na slici $64\times64$.</p>
+<naputak><code>np.lib.stride_tricks.sliding_window_view(I, (k, k))</code> daje pogled oblika $(H-k+1,\,W-k+1,\,k,\,k)$ bez kopiranja; preoblikuj ga u $(\,(H-k+1)(W-k+1),\,k^2)$.</naputak>
+<rjesenje>
+<p>Upravo ovako konvolucijske mreže računaju konvoluciju: jedan veliki matrični umnožak umjesto petlji, što na GPU-u savršeno sjeda.</p>
+<kod jezik="python">
+import time
+from numpy.lib.stride_tricks import sliding_window_view
+
+def im2col_konv(I, jezgre):
+    """I: (H, W); jezgre: (k, k, m). Vraća (H-k+1, W-k+1, m)."""
+    k, m = jezgre.shape[0], jezgre.shape[2]
+    prozori = sliding_window_view(I, (k, k))          # (h, w, k, k)
+    h, w = prozori.shape[:2]
+    stupci = prozori.reshape(h * w, k * k)            # im2col: redak = jedna okolina
+    return (stupci @ jezgre.reshape(k * k, m)).reshape(h, w, m)
+
+tri = np.stack([box, Sx, Sy], axis=-1)              # (3, 3, 3)
+R = im2col_konv(kvadrat, tri)
+print("oblik:", R.shape, " jednako petlji:",
+      all(np.allclose(R[..., i], konvolucija(kvadrat, tri[..., i])) for i in range(3)))
+
+rng = np.random.default_rng(0)
+velika = rng.random((64, 64))
+jezgre = rng.standard_normal((3, 3, 100))
+t0 = time.perf_counter(); A = im2col_konv(velika, jezgre); t1 = time.perf_counter()
+B = np.stack([konvolucija(velika, jezgre[..., i]) for i in range(100)], axis=-1); t2 = time.perf_counter()
+print("isti rezultat:", np.allclose(A, B), " im2col je brži otprilike %dx" % round((t2 - t1) / (t1 - t0)))
+</kod>
+<izlaz provjera="ne">
+oblik: (38, 38, 3)  jednako petlji: True
+isti rezultat: True  im2col je brži otprilike 5x
+</izlaz>
+<p>Omjer brzina ovisi o računalu (zato se taj redak ne provjerava), ali im2col s jednim <code>@</code> redovito pobjeđuje petlju po jezgrama, a prednost raste s brojem jezgri – u mreži ih je u jednom sloju i po nekoliko stotina. Cijena je memorija: matrica im2col ima $k^2$ puta više brojeva od slike.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Istraži koliko augmentacija vrijedi ovisno o količini podataka. Za veličine skupa za učenje $50$, $100$, $200$, $400$ i $800$ slika iz <code>load_digits</code> usporedi točnost logističke regresije bez augmentacije i s pomacima za jedan piksel kao u Primjeru 3, na centriranom i na pomaknutom testu od $797$ slika koje nisu ni u jednom skupu za učenje. Kako se dobit odnosno šteta od augmentacije mijenja s $n$ i zašto?</p>
+<naputak>Prvo odvoji fiksni test (i njegovu pomaknutu inačicu); iz ostatka uzimaj prvih $n$ slika (nakon miješanja). Dobit je razlika dviju točnosti.</naputak>
+<rjesenje>
+<kod jezik="python">
+Xo, Xt, yo, yt = train_test_split(Xd, yd, test_size=797, random_state=1, stratify=yd)
+Xt_pom = slucajni_pomak(Xt, np.random.default_rng(1))
+
+print("   n   centrirani: bez   s aug.  razlika   pomaknuti: bez   s aug.  razlika")
+for n in (50, 100, 200, 400, 800):
+    Xn, yn = Xo[:n], yo[:n]
+    m_bez = nauci(Xn, yn)
+    m_aug = nauci(np.concatenate([Xn] + [pomakni(Xn, dy, dx) for dy, dx in pomaci]), np.tile(yn, 5))
+    c0, c1 = tocnost(m_bez, Xt, yt), tocnost(m_aug, Xt, yt)
+    p0, p1 = tocnost(m_bez, Xt_pom, yt), tocnost(m_aug, Xt_pom, yt)
+    print("%4d              %.3f   %.3f   %+.3f             %.3f   %.3f   %+.3f" % (n, c0, c1, c1 - c0, p0, p1, p1 - p0))
+</kod>
+<izlaz>
+   n   centrirani: bez   s aug.  razlika   pomaknuti: bez   s aug.  razlika
+  50              0.847   0.847   +0.000             0.433   0.631   +0.198
+ 100              0.896   0.877   -0.019             0.454   0.691   +0.237
+ 200              0.927   0.896   -0.031             0.492   0.759   +0.267
+ 400              0.954   0.903   -0.050             0.506   0.768   +0.262
+ 800              0.962   0.897   -0.065             0.507   0.779   +0.272
+</izlaz>
+<p>Na pomaknutom testu dobit je velika za svaki $n$ i s podacima čak <em>raste</em>: model bez augmentacije ne može naučiti invarijantnost na pomak koju u centriranim podacima nikad ne vidi, koliko god ih bilo, pa ostaje na $45$–$50\,\%$, dok augmentirani s više podataka postaje sve bolji. Na centriranom testu šteta raste s $n$: što model ima više stvarnih podataka, to mu umjetna varijacija koje na testu nema više smeta. Augmentacija, dakle, ne stvara informaciju o novim znamenkama – ugrađuje <em>naše znanje</em> o tome kakve varijacije očekujemo na testu. Ako je to znanje točno, vrijedi više od stotina novih slika; ako nije, škodi. Na natjecanju: pogledaj testne slike (smiješ gledati ulaze, ne oznake) i augmentiraj upravo onako kako one variraju.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Slika je tenzor $H\times W\times C$ (NumPy/Pillow: HWC; PyTorch: $N\times C\times H\times W$). Pohrana je <code>uint8</code> $[0,255]$, račun u <code>float32</code> $[0,1]$ pa normalizacija po kanalu $(x-\mu_c)/\sigma_c$ s konstantama skupa za učenje.</li>
+<li>Rez, okretanje i rotacija za 90° su indeksiranje (<code>I[y0:y1, x0:x1]</code>, <code>I[:, ::-1]</code>, <code>np.rot90</code>); svjetlinu i kontrast mijenjaj u <code>int</code>/<code>float</code> uz <code>np.clip</code>, nikad u <code>uint8</code>.</li>
+<li>Konvolucija = težinski zbroj okoline $k\times k$; zbroj težina $1$ zamućuje (box, Gauss), zbroj $0$ ističe rubove (Sobel). Izlaz bez dopune je manji za $k-1$; im2col je pretvara u matrično množenje.</li>
+<li>Histogram otkriva kontrast, ekspoziciju i obrnute boje prije nego što izgubiš sat na modelu; izjednačavanje histograma je monotono preslikavanje kroz kumulativnu razdiobu.</li>
+<li>Augmentacija = slučajne transformacije koje čuvaju oznaku, samo na skupu za učenje; koje su sigurne ovisi o zadatku (okretanje ne za znamenke i znakove, jitter boje ne kad je boja oznaka). Pomaže točno onoliko koliko oponaša varijaciju koja postoji u testnim podacima – inače škodi.</li>
+<li><code>torchvision.transforms.Compose([...RandomHorizontalFlip, RandomResizedCrop, ColorJitter, ToTensor, Normalize])</code>; Pillow: <code>Image.open</code>, <code>size=(W, H)</code>, <code>convert</code>, <code>resize</code>, <code>np.asarray</code>.</li>
+</ul>
+
+@@ literatura
+<li>R. Szeliski, <i>Computer Vision: Algorithms and Applications</i>, 2. izd., poglavlje 3 (Image processing) – besplatno na <a href="https://szeliski.org/Book/">szeliski.org/Book</a>.</li>
+<li>Pillow dokumentacija: <a href="https://pillow.readthedocs.io/en/stable/handbook/tutorial.html">Tutorial</a>; NumPy: <a href="https://numpy.org/doc/stable/user/basics.indexing.html">Indexing on ndarrays</a>.</li>
+<li>Torchvision dokumentacija: <a href="https://pytorch.org/vision/stable/transforms.html">Transforming and augmenting images</a> i <a href="https://pytorch.org/vision/stable/datasets.html">Datasets</a>.</li>
+<li>C. Shorten, T. M. Khoshgoftaar, „A survey on Image Data Augmentation for Deep Learning”, <i>Journal of Big Data</i> 6, 60 (2019).</li>
