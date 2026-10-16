@@ -1,0 +1,387 @@
+@@ meta
+naslov = Riješeni zadatak: klasifikacija slika (simulacija u stilu IOAI)
+podnaslov = Znamenke veličine 8 × 8: pikseli, mali CNN, augmentacija i poštena usporedba na CPU-u
+oznake = simulacija, load_digits, logistička regresija, CNN, augmentacija, krivulje učenja, transfer learning
+
+@@ ciljevi
+<li>Postaviti reproducibilan zadatak računalnog vida s odvojenim učenjem, validacijom i testom.</li>
+<li>Usporediti logističku regresiju na pikselima i malu konvolucijsku mrežu u PyTorchu.</li>
+<li>Primijeniti pomake samo pri učenju te protumačiti krivulje, matricu zabune i pogrešne slike.</li>
+<li>Prepoznati što treba promijeniti pri prijelazu na MNIST, CIFAR i pretreniranu mrežu.</li>
+
+@@ teorija
+<napomena>Ovo je <b>simulacija u stilu IOAI</b>, ne službeni natjecateljski zadatak. Koristimo ugrađeni skup <code>load_digits</code>, bez preuzimanja. Pravila predaje i metrika u nastavku dogovor su ove vježbe.</napomena>
+
+<h3>Što model prima i što predviđa?</h3>
+<p>Skup sadrži $1797$ sivih slika veličine $8\times8$, s pikselima od $0$ do $16$ i razredima $\{0,\dots,9\}$. Metrika je <b>točnost</b> (engl. <i>accuracy</i>), udio pogodaka. Stratificirana podjela približno čuva omjere razreda, ali ne odvaja nužno autore. Rezultat zato ne vrijedi automatski za nove rukopise ili fotografije.</p>
+<p>Odvoji približno $60\%$ za učenje, $20\%$ za validaciju i $20\%$ za test. Validacija bira model i epohu. Na kraju opisno uspoređujemo dva unaprijed zadana kandidata na testu, bez promjene izbora za predaju.</p>
+
+<h3>Od vektora piksela do konvolucije</h3>
+<p>Početno rješenje (engl. <i>baseline</i>) poravnava sliku u $x\in\mathbb R^{64}$. Logistička regresija računa linearne bodove razreda, bez posebnog tretmana susjedstva. Konvolucijska neuronska mreža (engl. <i>convolutional neural network</i>, CNN) iskorištava lokalnu strukturu.</p>
+<definicija naslov="Konvolucijski sloj">
+Za jedan ulazni kanal i jedan filtar računamo
+$$z_{i,j}=b+\sum_{a=0}^{k-1}\sum_{c=0}^{k-1}W_{a,c}x_{i+a,j+c}.$$
+Iste težine $W$ primjenjuju se na svim položajima. PyTorch operaciju bez okretanja filtra naziva konvolucijom, iako je matematički riječ o unakrsnoj korelaciji. Više filtara daje više izlaznih kanala.
+</definicija>
+<p>Mreža će imati dva sloja s filtrima $3\times3$, nelinearnosti ReLU, sažimanje maksimumom $2\times2$ i linearnu glavu. Dopuna nulama čuva prostornu veličinu prije sažimanja. Ulaz je oblika $(B,1,8,8)$, a izlaz $(B,10)$, gdje je $B$ veličina <b>miniserije</b> (engl. <i>batch</i>). <code>CrossEntropyLoss</code> prima sirove bodove, ne već izračunat softmax; oznake su cjelobrojni indeksi razreda.</p>
+
+<h3>Normalizacija, augmentacija i sjeme</h3>
+<p>Dijeljenjem s poznatom granicom $16$ preslikavamo piksele u $[0,1]$. To nije procjena iz testnih podataka. Kad bi se računali sredina i standardna devijacija, trebalo bi ih procijeniti samo na učenju. U <b>augmentaciji</b> (engl. <i>data augmentation</i>) stvaramo male varijante ulaza uz pretpostavku da oznaka ostaje ista. Pomak od jednoga piksela ovdje je već velik u odnosu na širinu slike; pretjerani pomaci mogu odrezati važan potez.</p>
+<p>Koristit ćemo pomake s nulama na rubu, ne <code>roll</code>, koji bi sadržaj s desnog ruba vratio na lijevi. Radi kratkog koda sve slike jedne miniserije dobivaju isti slučajni pomak. Validacija i test ostaju nepromijenjeni. Zrcaljenje ili velika rotacija nisu automatski dopušteni za znamenke: transformacija može uništiti značenje oznake.</p>
+<p>Fiksiraj sjeme, podjelu, miješanje i broj dretvi. Na različitim procesorima i bibliotekama rezultat nije nužno identičan na razini bitova. Miniserija $64$ prikladna je za CPU; posljednja smije biti manja.</p>
+
+<h3>Krivulje nisu samo ukras</h3>
+<p><b>Krivulje učenja</b> prikazuju gubitak (engl. <i>loss</i>) i točnost po epohama. Pad gubitka na učenju uz rast na validaciji upozorava na prenaučenost; velike greške na oba skupa traže provjeru podataka, optimizacije i kapaciteta. Mjerimo oba skupa <em>bez augmentacije</em>.</p>
+<p>Težine s najmanjim validacijskim gubitkom kopiraj pomoću <code>copy.deepcopy</code>; samo pridruživanje <code>state_dict()</code> ne izolira tenzore od novih promjena. <code>eval()</code> mijenja ponašanje slojeva, a <code>no_grad()</code> isključuje gradijente: nisu isto.</p>
+
+@@ primjeri
+<primjer>
+<p>Učitaj znamenke, odvoji skupove i izmjeri početnu logističku regresiju.</p>
+<rjesenje>
+<p><b>Korak 1: podjela indeksa.</b> Izvorni indeksi povezuju predikciju sa slikom; ne miješaj slike i oznake odvojeno.</p>
+<kod jezik="python">
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix
+
+podaci = load_digits()
+slike = (podaci.images / 16.0).astype(np.float32)
+oznake = podaci.target
+razvoj, te = train_test_split(np.arange(len(oznake)), test_size=0.2,
+                             stratify=oznake, random_state=0)
+tr, va = train_test_split(razvoj, test_size=0.25,
+                         stratify=oznake[razvoj], random_state=1)
+assert not (set(tr) & set(va) or set(tr) & set(te) or set(va) & set(te))
+print("slike:", slike.shape, "raspon:", float(slike.min()), float(slike.max()))
+print("učenje, validacija, test:", len(tr), len(va), len(te))
+</kod>
+<izlaz>
+slike: (1797, 8, 8) raspon: 0.0 1.0
+učenje, validacija, test: 1077 360 360
+</izlaz>
+<p><b>Korak 2: model na pikselima.</b> Oba kandidata dobivaju isti raspon. Ne ignoriraj upozorenje o konvergenciji; ovdje je dovoljno $1000$ koraka.</p>
+<kod jezik="python">
+pikseli = slike.reshape(len(slike), -1)
+lr = LogisticRegression(C=2.0, max_iter=1000, random_state=0)
+lr.fit(pikseli[tr], oznake[tr])
+lr_va = accuracy_score(oznake[va], lr.predict(pikseli[va]))
+print("LR učenje: %.3f" % lr.score(pikseli[tr], oznake[tr]))
+print("LR validacija: %.3f" % lr_va)
+</kod>
+<izlaz>
+LR učenje: 0.995
+LR validacija: 0.958
+</izlaz>
+<p><b>Korak 3: ugovor eksperimenta.</b> Prije učenja CNN-a dogovorimo $15$ epoha, spremanje prema validacijskom gubitku i izbor kandidata prema validacijskoj točnosti. U izjednačenju biramo jeftiniji LR. Test još ne mjerimo.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Istreniraj mali CNN s pomacima te nacrtaj krivulje.</p>
+<rjesenje>
+<p><b>Korak 1: tenzori, model i augmentacija.</b> Učenju odgovara <code>float32</code>, a oznakama <code>long</code>. Ne treba GPU ni dodatni skup podataka.</p>
+<kod jezik="python">
+import copy
+import torch
+from torch import nn
+from torch.nn import functional as F
+from torch.utils.data import DataLoader, TensorDataset
+
+torch.set_num_threads(1)
+torch.manual_seed(0)
+torch.use_deterministic_algorithms(True)
+X = torch.from_numpy(slike[:, None, :, :])
+y = torch.from_numpy(oznake).long()
+generator = torch.Generator().manual_seed(0)
+loader = DataLoader(TensorDataset(X[tr], y[tr]), batch_size=64, shuffle=True,
+                    generator=generator, num_workers=0)
+mreza = nn.Sequential(
+    nn.Conv2d(1, 8, 3, padding=1), nn.ReLU(),
+    nn.Conv2d(8, 16, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
+    nn.Flatten(), nn.Linear(16 * 4 * 4, 10),
+)
+
+def pomakni(x, dy, dx):
+    siri = F.pad(x, (1, 1, 1, 1))
+    return siri[:, :, 1 - dy:9 - dy, 1 - dx:9 - dx]
+
+def izmjeri(indeksi):
+    mreza.eval()
+    with torch.no_grad():
+        bodovi = mreza(X[indeksi])
+        gubitak = F.cross_entropy(bodovi, y[indeksi]).item()
+        tocnost = (bodovi.argmax(1) == y[indeksi]).float().mean().item()
+    return gubitak, tocnost
+
+print("ulaz:", tuple(X[tr[:4]].shape), "izlaz:", tuple(mreza(X[tr[:4]]).shape))
+print("parametri:", sum(p.numel() for p in mreza.parameters()))
+</kod>
+<izlaz>
+ulaz: (4, 1, 8, 8) izlaz: (4, 10)
+parametri: 3818
+</izlaz>
+<p><b>Korak 2: petlja učenja.</b> Gradijente brišemo prije svake miniserije. Validacija ne ulazi u <code>backward</code>; ipak utječe na izbor spremljene epohe, pa nije zamjena za test.</p>
+<kod jezik="python">
+optimizator = torch.optim.Adam(mreza.parameters(), lr=0.01)
+povijest = []
+najbolji_gubitak = float("inf")
+for epoha in range(1, 16):
+    mreza.train()
+    for xb, yb in loader:
+        dy, dx = torch.randint(-1, 2, (2,)).tolist()
+        optimizator.zero_grad()
+        gubitak = F.cross_entropy(mreza(pomakni(xb, dy, dx)), yb)
+        gubitak.backward()
+        optimizator.step()
+    g_tr, a_tr = izmjeri(tr)
+    g_va, a_va = izmjeri(va)
+    povijest.append((g_tr, g_va, a_tr, a_va))
+    if g_va < najbolji_gubitak:
+        najbolji_gubitak = g_va
+        najbolja_epoha = epoha
+        najbolje = copy.deepcopy(mreza.state_dict())
+    if epoha in (1, 5, 10, 15):
+        print("epoha %2d: gubitak %.3f / %.3f, točnost %.3f / %.3f" % (
+            epoha, g_tr, g_va, a_tr, a_va))
+mreza.load_state_dict(najbolje)
+cnn_va = izmjeri(va)[1]
+odabir = "CNN" if cnn_va > lr_va else "LR"
+print("spremljena epoha:", najbolja_epoha)
+print("CNN validacija: %.3f; odabir: %s" % (cnn_va, odabir))
+</kod>
+<izlaz>
+epoha  1: gubitak 1.612 / 1.633, točnost 0.686 / 0.653
+epoha  5: gubitak 0.262 / 0.337, točnost 0.945 / 0.917
+epoha 10: gubitak 0.102 / 0.165, točnost 0.969 / 0.947
+epoha 15: gubitak 0.081 / 0.138, točnost 0.981 / 0.956
+spremljena epoha: 13
+CNN validacija: 0.969; odabir: CNN
+</izlaz>
+<p><b>Korak 3: krivulje.</b> Gubitci padaju uz oscilacije. Vraćena je $13$. epoha, s validacijskom točnošću $0{,}969$, a ne posljednja. Vertikalna crta označava vraćenu epohu.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+h = np.array(povijest)
+epohe = np.arange(1, len(h) + 1)
+fig, osi = plt.subplots(1, 2, figsize=(9, 3))
+for os_, stupac, naslov in zip(osi, (0, 2), ("gubitak", "točnost")):
+    os_.plot(epohe, h[:, stupac], label="učenje bez pomaka")
+    os_.plot(epohe, h[:, stupac + 1], label="validacija")
+    os_.axvline(najbolja_epoha, color="gray", linestyle="--")
+    os_.set(xlabel="epoha", ylabel=naslov)
+    os_.legend(fontsize=8)
+fig.tight_layout()
+fig.savefig("cv_krivulje.png", dpi=120)
+plt.close(fig)
+print("spremljeno cv_krivulje.png")
+</kod>
+<izlaz>
+spremljeno cv_krivulje.png
+</izlaz>
+<p>Učinak augmentacije provjeri kontrolnim CNN-om bez pomaka uz istu podjelu i proračun učenja; sama krivulja nije dokaz koristi.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Jednom otvori test, prikaži zabune CNN-a i pripremi predaju odabranog kandidata.</p>
+<rjesenje>
+<p><b>Korak 1: završna provjera.</b> Ne mijenjaj <code>odabir</code>. Matrica ima prave razrede u redcima, predviđene u stupcima.</p>
+<kod jezik="python">
+mreza.eval()
+with torch.no_grad():
+    cnn_pred = mreza(X[te]).argmax(1).numpy()
+lr_pred = lr.predict(pikseli[te])
+print("model   validacija   test")
+print("LR      %.3f        %.3f" % (lr_va, accuracy_score(oznake[te], lr_pred)))
+print("CNN     %.3f        %.3f" % (cnn_va, accuracy_score(oznake[te], cnn_pred)))
+matrica = confusion_matrix(oznake[te], cnn_pred, labels=np.arange(10))
+print("CNN, razredi 0 do 9:")
+print(matrica)
+</kod>
+<izlaz>
+model   validacija   test
+LR      0.958        0.961
+CNN     0.969        0.961
+CNN, razredi 0 do 9:
+[[35  0  0  0  0  0  0  0  1  0]
+ [ 0 36  0  0  0  0  0  0  0  0]
+ [ 0  1 34  0  0  0  0  0  0  0]
+ [ 0  0  0 35  0  0  0  1  1  0]
+ [ 0  0  0  0 34  0  0  0  2  0]
+ [ 0  0  0  0  0 37  0  0  0  0]
+ [ 0  0  0  0  0  0 36  0  0  0]
+ [ 0  0  0  0  0  0  0 36  0  0]
+ [ 0  4  0  0  0  0  0  0 31  0]
+ [ 0  2  0  0  1  0  0  0  1 32]]
+</izlaz>
+<p><b>Korak 2: pogledaj slike.</b> Testna točnost oba kandidata je $0{,}961$. CNN ima $14$ grešaka; prikazujemo prvih osam s pravom i predviđenom znamenkom. Ne proglašavaj oznaku pogrešnom bez pregleda.</p>
+<kod jezik="python">
+greske = np.flatnonzero(cnn_pred != oznake[te])
+fig, osi = plt.subplots(2, 4, figsize=(8, 4))
+for os_ in osi.flat:
+    os_.axis("off")
+for os_, j in zip(osi.flat, greske[:8]):
+    os_.imshow(slike[te[j]], cmap="gray", vmin=0, vmax=1)
+    os_.set_title("%d → %d" % (oznake[te[j]], cnn_pred[j]))
+fig.tight_layout()
+fig.savefig("cv_greske.png", dpi=120)
+plt.close(fig)
+print("CNN greške:", len(greske), "od", len(te))
+print("prve zabune:", [(int(oznake[te[j]]), int(cnn_pred[j])) for j in greske[:8]])
+</kod>
+<izlaz>
+CNN greške: 14 od 360
+prve zabune: [(8, 1), (4, 8), (3, 7), (9, 1), (8, 1), (9, 4), (8, 1), (4, 8)]
+</izlaz>
+<p><b>Korak 3: predaja.</b> Ovdje je format <code>id,znamenka</code>, s izvornim indeksima u testnom redoslijedu. Na stvarnom zadatku provjeri primjer predaje.</p>
+<kod jezik="python">
+import pandas as pd
+
+predikcije = cnn_pred if odabir == "CNN" else lr_pred
+predaja = pd.DataFrame({"id": te, "znamenka": predikcije})
+assert predaja.id.is_unique and len(predaja) == len(te)
+assert predaja.znamenka.between(0, 9).all()
+predaja.to_csv("cv_predaja.csv", index=False)
+torch.save(mreza.state_dict(), "cv_cnn.pt")
+print("predaja:", odabir, "redaka:", len(predaja))
+print("spremljeno cv_predaja.csv i cv_cnn.pt")
+</kod>
+<izlaz>
+predaja: CNN redaka: 360
+spremljeno cv_predaja.csv i cv_cnn.pt
+</izlaz>
+<p>Uz težine sačuvaj arhitekturu, normalizaciju, postupak učenja, podjelu, sjemena, metrike i ograničenja.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Koji je oblik miniserije od $32$ sivih slika u našem CNN-u? Zašto izlaz ima deset, a ne jedan stupac?</p>
+<rjesenje><p>Ulaz je $(32,1,8,8)$, izlaz $(32,10)$. Svaka slika dobiva bod za svaki od deset razreda. Oznake su vektor duljine $32$, a ne realne ciljne vrijednosti za regresiju.</p></rjesenje>
+</zadatak>
+<zadatak tezina="0">
+<p>Zašto dijelimo s $16$, a ne s $255$? Treba li raspon piksela procijeniti iz testa?</p>
+<rjesenje><p>Skup <code>load_digits</code> dokumentira vrijednosti od nule do šesnaest. Dijeljenje s $255$ nepotrebno bi smanjilo već malen signal. Granica je poznata iz formata podataka, ne naučena iz testa.</p></rjesenje>
+</zadatak>
+<zadatak tezina="0">
+<p>Smiješ li promijeniti odabir kandidata nakon što vidiš testnu tablicu?</p>
+<rjesenje><p>Ne ako testnu metriku želiš zadržati kao završnu procjenu. Izbor tada postaje prilagodba testu. Kandidat je odabran na validaciji; tablica testa služi izvještaju.</p></rjesenje>
+</zadatak>
+<zadatak tezina="1">
+<p>Provjeri da pomak ne vraća sadržaj preko ruba. Postavi jedini svijetli piksel u desni gornji kut i pomakni ga udesno.</p>
+<rjesenje>
+<kod jezik="python">
+probna = torch.zeros(1, 1, 8, 8)
+probna[0, 0, 0, 7] = 1
+print("prije:", float(probna.sum()), "poslije:", float(pomakni(probna, 0, 1).sum()))
+</kod>
+<izlaz>
+prije: 1.0 poslije: 0.0
+</izlaz>
+<p>Piksel izlazi iz slike; to je namjerno rezanje, ne kružno pomicanje.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="1">
+<p>Iz matrice CNN-a izračunaj odziv za svaku znamenku. Koji nazivnik koristiš?</p>
+<rjesenje>
+<kod jezik="python">
+odziv = np.diag(matrica) / matrica.sum(axis=1)
+for znamenka, vrijednost in enumerate(odziv):
+    print(znamenka, "%.3f" % vrijednost)
+</kod>
+<izlaz>
+0 0.972
+1 1.000
+2 0.971
+3 0.946
+4 0.944
+5 1.000
+6 1.000
+7 1.000
+8 0.886
+9 0.889
+</izlaz>
+<p>Nazivnik je broj stvarnih primjera pojedine znamenke, odnosno zbroj njezina retka. U ovoj podjeli svi su razredi zastupljeni.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="2">
+<p>Provjeri broj parametara mreže ručnim računom i kodom.</p>
+<naputak>Konvolucija ima po jedan pomak za svaki izlazni kanal. Linearna glava prima $16\cdot4\cdot4$ značajki.</naputak>
+<rjesenje>
+<kod jezik="python">
+rucno = (8 * 1 * 3 * 3 + 8) + (16 * 8 * 3 * 3 + 16) + (256 * 10 + 10)
+print(rucno, sum(p.numel() for p in mreza.parameters()))
+</kod>
+<izlaz>
+3818 3818
+</izlaz>
+<p>ReLU, sažimanje i poravnavanje nemaju naučive parametre. Prostorno dijeljenje težina čini konvoluciju štedljivom.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="2">
+<p>Bi li CNN bez augmentacije nužno bio lošiji? Definiraj kontrolni eksperiment i kriterij zaključka.</p>
+<naputak>Odvoji učinak slučajne inicijalizacije od učinka transformacije ulaza.</naputak>
+<rjesenje><p>U novom razvojnom ciklusu pokreni dvije inačice iz istih početnih težina, s istom podjelom, redoslijedom miniserija, optimizatorom i brojem epoha. Jedna koristi pomake, druga izvorne slike. Ponovi nekoliko unaprijed zadanih sjemena i usporedi validacijske rezultate te raspršenje. Nema jamstva poboljšanja: pomak može odrezati potez. Završni test ne koristi za ponovljeni izbor augmentacije.</p></rjesenje>
+</zadatak>
+<zadatak tezina="3">
+<p>Primijeni prijenos učenja (engl. <i>transfer learning</i>) na MNIST ili CIFAR-10 uz ResNet. Napiši pokus sa zamrznutim izdvajačem značajki.</p>
+<naputak>MNIST ima jedan kanal, a pretrenirani ResNet očekuje tri. Normalizaciju uzmi iz odabranih težina.</naputak>
+<rjesenje>
+<p>Blok je <b>neizvršen</b> zbog preuzimanja skupa i težina. Za MNIST promijeni <code>naziv</code>; slika dobiva tri jednaka kanala. Mali poduzorak provjerava sučelje, ne kvalitetu ni prednost velikog modela za MNIST.</p>
+<kod jezik="python" pokreni="ne">
+from torchvision import datasets, models, transforms
+from torch.utils.data import Subset
+
+torch.manual_seed(0)
+naziv = "CIFAR10"  # druga mogućnost: "MNIST"
+tezine = models.ResNet18_Weights.DEFAULT
+pretvorbe = [tezine.transforms()]
+if naziv == "MNIST":
+    pretvorbe.insert(0, transforms.Grayscale(num_output_channels=3))
+skup = getattr(datasets, naziv)(root="podaci", train=True, download=True,
+                              transform=transforms.Compose(pretvorbe))
+indeksi = torch.randperm(len(skup), generator=torch.Generator().manual_seed(0))
+tr_mali = Subset(skup, indeksi[:128].tolist())
+va_mali = Subset(skup, indeksi[128:192].tolist())
+tr_loader = DataLoader(tr_mali, batch_size=16, shuffle=True, num_workers=0,
+                       generator=torch.Generator().manual_seed(0))
+va_loader = DataLoader(va_mali, batch_size=16, num_workers=0)
+resnet = models.resnet18(weights=tezine)
+for p in resnet.parameters():
+    p.requires_grad = False
+resnet.fc = nn.Linear(resnet.fc.in_features, 10)
+opt = torch.optim.Adam(resnet.fc.parameters(), lr=0.001)
+resnet.eval()  # zamrznute su i statistike normalizacijskih slojeva
+resnet.fc.train()
+for xb, yb in tr_loader:
+    opt.zero_grad()
+    F.cross_entropy(resnet(xb), yb).backward()
+    opt.step()
+resnet.eval()
+pogodci = 0
+with torch.no_grad():
+    for xb, yb in va_loader:
+        pogodci += int((resnet(xb).argmax(1) == yb).sum())
+print("validacijska točnost:", round(pogodci / len(va_mali), 3))
+</kod>
+<p>Očekuje se jedan broj od nule do jedan; nije izmjeren. Za stvarni pokus povećaj razvojni skup, koristi stratificiranu podjelu i usporedi s malom mrežom od nule. Fino podešavanje (engl. <i>fine-tuning</i>) odmrzava dio izdvajača uz manju brzinu učenja. Provjeri dopuštenost i licenciju vanjskih težina.</p>
+</rjesenje>
+</zadatak>
+@@ sazetak
+<ul>
+<li>Podjela i normalizacija dolaze prije arhitekture; LR na pikselima vrijedan je početni model.</li>
+<li>CNN iskorištava lokalnost i dijeljenje težina; mali model može se učiti na CPU-u.</li>
+<li>Augmentacija pripada učenju i mora čuvati oznaku. Pomak nije isto što i kružno premještanje.</li>
+<li>Krivulje mjere razvoj kroz epohe; najbolje težine spremi kopiranjem prema validaciji.</li>
+<li>Matrica i pogrešne slike otkrivaju slabosti koje točnost skriva; nakon otvaranja testa ne podešavaj model.</li>
+<li>Transfer learning zahtijeva usklađene kanale i normalizaciju te dopuštene vanjske težine.</li>
+</ul>
+
+@@ literatura
+<li>Scikit-learn: <a href="https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_digits.html">load_digits</a> i opis izvora podataka.</li>
+<li>PyTorch: <a href="https://docs.pytorch.org/docs/stable/generated/torch.nn.CrossEntropyLoss.html">CrossEntropyLoss</a> i <a href="https://docs.pytorch.org/docs/stable/notes/randomness.html">reproducibilnost</a>.</li>
+<li>PyTorch: <a href="https://docs.pytorch.org/tutorials/beginner/transfer_learning_tutorial.html">Transfer Learning for Computer Vision Tutorial</a>.</li>

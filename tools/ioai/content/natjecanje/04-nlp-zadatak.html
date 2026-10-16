@@ -1,0 +1,331 @@
+@@ meta
+naslov = Riješeni zadatak: klasifikacija teksta (simulacija u stilu IOAI)
+podnaslov = Od maloga hrvatskog korpusa do provjerljive predaje, bez preuzimanja podataka
+oznake = simulacija, TF-IDF, logistička regresija, znakovni n-grami, Naive Bayes, analiza grešaka
+
+@@ ciljevi
+<li>Sastaviti korpus i razdvojiti učenje, validaciju i test prije izgradnje rječnika.</li>
+<li>Usporediti početno rješenje s riječima, znakovnim n-gramima i naivnim Bayesovim klasifikatorom.</li>
+<li>Protumačiti matricu zabune, provjeriti rubne primjere i pripremiti predaju s identifikatorima.</li>
+<li>Objasniti kada bi pretrenirani transformer mogao pomoći i što treba provjeriti prije njegova preuzimanja.</li>
+
+@@ teorija
+<napomena>Ovo je autorska <b>simulacija u stilu IOAI</b>, a ne službeni zadatak ni opis pravila natjecanja. Korpus je namjerno malen i umjetan. Rezultati služe za učenje postupka, ne za tvrdnju da smo riješili klasifikaciju hrvatskih vijesti.</napomena>
+
+<h3>Ugovor zadatka i podjela podataka</h3>
+<p>Ulaz je kratka hrvatska rečenica, a izlaz jedan od razreda: <b>sport</b>, <b>znanost</b>, <b>kultura</b>. U ovoj simulaciji glavna je metrika makroprosjek F1, a pomoćna točnost. Najprije napravi jednostavno <b>početno rješenje</b> (engl. <i>baseline</i>); ono provjerava cijeli put od teksta do predaje prije ulaganja vremena u veći model.</p>
+<p>Generirat ćemo $90$ rečenica iz tema i predložaka: tri predloška za učenje, četvrti za validaciju, peti za test. Predlošci su odvojeni, ali se <em>teme ponavljaju</em>, pa je provjera optimistična. U stvarnome korpusu grupiraj povezane vijesti, autore ili izvore i poštuj kronologiju. Slična vijest u učenju i testu može napuhati rezultat i bez identičnih redaka.</p>
+
+<h3>TF-IDF i linearni klasifikator</h3>
+<definicija naslov="Težina TF-IDF">
+TF-IDF (engl. <i>term frequency–inverse document frequency</i>) spaja učestalost i rijetkost pojma. Neka je $c_{t,d}$ broj pojavljivanja pojma $t$ u dokumentu $d$, $N$ broj dokumenata za učenje, a $df_t$ broj onih koji sadrže $t$. Zadana težina prije normalizacije je
+$$v_{t,d}=c_{t,d}\left(\log\frac{1+N}{1+df_t}+1\right).$$
+Nakon toga se svaki nenulti redak dijeli svojom euklidskom normom. Čest pojam u jednoj rečenici dobiva veću težinu, a pojam prisutan posvuda manju relativnu važnost.
+</definicija>
+<p>Rječnik i $df_t$ uče se <em>samo</em> na učenju. <code>Pipeline</code> povezuje pretvorbu i klasifikator: <code>fit</code> uči oba dijela, a <code>predict</code> koristi naučenu pretvorbu. Nepoznate riječi zanemaruje; ako su sve nepoznate, nastaje nulti vektor, a model ipak bira razred.</p>
+<p>Višeklasna logistička regresija računa bodove $z_k=w_k^\top x+b_k$ i vjerojatnosti $p_k=\exp(z_k)/\sum_j\exp(z_j)$. Predviđa najveći $p_k$. Regularizacija ograničava težine; u scikit-learnu manje <code>C</code> znači jaču regularizaciju. Vrijednost <code>C</code> biraš validacijom, ne gledanjem testa.</p>
+
+<h3>Hrvatski padeži i dva druga pristupa</h3>
+<p>Riječi „igrač”, „igrača” i „igraču” različiti su tokeni. <b>Znakovni n-gram</b> (engl. <i>character n-gram</i>) niz je od $n$ uzastopnih znakova. Oblici mogu dijeliti n-gram „igra”, pa model može prenijeti dio naučenoga na novi nastavak. <code>analyzer="char_wb"</code> gradi n-grame unutar granica riječi, uz rubne razmake. To nije morfološka analiza: zajednički niz znakova može spojiti i nepovezane riječi. Raspon duljina $(3,5)$ razuman je mali eksperiment, ne univerzalno najbolje pravilo.</p>
+<p><b>Naivni Bayesov klasifikator</b> (engl. <i>Naive Bayes</i>) pretpostavlja uvjetnu neovisnost značajki uz zadani razred. Multinomijalna inačica bira razred s najvećim $\log P(k)+\sum_t x_t\log P(t\mid k)$. Zaglađivanje <code>alpha</code> sprječava nulte procjene za neviđene pojmove. Sirovi brojevi pojavljivanja odgovaraju multinomijalnom modelu; nenegativni TF-IDF često se također koristi kao praktična inačica. Usporedit ćemo oba klasifikatora na istim TF-IDF značajkama.</p>
+
+<h3>Metrike, greške i granice zaključka</h3>
+<definicija naslov="Makro-F1 i matrica zabune">
+Za svaki razred $k$ vrijedi $F1_k=2TP_k/(2TP_k+FP_k+FN_k)$, a makroprosjek je $\frac1K\sum_k F1_k$. Ako je nazivnik nula, u kodu dogovaramo vrijednost nula. Matrica zabune $C_{ij}$ broji primjere čiji je pravi razred $i$, a predviđeni $j$. Dijagonala su pogodci; zbroj retka daje broj primjera pravog razreda.
+</definicija>
+<p>Točnost broji udio svih pogodaka, dok makro-F1 svakom razredu daje jednaku težinu. Na malom skupu nekoliko rečenica može promijeniti poredak modela. Pogledaj <em>koje</em> primjere model griješi: nepoznate riječi, višeznačne rečenice, tipfelere ili pogrešne oznake. Unaprijed rezervirani test otvori tek kad zaključaš model. Naknadna analiza testa služi izvještaju ili sljedećem ciklusu s novim testom, a ne popravljanju prijavljenoga rezultata.</p>
+
+@@ primjeri
+<primjer>
+<p>Sastavi korpus i izgradi početno rješenje: riječi i parovi riječi, TF-IDF, logistička regresija.</p>
+<rjesenje>
+<p><b>Korak 1: podatci i oznake.</b> Sve teme su ručno napisane. Svaki od pet predložaka upotrijebi šest puta po razredu. Identifikator ostaje vezan uz redak i nakon podjele.</p>
+<kod jezik="python">
+import numpy as np
+import pandas as pd
+
+razredi = ["sport", "znanost", "kultura"]
+teme = {
+    "sport": ["nogometni turnir", "košarkaška utakmica", "teniski meč",
+              "plivačko natjecanje", "rukometna liga", "atletska utrka"],
+    "znanost": ["kemijski pokus", "svemirska misija", "biološko istraživanje",
+                "fizikalni eksperiment", "matematički dokaz", "genetska analiza"],
+    "kultura": ["kazališna predstava", "likovna izložba", "književni festival",
+                "filmska premijera", "glazbeni koncert", "pjesnička večer"],
+}
+predlosci = ["Danas je glavna tema: {}.", "Učenici prate događaj: {}.",
+             "U vijestima se spominje: {}.", "Naš je izbor ovaj tjedan: {}.",
+             "Nova objava donosi temu: {}."]
+retci = []
+for p, predlozak in enumerate(predlosci):
+    for razred in razredi:
+        for tema in teme[razred]:
+            retci.append((len(retci), predlozak.format(tema), razred, p))
+korpus = pd.DataFrame(retci, columns=["id", "tekst", "razred", "predlozak"])
+ucenje = korpus[korpus.predlozak < 3].copy()
+validacija = korpus[korpus.predlozak == 3].copy()
+test = korpus[korpus.predlozak == 4].copy()
+assert korpus.tekst.nunique() == len(korpus)
+print("učenje, validacija, test:", len(ucenje), len(validacija), len(test))
+print(korpus.groupby("razred").size().to_dict())
+</kod>
+<izlaz>
+učenje, validacija, test: 54 18 18
+{'kultura': 30, 'sport': 30, 'znanost': 30}
+</izlaz>
+<p><b>Korak 2: učenje samo na prvom dijelu.</b> Ne spajaj sva tri skupa radi izgradnje rječnika. Sjeme je zadano iako zadani optimizator ovdje ne ovisi o slučajnom miješanju.</p>
+<kod jezik="python">
+from sklearn.pipeline import make_pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+
+rijeci = make_pipeline(
+    TfidfVectorizer(ngram_range=(1, 2)),
+    LogisticRegression(C=2.0, max_iter=300, random_state=0),
+)
+rijeci.fit(ucenje.tekst, ucenje.razred)
+pocetne = rijeci.predict(validacija.tekst)
+print("točnost = %.3f" % accuracy_score(validacija.razred, pocetne))
+print("makro-F1 = %.3f" % f1_score(validacija.razred, pocetne, average="macro"))
+</kod>
+<izlaz>
+točnost = 1.000
+makro-F1 = 1.000
+</izlaz>
+<p><b>Korak 3: provjera smisla.</b> Validacijski F1 je $1$, ali ponavljanje tema ne provjerava nove stilove ni izvore. Zapiši to ograničenje uz metriku.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Usporedi znakovne n-grame i Naive Bayes bez promjene podjele.</p>
+<rjesenje>
+<p><b>Korak 1: dva kandidata.</b> Mijenjaj jedan sastojak odjednom. Znakovni model zadržava logističku regresiju, a Bayesov model zadržava prikaz riječima.</p>
+<kod jezik="python">
+from sklearn.naive_bayes import MultinomialNB
+
+znakovi = make_pipeline(
+    TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5)),
+    LogisticRegression(C=2.0, max_iter=300, random_state=0),
+)
+bayes = make_pipeline(TfidfVectorizer(ngram_range=(1, 2)), MultinomialNB(alpha=1.0))
+modeli = {"riječi + LR": rijeci, "znakovi + LR": znakovi, "riječi + NB": bayes}
+rezultati = {}
+for naziv, kandidat in modeli.items():
+    kandidat.fit(ucenje.tekst, ucenje.razred)
+    pred = kandidat.predict(validacija.tekst)
+    rezultat = f1_score(validacija.razred, pred, average="macro", zero_division=0)
+    rezultati[naziv] = rezultat
+    print("%s: točnost %.3f, makro-F1 %.3f" % (
+        naziv, accuracy_score(validacija.razred, pred), rezultat))
+</kod>
+<izlaz>
+riječi + LR: točnost 1.000, makro-F1 1.000
+znakovi + LR: točnost 1.000, makro-F1 1.000
+riječi + NB: točnost 1.000, makro-F1 1.000
+</izlaz>
+<p><b>Korak 2: unaprijed dogovoreno razrješenje izjednačenja.</b> Zadrži prvo, početno rješenje ako su rezultati isti. Test ne koristimo za izbor pobjednika.</p>
+<kod jezik="python">
+odabrani_naziv = max(rezultati, key=rezultati.get)
+odabrani = modeli[odabrani_naziv]
+print("odabrano:", odabrani_naziv)
+print("broj značajki riječi:", len(rijeci[0].vocabulary_))
+print("broj značajki znakova:", len(znakovi[0].vocabulary_))
+</kod>
+<izlaz>
+odabrano: riječi + LR
+broj značajki riječi: 125
+broj značajki znakova: 840
+</izlaz>
+<p><b>Korak 3: zaključak.</b> Sva tri modela imaju F1 jednak $1$. Znakovi koriste $840$ značajki naspram $125$ za riječi, bez poboljšanja ovdje. Za izbor na hrvatskom jeziku treba raznolikiji validacijski skup.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Zaključi eksperiment, pregledaj greške i pripremi predaju ove simulacije.</p>
+<rjesenje>
+<p><b>Korak 1: jednokratna testna ocjena.</b> Redoslijed razreda u matrici zadaj izričito. Nema novog učenja ni promjene hiperparametara nakon ovog koraka.</p>
+<kod jezik="python">
+test_pred = odabrani.predict(test.tekst)
+print("test: točnost %.3f, makro-F1 %.3f" % (
+    accuracy_score(test.razred, test_pred),
+    f1_score(test.razred, test_pred, average="macro", zero_division=0)))
+print("redci = istina, stupci = predikcija:", razredi)
+print(confusion_matrix(test.razred, test_pred, labels=razredi))
+</kod>
+<izlaz>
+test: točnost 1.000, makro-F1 1.000
+redci = istina, stupci = predikcija: ['sport', 'znanost', 'kultura']
+[[6 0 0]
+ [0 6 0]
+ [0 0 6]]
+</izlaz>
+<p><b>Korak 2: odvojena dijagnostika.</b> Ručni stresni skup <em>nije</em> drugi test za izbor modela. Oznaka prati glavnu temu; kod višeznačnih rečenica provjeri i oznaku, ne samo predikciju.</p>
+<kod jezik="python">
+rubni = ["Nogometaši se pripremaju za utakmicu.",
+         "U laboratoriju proučavaju stanice.",
+         "Publika uživa u pjesmama i plesu.",
+         "Glumci izvode predstavu o nogometnom turniru.",
+         "Znanstvenici mjere brzinu igrača na teniskom meču.",
+         "Natjecatelji trče pokraj muzeja."]
+rubne_oznake = np.array(["sport", "znanost", "kultura", "kultura", "znanost", "sport"])
+rubne_pred = odabrani.predict(rubni)
+print("greške na ručnom stresnom skupu:")
+for tekst, prava, pred in zip(rubni, rubne_oznake, rubne_pred):
+    if prava != pred:
+        print("%s -> %s | %s" % (prava, pred, tekst))
+print("broj grešaka:", int(np.sum(rubne_oznake != rubne_pred)))
+</kod>
+<izlaz>
+greške na ručnom stresnom skupu:
+znanost -> sport | U laboratoriju proučavaju stanice.
+kultura -> sport | Publika uživa u pjesmama i plesu.
+kultura -> sport | Glumci izvode predstavu o nogometnom turniru.
+znanost -> sport | Znanstvenici mjere brzinu igrača na teniskom meču.
+broj grešaka: 4
+</izlaz>
+<p>Četiri od šest predikcija su pogrešne. Nepoznati izrazi i miješanje tema različiti su problemi: predstava može biti o sportu. Prikupi kontekstualne primjere i razjasni upute označivačima, umjesto samog povećavanja <code>C</code>.</p>
+<p><b>Korak 3: predaja.</b> Ovdje tražimo CSV <code>id,razred</code>, redak po testnom identifikatoru. Testne oznake služe samo nastavi, ne predviđanju. Stvarni zadatak može tražiti drugi format.</p>
+<kod jezik="python">
+predaja = pd.DataFrame({"id": test.id.to_numpy(), "razred": test_pred})
+assert predaja.id.is_unique and len(predaja) == len(test)
+assert predaja.id.tolist() == test.id.tolist()
+assert set(predaja.razred).issubset(set(razredi))
+predaja.to_csv("nlp_predaja.csv", index=False)
+print(predaja.head(3).to_string(index=False))
+print("spremljeno nlp_predaja.csv")
+</kod>
+<izlaz>
+ id razred
+ 72  sport
+ 73  sport
+ 74  sport
+spremljeno nlp_predaja.csv
+</izlaz>
+<p>Sačuvaj i izvršivu bilježnicu, sjeme, ovisnosti, podjelu, validacijske rezultate i ograničenja.</p>
+<p><b>Korak 4: transformer.</b> Blok zahtijeva <code>transformers</code> i preuzimanje težina, pa se <b>ne pokreće</b>. Zamrznuti višejezični enkoder daje prikaze tokena; usrednjujemo ih uz masku i učimo klasifikator, bez finog podešavanja enkodera. Provjeri licenciju, karticu modela i dopuštenost vanjskih težina. Bolji rezultat nije zajamčen.</p>
+<kod jezik="python" pokreni="ne">
+import torch
+from transformers import AutoTokenizer, AutoModel
+
+torch.manual_seed(0)
+tokenizator = AutoTokenizer.from_pretrained("distilbert-base-multilingual-cased")
+enkoder = AutoModel.from_pretrained("distilbert-base-multilingual-cased").eval()
+
+def prikazi(tekstovi):
+    dijelovi = []
+    for i in range(0, len(tekstovi), 8):
+        ulaz = tokenizator(list(tekstovi[i:i + 8]), padding=True, truncation=True,
+                          max_length=64, return_tensors="pt")
+        with torch.no_grad():
+            skriveno = enkoder(**ulaz).last_hidden_state
+        maska = ulaz["attention_mask"].unsqueeze(-1)
+        sredina = (skriveno * maska).sum(1) / maska.sum(1).clamp_min(1)
+        dijelovi.append(sredina.numpy())
+    return np.concatenate(dijelovi)
+
+glava = LogisticRegression(max_iter=1000, random_state=0)
+glava.fit(prikazi(ucenje.tekst.tolist()), ucenje.razred)
+p = glava.predict(prikazi(validacija.tekst.tolist()))
+print("transformer, validacijski makro-F1:",
+      round(f1_score(validacija.razred, p, average="macro"), 3))
+</kod>
+<p>Očekivani oblik ispisa je jedan validacijski makro-F1 između nule i jedan; broj nije izmjeren. Novi kandidat pripada novom razvojnom ciklusu, ne naknadnoj promjeni već zaključenog testnog izvještaja.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Zašto korpus ima $90$ redaka, ali znatno manje od $90$ neovisnih ideja?</p>
+<rjesenje><p>Ima $3\cdot6\cdot5=90$ kombinacija. Samo je $18$ tematskih izraza; ostalo su predlošci. Veličina tablice nije isto što i raznolikost jezika.</p></rjesenje>
+</zadatak>
+<zadatak tezina="0">
+<p>U matrici zabune je $C_{\mathrm{sport},\mathrm{kultura}}=2$. Što to znači i je li to lažno pozitivan rezultat za kulturu?</p>
+<rjesenje><p>Dva sportska teksta predviđena su kao kultura. To su dva lažno pozitivna rezultata za kulturu i dva lažno negativna za sport.</p></rjesenje>
+</zadatak>
+<zadatak tezina="0">
+<p>Smiješ li pozvati <code>fit_transform</code> na cijelom korpusu ako još nisi koristio testne oznake?</p>
+<rjesenje><p>Ne u ovdje dogovorenoj induktivnoj provjeri. Naučio bi rječnik i učestalosti iz testnih ulaza. Transformaciju prilagodi učenju, a na ostalima zovi samo <code>transform</code>. Eventualni drukčiji režim mora biti izričito dopušten.</p></rjesenje>
+</zadatak>
+<zadatak tezina="1">
+<p>Provjeri je li riječ „nova”, koja se pojavljuje u testnom predlošku, u naučenom rječniku.</p>
+<rjesenje>
+<kod jezik="python">
+print("nova" in rijeci[0].vocabulary_)
+print("svemirska" in rijeci[0].vocabulary_)
+</kod>
+<izlaz>
+False
+True
+</izlaz>
+<p>Tematska riječ poznata je iz učenja, a novi omot nije. To je namjerna provjera izolacije pretvorbe.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="1">
+<p>Usporedi broj nenultih značajki za „turnir” i „turniru” u prikazu riječima i znakovima.</p>
+<rjesenje>
+<kod jezik="python">
+for tekst in ["turnir", "turniru"]:
+    print(tekst, "riječi:", rijeci[0].transform([tekst]).nnz,
+          "znakovi:", znakovi[0].transform([tekst]).nnz)
+</kod>
+<izlaz>
+turnir riječi: 1 znakovi: 12
+turniru riječi: 0 znakovi: 12
+</izlaz>
+<p>Nenulti znakovni prikaz za novi padežni oblik omogućuje prijenos dijela informacije, ali sam po sebi ne jamči ispravnu klasifikaciju.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="2">
+<p>Izračunaj makro-F1 iz matrice zabune bez poziva <code>f1_score</code> i provjeri rezultat na ručnom stresnom skupu.</p>
+<naputak>Lažno pozitivni primjeri dolaze iz stupca, a lažno negativni iz retka.</naputak>
+<rjesenje>
+<kod jezik="python">
+C = confusion_matrix(rubne_oznake, rubne_pred, labels=razredi)
+tp = np.diag(C)
+nazivnik = C.sum(axis=0) + C.sum(axis=1)
+f1_po_razredu = np.divide(2 * tp, nazivnik, out=np.zeros(3), where=nazivnik != 0)
+print("ručno %.3f, sklearn %.3f" % (f1_po_razredu.mean(),
+      f1_score(rubne_oznake, rubne_pred, labels=razredi, average="macro")))
+</kod>
+<izlaz>
+ručno 0.167, sklearn 0.167
+</izlaz>
+</rjesenje>
+</zadatak>
+<zadatak tezina="2">
+<p>Za svaki razred ispiši dvije riječi s najvećim koeficijentima početnog modela. Dokazuje li to uzročnost?</p>
+<naputak>Redoslijed redaka koeficijenata određuje <code>classes_</code>, ne naš popis razreda.</naputak>
+<rjesenje>
+<kod jezik="python">
+imena = rijeci[0].get_feature_names_out()
+for razred, tezine in zip(rijeci[1].classes_, rijeci[1].coef_):
+    vrh = np.argsort(-tezine, kind="stable")[:2]
+    print(razred, ", ".join(imena[vrh]))
+</kod>
+<izlaz>
+kultura festival, filmska
+sport atletska, atletska utrka
+znanost analiza, biološko
+</izlaz>
+<p>Koeficijenti opisuju ovaj model i ovaj rječnik. Korelirani unigrami i bigrami dijele signal, pa poredak nije uzročna važnost tema.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="3">
+<p>Osmisli strožu procjenu: ni jedna tematska fraza ne smije biti prisutna u više skupova. Objasni zašto ne smiješ usporediti novi broj sa starim kao da se promijenio samo model.</p>
+<naputak>Grupiraj po temi prije razvijanja predložaka.</naputak>
+<rjesenje><p>Po razredu odvoji četiri teme za učenje, jednu za validaciju i jednu za test; sve njihove predloške zadrži zajedno. Ponovi postupak s više unaprijed odabranih podjela jer je jedna tema po razredu vrlo malo. Sada se mjeri prijenos na nove teme, a prije se mjerio prijenos na novi omot istih tema. Promijenila se težina problema. Službeni rezultat prethodnog eksperimenta ne prepisuj tim brojem.</p></rjesenje>
+</zadatak>
+@@ sazetak
+<ul>
+<li>Umjetni korpus je vježba postupka; ponavljanje tema ograničava zaključke o generalizaciji.</li>
+<li>TF-IDF uči rječnik samo iz učenja; <code>Pipeline</code> čuva taj redoslijed.</li>
+<li>Usporedi riječi, znakove i Naive Bayes na istoj validaciji, a test otvori tek nakon izbora.</li>
+<li>Matrica zabune i konkretni tekstovi pokazuju drukčije probleme od jednoga prosječnog broja.</li>
+<li>Predaja treba čuvati identifikatore i format; transformer je dodatni eksperiment, ne automatska pobjeda.</li>
+</ul>
+
+@@ literatura
+<li>Scikit-learn: <a href="https://scikit-learn.org/stable/modules/feature_extraction.html#text-feature-extraction">izdvajanje značajki iz teksta</a> i <a href="https://scikit-learn.org/stable/modules/naive_bayes.html">Naive Bayes</a>.</li>
+<li>Scikit-learn: <a href="https://scikit-learn.org/stable/modules/model_evaluation.html">metrike i vrednovanje modela</a>.</li>
+<li>Hugging Face: <a href="https://huggingface.co/docs/transformers/model_doc/auto">AutoTokenizer i AutoModel</a>; prije uporabe pročitaj i karticu odabranog modela.</li>
