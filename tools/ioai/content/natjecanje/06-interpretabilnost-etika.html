@@ -1,0 +1,311 @@
+@@ meta
+naslov = Interpretabilnost, pristranost i etika AI-ja
+podnaslov = Što model koristi, komu griješi i zašto visoka točnost nije dovoljan dokaz kvalitete
+oznake = permutacijska važnost, SHAP, parcijalna ovisnost, demografski paritet, pristranost, privatnost
+
+@@ ciljevi
+<li>Izmjeriti permutacijsku važnost i objasniti razliku između objašnjenja modela i uzročnosti.</li>
+<li>Protumačiti parcijalnu ovisnost i osnovnu ideju SHAP doprinosa.</li>
+<li>Izračunati stope pozitivnih odluka, točnost i stope pogrešaka po grupama na sintetičkom primjeru.</li>
+<li>Prepoznati curenje podataka, prenaučenost na benchmark, rizike privatnosti i halucinacije jezičnih modela.</li>
+
+@@ teorija
+<h3>Zašto rezultat nije cijela priča?</h3>
+<p>U pripremi za IOAI učiš što model koristi, kako se rezultat mjeri i kada mu ne treba vjerovati. Službene zahtjeve provjeri u pravilima; ova lekcija ne propisuje bodovanje etike.</p>
+<p><b>Interpretabilnost</b> (engl. <i>interpretability</i>) opisuje vezu ulaza i izlaza. <b>Globalno</b> objašnjenje opisuje skup, <b>lokalno</b> jednu predikciju. Može otkriti prečac, ali ne potvrđuje ispravnost, poštenost ni uzročnost.</p>
+
+<h3>Permutacijska važnost</h3>
+<definicija naslov="Koliko se model oslanja na značajku?">
+Neka je $s(f,X,y)$ metrika za koju je veće bolje. Permutacijska važnost (engl. <i>permutation importance</i>) značajke $j$ jest
+$$I_j=s(f,X,y)-\frac1R\sum_{r=1}^R s(f,X^{\pi_{j,r}},y),$$
+gdje $X^{\pi_{j,r}}$ nastaje slučajnim premještanjem vrijednosti samo stupca $j$. Model se ne uči ponovno. Velik pad metrike znači da se ovaj model na ovom skupu oslanja na taj stupac.
+</definicija>
+<p>Računaj na izdvojenom skupu da ne mjeriš memoriranje. Raspršenje ponavljanja opisuje permutacije, <em>nije</em> interval pouzdanosti za populaciju. Negativna važnost može nastati zbog šuma ili štetne značajke. Zamjenjivi stupci mogu imati male pojedinačne važnosti jer nose isti signal; to ne dokazuje nevažnost cijele grupe.</p>
+
+<h3>Parcijalna ovisnost i lokalni doprinosi</h3>
+<definicija naslov="Parcijalna ovisnost">
+Parcijalna ovisnost (engl. <i>partial dependence</i>) za značajku $j$ i vrijednost $z$ jest
+$$PD_j(z)=\frac1n\sum_{i=1}^n f(z,x_{i,-j}).$$
+Ostale značajke svakog retka ostaju kakve jesu, a $j$-tu zamijenimo s $z$. U binarnoj klasifikaciji ovdje je $f$ predviđena vjerojatnost pozitivnog razreda.
+</definicija>
+<p>To je prosjek odgovora modela, ne očekivana posljedica stvarne intervencije. Ako su dob i iskustvo povezani, zamjena samo dobi može stvoriti nestvarne kombinacije. Prosjek može sakriti i suprotne učinke u podgrupama. Lokalna krivulja jedne osobe i prosječna krivulja ne moraju izgledati jednako.</p>
+<p><b>SHAP</b> raspodjeljuje odstupanje predikcije od referentne vrijednosti na značajke, prema ideji Shapleyjevih vrijednosti iz teorije igara. Promatra doprinos značajke kada se dodaje različitim skupovima drugih značajki. Za određeni izlaz modela i zadanu referentnu raspodjelu vrijedi aditivno objašnjenje $f(x)=\phi_0+\sum_j\phi_j$. Pozitivan $\phi_j$ povisuje objašnjavani izlaz u odnosu na referenciju, a negativan ga snižava. Ovisi o izlaznoj skali, pozadinskim podatcima i načinu obrade zavisnosti značajki. Nije jedinstvena „istina o osobi”.</p>
+
+<h3>Poštenost: prvo odredi štetu i cilj</h3>
+<p><b>Pristranost</b> (engl. <i>bias</i>) može nastati pri uzorkovanju, mjerenju, označivanju ili uporabi modela. Ako povijesne oznake odražavaju nepravedne odluke, točno oponašanje oznaka može ponoviti nepravdu. Uklanjanje stupca s grupom nije dovoljno: poštanski broj ili administrativni bod mogu biti njegove zamjene. S druge strane, kontrolirano čuvanje grupe može biti potrebno za reviziju; pristup tim podatcima mora biti opravdan i ograničen.</p>
+<definicija naslov="Demografski paritet">
+Za grupu $A=a$ stopa pozitivnih odluka je $q_a=P(\hat Y=1\mid A=a)$. Demografski paritet (engl. <i>demographic parity</i>) traži jednake stope među grupama. Za dvije grupe promatramo apsolutni jaz
+$$\Delta_{DP}=|q_0-q_1|.$$
+Empirijski računamo broj pozitivnih odluka podijeljen brojem članova grupe. Jaz nula sam po sebi ne dokazuje poštenost.
+</definicija>
+<p><b>Jednakost prilika</b> (engl. <i>equal opportunity</i>) umjesto toga uspoređuje odziv $TPR=P(\hat Y=1\mid Y=1,A=a)$. Jednakost stopa pogrešaka (engl. <i>equalized odds</i>) traži jednake TPR i FPR, gdje je $FPR=P(\hat Y=1\mid Y=0,A=a)$. Ti kriteriji mogu biti u napetosti, posebno uz različite osnovne stope. Odabir nije samo matematički: ovisi o namjeni, opravdanosti oznaka, trošku grešaka i ljudima koje odluke pogađaju.</p>
+
+<h3>Curenje, benchmark, privatnost i LLM-ovi</h3>
+<p><b>Curenje podataka</b> (engl. <i>data leakage</i>) koristi nedostupnu informaciju: testne oznake, budući ishod, statistike iz testa ili duplikat događaja. Dijeli po vremenu, osobi ili događaju kad to odgovara uporabi. Provjeri trenutak dostupnosti svake značajke.</p>
+<p><b>Prenaučenost na usporedni skup</b> (engl. <i>benchmark</i>) nastaje i brojnim pokušajima na istoj ljestvici. Zadrži lokalnu validaciju, dnevnik pokusa i neovisni završni test. Javni zadatci možda su bili dio učenja pretreniranog modela; bez podrijetla korpusa ne tvrdi da je provjera neovisna.</p>
+<p><b>Privatnost</b> nije samo brisanje imena: dob, mjesto i rijetka dijagnoza mogu otkriti osobu. Prikupljaj samo nužno, provjeri osnovu uporabe, ograniči pristup i zadržavanje. Ne šalji osjetljive podatke servisima bez odobrenja. Male grupe i sintetički podatci nastali memoriranjem također mogu otkriti pojedinca.</p>
+<p><b>Halucinacije velikih jezičnih modela</b> (engl. <i>LLM hallucinations</i>) uvjerljivi su, ali netočni ili nepotkrijepljeni odgovori: izmišljeni citati ili API-ji. Provjeri izvor, izvrši kod i odvoji provjereno od pretpostavljenoga. Dohvat izvora ne jamči istinu; tečan odgovor ne opravdava automatizaciju rizičnih odluka.</p>
+
+@@ primjeri
+<primjer>
+<p>Na sintetičkim podatcima za izmišljenu odluku o pristupu radionici izmjeri važnost značajki. Nema stvarnih osoba ni tvrdnji o društvenim grupama.</p>
+<rjesenje>
+<p><b>Korak 1: podatci s namjerno ugrađenim problemom.</b> Grupa $A$ utječe i na administrativni bod i na povijesnu oznaku. Model ne dobiva $A$ izravno, ali dobiva povezani bod. Oznaka opisuje simuliranu povijesnu odluku, ne objektivnu zaslugu.</p>
+<kod jezik="python">
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.inspection import permutation_importance
+
+rng = np.random.default_rng(0)
+n = 800
+grupa = rng.integers(0, 2, n)
+znanje = rng.normal(size=n)
+iskustvo = rng.normal(size=n)
+administracija = 0.9 * grupa + rng.normal(0, 0.4, n)
+slucajno = rng.normal(size=n)
+X = np.column_stack([znanje, iskustvo, administracija, slucajno])
+y = (1.4 * znanje + 0.7 * iskustvo + 0.9 * grupa
+     + rng.normal(0, 0.6, n) > 0.7).astype(int)
+imena = ["znanje", "iskustvo", "administrativni bod", "slučajni broj"]
+tr, va = train_test_split(np.arange(n), test_size=0.3, stratify=y, random_state=0)
+model = RandomForestClassifier(n_estimators=80, max_depth=5, min_samples_leaf=8,
+                               random_state=0, n_jobs=1)
+model.fit(X[tr], y[tr])
+vjerojatnosti = model.predict_proba(X[va])[:, 1]
+pred = (vjerojatnosti >= 0.5).astype(int)
+print("učenje, revizijski skup:", len(tr), len(va))
+print("točnost %.3f, ROC-AUC %.3f" % (
+    accuracy_score(y[va], pred), roc_auc_score(y[va], vjerojatnosti)))
+</kod>
+<izlaz>
+učenje, revizijski skup: 560 240
+točnost 0.887, ROC-AUC 0.957
+</izlaz>
+<p><b>Korak 2: miješanje stupaca.</b> Koristimo ROC-AUC, koji procjenjuje poredak rezultata bez izbora jednoga praga. Skup <code>va</code> služi reviziji i razvoju, nije završni neovisni test.</p>
+<kod jezik="python">
+vaznost = permutation_importance(model, X[va], y[va], scoring="roc_auc",
+                                n_repeats=8, random_state=0, n_jobs=1)
+for j in np.argsort(-vaznost.importances_mean):
+    print("%s: pad %.3f, std %.3f" % (
+        imena[j], vaznost.importances_mean[j], vaznost.importances_std[j]))
+</kod>
+<izlaz>
+znanje: pad 0.337, std 0.028
+iskustvo: pad 0.123, std 0.020
+administrativni bod: pad 0.010, std 0.003
+slučajni broj: pad 0.000, std 0.002
+</izlaz>
+<p><b>Korak 3: tumačenje.</b> Znanje ima najveći pad ROC-AUC-a, $0{,}337$. Pad od $0{,}010$ za administrativni bod nije dokaz opravdanosti njegove uporabe ni odsutnosti štete. Zato mjerimo i grupne razlike.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Opiši kako se mijenja izlaz modela kada mijenjamo značajku „znanje”.</p>
+<rjesenje>
+<p><b>Korak 1: ručna parcijalna ovisnost.</b> Na svakom koraku mijenjamo isti stupac svih revizijskih redaka, a ostale ne diramo.</p>
+<kod jezik="python">
+mreza_z = np.array([-1.0, 0.0, 1.0])
+pd_rucno = []
+for z in mreza_z:
+    izmijenjeno = X[va].copy()
+    izmijenjeno[:, 0] = z
+    pd_rucno.append(model.predict_proba(izmijenjeno)[:, 1].mean())
+print("znanje:", mreza_z.tolist())
+print("prosječna vjerojatnost:", np.round(pd_rucno, 3).tolist())
+</kod>
+<izlaz>
+znanje: [-1.0, 0.0, 1.0]
+prosječna vjerojatnost: [0.087, 0.326, 0.856]
+</izlaz>
+<p><b>Korak 2: graf.</b> Biblioteka gradi finiju mrežu. PDP može stvoriti nestvarne kombinacije; neovisno generirano znanje ovdje je manje problematično od povezanih stvarnih značajki.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from sklearn.inspection import PartialDependenceDisplay
+
+fig, os_ = plt.subplots(figsize=(5, 3))
+PartialDependenceDisplay.from_estimator(model, X[va], features=[0],
+    feature_names=imena, grid_resolution=12, method="brute", ax=os_)
+os_.set(xlabel="znanje", ylabel="prosječna vjerojatnost odluke 1")
+fig.tight_layout()
+fig.savefig("parcijalna_ovisnost.png", dpi=120)
+plt.close(fig)
+print("spremljeno parcijalna_ovisnost.png")
+</kod>
+<izlaz>
+spremljeno parcijalna_ovisnost.png
+</izlaz>
+<p>Prosjek raste od $0{,}087$ do $0{,}856$ za prikazane krajnje vrijednosti. To nije procjena učinka stvarnog tečaja: uzročnost traži drugi nacrt istraživanja.</p>
+<p><b>Korak 3: SHAP.</b> Biblioteka <code>shap</code> nije instalirana, pa je blok neizvršen. Nakon instalacije koristi pozadinu iz učenja. Objašnjavamo pozitivni izlaz šume u skali vjerojatnosti.</p>
+<kod jezik="python" pokreni="ne">
+import shap
+
+objasnjivac = shap.TreeExplainer(model, data=X[tr[:100]],
+    feature_perturbation="interventional", model_output="probability")
+objasnjenja = objasnjivac(X[va[:3]])
+doprinosi = objasnjenja.values[:, :, 1]
+osnova = objasnjenja.base_values[:, 1]
+rekonstrukcija = osnova + doprinosi.sum(axis=1)
+izravno = model.predict_proba(X[va[:3]])[:, 1]
+print("aditivnost:", np.allclose(rekonstrukcija, izravno, atol=1e-6))
+for naziv, doprinos in zip(imena, doprinosi[0]):
+    print(naziv, round(float(doprinos), 3))
+</kod>
+<p>Očekivana aditivnost je <code>True</code>; doprinosi nisu izmjereni. Pozadina ih može promijeniti bez promjene modela. Naziv „interventional” u API-ju ne jamči uzročnost.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Provedi reviziju razlika među dvjema sintetičkim grupama.</p>
+<rjesenje>
+<p><b>Korak 1: nazivnici su dio rezultata.</b> Ispiši veličinu grupe, broj pozitivnih oznaka, točnost, stopu pozitivnih odluka, TPR i FPR. Ako nema relevantnih oznaka u grupi, stopa nije definirana; ne pretvaraj je u nulu.</p>
+<kod jezik="python">
+def siguran_udio(brojnik, nazivnik):
+    return brojnik / nazivnik if nazivnik else float("nan")
+
+def metrike_grupa(istina, odluke, grupe):
+    rezultat = {}
+    for a in np.unique(grupe):
+        maska = grupe == a
+        yy, pp = istina[maska], odluke[maska]
+        pozitivni = int((yy == 1).sum())
+        negativni = int((yy == 0).sum())
+        rezultat[int(a)] = {
+            "n": len(yy), "pozitivni": pozitivni,
+            "točnost": float((yy == pp).mean()), "stopa": float(pp.mean()),
+            "TPR": siguran_udio(int(((yy == 1) & (pp == 1)).sum()), pozitivni),
+            "FPR": siguran_udio(int(((yy == 0) & (pp == 1)).sum()), negativni),
+        }
+    return rezultat
+
+grupne = metrike_grupa(y[va], pred, grupa[va])
+for a, m in grupne.items():
+    print("grupa %d: n=%d, Y=1: %d, točnost %.3f, stopa %.3f, TPR %.3f, FPR %.3f" % (
+        a, m["n"], m["pozitivni"], m["točnost"], m["stopa"], m["TPR"], m["FPR"]))
+</kod>
+<izlaz>
+grupa 0: n=111, Y=1: 38, točnost 0.910, stopa 0.396, TPR 0.947, FPR 0.110
+grupa 1: n=129, Y=1: 66, točnost 0.868, stopa 0.442, TPR 0.803, FPR 0.063
+</izlaz>
+<p><b>Korak 2: kvantificiraj razlike.</b> Sve stope su udjeli od nule do jedan. Razliku od $0{,}1$ opisali bismo kao deset postotnih bodova, ne deset posto relativne promjene.</p>
+<kod jezik="python">
+for naziv in ["točnost", "stopa", "TPR", "FPR"]:
+    jaz = abs(grupne[0][naziv] - grupne[1][naziv])
+    print("jaz %s: %.3f" % (naziv, jaz))
+stope_y = [round(float(y[va][grupa[va] == a].mean()), 3) for a in (0, 1)]
+print("osnovne stope Y=1:", stope_y)
+</kod>
+<izlaz>
+jaz točnost: 0.042
+jaz stopa: 0.045
+jaz TPR: 0.144
+jaz FPR: 0.046
+osnovne stope Y=1: [0.342, 0.512]
+</izlaz>
+<p><b>Korak 3: interpretacija.</b> Jaz pariteta je $0{,}045$, a jaz TPR-a $0{,}144$: različiti kriteriji daju različitu sliku. Oznake su problematična povijest, ne objektivna istina. Provjeri reprezentativnost i nesigurnost. Grupne pragove ne uvodi automatski: trebaju opravdanje, pravnu provjeru i sudjelovanje pogođenih ljudi.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Permutacijska važnost neke značajke je negativna. Dokazuje li to da je značajka beskorisna u svim modelima?</p>
+<rjesenje><p>Ne. Mjeri se ovaj naučeni model, ova metrika i ovaj skup. Premještanje je slučajno moglo pomoći ili model štetno koristi značajku. Ponovi procjenu, provjeri raspršenje i korelirane značajke.</p></rjesenje>
+</zadatak>
+<zadatak tezina="0">
+<p>Model svima odbija pristup radionici. Zadovoljava li demografski paritet?</p>
+<rjesenje><p>Da, sve stope pozitivnih odluka su nula, ali sustav može biti beskoristan i štetan. Paritet je jedan kriterij, ne cjelovita definicija poštenosti.</p></rjesenje>
+</zadatak>
+<zadatak tezina="0">
+<p>Zašto se iz rastuće PDP krivulje ne može zaključiti da intervencija koja povećava značajku uzrokuje bolji ishod?</p>
+<rjesenje><p>Krivulja opisuje odgovor modela na umjetne ulaze. Ne kontrolira sve uzroke, ne provodi stvarnu intervenciju i može uključiti nemoguće kombinacije. Uzročnost ne slijedi iz predikcijske povezanosti.</p></rjesenje>
+</zadatak>
+<zadatak tezina="1">
+<p>U prvoj grupi prihvaćeno je $30$ od $50$ osoba, u drugoj $20$ od $50$. Izračunaj jaz pariteta i omjer manje i veće stope.</p>
+<rjesenje>
+<kod jezik="python">
+q0, q1 = 30 / 50, 20 / 50
+print("jaz %.3f, omjer %.3f" % (abs(q0 - q1), min(q0, q1) / max(q0, q1)))
+</kod>
+<izlaz>
+jaz 0.200, omjer 0.667
+</izlaz>
+<p>Jaz je $0{,}2$, odnosno $20$ postotnih bodova. Omjer je približno $0{,}667$. To nisu iste mjere; nijedan od tih brojeva sam ne donosi pravni ili etički zaključak.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="1">
+<p>Provjeri ponašanje funkcije kada grupa nema pozitivne oznake. Zašto TPR nije nula?</p>
+<rjesenje>
+<kod jezik="python">
+bez_pozitivnih = metrike_grupa(np.array([0, 0]), np.array([0, 1]), np.array([0, 0]))
+print("TPR:", bez_pozitivnih[0]["TPR"], "FPR:", bez_pozitivnih[0]["FPR"])
+</kod>
+<izlaz>
+TPR: nan FPR: 0.5
+</izlaz>
+<p>TPR traži uvjet $Y=1$, a takvih redaka nema. Vrijednost <code>nan</code> čuva razliku između „nema podataka” i „nijedan pozitivan nije prepoznat”.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="2">
+<p>Promijeni zajednički prag na $0{,}3$ i $0{,}7$ te ponovno izmjeri točnost i jaz pariteta. Dokazuje li najmanji jaz da treba odabrati baš taj prag?</p>
+<naputak>Ovo je dijagnostika revizijskog skupa. Usporedi i broj prihvaćenih osoba.</naputak>
+<rjesenje>
+<kod jezik="python">
+for prag in (0.3, 0.5, 0.7):
+    odluke = (vjerojatnosti >= prag).astype(int)
+    m = metrike_grupa(y[va], odluke, grupa[va])
+    print("prag %.1f: točnost %.3f, jaz DP %.3f, prihvaćeno %d" % (
+        prag, accuracy_score(y[va], odluke),
+        abs(m[0]["stopa"] - m[1]["stopa"]), odluke.sum()))
+</kod>
+<izlaz>
+prag 0.3: točnost 0.846, jaz DP 0.059, prihvaćeno 133
+prag 0.5: točnost 0.887, jaz DP 0.045, prihvaćeno 101
+prag 0.7: točnost 0.838, jaz DP 0.063, prihvaćeno 73
+</izlaz>
+<p>Prag mijenja više posljedica. Minimiziranje jednog jaza može dati trivijalnu odluku za sve. Izbor traži zadani cilj i nove podatke, ne proglašavanje pobjednika na istoj reviziji.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="2">
+<p>Provjeri pada li točnost modela kad ukloniš administrativni bod. Je li to dovoljno za tvrdnju da je pristranost uklonjena?</p>
+<naputak>Uči novi model samo na učenju; usporedi i grupni jaz na istim revizijskim redcima.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.base import clone
+
+stupci = [0, 1, 3]
+bez_boda = clone(model).fit(X[tr][:, stupci], y[tr])
+p_bez = bez_boda.predict(X[va][:, stupci])
+m_bez = metrike_grupa(y[va], p_bez, grupa[va])
+print("bez boda: točnost %.3f, jaz DP %.3f" % (
+    accuracy_score(y[va], p_bez), abs(m_bez[0]["stopa"] - m_bez[1]["stopa"])))
+</kod>
+<izlaz>
+bez boda: točnost 0.879, jaz DP 0.004
+</izlaz>
+<p>Jaz pada na $0{,}004$, ali povijesne oznake ostaju pristrane. Uklanjanje stupca nije certifikat poštenosti ni odsutnosti drugih zamjenskih značajki.</p>
+</rjesenje>
+</zadatak>
+<zadatak tezina="3">
+<p>Napiši kratku karticu modela za izmišljenu radionicu: namjena, granice uporabe, podatci, metrike, rizici i ljudski nadzor. Smiješ li sirove prijave poslati javnom LLM-u radi objašnjenja?</p>
+<naputak>Odvoji tehničku sposobnost od dopuštenosti i zapiši postupak prigovora.</naputak>
+<rjesenje><p>Namjena je nastava, ne odlučivanje o stvarnim osobama. Kartica navodi generator, podjelu, pristrane oznake i grupne metrike s nazivnicima. Rizici su zamjenske značajke, promjena populacije i automatizacija. Stvarna uporaba traži odgovornu osobu, reviziju, pravo ispravka i prigovora te praćenje promjena. Prijave ne šalji javnom LLM-u bez odobrenja i zaštite podataka. Objašnjenje može izmišljati razloge; usporedi ga s provjerenim ponašanjem modela.</p></rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Permutacijska važnost mjeri oslanjanje modela na stupac, ne uzročnu ili moralnu važnost.</li>
+<li>PDP usrednjuje odgovore na zamijenjene značajke; SHAP raspodjeljuje odstupanje od reference.</li>
+<li>Demografski paritet, jednakost prilika i točnost različiti su kriteriji; uvijek prikaži nazivnike.</li>
+<li>Pristrane oznake, zamjenske značajke i promjena populacije traže više od uklanjanja jednog stupca.</li>
+<li>Čuvaj neovisnost provjere i privatnost; LLM odgovore provjeravaj izvorima i izvršavanjem koda.</li>
+<li>Odgovorna uporaba uključuje ograničenja, dokumentaciju, mogućnost prigovora i ljudski nadzor.</li>
+</ul>
+
+@@ literatura
+<li><a href="https://ioai-official.org/">Službena stranica IOAI-ja</a> za pravila i izvorne zadatke; <a href="https://www.kaggle.com/learn">Kaggle Learn</a> za kratke praktične tečajeve.</li>
+<li><a href="https://course.fast.ai/">fast.ai: Practical Deep Learning for Coders</a> i <a href="https://d2l.ai/">Dive into Deep Learning</a> za daljnju praksu i objašnjenja.</li>
+<li>I. Goodfellow, Y. Bengio i A. Courville: <a href="https://www.deeplearningbook.org/">Deep Learning</a>; S. Lundberg i S.-I. Lee: <a href="https://arxiv.org/abs/1705.07874">A Unified Approach to Interpreting Model Predictions</a>, rad o SHAP-u.</li>
+<li><a href="https://scikit-learn.org/stable/modules/inspection.html">Scikit-learn: pregled modela</a> i <a href="https://docs.pytorch.org/docs/stable/index.html">PyTorch dokumentacija</a> za provjeru API-ja i vlastite pokuse.</li>
