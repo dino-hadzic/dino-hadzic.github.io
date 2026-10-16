@@ -1,0 +1,655 @@
+@@ meta
+naslov = Obrada teksta: od znakova do značajki
+podnaslov = Kako niz znakova pretvoriti u brojeve koje model može učiti: normalizacija, tokenizacija, n-grami, bag-of-words i TF-IDF
+oznake = normalizacija, tokenizacija, BPE, stop-riječi, n-grami, bag-of-words, TF-IDF, Naive Bayes, regularni izrazi
+
+@@ ciljevi
+<li>Opisati cjevovod obrade teksta (normalizacija → tokenizacija → značajke → model) i znati gdje hrvatski jezik stvara posebne probleme (dijakritici, padeži).</li>
+<li>Tokenizirati tekst na riječi, znakove i podriječi te objasniti ideju algoritma BPE.</li>
+<li>Izračunati bag-of-words i TF-IDF reprezentaciju ručno i pomoću <code>CountVectorizer</code>/<code>TfidfVectorizer</code> te znati koja se formula zapravo primjenjuje.</li>
+<li>Istrenirati klasifikator teksta (logistička regresija, Naive Bayes) na malom korpusu i pročitati koje riječi odlučuju o klasi.</li>
+
+@@ teorija
+<p>Modeli iz modula M i D rade s matricama brojeva. Tekst je, s druge strane, niz znakova promjenjive duljine, bez očite numeričke strukture: rečenica „Pas je lajao” i „Lajao je pas” znače isto, a ne dijele nijedan zajednički prefiks. <b>Obrada prirodnog jezika</b> (engl. <i>natural language processing</i>, NLP) počinje zato uvijek istim pitanjem: <em>kako tekst pretvoriti u vektor značajki, a da izgubimo što manje značenja?</em> Ova lekcija obrađuje klasični odgovor – vreću riječi i TF-IDF – koji je i danas prvi model koji isprobaš na svakom tekstualnom zadatku, jer se trenira u sekundi i teško ga je pobijediti na malim skupovima. Lekcije V2 i V3 zatim grade bolje reprezentacije (embeddinzi, transformeri).</p>
+
+<h3>Cjevovod obrade teksta</h3>
+<p>Gotovo svaki sustav za tekst sastoji se od istih koraka:</p>
+<ol>
+<li><b>Normalizacija</b> – ujednačavanje zapisa: mala slova, Unicode, interpunkcija, razmaci.</li>
+<li><b>Tokenizacija</b> – rezanje niza znakova na jedinice (<b>tokene</b>): riječi, znakove ili podriječi.</li>
+<li><b>Izgradnja rječnika</b> – svakom tokenu pridružimo cijeli broj (indeks).</li>
+<li><b>Vektorizacija</b> – dokument postaje vektor duljine veličine rječnika (ova lekcija) ili niz gustih vektora (V2, V3).</li>
+<li><b>Model</b> – bilo koji klasifikator ili regresor iz modula M.</li>
+</ol>
+<p>Pogreška u ranom koraku ne može se ispraviti kasnije: ako tokenizator „Zagreb,” i „Zagreb” smatra različitim tokenima, model mora dvaput naučiti isto.</p>
+
+<h3>Normalizacija i specifičnosti hrvatskog</h3>
+<p>Najčešće operacije: pretvaranje u mala slova (<code>str.lower()</code>; „Pas” i „pas” su ista riječ), uklanjanje ili izdvajanje interpunkcije, sažimanje višestrukih razmaka te <b>Unicode normalizacija</b>. Znak „č” može biti zapisan kao jedan kodni element (U+010D) ili kao „c” + kombinirajući kvačić (U+0063 U+030C); izgledaju jednako, a za Python su različiti nizovi. Funkcija <code>unicodedata.normalize("NFC", s)</code> spaja ih u jedan oblik, a <code>"NFD"</code> ih razdvaja, što omogućuje jednostavno <em>uklanjanje dijakritika</em> („čćžšđ” → „cczsd”). Je li to pametno, ovisi o podacima: tekst s interneta često je napisan bez dijakritika, pa uklanjanje spaja „kuca” i „kuća” i time pomaže; u uredno pisanom tekstu time gubimo informaciju (pogledaj Zadatak 2).</p>
+<p>Druga posebnost hrvatskog je <b>bogata morfologija</b>: imenice se mijenjaju kroz sedam padeža i dva broja, pridjevi se slažu s njima, a glagoli imaju mnogo oblika. Riječi „pas”, „psa”, „psu”, „psi”, „pasa” model vreće riječi vidi kao pet nepovezanih značajki. Rješenja su <b>lematizacija</b> (svođenje na rječnički oblik – zahtijeva jezični alat ili rječnik), <b>stemming</b> (odsijecanje nastavaka grubim pravilima) ili, najjednostavnije i često najbolje, <b>znakovni n-grami</b> (vidi dolje), koji automatski dijele zajedničku osnovu „ps”. Posljedica je i da je rječnik hrvatskog korpusa znatno veći od engleskog iste veličine, pa su matrice rjeđe i modelu treba više podataka.</p>
+
+<h3>Tokenizacija</h3>
+<definicija naslov="Token i tokenizacija">
+<b>Tokenizacija</b> je funkcija koja niz znakova preslikava u konačan niz <b>tokena</b> iz fiksnog <b>rječnika</b> $V$. Prema granularnosti razlikujemo tokenizaciju na <b>riječi</b> (razdvajanje po razmacima i interpunkciji), na <b>znakove</b> (svaki znak je token, $|V|$ je malen, nizovi su dugi) i na <b>podriječi</b> (engl. <i>subword</i>): česte riječi ostaju cijele, rijetke se razbijaju na manje dijelove, npr. „nevjerojatno” → „ne”, „vjerojat”, „no”.
+</definicija>
+<p>Tokenizacija na riječi ima problem <b>nepoznatih riječi</b> (engl. <i>out-of-vocabulary</i>, OOV): svaka riječ koja se ne pojavljuje u skupu za učenje ispada iz modela. Podriječi taj problem uklanjaju – svaki se niz može zapisati barem znakovima – a istodobno zadržavaju kratke zapise za česte riječi. Zato ih koriste svi moderni jezični modeli.</p>
+<definicija naslov="BPE (byte-pair encoding)">
+Algoritam gradi rječnik podriječi iz korpusa ovako: (1) početni rječnik su svi znakovi, a svaka riječ zapisana je kao niz znakova s oznakom kraja riječi; (2) prebroji sve <em>parove susjednih tokena</em> u korpusu; (3) najčešći par spoji u novi token i dodaj ga u rječnik; (4) ponavljaj (2)–(3) zadani broj puta. Novi tekst tokenizira se primjenom naučenih spajanja istim redoslijedom.
+</definicija>
+<p>Broj spajanja je hiperparametar: BERT ima oko $30\,000$ tokena, GPT-ovi od $50\,000$ naviše. Za hrvatski tekst tokenizator učen pretežno na engleskom razbija riječi na više dijelova nego za engleski, što znači dulje nizove i slabiju kvalitetu – jedan od razloga da u lekciji V3 spominjemo višejezične i hrvatske modele.</p>
+
+<h3>Stop-riječi i n-grami</h3>
+<p><b>Stop-riječi</b> (engl. <i>stop words</i>) su vrlo česte riječi koje nose malo informacije o temi: „i”, „je”, „se”, „u”, „na”, „da”. Klasični cjevovodi ih izbacuju da smanje šum i dimenziju; TF-IDF ih automatski prigušuje, a za zadatke poput prepoznavanja autora upravo one mogu biti najkorisnije. Scikit-learn nema ugrađeni popis za hrvatski, pa ga zadaješ sam parametrom <code>stop_words=[...]</code>.</p>
+<definicija naslov="n-gram">
+<b>n-gram</b> je niz od $n$ uzastopnih tokena. Za riječi „pas je lajao” unigrami su $\{$pas, je, lajao$\}$, bigrami $\{$pas je, je lajao$\}$. Niz od $m$ tokena ima $m-n+1$ n-grama. <b>Znakovni n-grami</b> režu riječi na nizove od $n$ znakova: „pas” → „pa”, „as” (bigrami), a varijanta <code>char_wb</code> u scikit-learnu dodaje razmak na rubove riječi, pa postoje i „ p”, „s ”.
+</definicija>
+<p>Vreća unigrama gubi redoslijed: „nije dobro, nego loše” i „nije loše, nego dobro” imaju isti vektor. Bigrami djelomično vraćaju kontekst („nije dobro” postaje značajka), ali broj mogućih n-grama raste eksponencijalno s $n$, pa se u praksi koriste $n\le 3$ i rijetki n-grami odbacuju (<code>min_df</code>).</p>
+
+<h3>Vreća riječi i TF-IDF</h3>
+<definicija naslov="Bag-of-words (BoW)">
+Uz rječnik $V=\{t_1,\dots,t_{|V|}\}$ dokument $d$ predstavljamo vektorom $x\in\mathbb R^{|V|}$ u kojem je $x_j=\mathrm{tf}(t_j,d)$ broj pojavljivanja tokena $t_j$ u $d$ (engl. <i>term frequency</i>). Korpus od $n$ dokumenata je matrica $X\in\mathbb R^{n\times|V|}$, u pravilu <b>rijetka</b> (gotovo sve nule), pa je scikit-learn pohranjuje kao <code>scipy.sparse</code> matricu.
+</definicija>
+<p>Mana sirovih brojača: riječ koja se pojavljuje u svim dokumentima („je”) ima velike vrijednosti, a ne razlikuje ništa. Lijek je težinski faktor koji kažnjava sveprisutne tokene.</p>
+<definicija naslov="TF-IDF">
+Neka je $\mathrm{df}(t)$ broj dokumenata u korpusu koji sadrže token $t$ (engl. <i>document frequency</i>). <b>Inverzna dokumentna frekvencija</b> u izvornom je obliku $\mathrm{idf}(t)=\ln\frac{n}{\mathrm{df}(t)}$, a scikit-learn (zadane postavke <code>smooth_idf=True</code>) koristi izglađenu inačicu
+$$\mathrm{idf}(t)=\ln\frac{1+n}{1+\mathrm{df}(t)}+1 ,$$
+koja nikad nije nula i ne dijeli nulom. TF-IDF težina je $\mathrm{tfidf}(t,d)=\mathrm{tf}(t,d)\cdot\mathrm{idf}(t)$, a vektor dokumenta zatim se <b>normalizira</b> na jediničnu euklidsku duljinu (<code>norm="l2"</code>), tako da dugi i kratki dokumenti budu usporedivi.
+</definicija>
+<napomena>Razlike između „udžbeničke” i implementirane formule čest su izvor zbunjenosti kad ručni račun ne odgovara ispisu biblioteke. Prije nego što na natjecanju pokušaš nešto „ispraviti”, provjeri dokumentaciju ili reproduciraj izračun ručno kao u Primjeru 2. Ista pouka vrijedi za sve metrike i gubitke.</napomena>
+<p>Nakon TF-IDF-a dokument je točka na jediničnoj sferi, a <b>kosinusna sličnost</b> dvaju dokumenata $\cos(x,x')=\frac{x^\top x'}{\lVert x\rVert\lVert x'\rVert}$ postaje običan skalarni produkt – temelj pretraživanja dokumenata i tema kojoj se vraćamo u V2.</p>
+
+<h3>Klasifikacija teksta</h3>
+<p>Kad je tekst vektor, klasifikacija je zadatak iz lekcije M3. Dva modela posebno dobro rade s rijetkim, visokodimenzionalnim BoW značajkama:</p>
+<ul>
+<li><b>Logistička regresija</b> (i linearni SVM) – linearna granica u prostoru značajki; koeficijent $w_j$ izravno kaže koliko token $t_j$ „vuče” prema klasi, pa je model lako tumačiti. Regularizacija $C$ je ključna jer je značajki obično više nego dokumenata.</li>
+<li><b>Multinomijalni Naive Bayes</b> – generativni model koji pretpostavlja da su tokeni unutar klase nezavisni (odatle „naivni”): $$P(c\mid d)\propto P(c)\prod_{t\in d}P(t\mid c)^{\mathrm{tf}(t,d)},\qquad P(t\mid c)=\frac{N_{t,c}+\alpha}{N_c+\alpha|V|},$$ gdje je $N_{t,c}$ broj pojavljivanja tokena $t$ u dokumentima klase $c$, $N_c$ ukupan broj tokena u toj klasi, a $\alpha\gt0$ <b>Laplaceovo izglađivanje</b> koje sprječava nulu za token neviđen u klasi. Umnošci se računaju kao zbrojevi logaritama. Naive Bayes nema hiperparametara osim $\alpha$, trenira se jednim prolazom kroz podatke i iznenađujuće je jak na vrlo malim skupovima.</li>
+</ul>
+
+<h3>Regularni izrazi</h3>
+<p><b>Regularni izraz</b> (engl. <i>regular expression</i>, regex) je kompaktan zapis uzorka nad znakovima, u Pythonu u modulu <code>re</code>. Služi za tokenizaciju, čišćenje (uklanjanje URL-ova, brojeva, HTML oznaka) i za izvlačenje strukturiranih podataka iz teksta. Osnovni gradivni elementi:</p>
+<ul>
+<li><code>\w</code> slovo, znamenka ili podvlaka (uz <code>re.UNICODE</code>, koji je u Pythonu 3 zadan, uključuje i „čćžšđ”); <code>\d</code> znamenka; <code>\s</code> razmak; <code>.</code> bilo koji znak;</li>
+<li>kvantifikatori: <code>+</code> jedan ili više, <code>*</code> nula ili više, <code>?</code> nula ili jedan, <code>{2,4}</code> od dva do četiri;</li>
+<li>skupovi <code>[a-z]</code>, <code>[^0-9]</code> (negacija); alternacija <code>a|b</code>; grupe <code>( )</code>; sidra <code>^</code> i <code>$</code>; <code>\b</code> granica riječi;</li>
+<li>funkcije: <code>re.findall</code> (sva podudaranja), <code>re.sub</code> (zamjena), <code>re.split</code>, <code>re.compile</code> (predkompilirani uzorak, brže u petlji).</li>
+</ul>
+<p>Tipični tokenizator na riječi je <code>re.findall(r"\w+", tekst.lower())</code> – upravo to (uz uvjet od barem dva znaka) koristi i <code>CountVectorizer</code> sa zadanim <code>token_pattern=r"(?u)\b\w\w+\b"</code>. Primijeti posljedicu: jednoslovne riječi „i”, „u”, „a”, „s” scikit-learn u zadanim postavkama uopće ne vidi.</p>
+
+@@ primjeri
+<primjer>
+<p>Zadan je mali korpus hrvatskih rečenica. Normaliziraj ga, tokeniziraj na riječi regularnim izrazom, prebroji najčešće riječi prije i nakon uklanjanja stop-riječi te ispiši bigrame prve rečenice i znakovne trigrame jedne riječi.</p>
+<rjesenje>
+<p><b>Korak 1: korpus i normalizacija.</b> Tekst najprije prevodimo u Unicode oblik NFC (da „č” bude uvijek jedan kodni element) i mala slova. Devet rečenica iz tri teme (sport, kuhanje, tehnologija) – prvi dio većeg korpusa iz Primjera 3.</p>
+<kod jezik="python">
+import re
+import unicodedata
+from collections import Counter
+
+korpus = [
+    "Vatreni su sinoć pobijedili 2:1 i plasirali se u polufinale.",
+    "Golman je obranio jedanaesterac u posljednjoj minuti utakmice.",
+    "Trener je nakon poraza najavio promjene u momčadi.",
+    "Za ovaj recept trebaš 200 g brašna, dva jaja i prstohvat soli.",
+    "Tijesto ostavi da se diže sat vremena, pa ga peci 25 minuta.",
+    "Juha od rajčice najbolja je sa svježim bosiljkom i maslinovim uljem.",
+    "Novi procesor ima 16 jezgri i troši manje energije od prethodnika.",
+    "Ažuriranje sustava popravlja sigurnosni propust u pregledniku.",
+    "Baterija mobitela traje dva dana uz uključen Wi-Fi i Bluetooth.",
+]
+
+def normaliziraj(s):
+    s = unicodedata.normalize("NFC", s)
+    return s.lower()
+
+print(normaliziraj("Čćž ŠĐ") == "čćž šđ")
+# isti znak, dva zapisa: NFC ih izjednačuje
+c1, c2 = "\u010d", "c\u030c"
+print(c1 == c2, unicodedata.normalize("NFC", c1) == unicodedata.normalize("NFC", c2))
+</kod>
+<izlaz>
+True
+False True
+</izlaz>
+<p><b>Korak 2: tokenizacija regularnim izrazom.</b> Uzorak <code>\w+</code> hvata nizove slova i znamenki; brojevi poput „2:1” raspadaju se na „2” i „1”, što je za ovaj zadatak prihvatljivo. Prebrojimo riječi u cijelom korpusu.</p>
+<kod jezik="python">
+def tokeni(s):
+    return re.findall(r"\w+", normaliziraj(s))
+
+dokumenti = [tokeni(d) for d in korpus]
+print(dokumenti[0])
+sve = Counter(t for d in dokumenti for t in d)
+print("broj tokena:", sum(sve.values()), " veličina rječnika:", len(sve))
+print("najčešće:", sve.most_common(6))
+</kod>
+<izlaz>
+['vatreni', 'su', 'sinoć', 'pobijedili', '2', '1', 'i', 'plasirali', 'se', 'u', 'polufinale']
+broj tokena: 91  veličina rječnika: 79
+najčešće: [('i', 5), ('u', 4), ('je', 3), ('se', 2), ('dva', 2), ('od', 2)]
+</izlaz>
+<p>Na vrhu su, očekivano, stop-riječi „i”, „u”, „je” – riječi koje ne govore ništa o temi rečenice. Zanimljivo je tek ono što ostane nakon njihova uklanjanja.</p>
+<p><b>Korak 3: stop-riječi i n-grami.</b> Popis stop-riječi za hrvatski zadajemo ručno. Bigrame gradimo funkcijom <code>zip</code> nad nizom i njegovim pomakom za jedan.</p>
+<kod jezik="python">
+STOP = {"i", "je", "se", "u", "na", "da", "za", "od", "sa", "pa", "ga", "su", "uz", "ovaj"}
+
+bez_stop = Counter(t for d in dokumenti for t in d if t not in STOP and not t.isdigit())
+print("bez stop-riječi:", bez_stop.most_common(5))
+
+def ngrami(niz, n):
+    return [" ".join(niz[i:i + n]) for i in range(len(niz) - n + 1)]
+
+print(ngrami(dokumenti[0], 2))
+r = " pobijedili "
+print([r[i:i + 3] for i in range(len(r) - 2)][:5])   # znakovni trigrami s rubnim razmacima
+</kod>
+<izlaz>
+bez stop-riječi: [('dva', 2), ('vatreni', 1), ('sinoć', 1), ('pobijedili', 1), ('plasirali', 1)]
+['vatreni su', 'su sinoć', 'sinoć pobijedili', 'pobijedili 2', '2 1', '1 i', 'i plasirali', 'plasirali se', 'se u', 'u polufinale']
+[' po', 'pob', 'obi', 'bij', 'ije']
+</izlaz>
+<p>Bez stop-riječi gotovo svaka riječ pojavljuje se jednom – u tako malom korpusu brojači ne razlikuju važno od nevažnog, i upravo zato BoW modeli trebaju stotine, a ne desetke dokumenata. Riječ od $m$ znakova uz dva rubna razmaka ima $m$ znakovnih trigrama; trigrame „ po”, „pob”, „obi”, „bij” dijele i oblici „pobijedila”, „pobijedio”, a to je mehanizam kojim znakovni n-grami ublažuju padeže i glagolske oblike.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Za korpus iz Primjera 1 izračunaj bag-of-words matricu i TF-IDF matricu ručno u NumPy-ju, pa provjeri da se rezultat podudara s <code>CountVectorizer</code> i <code>TfidfVectorizer</code> iz scikit-learna. Koje su riječi s najvećom TF-IDF težinom u prvoj rečenici?</p>
+<rjesenje>
+<p><b>Korak 1: BoW ručno.</b> Rječnik je sortirani skup tokena duljine barem dva znaka (da odgovara zadanom <code>token_pattern</code> scikit-learna); matrica $X$ ima po redak za svaki dokument.</p>
+<kod jezik="python">
+import numpy as np
+
+doks = [[t for t in d if len(t) >= 2] for d in dokumenti]
+rjecnik = sorted({t for d in doks for t in d})
+indeks = {t: j for j, t in enumerate(rjecnik)}
+n, V = len(doks), len(rjecnik)
+
+X_bow = np.zeros((n, V))
+for i, d in enumerate(doks):
+    for t in d:
+        X_bow[i, indeks[t]] += 1
+print("oblik:", X_bow.shape, " nenultih:", int((X_bow > 0).sum()), "od", n * V)
+</kod>
+<izlaz>
+oblik: (9, 74)  nenultih: 79 od 666
+</izlaz>
+<p>Matrica je gotovo prazna – tek oko desetine polja je različito od nule – i to na devet rečenica; na pravim korpusima udio nenultih pada ispod jednog promila. Zato scikit-learn radi s rijetkim matricama.</p>
+<p><b>Korak 2: TF-IDF ručno.</b> Primjenjujemo točno formulu scikit-learna: izglađeni idf i L2 normalizacija redaka.</p>
+<kod jezik="python">
+df = (X_bow > 0).sum(axis=0)                     # u koliko dokumenata je svaki token
+idf = np.log((1 + n) / (1 + df)) + 1
+X_tfidf = X_bow * idf
+X_tfidf /= np.linalg.norm(X_tfidf, axis=1, keepdims=True)
+
+for t in ("je", "vatreni"):
+    print("%-8s df = %d  idf = %.4f" % (t, df[indeks[t]], idf[indeks[t]]))
+print("norma 1. retka:", round(np.linalg.norm(X_tfidf[0]), 6))
+</kod>
+<izlaz>
+je       df = 3  idf = 1.9163
+vatreni  df = 1  idf = 2.6094
+norma 1. retka: 1.0
+</izlaz>
+<p>Riječ „je” pojavljuje se u tri od devet dokumenata pa ima znatno manji idf od riječi „vatreni”, koja je u samo jednom; TF-IDF je time automatski prigušio stop-riječ bez ikakva popisa.</p>
+<p><b>Korak 3: usporedba sa scikit-learnom.</b> <code>fit_transform</code> uči rječnik i vraća rijetku matricu; <code>.toarray()</code> je pretvara u običnu NumPy matricu za usporedbu. Oba vektorizatora zadano prevode u mala slova, a NFC normalizaciju moramo napraviti sami.</p>
+<kod jezik="python">
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+
+korpus_n = [normaliziraj(d) for d in korpus]
+cv = CountVectorizer()
+X_cv = cv.fit_transform(korpus_n)
+tv = TfidfVectorizer()
+X_tv = tv.fit_transform(korpus_n)
+
+print("isti rječnik:", list(cv.get_feature_names_out()) == rjecnik)
+print("isti BoW:    ", np.array_equal(X_cv.toarray(), X_bow))
+print("isti TF-IDF: ", np.allclose(X_tv.toarray(), X_tfidf))
+
+red = X_tfidf[0]
+for j in np.argsort(-red)[:3]:
+    print("  %-12s %.3f" % (rjecnik[j], red[j]))
+print("  ...  se: %.3f   broj nenultih: %d" % (red[indeks["se"]], int((red > 0).sum())))
+</kod>
+<izlaz>
+isti rječnik: True
+isti BoW:     True
+isti TF-IDF:  True
+  su           0.386
+  polufinale   0.386
+  pobijedili   0.386
+  ...  se: 0.326   broj nenultih: 7
+</izlaz>
+<p>Sve tri usporedbe su istinite: znamo točno što biblioteka računa. U prvoj rečenici gotovo sve riječi imaju istu težinu – svaka se pojavljuje jednom i samo u tom dokumentu, pa ni „su” u ovako malom korpusu ne izgleda kao stop-riječ; jedino „se” (koja je i u drugim rečenicama) ima manju težinu, a „u” i „i” uopće nema jer su jednoslovne. Tek na stotinama dokumenata idf počinje pouzdano razlikovati sadržajne riječi od pomoćnih.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Na malom ručno napisanom korpusu rečenica iz tri teme (sport, kuhanje, tehnologija) istreniraj klasifikator teksta: TF-IDF + logistička regresija i TF-IDF + multinomijalni Naive Bayes. Usporedi točnost unakrsnom validacijom, ispiši riječi s najvećim težinama po klasi i klasificiraj nove rečenice – uključujući one s riječima u drugim padežima.</p>
+<rjesenje>
+<p><b>Korak 1: korpus.</b> Šezdeset rečenica, po dvadeset za svaku temu. Ovo je sintetički korpus za vježbu (u stvarnom zadatku dobio bi tisuće dokumenata iz datoteke), ali dovoljan da se vide svi efekti.</p>
+<kod jezik="python">
+tekstovi = [
+    # sport
+    "Vatreni su sinoć pobijedili 2:1 i plasirali se u polufinale.",
+    "Golman je obranio jedanaesterac u posljednjoj minuti utakmice.",
+    "Trener je nakon poraza najavio promjene u momčadi.",
+    "Košarkaši su slavili nakon produžetka, a najbolji strijelac ubacio je 30 koševa.",
+    "Maraton je startao u osam sati, a pobjednik je stigao na cilj nakon nešto više od dva sata.",
+    "Sudac je pokazao crveni karton braniču zbog grubog starta.",
+    "Tenisačica je osvojila turnir bez izgubljenog seta.",
+    "Navijači su ispunili stadion i pjevali cijelo drugo poluvrijeme.",
+    "Rukometaši imaju tri utakmice u skupini prije četvrtfinala.",
+    "Skijaš je u drugoj vožnji slaloma pao i ostao bez medalje.",
+    "Napadač je zabio dva gola i momčad je pobijedila 3:0.",
+    "Utakmica je završila bez golova, pa su navijači otišli razočarani.",
+    "Trener je na poluvremenu zamijenio golmana i dva braniča.",
+    "Plivačica je oborila državni rekord na 200 metara leptir.",
+    "Momčad je nakon pobjede skočila na vrh ljestvice prvenstva.",
+    "Igrač je ozlijedio koljeno i propušta ostatak sezone.",
+    "Reprezentacija trenira dvaput dnevno uoči kvalifikacijske utakmice.",
+    "Biciklisti su prošli brdsku etapu, a vodeći je zadržao žutu majicu.",
+    "Sudac je dosudio jedanaesterac u sudačkoj nadoknadi, a golman ga je obranio.",
+    "Klub je potpisao novog napadača koji je prošle sezone zabio 20 golova.",
+    # kuhanje
+    "Za ovaj recept trebaš 200 g brašna, dva jaja i prstohvat soli.",
+    "Tijesto ostavi da se diže sat vremena, pa ga peci 25 minuta.",
+    "Juha od rajčice najbolja je sa svježim bosiljkom i maslinovim uljem.",
+    "Luk nasjeckaj sitno i prži na laganoj vatri dok ne postane staklast.",
+    "Pećnicu zagrij na 180 stupnjeva prije nego što staviš kolač.",
+    "Rižoto miješaj stalno i dodaj temeljac kutlaču po kutlaču.",
+    "Palačinke poslužujemo s džemom od marelica ili s čokoladom.",
+    "Meso mariniraj preko noći u ulju, češnjaku i ružmarinu.",
+    "Salatu začini octom, uljem i malo šećera da ne bude kisela.",
+    "Kruh je gotov kad pri kucanju po dnu zvuči šuplje.",
+    "U tijesto za kruh dodaj kvasac, brašno i mlaku vodu, pa mijesi deset minuta.",
+    "Kolač peci 40 minuta na 170 stupnjeva i ostavi da se ohladi prije rezanja.",
+    "Umak od češnjaka i vrhnja odlično ide uz tjesteninu.",
+    "Juhu začini solju, paprom i svježim peršinom.",
+    "Meso peci u pećnici sat i pol i povremeno ga zalijevaj sokom.",
+    "Za palačinke umuti jaja, mlijeko i brašno u glatko tijesto.",
+    "Povrće kuhaj kratko da ostane hrskavo i zadrži boju.",
+    "Umjesto šećera u kolač možeš dodati med ili zrele banane.",
+    "Riža mora upiti svu vodu, a zatim je ostavi poklopljenu pet minuta.",
+    "Maslinovo ulje dodaj na kraju kuhanja da zadrži okus.",
+    # tehnologija
+    "Novi procesor ima 16 jezgri i troši manje energije od prethodnika.",
+    "Ažuriranje sustava popravlja sigurnosni propust u pregledniku.",
+    "Baterija mobitela traje dva dana uz uključen Wi-Fi i Bluetooth.",
+    "Programer je pronašao grešku u kodu koja je rušila aplikaciju.",
+    "Grafička kartica s 12 GB memorije pokreće igre u 4K rezoluciji.",
+    "Podaci se sinkroniziraju u oblaku čim se laptop spoji na internet.",
+    "Nova verzija Pythona donosi brži interpreter i bolje poruke o greškama.",
+    "Server je pao zbog preopterećenja nakon objave ažuriranja.",
+    "Tipkovnica se spaja bežično, a punjenje traje dva sata.",
+    "Algoritam preporuka uči iz povijesti pregledavanja korisnika.",
+    "Aplikacija se nakon ažuriranja sporije pokreće na starijim mobitelima.",
+    "Programeri su objavili zakrpu za grešku u sigurnosnom modulu softvera.",
+    "Laptop s novim procesorom i 32 GB memorije stiže u trgovine idući mjesec.",
+    "Lozinke čuvaj u upravitelju lozinki i uključi dvofaktorsku provjeru.",
+    "Internet je bio spor jer je ruter trebao ažuriranje softvera.",
+    "Mobitel ima zaslon od 6,5 inča i bateriju koja se puni za pola sata.",
+    "Kod je otvoren na GitHubu pa svatko može prijaviti grešku ili poslati zakrpu.",
+    "Operacijski sustav automatski preuzima sigurnosna ažuriranja preko interneta.",
+    "Procesor se pregrijava kad aplikacija koristi sve jezgre istodobno.",
+    "Podaci korisnika šifriraju se prije slanja na server u oblaku.",
+]
+oznake = ["sport"] * 20 + ["kuhanje"] * 20 + ["tehnologija"] * 20
+tekstovi = [normaliziraj(t) for t in tekstovi]
+print(len(tekstovi), "rečenica;", Counter(oznake))
+</kod>
+<izlaz>
+60 rečenica; Counter({'sport': 20, 'kuhanje': 20, 'tehnologija': 20})
+</izlaz>
+<p><b>Korak 2: dva cjevovoda i unakrsna validacija.</b> <code>Pipeline</code> spaja vektorizator i model, pa se rječnik uči <em>samo</em> na podacima za učenje unutar svakog preklopa – inače bi informacija o testnim dokumentima procurila u idf (lekcija M5). Stop-riječi predajemo kao popis.</p>
+<kod jezik="python">
+from sklearn.pipeline import make_pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+
+cv5 = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+modeli = {
+    "TF-IDF + log. regresija": make_pipeline(
+        TfidfVectorizer(stop_words=sorted(STOP)), LogisticRegression(C=10, max_iter=1000)),
+    "TF-IDF + Naive Bayes": make_pipeline(
+        TfidfVectorizer(stop_words=sorted(STOP)), MultinomialNB(alpha=0.1)),
+    "znakovni 2-4-grami + NB": make_pipeline(
+        TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4)), MultinomialNB(alpha=0.1)),
+}
+for ime, m in modeli.items():
+    toc = cross_val_score(m, tekstovi, oznake, cv=cv5)
+    print("%-26s točnost = %.3f" % (ime, toc.mean()))
+</kod>
+<izlaz>
+TF-IDF + log. regresija    točnost = 0.733
+TF-IDF + Naive Bayes       točnost = 0.783
+znakovni 2-4-grami + NB    točnost = 0.967
+</izlaz>
+<p>Sva tri modela rade daleko iznad slučajnog pogađanja ($0{,}333$), ali razlika je upečatljiva: modeli na riječima točno klasificiraju tri četvrtine rečenica, a znakovni n-grami gotovo sve. Razlog je morfologija – „utakmice”, „utakmica” i „utakmicu” za vektorizator riječi su tri nepovezane značajke, a dijele sve znakovne 2–4-grame osnove „utakmic”. Oprez s tumačenjem: jedan pogrešno klasificiran dokument mijenja točnost za $0{,}017$, pa je razlika između logističke regresije i Naive Bayesa ($0{,}05$) unutar šuma, dok je ona između riječi i znakova ($0{,}2$) stvarna.</p>
+<p><b>Korak 3: što je model naučio.</b> Logistička regresija s tri klase ima matricu koeficijenata oblika <code>(3, |V|)</code>; najveći koeficijenti po retku su riječi koje najjače guraju prema toj klasi.</p>
+<kod jezik="python">
+lr = modeli["TF-IDF + log. regresija"].fit(tekstovi, oznake)
+vec, klf = lr.named_steps["tfidfvectorizer"], lr.named_steps["logisticregression"]
+rijeci = vec.get_feature_names_out()
+for k, klasa in enumerate(klf.classes_):
+    vrh = np.argsort(-klf.coef_[k])[:5]
+    print("%-12s" % klasa, ", ".join(rijeci[j] for j in vrh))
+</kod>
+<izlaz>
+kuhanje      minuta, kolač, dodaj, svježim, jaja
+sport        utakmice, bez, trener, momčad, nakon
+tehnologija  ažuriranja, grešku, traje, server, ažuriranje
+</izlaz>
+<p>Riječi su smislene („kolač”, „trener”, „server”) – model nije „varao” na nekom artefaktu. Vidi se i tipična zamka: „bez” i „nakon” jesu pomoćne riječi, ali ih nema u našem popisu stop-riječi, a u ovom se korpusu češće pojavljuju u sportskim rečenicama, pa ih je model uzeo kao dokaz za sport. Na natjecanju ovakav ispis uvijek napravi: ako su na vrhu riječi poput „je”, imena datoteka ili identifikatori, u podacima je curenje ili šum.</p>
+<p><b>Korak 4: nove rečenice i padeži.</b> Rečenice za test namjerno koriste druge oblike riječi („golmanu”, „utakmicu”, „brašnom”) od onih u korpusu.</p>
+<kod jezik="python">
+nove = [
+    "Golmanu su navijači pljeskali nakon obranjenih jedanaesteraca.",
+    "Umijesi tijesto s brašnom i jajima, pa ga ostavi pola sata.",
+    "Aplikacije se ruše na starijim procesorima nakon zadnjih ažuriranja.",
+    "Strijelci su zabijali golove iz svih pozicija.",
+]
+nove = [normaliziraj(t) for t in nove]
+nb_znak = modeli["znakovni 2-4-grami + NB"].fit(tekstovi, oznake)
+print("%-52s %-12s %s" % ("rečenica", "riječi+LR", "znakovi+NB"))
+for t, a, b in zip(nove, lr.predict(nove), nb_znak.predict(nove)):
+    print("%-52s %-12s %s" % (t[:50], a, b))
+</kod>
+<izlaz>
+rečenica                                             riječi+LR    znakovi+NB
+golmanu su navijači pljeskali nakon obranjenih jed   sport        sport
+umijesi tijesto s brašnom i jajima, pa ga ostavi p   kuhanje      kuhanje
+aplikacije se ruše na starijim procesorima nakon z   tehnologija  tehnologija
+strijelci su zabijali golove iz svih pozicija.       tehnologija  sport
+</izlaz>
+<p>Prve tri rečenice oba modela pogađaju jer u njima ipak ima oblika koji se u korpusu pojavljuju doslovno („navijači”, „tijesto”, „ažuriranja”). Četvrta je rečenica sastavljena samo od oblika kojih u korpusu nema („strijelci” umjesto „strijelac”, „golove” umjesto „gola”/„golova”): model na riječima tu nema nijednu poznatu sadržajnu značajku i pogađa pogrešno, dok znakovni n-grami prepoznaju osnove „strijel” i „gol”. Za hrvatske tekstove na malim skupovima znakovni n-grami su zato gotovo uvijek dobar prvi izbor; na velikim skupovima riječi ili podriječi sustižu i prestižu jer nose manje šuma.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Napiši regularne izraze koji iz teksta <code>"Pišite na info@skola.hr ili ana.k@gmail.com do 15.3., najkasnije u 9:30. Cijena je 120 kn."</code> izvlače (a) sve e-mail adrese, (b) sve cijele brojeve, (c) sva vremena oblika <code>hh:mm</code>. Zatim <code>re.sub</code>-om zamijeni svaki broj oznakom <code>&lt;BROJ&gt;</code>.</p>
+<rjesenje>
+<kod jezik="python">
+t = "Pišite na info@skola.hr ili ana.k@gmail.com do 15.3., najkasnije u 9:30. Cijena je 120 kn."
+print(re.findall(r"[\w.]+@[\w.]+\.\w+", t))
+print(re.findall(r"\d+", t))
+print(re.findall(r"\b\d{1,2}:\d{2}\b", t))
+print(re.sub(r"\d+", "<BROJ>", t))
+</kod>
+<izlaz>
+['info@skola.hr', 'ana.k@gmail.com']
+['15', '3', '9', '30', '120']
+['9:30']
+Pišite na info@skola.hr ili ana.k@gmail.com do <BROJ>.<BROJ>., najkasnije u <BROJ>:<BROJ>. Cijena je <BROJ> kn.
+</izlaz>
+<p>Zamjena brojeva jedinstvenim tokenom standardni je trik: model ne mora učiti zasebnu značajku za svaki broj, a informacija „ovdje stoji broj” ostaje.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Korpus su tri dokumenta: „pas trči”, „pas spava”, „mačka spava spava”. Ručno (na papiru) izračunaj TF-IDF vektor trećeg dokumenta prema formuli scikit-learna (izglađeni idf, L2 norma), pa provjeri s <code>TfidfVectorizer</code>.</p>
+<rjesenje>
+<p>Rječnik (abecedno): mačka, pas, spava, trči; $n=3$. Dokumentne frekvencije: $\mathrm{df}=(1,2,2,1)$, pa je $\mathrm{idf}=\ln\frac{4}{1+\mathrm{df}}+1=(\ln2+1,\ \ln\frac43+1,\ \ln\frac43+1,\ \ln2+1)\approx(1{,}693,\ 1{,}288,\ 1{,}288,\ 1{,}693)$. Treći dokument ima $\mathrm{tf}=(1,0,2,0)$, pa je nenormirani vektor $(1{,}693,\ 0,\ 2{,}575,\ 0)$, norme $\sqrt{1{,}693^2+2{,}575^2}\approx3{,}082$, i konačno $(0{,}549,\ 0,\ 0{,}836,\ 0)$.</p>
+<kod jezik="python">
+mali = ["pas trči", "pas spava", "mačka spava spava"]
+tv2 = TfidfVectorizer()
+M = tv2.fit_transform(mali).toarray()
+print(list(tv2.get_feature_names_out()))
+print(M[2].round(3))
+</kod>
+<izlaz>
+['mačka', 'pas', 'spava', 'trči']
+[0.549 0.    0.836 0.   ]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Rečenica ima $m$ tokena. Koliko ima n-grama riječi za $n=1,2,3$? Koliko bi <em>različitih</em> bigrama najviše moglo postojati nad rječnikom od $|V|=20\,000$ riječi, a koliko ih stvarno nastaje iz korpusa od milijun tokena? Što to govori o matrici bigrama?</p>
+<rjesenje>
+<p>Broj n-grama je $m-n+1$, dakle $m$, $m-1$ i $m-2$. Mogućih bigrama je $|V|^2=4\cdot10^8$, ali korpus od $10^6$ tokena sadrži najviše $10^6-1$ bigrama, pa je ostvareno manje od $0{,}25\,\%$ mogućih – i većina tih se pojavi samo jednom. Matrica bigrama je stoga još rjeđa i „šumnija” od matrice unigrama, zbog čega se bigrami s malom frekvencijom odbacuju (<code>min_df</code>) ili se broj stupaca ograničava (<code>max_features</code>).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Implementiraj BPE iz definicije: funkciju koja iz korpusa riječi (s brojem pojavljivanja) nauči $k$ spajanja. Primijeni je na riječi <code>{"niski": 5, "niže": 2, "nisko": 6, "novi": 3, "nove": 4}</code> uz $k=6$ i ispiši spajanja redom te konačni zapis svake riječi.</p>
+<naputak>Riječ zapiši kao tuple znakova s oznakom <code>"&lt;/w&gt;"</code> na kraju. U svakom koraku prebroji parove susjednih simbola (težinski, prema broju pojavljivanja riječi), odaberi najčešći i zamijeni ga spojenim simbolom u svakoj riječi.</naputak>
+<rjesenje>
+<kod jezik="python">
+def bpe(rijeci, k):
+    zapis = {tuple(r) + ("</w>",): c for r, c in rijeci.items()}
+    spajanja = []
+    for _ in range(k):
+        parovi = Counter()
+        for simboli, c in zapis.items():
+            for a, b in zip(simboli, simboli[1:]):
+                parovi[(a, b)] += c
+        if not parovi:
+            break
+        par = max(parovi, key=lambda p: (parovi[p], p))   # najčešći; kod izjednačenja abecedno
+        spajanja.append(par)
+        novi = {}
+        for simboli, c in zapis.items():
+            s, i = [], 0
+            while i < len(simboli):
+                if i + 1 < len(simboli) and (simboli[i], simboli[i + 1]) == par:
+                    s.append(simboli[i] + simboli[i + 1]); i += 2
+                else:
+                    s.append(simboli[i]); i += 1
+            novi[tuple(s)] = c
+        zapis = novi
+    return spajanja, zapis
+
+spajanja, zapis = bpe({"niski": 5, "niže": 2, "nisko": 6, "novi": 3, "nove": 4}, 6)
+print("spajanja:", [" + ".join(p) for p in spajanja])
+for simboli in zapis:
+    print("  ", " | ".join(simboli))
+</kod>
+<izlaz>
+spajanja: ['n + i', 's + k', 'ni + sk', 'i + </w>', 'o + v', 'n + ov']
+   nisk | i</w>
+   ni | ž | e | </w>
+   nisk | o | </w>
+   nov | i</w>
+   nov | e | </w>
+</izlaz>
+<p>Prvo spajanje je „n”+„i”, jer se taj par pojavljuje u riječima „niski”, „niže” i „nisko”, ukupno $5+2+6=13$ puta; slijede „s”+„k” i „ni”+„sk” (po $11$). Nakon šest koraka česte riječi „niski” i „novi” zapisane su s dva tokena, „nisko” i „nove” s tri, dok rijetka „niže” ostaje razbijena na znakove. Upravo tako nastaje rječnik u kojem su česte riječi cijele ili gotovo cijele, a rijetke sastavljene od komadića koji se dijele s drugim riječima („nov”, „nisk”).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši funkciju <code>bez_dijakritika(s)</code> pomoću <code>unicodedata.normalize("NFD", s)</code> i uklanjanja kombinirajućih znakova (kategorija <code>Mn</code>). Primijeni je na popis riječi <code>["kuća", "kuca", "čelo", "celo", "šal", "sal", "pokrći", "pokrci", "žena", "zena", "ćup", "cup"]</code> i ispiši koji se parovi različitih riječi stope u isti oblik. Kad bi to u klasifikaciji tema bio problem, a kad korist?</p>
+<rjesenje>
+<kod jezik="python">
+def bez_dijakritika(s):
+    nfd = unicodedata.normalize("NFD", s)
+    return "".join(ch for ch in nfd if unicodedata.category(ch) != "Mn")
+
+rijeci_d = ["kuća", "kuca", "čelo", "celo", "šal", "sal", "pokrći", "pokrci", "žena", "zena", "ćup", "cup"]
+grupe = {}
+for r in rijeci_d:
+    grupe.setdefault(bez_dijakritika(r), []).append(r)
+print(bez_dijakritika("Đačka škola čeka ćevape"))
+for oblik, g in grupe.items():
+    if len(g) > 1:
+        print(oblik, "<-", g)
+</kod>
+<izlaz>
+Đacka skola ceka cevape
+kuca <- ['kuća', 'kuca']
+celo <- ['čelo', 'celo']
+sal <- ['šal', 'sal']
+pokrci <- ['pokrći', 'pokrci']
+zena <- ['žena', 'zena']
+cup <- ['ćup', 'cup']
+</izlaz>
+<p>Primijeti da NFD ne razbija „đ” (to je samostalno slovo bez kombinirajućeg oblika), pa ga treba zamijeniti ručno (<code>s.replace("đ", "d")</code>). Stapanje je problem kad su u istom korpusu obje riječi s različitim značenjem („kuća” i „kuca”, „čelo” i „celo”) i kad su podaci uredno napisani; korist je kad dio korpusa (komentari, poruke) dijakritike ne koristi, jer tada bez uklanjanja isti pojam ima dvije značajke s pola podataka svaka. Dobra praksa: pogledaj udio riječi s dijakriticima po dokumentu i odluči prema podacima.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Implementiraj multinomijalni Naive Bayes ručno nad BoW brojačima (<code>CountVectorizer</code>) s izglađivanjem $\alpha=1$: funkcije za učenje (log-apriori $\ln P(c)$ i log-vjerojatnosti $\ln P(t\mid c)$) i predikciju. Usporedi predikcije i <code>predict_log_proba</code>-u sa <code>sklearn.naive_bayes.MultinomialNB</code> na korpusu iz Primjera 3.</p>
+<naputak>$\ln P(c\mid d)=\ln P(c)+\sum_t \mathrm{tf}(t,d)\ln P(t\mid c)+\text{konst.}$ je matrični produkt $X\,W^\top+b$. Za usporedbu log-vjerojatnosti normaliziraj redove funkcijom <code>scipy.special.logsumexp</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+from scipy.special import logsumexp
+
+cv3 = CountVectorizer()
+Xc = cv3.fit_transform(tekstovi).toarray()
+y = np.array(oznake)
+klase = np.unique(y)
+
+def nb_uci(X, y, alpha=1.0):
+    log_prior = np.log([np.mean(y == c) for c in klase])
+    N = np.array([X[y == c].sum(axis=0) for c in klase])        # (K, V) brojači po klasi
+    log_uvj = np.log((N + alpha) / (N.sum(axis=1, keepdims=True) + alpha * X.shape[1]))
+    return log_prior, log_uvj
+
+def nb_log_proba(X, log_prior, log_uvj):
+    s = X @ log_uvj.T + log_prior
+    return s - logsumexp(s, axis=1, keepdims=True)
+
+lp, lu = nb_uci(Xc, y)
+moje = nb_log_proba(Xc, lp, lu)
+sk = MultinomialNB(alpha=1.0).fit(Xc, y)
+print("iste predikcije:      ", np.array_equal(klase[moje.argmax(axis=1)], sk.predict(Xc)))
+print("iste log-vjerojatnosti:", np.allclose(moje, sk.predict_log_proba(Xc)))
+print("točnost na treningu:", round(np.mean(sk.predict(Xc) == y), 3))
+</kod>
+<izlaz>
+iste predikcije:       True
+iste log-vjerojatnosti: True
+točnost na treningu: 1.0
+</izlaz>
+<p>Cijeli model je nekoliko redaka: brojanje, logaritam i jedan matrični produkt. Točnost na treningu od $1{,}0$ ne govori ništa o generalizaciji (model je zapamtio rijetke riječi), ali potvrđuje da je implementacija ispravna.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Vektorizator na riječima slijep je za padeže. Napiši jednostavan <em>stemmer</em> za hrvatski koji odsiječe jedan od čestih nastavaka (<code>ima, ama, oga, ega, om, em, og, eg, ih, im, ov, ev, a, e, i, o, u</code> – prvo najdulji) ako riječ nakon toga ostaje duljine barem 3, i upotrijebi ga kao <code>preprocessor</code>/<code>tokenizer</code> u <code>CountVectorizer</code>. Za koliko se smanji rječnik korpusa iz Primjera 3? Ispiši nekoliko riječi koje su se stopile i barem jedan primjer gdje je stemmer pogriješio.</p>
+<naputak><code>CountVectorizer(tokenizer=f, token_pattern=None)</code> koristi tvoju funkciju koja vraća popis tokena.</naputak>
+<rjesenje>
+<kod jezik="python">
+NASTAVCI = sorted(["ima", "ama", "oga", "ega", "om", "em", "og", "eg", "ih", "im", "ov", "ev",
+                   "a", "e", "i", "o", "u"], key=len, reverse=True)
+
+def stem(r):
+    for nast in NASTAVCI:
+        if r.endswith(nast) and len(r) - len(nast) >= 3:
+            return r[:-len(nast)]
+    return r
+
+def tokeni_stem(s):
+    return [stem(t) for t in re.findall(r"\b\w\w+\b", s)]
+
+cv_s = CountVectorizer(tokenizer=tokeni_stem, token_pattern=None)
+Xs = cv_s.fit_transform(tekstovi)
+print("rječnik: %d -> %d" % (Xc.shape[1], Xs.shape[1]))
+
+osnove = {}
+for r in cv3.get_feature_names_out():
+    osnove.setdefault(stem(r), []).append(r)
+stopljene = {o: g for o, g in osnove.items() if len(g) > 1}
+for o in list(stopljene)[:6]:
+    print("  %-10s <- %s" % (o, stopljene[o]))
+print([stem(r) for r in ("sat", "sata", "sati", "soli", "solju", "gola", "golova", "kod", "koja")])
+</kod>
+<izlaz>
+rječnik: 390 -> 352
+  aplikacij  <- ['aplikacija', 'aplikaciju']
+  ažuriranj  <- ['ažuriranja', 'ažuriranje']
+  baterij    <- ['baterija', 'bateriju']
+  branič     <- ['braniča', 'braniču']
+  brašn      <- ['brašna', 'brašno']
+  golman     <- ['golman', 'golmana']
+['sat', 'sat', 'sat', 'sol', 'solj', 'gol', 'golov', 'kod', 'koj']
+</izlaz>
+<p>Rječnik se smanji za desetak posto, a stopile su se smislene skupine („aplikacija”/„aplikaciju”, „brašna”/„brašno”, „golman”/„golmana”). Greške su neizbježne u oba smjera: „soli” i „solju” ostaju razdvojeni („sol” i „solj”), kao i „gola” i „golova” („gol” i „golov”), jer stemmer ne zna za nastavak „-ju” ni za umetnuto „-ov-”; s druge strane „koja” → „koj” i „kod” → „kod” su bezopasni, ali bi se „sata” i „sati” (vrijeme) stopili i s imenicom „sat” (predmet). Pravi stemmer ima stotine pravila i iznimki; alternativa koja ne zahtijeva jezično znanje su znakovni n-grami iz Primjera 3, a lematizatore za hrvatski nude alati poput CLASSLA/Stanza (zahtijevaju download modela).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><em>(Simulacija zadatka u stilu IOAI.)</em> Na korpusu iz Primjera 3 pronađi najbolji TF-IDF cjevovod pretraživanjem po rešetki: <code>analyzer</code> ∈ {riječi s unigramima, riječi s uni+bigramima, znakovi 2–4, znakovi 3–5} × <code>MultinomialNB(alpha)</code> ∈ {0,01; 0,1; 1}. Koristi <code>GridSearchCV</code> s istom petostrukom stratificiranom podjelom. Ispiši najbolju kombinaciju i tablicu srednje točnosti po postavkama vektorizatora. Zašto se rezultat na ovako malom korpusu ne smije uzeti zdravo za gotovo?</p>
+<naputak>Parametri koraka u <code>Pipeline</code>-u adresiraju se kao <code>"tfidfvectorizer__ngram_range"</code>; za promjenu više parametara odjednom predaj <em>popis rječnika</em> kao <code>param_grid</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.model_selection import GridSearchCV
+
+cjev = make_pipeline(TfidfVectorizer(), MultinomialNB())
+mreza = [
+    {"tfidfvectorizer__analyzer": ["word"], "tfidfvectorizer__ngram_range": [(1, 1), (1, 2)],
+     "multinomialnb__alpha": [0.01, 0.1, 1.0]},
+    {"tfidfvectorizer__analyzer": ["char_wb"], "tfidfvectorizer__ngram_range": [(2, 4), (3, 5)],
+     "multinomialnb__alpha": [0.01, 0.1, 1.0]},
+]
+gs = GridSearchCV(cjev, mreza, cv=cv5).fit(tekstovi, oznake)
+print("najbolje:", gs.best_params_, " točnost = %.3f" % gs.best_score_)
+
+rez = gs.cv_results_
+for an, ng in [("word", (1, 1)), ("word", (1, 2)), ("char_wb", (2, 4)), ("char_wb", (3, 5))]:
+    toc = [rez["mean_test_score"][i] for i, p in enumerate(rez["params"])
+           if p["tfidfvectorizer__analyzer"] == an and p["tfidfvectorizer__ngram_range"] == ng]
+    print("%-8s %-7s  točnost po alpha: %s" % (an, ng, np.round(toc, 3)))
+</kod>
+<izlaz>
+najbolje: {'multinomialnb__alpha': 1.0, 'tfidfvectorizer__analyzer': 'char_wb', 'tfidfvectorizer__ngram_range': (2, 4)}  točnost = 0.967
+word     (1, 1)   točnost po alpha: [0.817 0.817 0.783]
+word     (1, 2)   točnost po alpha: [0.817 0.817 0.783]
+char_wb  (2, 4)   točnost po alpha: [0.967 0.967 0.967]
+char_wb  (3, 5)   točnost po alpha: [0.95 0.95 0.95]
+</izlaz>
+<p>Jedan je zaključak robustan: znakovni n-grami dosljedno pobjeđuju riječi za oko $0{,}15$. Sve ostalo je unutar šuma – sa šezdeset dokumenata standardna greška procjene točnosti iznosi oko $\sqrt{0{,}9\cdot0{,}1/60}\approx0{,}04$, pa razlike između vrijednosti $\alpha$ (nema ih ili su $0{,}017$, tj. jedna rečenica) ili između raspona $2$–$4$ i $3$–$5$ ne znače ništa, a bigrami riječi ne pomažu jer se nijedan bigram ne ponavlja dovoljno često. „Najbolja” kombinacija bi se s drugim <code>random_state</code> lako promijenila. Pretraživanje po rešetki na malom skupu ujedno <em>prenaučuje validaciju</em>: od dvanaest kombinacija neka će slučajno izgledati dobro. Na natjecanju zato (1) biraj među malo kandidata, (2) rezultat provjeri na odvojenom skupu koji nisi koristio za izbor, (3) kad su razlike male, uzmi jednostavniju postavku.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Umjesto rječnika, <code>HashingVectorizer</code> indeks značajke računa kao hash tokena modulo $m$ (<code>n_features</code>), pa ne treba <code>fit</code> i radi na neograničenom toku teksta. Cijena su <b>kolizije</b>: različiti tokeni mogu završiti u istom stupcu. Za rječnik korpusa iz Primjera 3 izbroji kolizije za $m\in\{2^6,2^8,2^{10},2^{20}\}$ i usporedi s teorijskim očekivanjem za $k$ tokena u $m$ pretinaca, $\mathbb E[\text{broj kolizija}]= k-m\left(1-(1-\tfrac1m)^k\right)$. Zatim usporedi točnost unakrsne validacije <code>HashingVectorizer</code> + logističke regresije za $m\in\{2^8,2^{12},2^{16}\}$ s osnovnim cjevovodom iz Primjera 3.</p>
+<naputak>Kolizija = broj tokena minus broj različitih stupaca koje zauzmu; stupce dobiješ iz <code>transform(rječnik)</code> (svaki token kao zaseban „dokument”) i njegovih <code>.indices</code>. Očekivani broj zauzetih pretinaca je $m\left(1-(1-\frac1m)^k\right)$.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.feature_extraction.text import HashingVectorizer
+
+rj = list(cv3.get_feature_names_out())
+k = len(rj)
+print("tokena:", k)
+for m in (2**6, 2**8, 2**10, 2**20):
+    hv = HashingVectorizer(n_features=m, alternate_sign=False, norm=None)
+    stupci = set(hv.transform(rj).indices)
+    ocek = k - m * (1 - (1 - 1 / m) ** k)
+    print("m = %7d  kolizija: %3d  očekivano: %6.1f" % (m, k - len(stupci), ocek))
+
+for e in (8, 12, 16):
+    hash_lr = make_pipeline(HashingVectorizer(n_features=2**e, alternate_sign=False),
+                            LogisticRegression(C=10, max_iter=1000))
+    print("hashing 2^%-2d + LR: %.3f" % (e, cross_val_score(hash_lr, tekstovi, oznake, cv=cv5).mean()))
+print("TF-IDF + LR:        %.3f" % cross_val_score(modeli["TF-IDF + log. regresija"],
+                                                   tekstovi, oznake, cv=cv5).mean())
+</kod>
+<izlaz>
+tokena: 390
+m =      64  kolizija: 326  očekivano:  326.1
+m =     256  kolizija: 185  očekivano:  189.6
+m =    1024  kolizija:  65  očekivano:   65.5
+m = 1048576  kolizija:   0  očekivano:    0.1
+hashing 2^8  + LR: 0.567
+hashing 2^12 + LR: 0.750
+hashing 2^16 + LR: 0.733
+TF-IDF + LR:        0.733
+</izlaz>
+<p>Broj kolizija prati teorijsku formulu (odstupanja su slučajna), a s $m=2^{20}$ ih praktički nema. Uz samo $2^8$ pretinaca gotovo polovica tokena dijeli stupac s nekim drugim i točnost osjetno pada; već s $2^{12}$ kolizija je malo i rezultat je na razini osnovnog cjevovoda (hashing nema idf težina, ali to ovdje očito ne smeta). Pravilo: $m$ mora biti znatno veći od broja <em>važnih</em> tokena, a tipične vrijednosti su $2^{18}$–$2^{20}$. Hashing je standardni izbor kad korpus ne stane u memoriju ili kad model mora raditi na tekstu koji dolazi u stvarnom vremenu; cijena je da se iz koeficijenata više ne može pročitati koja riječ što znači.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Cjevovod za tekst: normalizacija (mala slova, NFC, dijakritici) → tokenizacija (riječi, znakovi, podriječi/BPE) → rječnik → vektor → model. Pogreške na početku ne mogu se ispraviti kasnije.</li>
+<li>Hrvatski: bogata morfologija (padeži) umnožava rječnik; lijekovi su lematizacija, stemming i, najjednostavnije, znakovni n-grami (<code>analyzer="char_wb"</code>).</li>
+<li>BoW broji tokene; TF-IDF ih množi s $\ln\frac{1+n}{1+\mathrm{df}}+1$ i normalizira redak na jediničnu duljinu – time stop-riječi gube težinu bez popisa, a kosinusna sličnost postaje skalarni produkt.</li>
+<li>Logistička regresija i multinomijalni Naive Bayes jaki su osnovni modeli za rijetke BoW značajke; uvijek ispiši riječi s najvećim težinama da provjeriš što je model naučio.</li>
+<li>Rječnik uči se samo na podacima za učenje (<code>Pipeline</code> + unakrsna validacija); na malim skupovima razlike među modelima su unutar šuma.</li>
+<li>Regularni izrazi (<code>re.findall</code>, <code>re.sub</code>) su alat za tokenizaciju i čišćenje; zadani <code>token_pattern</code> scikit-learna odbacuje jednoslovne riječi.</li>
+</ul>
+
+@@ literatura
+<li>D. Jurafsky, J. H. Martin, <i>Speech and Language Processing</i>, 3. izd. (nacrt, besplatno na mreži), poglavlja o regularnim izrazima, tokenizaciji i Naive Bayesu.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/feature_extraction.html#text-feature-extraction">Text feature extraction</a> i <a href="https://scikit-learn.org/stable/tutorial/text_analytics/working_with_text_data.html">Working with text data</a>.</li>
+<li>R. Sennrich, B. Haddow, A. Birch, <i>Neural Machine Translation of Rare Words with Subword Units</i> (ACL 2016) – izvorni rad o BPE-u za NLP.</li>
+<li>Hugging Face, <a href="https://huggingface.co/learn/nlp-course/chapter6/1">NLP Course, poglavlje 6: Tokenizers</a>.</li>
