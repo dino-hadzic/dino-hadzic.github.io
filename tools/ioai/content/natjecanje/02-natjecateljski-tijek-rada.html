@@ -1,0 +1,496 @@
+@@ meta
+naslov = Natjecateljski tijek rada: od baselinea do predaje
+podnaslov = Recept koji vrijedi za svaki tabularni zadatak: učitaj, pogledaj, baseline, validiraj, iteriraj, spoji, predaj – i što raditi kad model „ne uči”
+oznake = baseline, $k$-struka validacija, izvanuzoračke predikcije, inženjerstvo značajki, hiperparametri, ansambl, ponovljivost
+
+@@ ciljevi
+<li>Napisati skeleton projekta s funkcijama <code>ucitaj</code>, <code>znacajke</code>, <code>validiraj</code> i <code>predaj</code> koji se može ponovno upotrijebiti na svakom tabularnom zadatku.</li>
+<li>Izgraditi ljestvicu baselinea (trivijalni, linearni, boosting) i iz razlika među njima zaključiti gdje se krije napredak.</li>
+<li>Iterirati disciplinirano – jedna promjena po eksperimentu, s izvanuzoračkim predikcijama kao glavnim artefaktom – te spojiti modele u ansambl.</li>
+<li>Dijagnosticirati najčešće uzroke toga da model „ne uči” i predati rješenje koje se može reproducirati od nule.</li>
+
+@@ teorija
+<h3>Recept</h3>
+<p>Tabularni zadaci na IOAI-ju i srodnim natjecanjima rješavaju se uvijek istim redoslijedom; razlika između dobrog i lošeg tima nije u tome <em>što</em> rade, nego koliko disciplinirano. Koraci, s okvirnim udjelom vremena:</p>
+<ol>
+<li><b>Učitaj i pogledaj</b> (5 min): oblik, vrste stupaca, nedostajuće vrijednosti, cilj, kardinalnost kategorija, trening nasuprot testu.</li>
+<li><b>Baseline</b> (15 min): trivijalni model, linearni model, gradijentni boosting – svaki kroz istu validaciju i istu metriku.</li>
+<li><b>Validacija</b>: fiksni foldovi, izvanuzoračke predikcije, zapisano odstupanje.</li>
+<li><b>Iteriraj</b> (najviše vremena): značajke, model, hiperparametri – jedna promjena po eksperimentu, sve u dnevnik.</li>
+<li><b>Spoji</b>: prosjek ili slaganje nekoliko najboljih, različitih modela.</li>
+<li><b>Predaj</b>: konačni trening na svim podacima, datoteka, provjera, ponovno pokretanje od nule.</li>
+</ol>
+
+<h3>Učitavanje i brzi pregled</h3>
+<p>Pet minuta pregleda odgovara na pitanja koja određuju cijeli daljnji rad: je li cilj uravnotežen; koje su značajke numeričke, koje kategoričke i <em>koliko</em> kategorija imaju (deset ili deset tisuća – posve različita obrada); gdje nedostaju vrijednosti i je li nedostajanje povezano s ciljem; postoje li stupci koji su očito identifikatori ili datumi. Ne crtaj dvadeset histograma – ispiši tablicu i kreni. Detaljnija analiza dolazi kasnije, kad znaš <em>gdje</em> model griješi.</p>
+
+<h3>Ljestvica baselinea</h3>
+<p>Tri modela s podrazumijevanim postavkama, u istom cjevovodu predobrade, daju više informacije nego sat podešavanja:</p>
+<ul>
+<li><b>Trivijalni</b> (<code>DummyClassifier</code>, prosjek za regresiju): donja granica; ako ga tvoj model ne pobjeđuje, imaš grešku, ne težak zadatak.</li>
+<li><b>Linearni</b> (logistička ili grebena regresija na standardiziranim značajkama): brz, stabilan, pokazuje koliko se da izvući iz značajki <em>kakve jesu</em>.</li>
+<li><b>Gradijentni boosting</b> (<code>HistGradientBoostingClassifier</code>, lekcija M4): gotovo uvijek najjači pojedinačni model na tabularnim podacima; sam pronalazi interakcije i nelinearnosti.</li>
+</ul>
+<p>Čitaj razmake: ako je boosting daleko ispred linearnog modela, u podacima su nelinearnosti i interakcije koje linearni model dobiva tek s ručno napravljenim značajkama (Primjer 2). Ako su blizu, zadatak je „linearan” i napredak je u čišćenju podataka i značajkama, ne u složenijim modelima. Ako su svi blizu trivijalnog, provjeri prvo greške (zadnji odjeljak), tek onda zaključi da je zadatak težak.</p>
+
+<h3>Validacija i izvanuzoračke predikcije</h3>
+<definicija naslov="Izvanuzoračke predikcije">
+U $k$-strukoj validaciji svaki primjer točno jednom padne u validacijski fold, pa za njega postoji predikcija modela koji ga <em>nije</em> vidio. Vektor takvih predikcija za sve primjere za učenje zove se <b>izvanuzoračke predikcije</b> (engl. <i>out-of-fold</i>, OOF); u scikit-learnu ih daje <code>cross_val_predict</code>.
+</definicija>
+<p>OOF predikcije su najvažniji artefakt cijelog tijeka rada. Na njima se računa metrika (ista funkcija kao službena), bira prag za $F_1$, određuju težine ansambla, trenira meta-model pri slaganju i radi analiza grešaka. Ispravna podjela oponaša test: <code>StratifiedKFold</code> za klasifikaciju, <code>GroupKFold</code> kad se isti objekt (osoba, uređaj, slika) pojavljuje u više redaka, vremenska podjela kad je test iz budućnosti. Foldovi se fiksiraju jednom (<code>random_state</code>) i ne mijenjaju do kraja.</p>
+
+<h3>Iteriranje</h3>
+<p>Pravilo je <em>jedna promjena po eksperimentu</em>; inače ne znaš što je pomoglo. Redoslijed po očekivanom dobitku:</p>
+<ol>
+<li><b>Značajke</b>: umnošci i omjeri (interakcije), kvadrati i logaritmi, indikatori nedostajanja, grupne statistike (prosjek cilja ili značajke po kategoriji – <em>samo</em> izračunane unutar folda), brojevi pojavljivanja kategorije, razlaganje datuma. Linearnim modelima značajke su sve; boostingu pomažu manje, ali omjeri i grupne statistike znaju pomoći i njemu.</li>
+<li><b>Model</b>: druga obitelj (boosting uz linearni, slučajna šuma, $k$ najbližih susjeda) – korisna i sama i kao član ansambla jer griješi drukčije.</li>
+<li><b>Hiperparametri</b>: za boosting bitni su <code>learning_rate</code>, <code>max_iter</code> (s ranim zaustavljanjem), <code>max_leaf_nodes</code>, <code>min_samples_leaf</code> i <code>l2_regularization</code>; za linearne modele jakost regularizacije <code>C</code>. Mala mreža od pet do deset kombinacija na fiksnim foldovima obično je dovoljna; fino podešavanje donosi tisućinke i radi se zadnje.</li>
+</ol>
+
+<h3>Ansambli</h3>
+<p>Dva modela slične kvalitete koji griješe na <em>različitim</em> primjerima zajedno su bolji od svakog pojedinačno. Najjednostavniji ansambl je <b>prosjek vjerojatnosti</b>; za metrike koje ovise samo o poretku (AUC) i <b>prosjek rangova</b>; <b>težinski prosjek</b> s težinama odabranim na OOF predikcijama. <b>Slaganje</b> (engl. <i>stacking</i>) ide korak dalje: OOF predikcije osnovnih modela postaju ulazne značajke jednostavnog meta-modela (logistička regresija), koji sam nauči kako ih kombinirati.</p>
+<teorem naslov="zašto prosjek pomaže">
+<p>Ako $m$ modela ima greške iste varijance $\sigma^2$ i međusobne korelacije $\rho$, greška njihova prosjeka ima varijancu
+$$\rho\,\sigma^2+\frac{1-\rho}{m}\,\sigma^2 .$$
+Za $\rho=1$ (isti model) prosjek ne pomaže; za male $\rho$ varijanca pada gotovo kao $\sigma^2/m$. Zato u ansambl idu <em>različiti</em> modeli (linearni i boosting, različite značajke), ne pet kopija boostinga s različitim sjemenom – iako i to malo pomaže.</p>
+</teorem>
+
+<h3>Vrijeme i ponovljivost</h3>
+<p>Sve što utječe na rezultat stoji na vrhu jedne skripte: sjemena, foldovi, popis značajki, hiperparametri. Konačna predaja nastaje pokretanjem te skripte od nule, ne lijepljenjem rezultata iz bilježnice koja je sat vremena mijenjala stanje. Vrijeme procjenjuj prije nego što ga potrošiš: izmjeri jedan fit, pomnoži s brojem foldova i kombinacija; ako prelazi raspoloživo, podešavaj na poduzorku ili smanji broj foldova na tri.</p>
+
+<h3>Predaja</h3>
+<p>Konačni model trenira se na <em>svim</em> podacima za učenje s postavkama koje je validacija odabrala (ako koristiš rano zaustavljanje, uzmi broj iteracija s foldova). Datoteka dobiva redni broj i redak u dnevniku, a prije slanja prolazi provjeru: stupci, identifikatori, redoslijed, raspon vrijednosti, <code>NaN</code>. Usporedi raspodjelu predikcija s raspodjelom cilja u treningu – velika razlika je ili pomak raspodjele ili greška.</p>
+
+<h3>Kad model „ne uči”</h3>
+<p>Rezultat je na razini trivijalnog modela ili se ne miče. Prije nego što promijeniš model, provjeri redom:</p>
+<ol>
+<li><b>Poravnanje $X$ i $y$.</b> Jesu li retci značajki i cilja u istom redoslijedu (sortiranje, spajanje po ključu, <code>reset_index</code>)? Brza provjera: AUC svake pojedine značajke s ciljem – ako su <em>sve</em> na $0{,}5$, a zadatak je rješiv, redovi su pomiješani (Zadatak 4).</li>
+<li><b>Test izmiješanim ciljem.</b> Izmiješaj $y$ i ponovno validiraj: rezultat mora pasti na trivijalni. Ako ne padne – protjecanje.</li>
+<li><b>Prenauči sićušni poduzorak.</b> Model koji ne može zapamtiti 50 redaka ima grešku u cjevovodu (značajke ispadaju, cilj krivo kodiran).</li>
+<li><b>Skaliranje i kodiranje.</b> Linearni modeli bez standardizacije, kategorije kodirane kao brojevi, cilj kao tekst.</li>
+<li><b>Metrika i smjer.</b> Računaš li ono što zadatak traži, s vjerojatnostima gdje treba, i je li manja ili veća vrijednost bolja?</li>
+<li><b>Krivulja učenja.</b> Rezultat raste s količinom podataka (Zadatak 1)? Ako ne – značajke ne nose informaciju ili je šum prevelik.</li>
+</ol>
+
+@@ primjeri
+<primjer>
+<p><b>Skeleton projekta i ljestvica baselinea.</b> Napiši funkcije <code>ucitaj</code> (vraća trening s ciljem i test bez njega), <code>znacajke</code> (cjevovod predobrade) i <code>validiraj</code> (stratificirana petostruka validacija koja vraća OOF vjerojatnosti te prosjek i odstupanje AUC-a po foldovima). Na simuliranom zadatku s metrikom AUC usporedi trivijalni model, logističku regresiju i boosting.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> Simulirani zadatak ima šest numeričkih značajki, kategoriju <code>grad</code> s 40 vrijednosti (svaka ima vlastiti učinak) i nedostajuće vrijednosti; cilj ovisi o interakciji $x_1x_2$, kvadratu $x_3^2$ i linearno o $x_4$, dok su $x_5$ i $x_6$ šum. Na natjecanju bi <code>ucitaj</code> čitao CSV-ove; sve ostalo ostaje isto.</p>
+<kod jezik="python">
+import numpy as np
+import pandas as pd
+
+def ucitaj(n=4000, sjeme=0):
+    rng = np.random.default_rng(sjeme)
+    X = rng.normal(size=(n, 6))
+    grad = rng.integers(0, 40, size=n)
+    ucinak_grada = rng.normal(0, 0.7, size=40)
+    logit = (1.5 * X[:, 0] * X[:, 1] + X[:, 2] ** 2 - 1 + 0.8 * X[:, 3]
+             + ucinak_grada[grad] + rng.normal(0, 0.5, size=n))
+    y = (rng.random(n) < 1 / (1 + np.exp(-logit))).astype(int)
+    df = pd.DataFrame(X, columns=["x%d" % j for j in range(1, 7)])
+    df["grad"] = ["g%02d" % g for g in grad]
+    df.loc[rng.random(n) < 0.05, "x2"] = np.nan
+    df.loc[rng.random(n) < np.where(y == 1, 0.25, 0.05), "x5"] = np.nan   # ovisi o cilju!
+    df.insert(0, "id", np.arange(n))
+    df["cilj"] = y
+    train, test = df.iloc[:3200].reset_index(drop=True), df.iloc[3200:].reset_index(drop=True)
+    return train, test.drop(columns="cilj"), test["cilj"].to_numpy()
+
+train, test, y_test_skriveni = ucitaj()      # y_test_skriveni glumi službeni skriveni cilj
+print(train.shape, test.shape, " udio pozitivnih: %.3f" % train["cilj"].mean())
+print("NaN po stupcu:", train.isna().sum()[lambda s: s > 0].to_dict())
+print("broj gradova:", train["grad"].nunique())
+</kod>
+<izlaz>
+(3200, 9) (800, 8)  udio pozitivnih: 0.497
+NaN po stupcu: {'x2': 149, 'x5': 471}
+broj gradova: 40
+</izlaz>
+<p><b>Korak 2: značajke i validacija.</b> <code>znacajke</code> vraća <code>ColumnTransformer</code> koji se u cjevovodu uči samo na foldu za učenje. <code>validiraj</code> vraća OOF vjerojatnosti i AUC po foldovima – isti foldovi za sve eksperimente.</p>
+<kod jezik="python">
+from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+NUM = ["x%d" % j for j in range(1, 7)]
+KAT = ["grad"]
+y_tr = train["cilj"].to_numpy()
+X_tr, X_te = train.drop(columns=["id", "cilj"]), test.drop(columns="id")
+foldovi = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+
+def znacajke(num=NUM, kat=KAT):
+    return ColumnTransformer([
+        ("num", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), num),
+        ("kat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), kat)])
+
+def validiraj(model, X=None, y=None, predobrada=None):
+    X = X_tr if X is None else X
+    y = y_tr if y is None else y
+    cjevovod = Pipeline([("pred", predobrada or znacajke()), ("model", model)])
+    oof = cross_val_predict(cjevovod, X, y, cv=foldovi, method="predict_proba")[:, 1]
+    po_foldu = np.array([roc_auc_score(y[va], oof[va]) for _, va in foldovi.split(X, y)])
+    return oof, po_foldu.mean(), po_foldu.std()
+
+dnevnik = []
+def eksperiment(opis, model, **kw):
+    oof, m, s = validiraj(model, **kw)
+    dnevnik.append({"br": len(dnevnik) + 1, "opis": opis, "AUC": round(m, 4), "std": round(s, 4)})
+    print("%2d. %-34s AUC = %.4f ± %.4f" % (len(dnevnik), opis, m, s))
+    return oof
+
+oof_dummy = eksperiment("trivijalni", DummyClassifier(strategy="prior"))
+oof_lr1 = eksperiment("logistička regresija", LogisticRegression(max_iter=1000))
+oof_hgb1 = eksperiment("boosting (zadano)", HistGradientBoostingClassifier(random_state=0))
+</kod>
+<izlaz>
+ 1. trivijalni                         AUC = 0.5000 ± 0.0000
+ 2. logistička regresija               AUC = 0.6940 ± 0.0112
+ 3. boosting (zadano)                  AUC = 0.8389 ± 0.0078
+</izlaz>
+<p><b>Korak 3: čitanje ljestvice.</b> Trivijalni model ima AUC $0{,}5$ po definiciji. Boosting je daleko ispred logističke regresije – jasan znak da u podacima postoje nelinearnosti i interakcije koje linearni model ne vidi. To je upravo ono što ćemo u Primjeru 2 dati linearnom modelu „na pladnju”.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p><b>Iteriranje: značajke i hiperparametri.</b> (a) Dodaj linearnom modelu značajke $x_1x_2$ i $x_3^2$ i izmjeri koliko se približio boostingu. (b) Isprobaj istu promjenu na boostingu. (c) Za boosting pretraži malu mrežu hiperparametara (<code>learning_rate</code>, <code>max_leaf_nodes</code>) na fiksnim foldovima i zapiši sve u dnevnik.</p>
+<rjesenje>
+<p><b>Korak 1: inženjerstvo značajki.</b> Nove stupce dodajemo kao funkciju nad <code>DataFrame</code>-om, pa ista funkcija radi i na testu. Imputacija ostaje u cjevovodu – <code>NaN</code> u $x_2$ daje <code>NaN</code> u umnošku, a imputer ga popuni unutar folda.</p>
+<kod jezik="python">
+def dodaj_znacajke(X):
+    X = X.copy()
+    X["x1x2"] = X["x1"] * X["x2"]
+    X["x3_kv"] = X["x3"] ** 2
+    return X
+
+X_tr2, X_te2 = dodaj_znacajke(X_tr), dodaj_znacajke(X_te)
+NUM2 = NUM + ["x1x2", "x3_kv"]
+oof_lr2 = eksperiment("LR + x1*x2, x3^2", LogisticRegression(max_iter=1000),
+                      X=X_tr2, predobrada=znacajke(NUM2))
+oof_hgb2 = eksperiment("boosting + x1*x2, x3^2", HistGradientBoostingClassifier(random_state=0),
+                       X=X_tr2, predobrada=znacajke(NUM2))
+</kod>
+<izlaz>
+ 4. LR + x1*x2, x3^2                   AUC = 0.8552 ± 0.0116
+ 5. boosting + x1*x2, x3^2             AUC = 0.8505 ± 0.0082
+</izlaz>
+<p>Dvije ručno napravljene značajke podignu logističku regresiju za $0{,}16$ – iznad podrazumijevanog boostinga; boostingu donesu tek oko $0{,}01$ jer je interakciju i kvadrat već sam približno „pronašao” dijeljenjem po $x_1$, $x_2$ i $x_3$. Pravilo: značajke koje opisuju <em>strukturu</em> zadatka najviše pomažu jednostavnim modelima – a jednostavan model koji je blizu boostinga odličan je član ansambla.</p>
+<p><b>Korak 2: mala mreža hiperparametara.</b> Šest kombinacija na istim foldovima. Manji <code>learning_rate</code> treba više iteracija, pa <code>max_iter</code> raste s njim.</p>
+<kod jezik="python">
+najbolje = (0, None)
+for lr in (0.03, 0.1):
+    for listovi in (7, 15, 31):
+        model = HistGradientBoostingClassifier(learning_rate=lr, max_iter=int(30 / lr),
+                                               max_leaf_nodes=listovi, random_state=0)
+        oof = eksperiment("HGB lr=%.2f, listovi=%d" % (lr, listovi), model,
+                          X=X_tr2, predobrada=znacajke(NUM2))
+        if dnevnik[-1]["AUC"] > najbolje[0]:
+            najbolje = (dnevnik[-1]["AUC"], (lr, listovi), oof)
+print("najbolje:", najbolje[:2])
+oof_hgb = najbolje[2]
+</kod>
+<izlaz>
+ 6. HGB lr=0.03, listovi=7             AUC = 0.8587 ± 0.0080
+ 7. HGB lr=0.03, listovi=15            AUC = 0.8463 ± 0.0065
+ 8. HGB lr=0.03, listovi=31            AUC = 0.8456 ± 0.0053
+ 9. HGB lr=0.10, listovi=7             AUC = 0.8569 ± 0.0085
+10. HGB lr=0.10, listovi=15            AUC = 0.8480 ± 0.0074
+11. HGB lr=0.10, listovi=31            AUC = 0.8416 ± 0.0053
+najbolje: (np.float64(0.8587), (0.03, 7))
+</izlaz>
+<p>Raspon mreže je $0{,}017$: na 3200 primjera manja stabla (7 listova) jasno pobjeđuju veća, dok korak učenja mijenja malo. Dobitak nad podrazumijevanim postavkama ($0{,}8505$) iznosi oko $0{,}008$ – otprilike jedno odstupanje po foldovima. Podešavanje je korisno, ali nije izvor velikog napretka; zapiši pobjednika i kreni na spajanje.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p><b>Ansambl i predaja.</b> Spoji najbolji boosting i poboljšanu logističku regresiju (a) prosjekom vjerojatnosti, (b) prosjekom rangova i (c) slaganjem s logističkom regresijom kao meta-modelom, sve ocijenjeno na OOF predikcijama. Zatim istreniraj konačne modele na svim podacima, napravi datoteku za predaju i provjeri je. Na kraju, budući da u simulaciji imamo skriveni cilj, usporedi lokalni i „službeni” AUC.</p>
+<rjesenje>
+<p><b>Korak 1: ansambli na OOF predikcijama.</b> Prosjek i prosjek rangova ne uče ništa, pa ih smijemo ocijeniti izravno na OOF vektorima. Meta-model slaganja <em>uči</em>, pa i njega validiramo križno – na OOF značajkama – inače bismo ocjenjivali na podacima na kojima je treniran.</p>
+<kod jezik="python">
+from scipy.stats import rankdata
+
+def auc(p):
+    return roc_auc_score(y_tr, p)
+
+prosjek = (oof_hgb + oof_lr2) / 2
+rangovi = (rankdata(oof_hgb) + rankdata(oof_lr2)) / 2
+meta_X = np.column_stack([oof_hgb, oof_lr2])
+slaganje = cross_val_predict(LogisticRegression(), meta_X, y_tr, cv=foldovi,
+                             method="predict_proba")[:, 1]
+print("boosting sam:      %.4f" % auc(oof_hgb))
+print("LR sam:            %.4f" % auc(oof_lr2))
+print("prosjek vjeroj.:   %.4f" % auc(prosjek))
+print("prosjek rangova:   %.4f" % auc(rangovi))
+print("slaganje (LR meta): %.4f" % auc(slaganje))
+print("korelacija OOF predikcija: %.3f" % np.corrcoef(oof_hgb, oof_lr2)[0, 1])
+</kod>
+<izlaz>
+boosting sam:      0.8581
+LR sam:            0.8549
+prosjek vjeroj.:   0.8654
+prosjek rangova:   0.8650
+slaganje (LR meta): 0.8645
+korelacija OOF predikcija: 0.903
+</izlaz>
+<p>Dva modela su visoko korelirana (rješavaju isti zadatak), ali ne savršeno, pa prosjek ipak nadmaši bolji od njih. Slaganje ovdje ne donosi više od običnog prosjeka – s dva slična modela rijetko i donosi; isplati se kad ima pet-šest raznovrsnih modela.</p>
+<p><b>Korak 2: konačni trening i predaja.</b> Svaki osnovni model treniramo na <em>svim</em> podacima za učenje s odabranim postavkama, spojimo ih na isti način kao na OOF-u i zapišemo datoteku.</p>
+<kod jezik="python">
+lr_fin = Pipeline([("pred", znacajke(NUM2)), ("model", LogisticRegression(max_iter=1000))])
+hgb_fin = Pipeline([("pred", znacajke(NUM2)), ("model", HistGradientBoostingClassifier(
+    learning_rate=najbolje[1][0], max_iter=int(30 / najbolje[1][0]),
+    max_leaf_nodes=najbolje[1][1], random_state=0))])
+p_te = (lr_fin.fit(X_tr2, y_tr).predict_proba(X_te2)[:, 1]
+        + hgb_fin.fit(X_tr2, y_tr).predict_proba(X_te2)[:, 1]) / 2
+
+predaja = pd.DataFrame({"id": test["id"], "cilj": p_te.round(6)})
+predaja.to_csv("predaja_03_prosjek.csv", index=False)
+u = pd.read_csv("predaja_03_prosjek.csv")
+assert list(u.columns) == ["id", "cilj"] and (u["id"].to_numpy() == test["id"].to_numpy()).all()
+assert u["cilj"].between(0, 1).all() and not u["cilj"].isna().any()
+print("predaja OK, prosjek predikcija %.3f (udio pozitivnih u treningu %.3f)"
+      % (u["cilj"].mean(), y_tr.mean()))
+print("lokalni OOF AUC = %.4f   'službeni' AUC = %.4f" % (auc(prosjek), roc_auc_score(y_test_skriveni, p_te)))
+</kod>
+<izlaz>
+predaja OK, prosjek predikcija 0.478 (udio pozitivnih u treningu 0.497)
+lokalni OOF AUC = 0.8654   'službeni' AUC = 0.8575
+</izlaz>
+<p><b>Korak 3: što znači razlika.</b> Lokalni i „službeni” rezultat razlikuju se za oko $0{,}008$ – otprilike jedno odstupanje po foldovima; to je normalan šum ocjene na 800 primjera, ne pogreška. Da su se razišli za više od toga, prvo bi se tražilo protjecanje ili pomak raspodjele (lekcija N1), ne bolji model. Na natjecanju skriveni cilj naravno nemaš, pa ovu usporedbu zamjenjuje povjerenje u pošteno napravljenu validaciju.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za svaki zadatak odredi kakvu podjelu u validaciji treba koristiti i zašto: (a) predviđanje bolesti iz slika pri čemu svaki pacijent ima 3–10 slika; (b) predviđanje prodaje po danu za sljedeći mjesec iz podataka protekle dvije godine; (c) klasifikacija tweetova s 3 % pozitivnih primjera; (d) ocjena kvalitete vina iz kemijskih mjerenja, svako vino jedan redak.</p>
+<rjesenje>
+<p>(a) <code>GroupKFold</code> po pacijentu: slike istog pacijenta ne smiju biti i u treningu i u validaciji, inače model „prepoznaje pacijenta” i rezultat je lažno visok. (b) Vremenska podjela (<code>TimeSeriesSplit</code> ili ručno: učenje na prošlosti, validacija na sljedećem mjesecu) – test je iz budućnosti, nasumična podjela bi puštala model da gleda unaprijed. (c) <code>StratifiedKFold</code>: s 3 % pozitivnih nasumični fold može imati premalo pozitivnih da bi metrika bila stabilna. (d) Običan ili stratificirani <code>KFold</code> s miješanjem – retci su neovisni.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Zašto je stratifikacija bitna? Sortiraj trening iz Primjera 1 po cilju i usporedi udio pozitivnih u validacijskim foldovima za <code>KFold(5)</code> bez miješanja, <code>KFold(5, shuffle=True)</code> i <code>StratifiedKFold(5, shuffle=True)</code>.</p>
+<rjesenje>
+<kod jezik="python">
+from sklearn.model_selection import KFold
+
+y_sort = np.sort(y_tr)
+X_sort = X_tr.iloc[np.argsort(y_tr, kind="stable")]
+for ime, cv in [("KFold bez miješanja", KFold(5)),
+                ("KFold s miješanjem", KFold(5, shuffle=True, random_state=0)),
+                ("StratifiedKFold", StratifiedKFold(5, shuffle=True, random_state=0))]:
+    udjeli = [y_sort[va].mean() for _, va in cv.split(X_sort, y_sort)]
+    print("%-20s udio pozitivnih po foldu: %s" % (ime, np.round(udjeli, 3)))
+</kod>
+<izlaz>
+KFold bez miješanja  udio pozitivnih po foldu: [0.    0.    0.488 1.    1.   ]
+KFold s miješanjem   udio pozitivnih po foldu: [0.495 0.455 0.517 0.53  0.491]
+StratifiedKFold      udio pozitivnih po foldu: [0.497 0.497 0.497 0.498 0.498]
+</izlaz>
+<p>Bez miješanja na sortiranim podacima foldovi su čisti – u nekima nema pozitivnih uopće, pa je AUC nedefiniran, a model uči na raspodjeli posve različitoj od validacijske. Miješanje popravi najgore, ali udjeli i dalje variraju; stratifikacija ih izjednači, što smanjuje šum metrike među foldovima. Podaci u datotekama često <em>jesu</em> sortirani (po vremenu, po klasi), pa je <code>shuffle=True</code> obavezan.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Dnevnik iz primjera ispiši kao tablicu sortiranu po AUC-u. Koje bi eksperimente, uzimajući u obzir odstupanje po foldovima, smatrao stvarno različitima od najboljeg?</p>
+<rjesenje>
+<kod jezik="python">
+tablica = pd.DataFrame(dnevnik).sort_values("AUC", ascending=False)
+print(tablica.to_string(index=False))
+prag = tablica["AUC"].iloc[0] - 2 * tablica["std"].iloc[0]
+print("stvarno lošiji od najboljeg (razlika > 2 std):", tablica.loc[tablica["AUC"] < prag, "br"].tolist())
+</kod>
+<izlaz>
+ br                    opis    AUC    std
+  6  HGB lr=0.03, listovi=7 0.8587 0.0080
+  9  HGB lr=0.10, listovi=7 0.8569 0.0085
+  4        LR + x1*x2, x3^2 0.8552 0.0116
+  5  boosting + x1*x2, x3^2 0.8505 0.0082
+ 10 HGB lr=0.10, listovi=15 0.8480 0.0074
+  7 HGB lr=0.03, listovi=15 0.8463 0.0065
+  8 HGB lr=0.03, listovi=31 0.8456 0.0053
+ 11 HGB lr=0.10, listovi=31 0.8416 0.0053
+  3       boosting (zadano) 0.8389 0.0078
+  2    logistička regresija 0.6940 0.0112
+  1              trivijalni 0.5000 0.0000
+stvarno lošiji od najboljeg (razlika > 2 std): [11, 3, 2, 1]
+</izlaz>
+<p>Unutar dva odstupanja od najboljeg leže gotovo sve kombinacije boostinga i – što je zanimljivije – logistička regresija s dodanim značajkama; među njima dnevnik ne razlikuje. Stvarno lošiji su trivijalni model, prva logistička regresija, podrazumijevani boosting bez novih značajki i najveća stabla s velikim korakom. To je razlog zašto se dvije bliske varijante radije spajaju nego da se bira po trećoj decimali.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Nacrtaj (ispiši) <b>krivulju učenja</b>: validiraj boosting iz Primjera 2 na slučajnim poduzorcima od 10 %, 25 %, 50 % i 100 % skupa za učenje. Što iz oblika krivulje zaključuješ o tome bi li više podataka pomoglo? Kako bi istu krivulju iskoristio da otkriješ da model „ne uči”?</p>
+<rjesenje>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+poredak = rng.permutation(len(y_tr))
+for udio in (0.1, 0.25, 0.5, 1.0):
+    idx = np.sort(poredak[:int(udio * len(y_tr))])
+    _, m, s = validiraj(HistGradientBoostingClassifier(learning_rate=0.03, max_iter=1000,
+                                                       max_leaf_nodes=7, random_state=0),
+                        X=X_tr2.iloc[idx], y=y_tr[idx], predobrada=znacajke(NUM2))
+    print("%4d primjera: AUC = %.4f ± %.4f" % (len(idx), m, s))
+</kod>
+<izlaz>
+ 320 primjera: AUC = 0.7467 ± 0.0327
+ 800 primjera: AUC = 0.7759 ± 0.0219
+1600 primjera: AUC = 0.8442 ± 0.0111
+3200 primjera: AUC = 0.8587 ± 0.0080
+</izlaz>
+<p>Krivulja raste cijelim putem, ali sve sporije: udvostručenje s 800 na 1600 primjera donosi $0{,}07$, s 1600 na 3200 još $0{,}014$, a odstupanje po foldovima pada. Više podataka bi još malo pomoglo, no plafon je blizu – preostala greška je šum u cilju (u generatoru je dodan šum na logit, a oznaka se izvlači slučajno). Ako krivulja ostane ravna na razini trivijalnog modela za sve veličine, model ne uči: ili značajke ne nose informaciju, ili su $X$ i $y$ pomiješani, ili cjevovod odbacuje značajke.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>U generatoru podataka $x_5$ nedostaje češće kad je $y=1$. Dodaj <b>indikator nedostajanja</b> (stupac $1$ ako $x_5$ nedostaje, inače $0$) i izmjeri učinak na logističku regresiju i boosting. Zašto boostingu indikator treba manje?</p>
+<rjesenje>
+<kod jezik="python">
+def dodaj_indikator(X):
+    X = X.copy()
+    X["x5_nema"] = X["x5"].isna().astype(int)
+    return X
+
+X_tr3, X_te3 = dodaj_indikator(X_tr2), dodaj_indikator(X_te2)
+NUM3 = NUM2 + ["x5_nema"]
+oof_lr3 = eksperiment("LR + indikator NaN(x5)", LogisticRegression(max_iter=1000),
+                      X=X_tr3, predobrada=znacajke(NUM3))
+oof_hgb3 = eksperiment("HGB + indikator NaN(x5)", HistGradientBoostingClassifier(
+    learning_rate=0.03, max_iter=1000, max_leaf_nodes=7, random_state=0),
+    X=X_tr3, predobrada=znacajke(NUM3))
+</kod>
+<izlaz>
+12. LR + indikator NaN(x5)             AUC = 0.8767 ± 0.0110
+13. HGB + indikator NaN(x5)            AUC = 0.8608 ± 0.0092
+</izlaz>
+<p>Logistička regresija nakon imputacije medijanom ne vidi razliku između „izmjereno blizu medijana” i „nedostaje”; indikator joj vraća tu informaciju i podiže je za $0{,}02$ – više od svih hiperparametara zajedno. <code>HistGradientBoostingClassifier</code> sam podržava <code>NaN</code> i uči na koju stranu grane ga poslati, no u našem cjevovodu imputer <em>prije</em> boostinga tu informaciju izbriše – zato bi indikator mogao pomoći i njemu, ali dobitak od $0{,}002$ ostaje unutar šuma: boosting je iz ostalih značajki već izvukao većinu informacije. Pouka: kad nedostajanje može ovisiti o cilju (bolesnik nije došao na pregled, kupac nije upisao prihod), indikator je prva značajka koju dodaješ, a boostingu <code>NaN</code> radije pusti nego da ga imputiraš.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Umjesto običnog prosjeka pronađi težinu $w\in[0,1]$ za ansambl $w\,p_{\text{HGB}}+(1-w)\,p_{\text{LR}}$ koja maksimizira OOF AUC. Zatim težinu odaberi na jednoj polovici OOF predikcija i ocijeni je na drugoj. Koliko se težina smije „vjerovati”?</p>
+<naputak>Prođi $w$ od $0$ do $1$ u koracima od $0{,}05$. Za drugu polovicu pitanja podijeli indekse primjera na dvije polovice stratificirano.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.model_selection import train_test_split
+
+tezine = np.arange(0, 1.0001, 0.05)
+def auc_tezine(idx):
+    return np.array([roc_auc_score(y_tr[idx], w * oof_hgb[idx] + (1 - w) * oof_lr2[idx]) for w in tezine])
+
+sve = auc_tezine(np.arange(len(y_tr)))
+print("najbolja težina na svim OOF: w = %.2f, AUC = %.4f (w = 0.5: %.4f)"
+      % (tezine[sve.argmax()], sve.max(), sve[10]))
+
+A, B = train_test_split(np.arange(len(y_tr)), test_size=0.5, stratify=y_tr, random_state=0)
+w_A = tezine[auc_tezine(A).argmax()]
+auc_B = auc_tezine(B)
+print("težina odabrana na polovici A: w = %.2f" % w_A)
+print("na polovici B: AUC(w_A) = %.4f, AUC(0.5) = %.4f, najbolje moguće na B = %.4f (w = %.2f)"
+      % (auc_B[np.isclose(tezine, w_A)][0], auc_B[10], auc_B.max(), tezine[auc_B.argmax()]))
+</kod>
+<izlaz>
+najbolja težina na svim OOF: w = 0.50, AUC = 0.8654 (w = 0.5: 0.8654)
+težina odabrana na polovici A: w = 0.50
+na polovici B: AUC(w_A) = 0.8582, AUC(0.5) = 0.8582, najbolje moguće na B = 0.8584 (w = 0.55)
+</izlaz>
+<p>Krivulja AUC-a po $w$ vrlo je plitka oko maksimuma: razlika između optimalne težine i $0{,}5$ mjeri se u desettisućinkama, a težina najbolja na polovici A ($0{,}50$) nije najbolja na polovici B ($0{,}55$). Jedan parametar odabran na tisućama OOF primjera ne može se jako prenaučiti, ali ni dobitak nije velik – zato je u praksi „jednake težine, ili težine proporcionalne kvaliteti” razumno pravilo, a optimizaciju težina rezerviraj za slučaj s više modela vrlo različite kvalitete.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Kolega javlja: „Model ne uči, AUC je $0{,}5$.” Pokazalo se da je sortirao značajke po stupcu <code>x1</code> zbog pregleda, a cilj nije. Reproduciraj grešku, pa napiši dvije dijagnostičke provjere: (a) <b>test izmiješanim ciljem</b> i (b) <b>AUC svake pojedine značajke</b> s ciljem. Koja od njih otkriva ovu grešku, a koja ne – i zašto?</p>
+<naputak>Za jednu značajku AUC računaš izravno iz njezinih vrijednosti (nedostajuće zamijeni medijanom); AUC ispod $0{,}5$ znači samo obrnut smjer, pa gledaj $\max(\text{AUC},1-\text{AUC})$.</naputak>
+<rjesenje>
+<kod jezik="python">
+X_krivo = X_tr2.sort_values("x1").reset_index(drop=True)      # y_tr je ostao u starom redoslijedu
+
+def auc_po_znacajci(X, y):
+    out = {}
+    for c in NUM2:
+        v = X[c].fillna(X[c].median()).to_numpy()
+        a = roc_auc_score(y, v)
+        out[c] = round(max(a, 1 - a), 3)
+    return out
+
+_, m_krivo, _ = validiraj(HistGradientBoostingClassifier(random_state=0), X=X_krivo, predobrada=znacajke(NUM2))
+y_mijesan = np.random.default_rng(0).permutation(y_tr)
+_, m_mijesan, _ = validiraj(HistGradientBoostingClassifier(random_state=0), X=X_tr2, y=y_mijesan,
+                            predobrada=znacajke(NUM2))
+print("AUC s pomiješanim retcima: %.3f   AUC s izmiješanim ciljem: %.3f" % (m_krivo, m_mijesan))
+print("AUC po značajci, ispravno: ", auc_po_znacajci(X_tr2, y_tr))
+print("AUC po značajci, pomiješano:", auc_po_znacajci(X_krivo, y_tr))
+</kod>
+<izlaz>
+AUC s pomiješanim retcima: 0.500   AUC s izmiješanim ciljem: 0.503
+AUC po značajci, ispravno:  {'x1': 0.51, 'x2': 0.508, 'x3': 0.515, 'x4': 0.64, 'x5': 0.508, 'x6': 0.509, 'x1x2': 0.695, 'x3_kv': 0.669}
+AUC po značajci, pomiješano: {'x1': 0.5, 'x2': 0.508, 'x3': 0.513, 'x4': 0.526, 'x5': 0.509, 'x6': 0.502, 'x1x2': 0.519, 'x3_kv': 0.522}
+</izlaz>
+<p>Test izmiješanim ciljem (a) daje $0{,}5$ u <em>oba</em> slučaja, pa ovu grešku ne otkriva – on služi za suprotan problem, otkrivanje protjecanja (rezultat koji ne padne kad izmiješaš cilj). Provjera (b) je razlikuje: na ispravnim podacima pojedine značajke ($x_3$ preko kvadrata, $x_4$, umnožak $x_1x_2$) imaju AUC jasno iznad $0{,}5$, a na pomiješanima <em>sve</em> padnu na $0{,}50$–$0{,}53$ – nijedan stupac više nije povezan s ciljem, što je u rješivom zadatku gotovo nemoguće. Lijek je trivijalan (spoji $X$ i $y$ u jedan <code>DataFrame</code> prije bilo kakvog sortiranja), ali bez dijagnostike tim može izgubiti sat tražeći „bolji model”.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Kategorija <code>grad</code> ima 40 vrijednosti s vlastitim učinkom – idealna za <b>kodiranje ciljem</b> (engl. <i>target encoding</i>): kategoriju zamijeni prosjekom cilja u toj kategoriji. Usporedi tri varijante za logističku regresiju: (a) one-hot (kao dosad), (b) <em>naivno</em> kodiranje ciljem, izračunano na cijelom skupu za učenje prije validacije, (c) <code>sklearn.preprocessing.TargetEncoder</code> unutar cjevovoda. Koja je varijanta lažno dobra i kako to znaš? Da je gradova 4000 umjesto 40, što bi se promijenilo?</p>
+<naputak><code>TargetEncoder.fit_transform</code> interno koristi križno kodiranje (svaki redak dobiva prosjek izračunan bez njega), a <code>transform</code> na novim podacima koristi prosjek cijelog skupa – upravo ono što treba u cjevovodu.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.preprocessing import TargetEncoder
+
+def znacajke_te(num):
+    return ColumnTransformer([
+        ("num", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), num),
+        ("kat", TargetEncoder(random_state=0), KAT)])
+
+X_naivno = X_tr2.copy()
+prosjek_po_gradu = train.groupby("grad")["cilj"].mean()           # vidi SVE oznake, i validacijske
+X_naivno["grad_te"] = X_naivno["grad"].map(prosjek_po_gradu)
+_, m_naivno, s_naivno = validiraj(LogisticRegression(max_iter=1000), X=X_naivno,
+                                  predobrada=znacajke(NUM2 + ["grad_te"], kat=[]))
+_, m_te, s_te = validiraj(LogisticRegression(max_iter=1000), X=X_tr2, predobrada=znacajke_te(NUM2))
+print("LR one-hot:              AUC = %.4f ± %.4f" % (dnevnik[3]["AUC"], dnevnik[3]["std"]))
+print("LR naivno kodiranje:     AUC = %.4f ± %.4f" % (m_naivno, s_naivno))
+print("LR TargetEncoder u cjev.: AUC = %.4f ± %.4f" % (m_te, s_te))
+
+# koliko je naivno kodiranje optimistično: isti postupak, ali s posve slučajnom kategorijom
+rng = np.random.default_rng(1)
+X_sum = X_tr2.copy()
+X_sum["grad"] = ["s%03d" % g for g in rng.integers(0, 400, size=len(X_sum))]
+X_sum["grad_te"] = X_sum["grad"].map(pd.Series(y_tr, index=X_sum.index).groupby(X_sum["grad"]).mean())
+_, m_sum_naivno, _ = validiraj(LogisticRegression(max_iter=1000), X=X_sum,
+                               predobrada=znacajke(NUM2 + ["grad_te"], kat=[]))
+_, m_sum_te, _ = validiraj(LogisticRegression(max_iter=1000), X=X_sum, predobrada=znacajke_te(NUM2))
+print("slučajna kategorija (400 vrijednosti): naivno %.4f, TargetEncoder %.4f, bez nje %.4f"
+      % (m_sum_naivno, m_sum_te, dnevnik[3]["AUC"]))
+</kod>
+<izlaz>
+LR one-hot:              AUC = 0.8552 ± 0.0116
+LR naivno kodiranje:     AUC = 0.8617 ± 0.0105
+LR TargetEncoder u cjev.: AUC = 0.8529 ± 0.0133
+slučajna kategorija (400 vrijednosti): naivno 0.8566, TargetEncoder 0.8197, bez nje 0.8552
+</izlaz>
+<p>S 40 gradova po 80 redaka <code>TargetEncoder</code> daje otprilike isto kao one-hot, a naivno kodiranje je za $0{,}006$ „bolje” – to nije stvaran dobitak nego mala doza protjecanja: prosjek od 80 oznaka u koji je uključena i vlastita oznaka retka otkriva o njoj malo, ali ne ništa. Kad kategorija ima mnogo rijetkih vrijednosti, protjecanje postane očito: za <em>posve slučajnu</em> kategoriju s 400 vrijednosti (8 redaka po vrijednosti) naivna varijanta podigne AUC iznad modela bez te kategorije, jer prosjek od 8 oznaka dobro „pamti” vlastitu – i to na validacijskom foldu, jer je računan na svim podacima. <code>TargetEncoder</code> u cjevovodu lažan dobitak ne daje; štoviše, AUC mu padne na $0{,}82$: križno kodirana vrijednost retka isključuje njegovu vlastitu oznaku, pa je na treningu blago <em>negativno</em> povezana s ciljem, model to nauči, a na novim podacima te veze nema – ostaje čisti šum. Pouka: vrijednosti s nekoliko redaka grupiraj u „ostalo” ili izbaci. S 4000 gradova one-hot bi dao 4000 rijetkih stupaca (loše za linearni model, sporo za boosting), a kodiranje ciljem s križnim kodiranjem i zaglađivanjem bio bi standardan izbor.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Recept: učitaj i pogledaj (5 min) → ljestvica baselinea (trivijalni, linearni, boosting) → fiksna validacija s OOF predikcijama → iteriranje jedne promjene po eksperimentu → ansambl → predaja s konačnim treningom na svim podacima i provjerom.</li>
+<li>Razmak između linearnog modela i boostinga govori koliko je u podacima nelinearnosti; značajke koje opisuju strukturu zadatka (umnošci, kvadrati, indikatori nedostajanja) najviše pomažu jednostavnim modelima.</li>
+<li>OOF predikcije su glavni artefakt: na njima se računa metrika, bira prag, određuju težine ansambla i trenira meta-model; sve što uči iz cilja (imputacija, kodiranje ciljem, odabir značajki) ide u <code>Pipeline</code>.</li>
+<li>Prosjek različitih modela smanjuje varijancu greške za faktor koji ovisi o njihovoj korelaciji; slaganje se isplati tek s više raznovrsnih modela.</li>
+<li>Kad model „ne uči”: provjeri poravnanje $X$ i $y$ (AUC po značajci), protjecanje (izmiješani cilj), cjevovod (prenauči 50 redaka), skaliranje i metriku – tek onda mijenjaj model.</li>
+<li>Ponovljivost: jedna skripta s sjemenima, foldovima i postavkama na vrhu generira predaju od nule; svaka predaja ima redni broj i redak u dnevniku.</li>
+</ul>
+
+@@ literatura
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/cross_validation.html">Cross-validation</a>, <a href="https://scikit-learn.org/stable/modules/ensemble.html">Ensembles</a> i <a href="https://scikit-learn.org/stable/modules/preprocessing.html#target-encoder">Target Encoder</a>.</li>
+<li>K. Banachewicz, L. Massaron, <i>The Kaggle Book</i>, Packt – poglavlja o validaciji, inženjerstvu značajki i ansamblima.</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 2 i 7.</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, poglavlje 7 (Model Assessment and Selection) – slobodno dostupno na stranici autora.</li>

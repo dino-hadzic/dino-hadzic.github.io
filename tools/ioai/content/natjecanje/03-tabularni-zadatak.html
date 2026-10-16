@@ -1,0 +1,515 @@
+@@ meta
+naslov = Riješeni zadatak: tabularna klasifikacija (simulacija u stilu IOAI)
+podnaslov = Cijeli put na jednom zadatku: pregled i čišćenje, cjevovod s ColumnTransformerom, baseline → slučajna šuma → boosting, validacija, podešavanje, važnost značajki, analiza grešaka i predaja
+oznake = tabularni podaci, ColumnTransformer, slučajna šuma, HistGradientBoosting, $F_1$ i AUC, permutacijska važnost, analiza grešaka
+
+@@ ciljevi
+<li>Riješiti od početka do kraja jedan zadatak tabularne klasifikacije u stilu IOAI, s nedostajućim vrijednostima i kategoričkim značajkama, na CPU-u u manje od sat vremena računanja.</li>
+<li>Sastaviti cjevovod predobrade s <code>ColumnTransformer</code>-om tako da se imputacija, skaliranje i kodiranje uče samo na foldu za učenje.</li>
+<li>Usporediti logističku regresiju, slučajnu šumu i gradijentni boosting istom validacijom, podesiti pobjednika i izabrati prag za $F_1$.</li>
+<li>Protumačiti model permutacijskom važnošću značajki, pregledati pogreške i napisati zaključak kakav tim predaje uz rješenje.</li>
+
+@@ teorija
+<napomena><b>Ovo je simulacija.</b> Zadatak u nastavku sastavljen je za vježbu u stilu zadataka kakvi se pojavljuju na natjecanjima iz strojnog učenja; nije službeni zadatak IOAI-ja i ne tvrdi ništa o sadržaju stvarnih natjecanja. Podaci su ugrađeni skup <code>load_breast_cancer</code> iz scikit-learna, u koji smo <em>sami</em> ubacili nedostajuće vrijednosti i dvije kategoričke značajke da bi zadatak sličio stvarnim, „prljavim” podacima.</napomena>
+
+<h3>Tekst zadatka</h3>
+<definicija naslov="Zadatak (simulacija)">
+<p>Dane su mjere stanica iz $569$ uzoraka tkiva: $30$ numeričkih značajki (polumjer, tekstura, površina, glatkoća, … – srednja vrijednost, standardna greška i „najgora” vrijednost svake mjere), kategorička oznaka <code>bolnica</code> (A–D) i <code>uredaj</code> (U1–U3) te cilj <code>cilj</code> ($1$ = zloćudan, $0$ = dobroćudan). Neki unosi nedostaju. Skup je podijeljen na <code>train.csv</code> (s ciljem) i <code>test.csv</code> (bez cilja). Predaja je CSV sa stupcima <code>id</code> i <code>cilj</code> (0 ili 1). <b>Metrika</b>: $F_1$ zloćudne klase; AUC se prikazuje informativno. <b>Ograničenja</b>: samo CPU, bez interneta, dva sata.</p>
+</definicija>
+
+<h3>Plan</h3>
+<p>Slijedimo recept iz lekcije N2 i raspored iz N1: (1) pregled i čišćenje – 10 min; (2) cjevovod predobrade, ljestvica baselinea i validacija – 20 min; (3) podešavanje pobjednika i prag – 30 min; (4) važnost značajki i analiza grešaka – 20 min; (5) konačni model, predaja, zaključak – 15 min. Ostatak je rezerva. Metrika $F_1=\frac{2PR}{P+R}$ (lekcija N1) ovisi o pragu, pa već u planu znamo da ćemo prag birati na izvanuzoračkim vjerojatnostima.</p>
+
+<h3>Predobrada s ColumnTransformerom</h3>
+<p>Numeričke i kategoričke značajke zahtijevaju različite korake: numeričkima treba imputacija (medijan) i, za linearne modele, standardizacija; kategoričkima imputacija najčešće vrijednosti i one-hot kodiranje. <code>ColumnTransformer</code> primjenjuje različite transformacije na različite stupce i spaja rezultate; u <code>Pipeline</code>-u s modelom sve se parametre (medijani, srednje vrijednosti, skup kategorija) <em>uči na foldu za učenje</em>, pa validacija ostaje bez protjecanja. Stabla i boosting skaliranje ne trebaju – dijele po pragu, a prag se skalira zajedno s podacima (Zagrijavanje 2).</p>
+
+<h3>Tri obitelji modela</h3>
+<ul>
+<li><b>Logistička regresija</b> (lekcija M3): linearna granica u prostoru standardiziranih značajki; na medicinskim mjerenjima koja su već „dobre” značajke često iznenađujuće jaka i najbrža.</li>
+<li><b>Slučajna šuma</b> (engl. <i>random forest</i>, M4): prosjek mnogo dubokih stabala treniranih na slučajnim poduzorcima redaka i značajki. Smanjuje varijancu pojedinog stabla, gotovo se ne može prenaučiti dodavanjem stabala, malo hiperparametara. Ne podnosi <code>NaN</code> bez imputacije.</li>
+<li><b>Gradijentni boosting</b> (<code>HistGradientBoostingClassifier</code>, M4): stabla se dodaju redom, svako ispravlja greške prethodnih. Obično najjači, ali osjetljiv na <code>learning_rate</code>, broj iteracija i veličinu stabala; sam zna raditi s <code>NaN</code>.</li>
+</ul>
+
+<h3>Važnost značajki</h3>
+<definicija naslov="Permutacijska važnost">
+Za istrenirani model i skup na kojem mjerimo s rezultatom $s$ (npr. $F_1$ ili AUC), permutacijska važnost značajke $j$ je
+$$I_j = s - \frac1K\sum_{k=1}^{K} s_{k,j},$$
+gdje je $s_{k,j}$ rezultat nakon $k$-tog slučajnog miješanja stupca $j$ (ostali stupci netaknuti). Velik $I_j$ znači da model bez te značajke gubi; $I_j\approx0$ da je ne koristi <em>ili</em> da njezinu informaciju ima i u drugoj, koreliranoj značajki.
+</definicija>
+<p>Prednost nad ugrađenom važnošću stabala (<code>feature_importances_</code>) je da se mjeri na podacima koje model nije vidio i da vrijedi za svaki model. Mana: korelirane značajke dijele važnost – zamijeni li se „polumjer” „opsegom”, model ne gubi gotovo ništa, pa obje izgledaju nevažno iako je jedna od njih presudna.</p>
+
+<h3>Analiza grešaka</h3>
+<p>Nakon što se brojke stabiliziraju, pogledaj <em>koje</em> primjere model griješi: matricu zabune na OOF predikcijama, vjerojatnosti pogrešno klasificiranih (griješi li samouvjereno ili na granici?), značajke tih primjera u odnosu na prosjek njihove klase. Primjeri na granici su normalni; samouvjerene greške upućuju na pogrešno označene podatke ili podskupinu koju model ne razumije – obje su prilika ili za čišćenje ili za novu značajku. U medicinskom zadatku bitno je i <em>koja</em> greška više boli: propušten zloćudan nalaz (lažno negativno) teži je od lažne uzbune, što utječe na izbor praga (Zadatak 4).</p>
+
+@@ primjeri
+<primjer>
+<p><b>Učitavanje, pregled i čišćenje.</b> Sastavi simulirani zadatak iz <code>load_breast_cancer</code> (nedostajuće vrijednosti, kategorije <code>bolnica</code> i <code>uredaj</code>, skriveni test), napravi pregled i odluči što s čime raditi.</p>
+<rjesenje>
+<p><b>Korak 1: podaci.</b> U skupu je izvorno $1$ = dobroćudan; preokrećemo ga da pozitivna klasa (ona koju $F_1$ mjeri) bude zloćudna. <code>bolnica</code> blago ovisi o cilju (različite bolnice primaju različite pacijente), <code>uredaj</code> je čisti šum; u tri stupca brišemo vrijednosti s vjerojatnošću 8 % (ispadne 8–10 %). Na natjecanju bi ovaj blok zamijenilo <code>pd.read_csv</code>.</p>
+<kod jezik="python">
+import numpy as np
+import pandas as pd
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+
+rng = np.random.default_rng(0)
+df = load_breast_cancer(as_frame=True).frame
+df.columns = [c.replace(" ", "_") for c in df.columns]
+df["cilj"] = 1 - df.pop("target")                      # 1 = zloćudan
+n = len(df)
+p_bolnica = {0: [0.4, 0.3, 0.2, 0.1], 1: [0.2, 0.3, 0.3, 0.2]}
+df["bolnica"] = [str(rng.choice(list("ABCD"), p=p_bolnica[c])) for c in df["cilj"]]
+df["uredaj"] = rng.choice(["U1", "U2", "U3"], size=n)
+for stupac in ("mean_area", "worst_texture", "mean_smoothness"):
+    df.loc[rng.random(n) < 0.08, stupac] = np.nan
+df.insert(0, "id", np.arange(n))
+
+train, test = train_test_split(df, test_size=0.2, stratify=df["cilj"], random_state=0)
+train, test = train.reset_index(drop=True), test.reset_index(drop=True)
+y_skriveni = test.pop("cilj").to_numpy()               # „službeni” cilj, model ga ne vidi
+print(train.shape, test.shape)
+print("udio zloćudnih u treningu: %.3f" % train["cilj"].mean())
+</kod>
+<izlaz>
+(455, 34) (114, 33)
+udio zloćudnih u treningu: 0.374
+</izlaz>
+<p><b>Korak 2: pregled.</b> Vrste stupaca, nedostajuće vrijednosti, kategorije i njihova veza s ciljem te najjače korelacije značajki s ciljem – to je sve što trebamo za odluke o predobradi.</p>
+<kod jezik="python">
+NUM = [c for c in train.columns if train[c].dtype == float]
+KAT = ["bolnica", "uredaj"]
+print(len(NUM), "numeričkih,", len(KAT), "kategoričke")
+nan = train[NUM].isna().mean()
+print("NaN (%):", (100 * nan[nan > 0]).round(1).to_dict())
+for k in KAT:
+    print("udio zloćudnih po %s:" % k, train.groupby(k)["cilj"].mean().round(2).to_dict())
+kor = train[NUM].corrwith(train["cilj"]).abs().sort_values(ascending=False)
+print("najjače korelirane s ciljem:")
+print(kor.head(5).round(3).to_string())
+visoke = [(a, b) for i, a in enumerate(NUM) for b in NUM[i + 1:]
+          if abs(train[a].corr(train[b])) > 0.98]
+print("parovi značajki s |r| > 0.98:", visoke)
+</kod>
+<izlaz>
+30 numeričkih, 2 kategoričke
+NaN (%): {'mean_area': 9.5, 'mean_smoothness': 8.1, 'worst_texture': 9.7}
+udio zloćudnih po bolnica: {'A': 0.24, 'B': 0.35, 'C': 0.42, 'D': 0.59}
+udio zloćudnih po uredaj: {'U1': 0.34, 'U2': 0.43, 'U3': 0.35}
+najjače korelirane s ciljem:
+worst_concave_points    0.800
+mean_concave_points     0.783
+worst_perimeter         0.774
+worst_radius            0.767
+mean_perimeter          0.728
+parovi značajki s |r| > 0.98: [('mean_radius', 'mean_perimeter'), ('mean_radius', 'mean_area'), ('mean_perimeter', 'mean_area'), ('worst_radius', 'worst_perimeter'), ('worst_radius', 'worst_area')]
+</izlaz>
+<p><b>Korak 3: odluke.</b> Klase su umjereno neuravnotežene (oko 37 % pozitivnih) – $F_1$ ima smisla, prag ćemo podešavati. Nedostajućih vrijednosti je malo (8–10 % u tri stupca) i, koliko znamo, slučajne su: imputacija medijanom, bez indikatora. <code>bolnica</code> nosi slab signal (udjeli se razlikuju po bolnicama), <code>uredaj</code> očito ne – ostavljamo oba, model će sam odlučiti, a važnost značajki poslije to provjeri. Gotovo savršeno korelirani parovi (polumjer–opseg) ne smetaju stablima, a za logističku regresiju ih regularizacija drži pod kontrolom (Zadatak 2).</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p><b>Cjevovod, ljestvica modela, podešavanje i prag.</b> Napravi predobradu s <code>ColumnTransformer</code>-om i stratificiranu petostruku validaciju koja vraća OOF vjerojatnosti. Usporedi trivijalni model, logističku regresiju, slučajnu šumu i boosting po $F_1$ i AUC-u, podesi boosting slučajnim pretraživanjem i odaberi prag.</p>
+<rjesenje>
+<p><b>Korak 1: predobrada i validacija.</b> Jedna funkcija <code>cjevovod(model, skaliraj)</code> gradi cijeli cjevovod; <code>validiraj</code> vraća OOF vjerojatnosti, pa $F_1$ (uz prag $0{,}5$) i AUC računamo na njima.</p>
+<kod jezik="python">
+from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+X_tr, y_tr = train.drop(columns=["id", "cilj"]), train["cilj"].to_numpy()
+X_te = test.drop(columns="id")
+foldovi = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+
+def cjevovod(model, skaliraj=False):
+    num_koraci = [SimpleImputer(strategy="median")] + ([StandardScaler()] if skaliraj else [])
+    pred = ColumnTransformer([
+        ("num", make_pipeline(*num_koraci), NUM),
+        ("kat", make_pipeline(SimpleImputer(strategy="most_frequent"),
+                              OneHotEncoder(handle_unknown="ignore", sparse_output=False)), KAT)])
+    return Pipeline([("pred", pred), ("model", model)])
+
+def validiraj(cjev, X=X_tr, y=y_tr):
+    return cross_val_predict(cjev, X, y, cv=foldovi, method="predict_proba")[:, 1]
+
+dnevnik = []
+def eksperiment(opis, cjev, **kw):
+    oof = validiraj(cjev, **kw)
+    f1, auc = f1_score(kw.get("y", y_tr), oof >= 0.5), roc_auc_score(kw.get("y", y_tr), oof)
+    dnevnik.append({"br": len(dnevnik) + 1, "opis": opis, "F1": round(f1, 4), "AUC": round(auc, 4)})
+    print("%2d. %-28s F1 = %.4f   AUC = %.4f" % (len(dnevnik), opis, f1, auc))
+    return oof
+
+oof = {}
+oof["dummy"] = eksperiment("trivijalni (prior)", cjevovod(DummyClassifier(strategy="prior")))
+oof["lr"] = eksperiment("logistička regresija", cjevovod(LogisticRegression(max_iter=2000), skaliraj=True))
+oof["rf"] = eksperiment("slučajna šuma (300)", cjevovod(RandomForestClassifier(n_estimators=300, random_state=0)))
+oof["hgb"] = eksperiment("boosting (zadano)", cjevovod(HistGradientBoostingClassifier(random_state=0)))
+</kod>
+<izlaz>
+ 1. trivijalni (prior)           F1 = 0.0000   AUC = 0.5000
+ 2. logistička regresija         F1 = 0.9702   AUC = 0.9918
+ 3. slučajna šuma (300)          F1 = 0.9341   AUC = 0.9935
+ 4. boosting (zadano)            F1 = 0.9429   AUC = 0.9910
+</izlaz>
+<p><b>Korak 2: čitanje ljestvice.</b> Trivijalni model uz prag $0{,}5$ nikad ne predviđa pozitivnu klasu, pa mu je $F_1=0$. Tri prava modela po AUC-u su gotovo nerazlučiva ($0{,}991$–$0{,}994$): značajke su vrlo informativne i zadatak je u tom smislu „lagan”. Po $F_1$ uz prag $0{,}5$ razlike su veće, ali $F_1$ ovisi o pragu koji još nismo podesili (Korak 4), pa po njemu još ne rangiramo. Razlučivost validacije: na $455$ primjera sa $170$ pozitivnih jedna pogreška pomiče OOF $F_1$ za oko $0{,}003$, a tri-četiri pogreške razlike lako su posljedica slučajne podjele.</p>
+<p><b>Korak 3: podešavanje boostinga.</b> <code>RandomizedSearchCV</code> s dvanaest kombinacija na <em>istim</em> foldovima; biramo po AUC-u jer ne ovisi o pragu, a prag podešavamo poslije. Prefiks <code>model__</code> adresira parametre modela unutar cjevovoda.</p>
+<kod jezik="python">
+from sklearn.model_selection import RandomizedSearchCV
+
+mreza = {"model__learning_rate": [0.03, 0.05, 0.1, 0.2],
+         "model__max_iter": [100, 200, 400],
+         "model__max_leaf_nodes": [3, 7, 15],
+         "model__min_samples_leaf": [5, 10, 20],
+         "model__l2_regularization": [0.0, 0.1, 1.0]}
+pretraga = RandomizedSearchCV(cjevovod(HistGradientBoostingClassifier(random_state=0)), mreza,
+                              n_iter=12, cv=foldovi, scoring="roc_auc", random_state=0)
+pretraga.fit(X_tr, y_tr)
+najbolji_param = {k.replace("model__", ""): v for k, v in pretraga.best_params_.items()}
+print("najbolji parametri:", najbolji_param)
+print("AUC najbolje: %.4f, najlošije: %.4f" % (pretraga.cv_results_["mean_test_score"].max(),
+                                            pretraga.cv_results_["mean_test_score"].min()))
+oof["hgb2"] = eksperiment("boosting (podešen)", cjevovod(HistGradientBoostingClassifier(
+    random_state=0, **najbolji_param)))
+</kod>
+<izlaz>
+najbolji parametri: {'min_samples_leaf': 20, 'max_leaf_nodes': 3, 'max_iter': 400, 'learning_rate': 0.2, 'l2_regularization': 0.0}
+AUC najbolje: 0.9936, najlošije: 0.9906
+ 5. boosting (podešen)           F1 = 0.9614   AUC = 0.9945
+</izlaz>
+<p>Pobijedila su vrlo mala stabla (3 lista, gotovo aditivan model) s jakom regularizacijom listova – na 455 primjera složenija stabla nemaju od čega učiti. Cijela mreža stane u raspon AUC-a od $0{,}003$: podešavanje donosi malo, ali podešen model ipak nadmaši podrazumijevani i po $F_1$ i po AUC-u.</p>
+<p><b>Korak 4: prag za $F_1$ i jednostavan ansambl.</b> Prag biramo na OOF vjerojatnostima (lekcija N1, Zadatak 5). Usporedimo i prosjek vjerojatnosti logističke regresije, šume i podešenog boostinga – tri modela različitih obitelji, upravo ono što ansambl voli.</p>
+<kod jezik="python">
+pragovi = np.arange(0.1, 0.91, 0.01)
+def najbolji_prag(p, y=y_tr):
+    f = np.array([f1_score(y, p >= t) for t in pragovi])
+    return pragovi[f.argmax()], f.max()
+
+oof["ansambl"] = (oof["lr"] + oof["rf"] + oof["hgb2"]) / 3
+print("%-20s %-12s %-12s %s" % ("model", "F1 (0.5)", "F1 (prag)", "prag"))
+for ime in ("lr", "rf", "hgb2", "ansambl"):
+    t, f = najbolji_prag(oof[ime])
+    print("%-20s %.4f       %.4f       %.2f" % (ime, f1_score(y_tr, oof[ime] >= 0.5), f, t))
+print("AUC ansambla: %.4f" % roc_auc_score(y_tr, oof["ansambl"]))
+</kod>
+<izlaz>
+model                F1 (0.5)     F1 (prag)    prag
+lr                   0.9702       0.9765       0.42
+rf                   0.9341       0.9565       0.37
+hgb2                 0.9614       0.9647       0.21
+ansambl              0.9674       0.9708       0.31
+AUC ansambla: 0.9960
+</izlaz>
+<p>Prag ispod $0{,}5$ pomaže svim modelima – najviše šumi, čije su vjerojatnosti „stisnute” prema sredini. Logistička regresija ima najveći $F_1$ uz svoj prag ($0{,}9765$), ansambl najveći AUC ($0{,}9960$); razlika od $0{,}006$ u $F_1$ odgovara dvjema pogreškama od $455$ i unutar je razlučivosti validacije. Biramo po robusnosti: ansambl triju različitih obitelji s pragom $0{,}31$, uz zabilješku u dnevniku da je logistička regresija sama ravnopravan kandidat. Prag zapisujemo – on je dio modela i mora se primijeniti i na testu.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p><b>Važnost značajki, analiza grešaka, predaja i zaključak.</b> Izračunaj permutacijsku važnost značajki podešenog boostinga na validacijskim foldovima, pregledaj pogrešno klasificirane primjere ansambla, istreniraj konačne modele na svim podacima za učenje, napravi i provjeri predaju te – budući da u simulaciji imamo skriveni cilj – usporedi lokalni i „službeni” rezultat.</p>
+<rjesenje>
+<p><b>Korak 1: permutacijska važnost na validacijskim foldovima.</b> Za svaki fold model treniramo na ostatku i važnost mjerimo na foldu (podaci koje model nije vidio), a zatim važnosti usrednjimo. Mjerimo AUC-om da ne ovisi o pragu.</p>
+<kod jezik="python">
+from sklearn.inspection import permutation_importance
+
+vaznost = pd.Series(0.0, index=X_tr.columns)
+for uci, va in foldovi.split(X_tr, y_tr):
+    m = cjevovod(HistGradientBoostingClassifier(random_state=0, **najbolji_param))
+    m.fit(X_tr.iloc[uci], y_tr[uci])
+    r = permutation_importance(m, X_tr.iloc[va], y_tr[va], scoring="roc_auc",
+                               n_repeats=5, random_state=0)
+    vaznost += pd.Series(r.importances_mean, index=X_tr.columns) / foldovi.get_n_splits()
+vaznost = vaznost.sort_values(ascending=False)
+print("najvažnije (pad AUC-a nakon miješanja):")
+print(vaznost.head(6).round(4).to_string())
+print("kategoričke:", vaznost[KAT].round(4).to_dict())
+print("broj značajki s važnošću < 0.001:", int((vaznost < 0.001).sum()), "od", len(vaznost))
+</kod>
+<izlaz>
+najvažnije (pad AUC-a nakon miješanja):
+worst_concave_points    0.0067
+area_error              0.0031
+mean_texture            0.0026
+worst_perimeter         0.0024
+worst_area              0.0023
+worst_texture           0.0019
+kategoričke: {'bolnica': 0.0015, 'uredaj': 0.0001}
+broj značajki s važnošću < 0.001: 23 od 32
+</izlaz>
+<p>Model se oslanja na nepravilnost stanica (<code>worst_concave_points</code>, daleko najvažnija), veličinu („najgore”, tj. najveće vrijednosti opsega i površine te <code>area_error</code>) i teksturu – u skladu s korelacijama iz Primjera 1. Apsolutni iznosi su mali jer je AUC blizu $1$ i gubitak jedne značajke model nadoknadi drugima. Većina od 32 značajke pojedinačno gotovo ništa ne znači ($23$ ispod $0{,}001$): dio zato što ih model ne koristi, dio zato što su korelirane s onima koje koristi (vidi definiciju i Zadatak 2). <code>uredaj</code> je, očekivano, bez važnosti; <code>bolnica</code> nosi malo, ali više od većine numeričkih – model ju je prepoznao kao slab signal.</p>
+<p><b>Korak 2: analiza grešaka.</b> Matrica zabune ansambla uz odabrani prag, pa pogled na pogrešne primjere: koliko ih je, koliko je model bio siguran i po čemu se razlikuju od svoje klase.</p>
+<kod jezik="python">
+from sklearn.metrics import confusion_matrix
+
+prag, _ = najbolji_prag(oof["ansambl"])
+pred = (oof["ansambl"] >= prag).astype(int)
+print("prag = %.2f, matrica zabune [[TN, FP], [FN, TP]]:" % prag)
+print(confusion_matrix(y_tr, pred))
+greske = np.where(pred != y_tr)[0]
+print("pogrešno: %d od %d; vjerojatnosti: %s" % (len(greske), len(y_tr), oof["ansambl"][greske].round(2)))
+samouvjerene = greske[np.abs(oof["ansambl"][greske] - 0.5) > 0.3]
+print("samouvjerenih pogrešaka (|p - 0.5| > 0.3):", len(samouvjerene))
+top = vaznost.index[:3]
+usporedba = pd.DataFrame({"pogrešni": X_tr.loc[greske, top].mean(),
+                          "prosjek zloćudnih": X_tr.loc[y_tr == 1, top].mean(),
+                          "prosjek dobroćudnih": X_tr.loc[y_tr == 0, top].mean()})
+print(usporedba.round(2).to_string())
+</kod>
+<izlaz>
+prag = 0.31, matrica zabune [[TN, FP], [FN, TP]]:
+[[279   6]
+ [  4 166]]
+pogrešno: 10 od 455; vjerojatnosti: [0.56 0.57 0.71 0.29 0.39 0.03 0.02 0.29 0.45 0.51]
+samouvjerenih pogrešaka (|p - 0.5| > 0.3): 2
+                      pogrešni  prosjek zloćudnih  prosjek dobroćudnih
+worst_concave_points      0.12               0.18                 0.07
+area_error               28.63              72.27                21.13
+mean_texture             17.83              21.62                17.98
+</izlaz>
+<p>Deset pogrešaka od $455$: šest lažnih uzbuna i četiri propuštena zloćudna nalaza. Osam ih ima vjerojatnost u širokoj okolini praga – uzorci koji su stvarno na granici i po najvažnijim značajkama leže <em>između</em> prosjeka dviju klasa. Takve greške novi model teško popravlja; smanjuju ih tek nove informacije (značajke), kojih u zadatku nema. Dvije su, međutim, samouvjerene: zloćudni uzorci kojima je ansambl dao vjerojatnost $0{,}02$–$0{,}03$. Na natjecanju bi se upravo oni ručno pogledali (pogrešna oznaka? neobična podskupina?) – ako nisu objašnjivi, to je znak da smo blizu plafona i da je vrijeme za predaju.</p>
+<p><b>Korak 3: konačni modeli, predaja i „službeni” rezultat.</b> Tri modela treniramo na svim podacima za učenje, spajamo ih istim prosjekom i primjenjujemo isti prag; predaju zapisujemo i provjeravamo.</p>
+<kod jezik="python">
+modeli = [cjevovod(LogisticRegression(max_iter=2000), skaliraj=True),
+          cjevovod(RandomForestClassifier(n_estimators=300, random_state=0)),
+          cjevovod(HistGradientBoostingClassifier(random_state=0, **najbolji_param))]
+p_te = np.mean([m.fit(X_tr, y_tr).predict_proba(X_te)[:, 1] for m in modeli], axis=0)
+predaja = pd.DataFrame({"id": test["id"], "cilj": (p_te >= prag).astype(int)})
+predaja.to_csv("predaja_05_ansambl.csv", index=False)
+
+u = pd.read_csv("predaja_05_ansambl.csv")
+assert list(u.columns) == ["id", "cilj"] and (u["id"].to_numpy() == test["id"].to_numpy()).all()
+assert u["cilj"].isin([0, 1]).all()
+print("predaja OK: %d redaka, udio predviđenih zloćudnih %.3f (u treningu %.3f)"
+      % (len(u), u["cilj"].mean(), y_tr.mean()))
+print("lokalno (OOF):  F1 = %.4f   AUC = %.4f" % (f1_score(y_tr, pred), roc_auc_score(y_tr, oof["ansambl"])))
+print("'službeno':     F1 = %.4f   AUC = %.4f" % (f1_score(y_skriveni, u["cilj"]), roc_auc_score(y_skriveni, p_te)))
+</kod>
+<izlaz>
+predaja OK: 114 redaka, udio predviđenih zloćudnih 0.386 (u treningu 0.374)
+lokalno (OOF):  F1 = 0.9708   AUC = 0.9960
+'službeno':     F1 = 0.9535   AUC = 0.9917
+</izlaz>
+<p><b>Korak 4: zaključak kakav se predaje uz rješenje.</b> Zadatak: binarna klasifikacija, metrika $F_1$ zloćudne klase, 455 primjera za učenje. Predobrada: imputacija medijanom i najčešćom vrijednošću, one-hot za dvije kategorije, standardizacija samo za linearni model. Modeli: logistička regresija, slučajna šuma i podešeni boosting daju OOF $F_1$ u istom rasponu; predan je prosjek njihovih vjerojatnosti s pragom odabranim na OOF-u. Najvažnije značajke su „najgore” mjere veličine i nepravilnosti stanica; <code>uredaj</code> ne nosi informaciju. Preostale pogreške su granični slučajevi. Lokalni $F_1$ ($0{,}971$) i skriveni ($0{,}954$) razlikuju se za jednu-dvije pogreške na $43$ zloćudna testna uzorka – unutar šuma koji se očekuje na $114$ primjera. Što bismo radili s više vremena: indikatori nedostajanja, kalibracija praga po trošku pogrešaka (Zadatak 4), više raznovrsnih modela u ansamblu.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Model na $100$ uzoraka daje matricu zabune $TN=58$, $FP=5$, $FN=4$, $TP=33$. Izračunaj ručno točnost, preciznost, odziv i $F_1$ pozitivne klase. Koju bi od dviju grešaka ($FP$ ili $FN$) u ovom zadatku radije smanjio i u kojem smjeru bi zato pomaknuo prag?</p>
+<rjesenje>
+<p>Točnost $=\frac{58+33}{100}=0{,}91$; $P=\frac{33}{38}\approx0{,}868$; $R=\frac{33}{37}\approx0{,}892$; $F_1=\frac{2\cdot0{,}868\cdot0{,}892}{0{,}868+0{,}892}\approx0{,}880$. Lažno negativan nalaz (propušten zloćudan tumor) teži je od lažne uzbune, pa bismo prag <em>spustili</em>: više uzoraka proglašava se zloćudnima, $FN$ pada, $FP$ raste. $F_1$ ta dva troška vrednuje jednako, pa metrika zadatka i stvarni cilj nisu isto – to se u zaključku napiše.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Provjeri tvrdnju iz teorije da stabla ne trebaju skaliranje, a logistička regresija treba: validiraj logističku regresiju i boosting iz Primjera 2 sa standardizacijom i bez nje. Objasni razliku.</p>
+<rjesenje>
+<kod jezik="python">
+for ime, model in [("LR", LogisticRegression(max_iter=2000)),
+                   ("HGB", HistGradientBoostingClassifier(random_state=0))]:
+    for sk in (False, True):
+        p = validiraj(cjevovod(model, skaliraj=sk))
+        print("%-4s skaliranje=%-5s  F1 = %.4f  AUC = %.4f" % (ime, sk, f1_score(y_tr, p >= 0.5), roc_auc_score(y_tr, p)))
+</kod>
+<izlaz>
+LR   skaliranje=False  F1 = 0.9290  AUC = 0.9900
+LR   skaliranje=True   F1 = 0.9702  AUC = 0.9918
+HGB  skaliranje=False  F1 = 0.9429  AUC = 0.9910
+HGB  skaliranje=True   F1 = 0.9429  AUC = 0.9910
+</izlaz>
+<p>Boosting daje <em>identične</em> brojke: stablo dijeli po pragu („površina $\gt 700$”), a standardizacija pretvara prag u „$z\gt 1{,}2$” – ista podjela. Logistička regresija bez skaliranja gubi: optimizacija s regularizacijom ovisi o skali (kazna $\lVert w\rVert^2$ jednako kažnjava koeficijent uz površinu reda tisuću i uz glatkoću reda stotinke), a rješavač sporije konvergira. Pravilo: linearni modeli, SVM i $k$ najbližih susjeda – skaliraj; stabla – ne treba.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>U izvornom skupu je $1$ = dobroćudan. Da smo zaboravili preokrenuti cilj, model bi bio jednako dobar, ali bi se $F_1$ računao za krivu klasu. Na OOF vjerojatnostima ansambla izračunaj $F_1$ za obje klase i $F_1$ koji bi dala predaja s zamijenjenim oznakama. Koja pogreška je gora i kako bi je otkrio prije predaje?</p>
+<rjesenje>
+<kod jezik="python">
+p1 = (oof["ansambl"] >= 0.5).astype(int)
+print("F1 zloćudne klase (pos_label=1): %.4f" % f1_score(y_tr, p1))
+print("F1 dobroćudne klase (pos_label=0): %.4f" % f1_score(y_tr, p1, pos_label=0))
+print("F1 ako predamo zamijenjene oznake:  %.4f" % f1_score(y_tr, 1 - p1))
+</kod>
+<izlaz>
+F1 zloćudne klase (pos_label=1): 0.9674
+F1 dobroćudne klase (pos_label=0): 0.9808
+F1 ako predamo zamijenjene oznake:  0.0306
+</izlaz>
+<p>Krivo odabrana klasa pri <em>računanju</em> metrike daje malo drukčiji (ovdje veći) broj – lokalni rezultat bi bio precijenjen, a sve odluke o pragu bile bi krive jer bi se optimizirao $F_1$ većinske klase. Zamijenjene oznake u <em>predaji</em> su katastrofa: $F_1$ pada gotovo na nulu. Obje se otkrivaju istom provjerom iz lekcije N1: udio predviđenih pozitivnih u predaji usporedi s udjelom pozitivnih u treningu (oko $0{,}37$) i ručno pogledaj nekoliko redaka s poznatim nalazom.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p><code>HistGradientBoostingClassifier</code> zna sam raditi s <code>NaN</code>: pri svakom dijeljenju nauči na koju stranu šalje nedostajuće vrijednosti. Napravi varijantu cjevovoda u kojoj numeričke značajke idu u boosting <em>bez</em> imputacije i usporedi s imputacijom medijanom. Zatim učini nedostajanje informativnim – u skupu za učenje izbriši <code>worst_area</code> u 40 % zloćudnih i 5 % dobroćudnih – i ponovi usporedbu. Kad je ugrađena obrada <code>NaN</code> bolja od imputacije?</p>
+<naputak><code>ColumnTransformer</code> s <code>("num", "passthrough", NUM)</code> propušta stupce netaknute. Za drugi dio napravi kopiju <code>X_tr</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def cjevovod_nan(model):
+    pred = ColumnTransformer([
+        ("num", "passthrough", NUM),
+        ("kat", make_pipeline(SimpleImputer(strategy="most_frequent"),
+                              OneHotEncoder(handle_unknown="ignore", sparse_output=False)), KAT)])
+    return Pipeline([("pred", pred), ("model", model)])
+
+hgb = lambda: HistGradientBoostingClassifier(random_state=0, **najbolji_param)
+for ime, X in [("slučajni NaN", X_tr), ("informativni NaN", None)]:
+    if X is None:
+        X = X_tr.copy()
+        rng2 = np.random.default_rng(1)
+        brisi = rng2.random(len(X)) < np.where(y_tr == 1, 0.40, 0.05)
+        X.loc[brisi, "worst_area"] = np.nan
+    p_imp, p_nan = validiraj(cjevovod(hgb()), X=X), validiraj(cjevovod_nan(hgb()), X=X)
+    print("%-17s imputacija: F1 = %.4f AUC = %.4f | ugrađeno: F1 = %.4f AUC = %.4f" % (
+        ime, f1_score(y_tr, p_imp >= 0.5), roc_auc_score(y_tr, p_imp),
+        f1_score(y_tr, p_nan >= 0.5), roc_auc_score(y_tr, p_nan)))
+</kod>
+<izlaz>
+slučajni NaN      imputacija: F1 = 0.9614 AUC = 0.9945 | ugrađeno: F1 = 0.9614 AUC = 0.9944
+informativni NaN  imputacija: F1 = 0.9639 AUC = 0.9942 | ugrađeno: F1 = 0.9670 AUC = 0.9945
+</izlaz>
+<p>Kad vrijednosti nedostaju slučajno, obje varijante su praktički jednake – informacije nema, pa je svejedno kako se rupa popuni. Kad nedostajanje ovisi o cilju, ugrađena obrada je bolja, ali ovdje tek za jednu pogrešku ($F_1$ $0{,}967$ nasuprot $0{,}964$): boosting nauči da „<code>worst_area</code> nedostaje” upućuje na zloćudnost, no model i bez toga ima AUC $0{,}994$ i gotovo nema što dobiti – informacija o veličini stanice ionako je u koreliranim stupcima. Na težem zadatku, gdje je značajka koja nedostaje nezamjenjiva, razlika zna biti velika; imputacija medijanom tu informaciju izbriše (osim ako dodaš indikator, lekcija N2). Pravilo: za boosting <code>NaN</code> propusti, nikad nije lošije; za slučajnu šumu i linearne modele imputacija je nužna.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>U Primjeru 1 našli smo parove značajki s $|r|\gt0{,}98$. Iz svakog para izbaci drugu značajku i validiraj logističku regresiju i boosting na smanjenom skupu. Mijenja li se rezultat? Što se mijenja u permutacijskoj važnosti preostalih značajki i zašto?</p>
+<rjesenje>
+<kod jezik="python">
+izbaci = sorted({b for _, b in visoke})
+NUM_SAZETO = [c for c in NUM if c not in izbaci]
+print("izbačeno %d: %s" % (len(izbaci), izbaci))
+
+def cjevovod_sazeto(model, skaliraj=False):
+    num_koraci = [SimpleImputer(strategy="median")] + ([StandardScaler()] if skaliraj else [])
+    pred = ColumnTransformer([
+        ("num", make_pipeline(*num_koraci), NUM_SAZETO),
+        ("kat", make_pipeline(SimpleImputer(strategy="most_frequent"),
+                              OneHotEncoder(handle_unknown="ignore", sparse_output=False)), KAT)])
+    return Pipeline([("pred", pred), ("model", model)])
+
+for ime, puni, sazeti in [
+        ("LR", cjevovod(LogisticRegression(max_iter=2000), True),
+         cjevovod_sazeto(LogisticRegression(max_iter=2000), True)),
+        ("HGB", cjevovod(hgb()), cjevovod_sazeto(hgb()))]:
+    a, b = validiraj(puni), validiraj(sazeti)
+    print("%-4s AUC sve značajke = %.4f   bez koreliranih = %.4f" % (ime, roc_auc_score(y_tr, a), roc_auc_score(y_tr, b)))
+
+def perm_vaznost(graditelj, znacajka):
+    v = 0.0
+    for uci, va in foldovi.split(X_tr, y_tr):
+        m = graditelj().fit(X_tr.iloc[uci], y_tr[uci])
+        r = permutation_importance(m, X_tr.iloc[va], y_tr[va], scoring="roc_auc",
+                                   n_repeats=5, random_state=0)
+        v += r.importances_mean[list(X_tr.columns).index(znacajka)] / foldovi.get_n_splits()
+    return v
+
+print("permutacijska važnost worst_radius: sa svim značajkama %.4f, bez opsega i površine %.4f"
+      % (vaznost["worst_radius"], perm_vaznost(lambda: cjevovod_sazeto(hgb()), "worst_radius")))
+</kod>
+<izlaz>
+izbačeno 4: ['mean_area', 'mean_perimeter', 'worst_area', 'worst_perimeter']
+LR   AUC sve značajke = 0.9918   bez koreliranih = 0.9916
+HGB  AUC sve značajke = 0.9945   bez koreliranih = 0.9950
+permutacijska važnost worst_radius: sa svim značajkama -0.0001, bez opsega i površine 0.0204
+</izlaz>
+<p>Rezultat se ne mijenja bitno: informacija iz izbačenih značajki ostaje u njihovim gotovo identičnim parnjacima. Mijenja se <em>važnost</em>: dok su polumjer, opseg i površina svi prisutni, model ih međusobno zamjenjuje i svaki pojedinačno izgleda nevažno (<code>worst_radius</code>: $-0{,}0001$, tj. nula); kad ostane samo jedan, cijela važnost „veličine stanice” pripadne njemu ($0{,}020$ – tri puta više od dosad najvažnije značajke). Pouka za tumačenje: niska permutacijska važnost ne znači da značajka nije informativna – možda samo nije <em>jedina</em> koja nosi tu informaciju. Grupiraj korelirane značajke prije nego što o njima zaključuješ.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Umjesto fiksnog broja iteracija upotrijebi <b>rano zaustavljanje</b> u boostingu (<code>early_stopping=True</code>, <code>validation_fraction=0.15</code>, <code>n_iter_no_change=20</code>, veliki <code>max_iter</code>) i za svaki fold ispiši koliko je iteracija stvarno iskorišteno. Usporedi rezultat s podešenim boostingom. Koji broj iteracija bi uzeo za konačni model na svim podacima i zašto rano zaustavljanje u konačnom modelu treba isključiti?</p>
+<naputak>Broj iteracija nakon učenja je atribut <code>n_iter_</code> modela; do modela unutar cjevovoda dolaziš s <code>cjev.named_steps["model"]</code>. Validaciju napravi ručno petljom po <code>foldovi.split</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+param_es = dict(najbolji_param, max_iter=2000, early_stopping=True,
+                validation_fraction=0.15, n_iter_no_change=20, random_state=0)
+p_es, iteracije = np.zeros(len(y_tr)), []
+for uci, va in foldovi.split(X_tr, y_tr):
+    m = cjevovod(HistGradientBoostingClassifier(**param_es)).fit(X_tr.iloc[uci], y_tr[uci])
+    p_es[va] = m.predict_proba(X_tr.iloc[va])[:, 1]
+    iteracije.append(m.named_steps["model"].n_iter_)
+print("iteracije po foldu:", iteracije, " prosjek:", round(np.mean(iteracije)))
+print("rano zaustavljanje: F1 = %.4f  AUC = %.4f" % (f1_score(y_tr, p_es >= 0.5), roc_auc_score(y_tr, p_es)))
+print("podešen (fiksno %d): F1 = %.4f  AUC = %.4f" % (najbolji_param["max_iter"],
+      dnevnik[4]["F1"], dnevnik[4]["AUC"]))
+</kod>
+<izlaz>
+iteracije po foldu: [47, 63, 75, 151, 179]  prosjek: 103
+rano zaustavljanje: F1 = 0.9436  AUC = 0.9902
+podešen (fiksno 400): F1 = 0.9614  AUC = 0.9945
+</izlaz>
+<p>Rano zaustavljanje odreže 15 % podataka za vlastitu validaciju, pa na malom skupu model uči na manje primjera, a odluku o zaustavljanju donosi na pedesetak redaka – zato broj iteracija skače od $47$ do $179$ među foldovima. Rezultat je <em>lošiji</em> od podešenog modela (AUC $0{,}990$ nasuprot $0{,}9945$): na 455 redaka šum te male validacije košta više nego što precizno određivanje broja iteracija donosi. Za konačni model uzmi prosječan broj iteracija s foldova (zaokružen, eventualno malo uvećan jer uči na više podataka) i <em>isključi</em> rano zaustavljanje: inače bi konačni model opet odbacio 15 % podataka i zaustavio se na broju koji ovisi o slučajnom poduzorku, čime gubiš ponovljivost. Na velikim skupovima (desetci tisuća redaka) rano zaustavljanje je, naprotiv, standardan i brz način da se broj iteracija ne pogađa.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Pretpostavi da propušten zloćudan nalaz (lažno negativno) „košta” pet puta više od lažne uzbune. Na OOF vjerojatnostima ansambla nađi prag koji minimizira očekivani trošak $5\,FN+FP$ i usporedi ga s pragom koji maksimizira $F_1$: kako se mijenjaju $FN$, $FP$ i $F_1$? Što bi predao ako zadatak ocjenjuje $F_1$, a što ako bi ga koristila klinika?</p>
+<rjesenje>
+<kod jezik="python">
+def trosak(t):
+    tn, fp, fn, tp = confusion_matrix(y_tr, oof["ansambl"] >= t).ravel()
+    return 5 * fn + fp, fn, fp
+
+troskovi = np.array([trosak(t)[0] for t in pragovi])
+t_trosak = pragovi[troskovi.argmin()]
+t_f1, _ = najbolji_prag(oof["ansambl"])
+for ime, t in [("prag za F1", t_f1), ("prag za trošak", t_trosak)]:
+    c, fn, fp = trosak(t)
+    print("%-15s t = %.2f  FN = %2d  FP = %2d  trošak = %3d  F1 = %.4f"
+          % (ime, t, fn, fp, c, f1_score(y_tr, oof["ansambl"] >= t)))
+</kod>
+<izlaz>
+prag za F1      t = 0.31  FN =  4  FP =  6  trošak =  26  F1 = 0.9708
+prag za trošak  t = 0.27  FN =  2  FP =  9  trošak =  19  F1 = 0.9683
+</izlaz>
+<p>Niži prag smanjuje broj propuštenih zloćudnih nalaza na račun više lažnih uzbuna; $F_1$ pri tome malo padne jer ravnopravno vrednuje obje greške. Na natjecanju predaješ ono što metrika nagrađuje – prag za $F_1$ – ali u zaključku napišeš da je model za kliničku upotrebu potrebno pomaknuti prema većem odzivu i koliko to košta u lažnim uzbunama. Razlika između „metrike zadatka” i „stvarnog cilja” tema je lekcije N6.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Stvarni probirni skupovi su mnogo neuravnoteženiji od ovoga. Simuliraj to: u skupu za učenje zadrži samo svaki peti zloćudan uzorak (oko 10 % pozitivnih), pa usporedi $F_1$ uz prag $0{,}5$ i uz prag odabran na OOF-u za (a) podešeni boosting, (b) boosting s <code>class_weight="balanced"</code> i (c) logističku regresiju s <code>class_weight="balanced"</code>. Koja mjera protiv neuravnoteženosti najviše pomaže i zašto je AUC gotovo nepromijenjen?</p>
+<naputak>Poduzorak napravi deterministički: indeksi zloćudnih <code>np.where(y_tr == 1)[0][::5]</code> plus svi dobroćudni. Za novi skup napravi i novi <code>StratifiedKFold</code> – stratifikacija je sad još važnija.</naputak>
+<rjesenje>
+<kod jezik="python">
+idx = np.sort(np.r_[np.where(y_tr == 0)[0], np.where(y_tr == 1)[0][::5]])
+X_n, y_n = X_tr.iloc[idx].reset_index(drop=True), y_tr[idx]
+cv_n = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+print("primjera: %d, udio zloćudnih: %.3f" % (len(y_n), y_n.mean()))
+kandidati = [("HGB podešen", cjevovod(hgb())),
+             ("HGB balanced", cjevovod(HistGradientBoostingClassifier(
+                 random_state=0, class_weight="balanced", **najbolji_param))),
+             ("LR balanced", cjevovod(LogisticRegression(max_iter=2000, class_weight="balanced"), True))]
+for ime, cjev in kandidati:
+    p = cross_val_predict(cjev, X_n, y_n, cv=cv_n, method="predict_proba")[:, 1]
+    t, f = najbolji_prag(p, y_n)
+    print("%-13s F1(0.5) = %.4f   F1(prag %.2f) = %.4f   AUC = %.4f   udio predviđenih poz. (0.5) = %.3f"
+          % (ime, f1_score(y_n, p >= 0.5), t, f, roc_auc_score(y_n, p), (p >= 0.5).mean()))
+</kod>
+<izlaz>
+primjera: 319, udio zloćudnih: 0.107
+HGB podešen   F1(0.5) = 0.8889   F1(prag 0.43) = 0.8889   AUC = 0.9902   udio predviđenih poz. (0.5) = 0.091
+HGB balanced  F1(0.5) = 0.8750   F1(prag 0.22) = 0.8750   AUC = 0.9896   udio predviđenih poz. (0.5) = 0.094
+LR balanced   F1(0.5) = 0.9091   F1(prag 0.46) = 0.9254   AUC = 0.9937   udio predviđenih poz. (0.5) = 0.100
+</izlaz>
+<p>S 10 % pozitivnih $F_1$ pada s $0{,}96$ na oko $0{,}89$–$0{,}93$, a AUC ostaje $0{,}99$: AUC mjeri <em>poredak</em> vjerojatnosti, a neuravnoteženost (i <code>class_weight</code>, i prag) pomiče njihovu <em>razinu</em>, ne poredak. Rezultati su gruba mjera – s $34$ pozitivna primjera jedna pogreška pomiče $F_1$ za oko $0{,}03$: <code>class_weight="balanced"</code> boostingu „oduzima” jednu pogrešku, prag odabran na OOF-u boostingu ne mijenja ništa, a logistička regresija s težinama i pragom najbolja je za jednu-dvije pogreške. Pouka nije „koja mjera pobjeđuje” – na ovako malom skupu to se ne može izmjeriti – nego: <code>class_weight</code> i prag su dva načina da se pomakne ista razina odluke (težine kroz gubitak pri učenju, prag poslije), od oba očekuj dobitak u odzivu, ne u AUC-u, a uzorkovanje (SMOTE i slično) rijetko donosi više. Za neuravnotežene zadatke s $F_1$ metrikom prag je uvijek dio modela, a odluku donosi OOF, ne pretpostavka.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Riješeni zadatak slijedi recept: pregled (NaN, kategorije, korelacije, udio klasa) → <code>ColumnTransformer</code> + <code>Pipeline</code> → ljestvica logistička regresija / šuma / boosting na istim foldovima → podešavanje po metrici neovisnoj o pragu (AUC) → prag za $F_1$ na OOF-u → ansambl → predaja s provjerom.</li>
+<li>Na malom skupu razlučivost validacije je gruba (jedna pogreška u foldu pomiče $F_1$ za stotinku); modele unutar te razlučivosti ne rangiraj, nego spoji.</li>
+<li>Stabla ne trebaju skaliranje; boosting zna raditi s <code>NaN</code> i to je prednost kad nedostajanje ovisi o cilju; linearnim modelima treba standardizacija i imputacija.</li>
+<li>Permutacijska važnost mjeri pad rezultata na neviđenim podacima; korelirane značajke dijele važnost, pa ih tumači kao skupinu.</li>
+<li>Analiza grešaka razlikuje granične slučajeve (plafon podataka) od samouvjerenih pogrešaka (krive oznake, podskupina); prag je dio modela i u zaključku se navodi i trošak pogrešaka koji metrika ne vidi.</li>
+</ul>
+
+@@ literatura
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/compose.html">Pipelines and composite estimators</a> (ColumnTransformer), <a href="https://scikit-learn.org/stable/modules/ensemble.html#histogram-based-gradient-boosting">Histogram-Based Gradient Boosting</a> i <a href="https://scikit-learn.org/stable/modules/permutation_importance.html">Permutation feature importance</a>.</li>
+<li>Skup podataka: W. N. Street, W. H. Wolberg, O. L. Mangasarian, <i>Nuclear feature extraction for breast tumor diagnosis</i> (1993) – Breast Cancer Wisconsin (Diagnostic), dostupan u <code>sklearn.datasets.load_breast_cancer</code>.</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlja 2, 3 i 7.</li>
+<li>C. Molnar, <i>Interpretable Machine Learning</i>, poglavlje o permutacijskoj važnosti – slobodno dostupno na mreži.</li>

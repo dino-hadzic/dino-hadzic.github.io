@@ -1,0 +1,449 @@
+@@ meta
+naslov = IOAI: format natjecanja i strategija
+podnaslov = Što natjecatelja čeka, kako pročitati zadatak, podijeliti posao i vrijeme te koje skripte napisati prije prvog „pravog” modela
+oznake = IOAI, timski rad, metrika zadatka, baseline, stratificirana validacija, dnevnik eksperimenata, predaja rješenja
+
+@@ ciljevi
+<li>Opisati općenito format IOAI-ja (timsko natjecanje, zadaci iz strojnog učenja uz računalo) i znati gdje provjeriti pravila koja vrijede ove godine.</li>
+<li>Pročitati tekst zadatka tako da u prvih deset minuta znaš što je $x$, što $y$, koja je metrika, kakav je format predaje i koja su ograničenja.</li>
+<li>U dvadeset minuta napisati baseline s poštenom lokalnom validacijom koja računa <em>istu</em> metriku kao zadatak, i odmah ga predati.</li>
+<li>Podijeliti posao u timu, isplanirati vrijeme, voditi dnevnik eksperimenata i prepoznati najčešće natjecateljske pogreške prije nego što te stignu.</li>
+
+@@ teorija
+<h3>Što je IOAI</h3>
+<p><b>Međunarodna olimpijada iz umjetne inteligencije</b> (engl. <i>International Olympiad in Artificial Intelligence</i>, IOAI) natjecanje je za srednjoškolce iz cijelog svijeta. Od informatičkih olimpijada razlikuje se u tri bitne stvari. Prvo, natječu se <b>timovi</b>, ne pojedinci: svaka država šalje ekipu učenika koja zajedno rješava zadatke. Drugo, zadaci nisu algoritamski problemi s točnim odgovorom, nego <b>praktični problemi strojnog učenja</b> – iz tabularnih podataka, obrade jezika (NLP) i računalnog vida (CV) – koji se rješavaju uz računalo u Pythonu, a rješenje se ocjenjuje <em>metrikom</em> na skrivenim podacima. Treće, natjecanje kombinira <b>pripremu kod kuće</b> (dio zadataka i podataka objavi se unaprijed pa timovi tjednima istražuju pristupe) i <b>natjecanje na licu mjesta</b>, gdje u ograničenom vremenu dobiju nove podatke, izmjene zadatka ili posve nove probleme.</p>
+<napomena>Konkretna pravila – sastav i veličina tima, trajanje natjecanja, način bodovanja, dopušteni alati, dostupnost GPU-a i interneta – <em>mijenjaju se iz godine u godinu</em>. Jedini pouzdan izvor je službena stranica <a href="https://ioai-official.org">ioai-official.org</a> i pravilnik za tekuću godinu. Sve što u ovoj lekciji piše o formatu uzmi kao opću orijentaciju, a brojke i rokove provjeri sam.</napomena>
+
+<h3>Po čemu je ovo drukčije od „obične” informatike</h3>
+<p>Na informatičkom natjecanju rješenje je ili točno ili nije; ovdje je rezultat <em>broj</em> na kontinuiranoj skali koji se uvijek može popraviti još malo. Zato vrijeme ne odlazi na pisanje koda (učitavanje, validacija i predaja isti su za sve zadatke), nego na <b>eksperimente</b> – razliku stvara to <em>koje</em> ideje isprobaš i kojim redom. Rezultat ovisi o <b>metrici</b> na podacima koje ne vidiš, pa ono što je dobro na tvojim podacima može biti loše na skrivenima. I nikad nisi „gotov”: sam odlučuješ kad prestati poboljšavati i početi osiguravati ono što imaš.</p>
+
+<h3>Čitanje zadatka: pet pitanja</h3>
+<definicija naslov="Pet pitanja prije prvog retka koda">
+<ol>
+<li><b>Što je $x$, što je $y$?</b> Koje su datoteke dane, kako su povezane (ključevi, identifikatori), koji stupac je cilj, koji stupci postoje u treningu, a ne u testu.</li>
+<li><b>Koja je metrika?</b> Zapiši njezinu <em>formulu</em> i traži je li veća ili manja bolja. Pronađi gotovu implementaciju (<code>sklearn.metrics</code>) i provjeri je na malom ručnom primjeru.</li>
+<li><b>Kakav je format predaje?</b> Imena stupaca, redoslijed i skup identifikatora, trebaju li oznake klasa ili vjerojatnosti, koliko je predaja dopušteno.</li>
+<li><b>Koja su ograničenja?</b> Vrijeme, CPU ili GPU, memorija, pristup internetu, dopušteni pretrenirani modeli i vanjski podaci.</li>
+<li><b>Što je novo?</b> Ako je zadatak najavljen kod kuće – što se na licu mjesta promijenilo (novi podaci, nova metrika, novo ograničenje)? Baš tu se kriju iznenađenja.</li>
+</ol>
+</definicija>
+<p>Metrike koje se najčešće pojavljuju u zadacima klasifikacije i regresije:</p>
+<ul>
+<li><b>Točnost</b> (engl. <i>accuracy</i>): udio pogođenih oznaka. Beskorisna kad su klase neuravnotežene – model koji uvijek kaže „ne” ima točnost $0{,}95$ ako je 95 % primjera negativno.</li>
+<li><b>Preciznost, odziv i $F_1$</b>: $P=\frac{TP}{TP+FP}$, $R=\frac{TP}{TP+FN}$, $F_1=\frac{2PR}{P+R}$. <b>Makro-$F_1$</b> je prosjek $F_1$ po klasama – svaka klasa vrijedi jednako, pa rijetka klasa odlučuje rezultat. $F_1$ ovisi o <em>pragu</em> kojim vjerojatnost pretvaramo u oznaku (Zadatak 5).</li>
+<li><b>AUC</b> (površina pod ROC krivuljom): vjerojatnost da slučajno odabran pozitivan primjer dobije veći rezultat od slučajno odabranog negativnog. Traži <em>rezultate</em> (vjerojatnosti), ne oznake; $0{,}5$ je slučajno pogađanje, $1$ savršeno rangiranje.</li>
+<li><b>Log-gubitak</b> (engl. <i>log loss</i>): $-\frac1n\sum_i\left[y_i\log p_i+(1-y_i)\log(1-p_i)\right]$; kažnjava samouvjerene pogreške, pa vjerojatnosti moraju biti <em>kalibrirane</em>, ne samo dobro poredane.</li>
+<li><b>RMSE, MAE</b> za regresiju (lekcija M1); ako je metrika logaritamska (RMSLE), model treniraj na $\log(1+y)$.</li>
+</ul>
+
+<h3>Baseline u dvadeset minuta</h3>
+<definicija naslov="Baseline">
+<b>Baseline</b> je najjednostavniji model koji prolazi cijeli put od podataka do datoteke za predaju: trivijalni model (najčešća klasa, prosjek), zatim linearan model ili boosting s podrazumijevanim postavkama.
+</definicija>
+<p>Baseline nije gubitak vremena, nego osiguranje: (1) provjerava da si dobro razumio ulaz, cilj i format predaje – svaka pogreška u tome otkrije se sad, a ne sat prije kraja; (2) kaže ti koliko je zadatak težak (ako logistička regresija već ima makro-$F_1$ od $0{,}9$, ne trebaš duboku mrežu); (3) daje <b>prvu predaju</b> na koju se uvijek možeš vratiti. Pravilo tima: <em>prva predaja ide čim baseline radi</em>, ne na kraju dana.</p>
+
+<h3>Validacija koja prati metriku</h3>
+<p>Skriveni testni podaci ocjenjuju se jednom; sve odluke donosiš na temelju <b>lokalne validacije</b>. Ona mora (a) računati <em>istu</em> funkciju kao službena metrika, (b) koristiti podjelu koja oponaša test (stratificirana po klasama; po grupama ako se isti pacijent, korisnik ili slika pojavljuje više puta; po vremenu ako je test iz budućnosti) i (c) biti <em>ista za sve eksperimente</em> – fiksirani foldovi, zapisani u datoteku koju dijeli cijeli tim. Rezultat validacije je slučajna veličina: uz $k$-struku validaciju dobiješ $k$ brojeva, a njihovo standardno odstupanje govori ti je li razlika između dvaju eksperimenata stvarna ili šum (Primjer 3).</p>
+<definicija naslov="Protjecanje informacija">
+<b>Protjecanje</b> (engl. <i>leakage</i>) je svaka situacija u kojoj model pri učenju vidi informaciju koju na testu neće imati: statistike izračunane na cijelom skupu prije podjele, odabir značajki prije validacije, stupac koji je zapravo izveden iz cilja, isti objekt u treningu i validaciji. Posljedica je uvijek ista: lokalni rezultat je izvrstan, službeni razočaravajući.
+</definicija>
+
+<h3>Tim, uloge i plan vremena</h3>
+<p>Tri osobe na istom zadatku bez dogovora rade tri puta isti baseline. Dogovorite <b>uloge</b> već prvih pet minuta: jedna osoba vodi <em>podatke i validaciju</em> (učitavanje, čišćenje, foldovi, funkcija metrike – to koriste svi), druga <em>modele</em> (eksperimenti u dnevniku), treća <em>predaju</em> (format, provjera, imenovanje datoteka, najbolja dosadašnja predaja). Uloge se rotiraju, ali u svakom trenutku netko je odgovoran za svaku. Zajednička mapa i dogovorena imena datoteka (<code>folds.csv</code>, <code>predaja_07_hgb.csv</code>) štede više vremena nego bilo koji trik s modelom.</p>
+<napomena>Okvirni raspored za jednu sesiju natjecanja (udjeli, ne minute): 10 % čitanje zadatka, pregled podataka i dogovor; 15 % baseline, validacija i prva predaja; 50 % iteracije po dnevniku; 15 % spajanje najboljih modela i konačni trening na svim podacima; 10 % rezerva za provjere formata i ponovljivosti. Rezervu <em>ne trošiš</em> na još jedan eksperiment.</napomena>
+
+<h3>Ograničenja: CPU, GPU, internet</h3>
+<p>Dok ne pročitaš suprotno, pretpostavi <b>samo CPU i bez interneta</b>: scikit-learn i gradijentni boosting su glavni alati, velike mreže treniraš samo ako je GPU izričito dostupan, a pretrenirane težine (Hugging Face, torchvision) moraju biti preuzete prije i dopuštene pravilima. Procjenjuj trajanje: ako jedan fit traje minutu, petostruka validacija s deset kombinacija hiperparametara traje gotovo sat – hiperparametre biraj na poduzorku, a pobjednika treniraj na svemu.</p>
+
+<h3>Dnevnik eksperimenata</h3>
+<p>Svaki eksperiment zapiši u <b>dnevnik</b> (CSV ili tablica): redni broj, što se promijenilo, rezultat validacije (prosjek i odstupanje), trajanje, je li predan i pod kojim imenom. Bez dnevnika nakon dva sata nitko ne zna je li „ono s logaritmom” pomoglo, a najbolja predaja se lako pregazi. Pravilo: <em>nikad ne prepisuj datoteku predaje</em>; svaka ima redni broj i redak u dnevniku.</p>
+
+<h3>Česte pogreške</h3>
+<ul>
+<li>Lokalna validacija računa drugu metriku nego zadatak (točnost umjesto makro-$F_1$) ili drukčiji ulaz (oznake umjesto vjerojatnosti za AUC).</li>
+<li>Predobrada (skaliranje, imputacija, odabir značajki) na cijelom skupu prije podjele – protjecanje. Lijek: <code>Pipeline</code>.</li>
+<li>Predaja s krivim redoslijedom ili skupom identifikatora, krivim imenima stupaca, s <code>NaN</code> ili s klasom koja ne postoji.</li>
+<li>Konačni model nije ponovno istreniran na <em>svim</em> podacima za učenje, nego samo na jednom foldu.</li>
+<li>Promjena u zadnjih deset minuta bez validacije; podešavanje prema javnom poretku umjesto prema lokalnoj validaciji.</li>
+<li>Bez sjemena slučajnosti: dva pokretanja istog koda daju različite rezultate, pa se ne zna što je poboljšanje, a što šum.</li>
+</ul>
+
+@@ primjeri
+<primjer>
+<p><b>Checklist 1: pregled podataka.</b> Napiši funkciju koja za zadani skup za učenje i testni skup u jednom pozivu ispiše sve što ti treba za prvo pitanje iz teorije: oblik, vrste stupaca, nedostajuće vrijednosti, raspodjelu cilja, duplikate i stupce koji postoje u jednom skupu, a ne u drugom. Isprobaj je na simuliranom skupu s numeričkim i kategoričkim značajkama i nedostajućim vrijednostima.</p>
+<rjesenje>
+<p><b>Korak 1: simulirani zadatak.</b> Iz <code>make_classification</code> napravimo neuravnotežen binarni problem, dodamo kategoričku značajku <code>regija</code> (izvedena iz jedne numeričke, dakle nosi informaciju) i upišemo 5 % nedostajućih vrijednosti u tri stupca. Skup podijelimo na „trening” sa stupcem cilja i „test” bez njega, kao što bi ih zadatak dao.</p>
+<kod jezik="python">
+import numpy as np
+import pandas as pd
+from sklearn.datasets import make_classification
+
+rng = np.random.default_rng(0)
+X, y = make_classification(n_samples=3000, n_features=10, n_informative=6, n_redundant=2,
+                           weights=[0.8, 0.2], flip_y=0.03, random_state=0)
+df = pd.DataFrame(X, columns=["f%d" % j for j in range(10)])
+df["regija"] = pd.cut(df["f0"], bins=[-np.inf, -1, 0, 1, np.inf],
+                      labels=["sjever", "istok", "jug", "zapad"]).astype(str)
+df = df.drop(columns="f0")
+for stupac in ("f1", "f2", "f3"):
+    df.loc[rng.random(len(df)) < 0.05, stupac] = np.nan
+df.insert(0, "id", np.arange(len(df)))
+df["cilj"] = y
+
+train = df.iloc[:2400].reset_index(drop=True)
+test = df.iloc[2400:].drop(columns="cilj").reset_index(drop=True)
+print(train.shape, test.shape)
+print(train.head(3).round(2).to_string(index=False))
+</kod>
+<izlaz>
+(2400, 12) (600, 11)
+ id    f1    f2    f3    f4    f5    f6    f7    f8    f9 regija  cilj
+  0  1.42  0.58 -0.40  0.23 -0.51 -0.20 -0.84  0.82 -1.00  zapad     0
+  1 -0.02  0.41  0.06 -0.57 -0.89  0.06 -1.89 -0.28 -0.75  zapad     1
+  2   NaN -2.88 -0.56  0.39  0.40  0.06  2.22  1.57 -0.34  istok     0
+</izlaz>
+<p><b>Korak 2: funkcija pregleda.</b> Sve što ispisuje odgovara na jedno od pet pitanja; ništa od toga ne želiš otkrivati sat kasnije.</p>
+<kod jezik="python">
+def pregled(train, test, cilj, id_stupac="id"):
+    print("oblik: trening %s, test %s" % (train.shape, test.shape))
+    print("vrste stupaca:", train.dtypes.value_counts().to_dict())
+    samo_u_treningu = sorted(set(train.columns) - set(test.columns))
+    samo_u_testu = sorted(set(test.columns) - set(train.columns))
+    print("samo u treningu:", samo_u_treningu, " samo u testu:", samo_u_testu)
+    print("duplikati redaka u treningu:", int(train.drop(columns=id_stupac).duplicated().sum()),
+          " jedinstveni id:", train[id_stupac].is_unique and test[id_stupac].is_unique)
+    nan = train.isna().mean()
+    nan = nan[nan > 0].sort_values(ascending=False)
+    print("udio NaN po stupcu (samo > 0):")
+    print((100 * nan).round(1).to_string())
+    print("raspodjela cilja:")
+    print(train[cilj].value_counts(normalize=True).round(3).to_string())
+    kateg = [c for c in train.columns if train[c].dtype == object]
+    for c in kateg:
+        nove = set(test[c].dropna()) - set(train[c].dropna())
+        print("kategorije '%s': %d u treningu, nove u testu: %s" % (c, train[c].nunique(), sorted(nove)))
+
+pregled(train, test, cilj="cilj")
+</kod>
+<izlaz>
+oblik: trening (2400, 12), test (600, 11)
+vrste stupaca: {dtype('float64'): 9, dtype('int64'): 2, dtype('O'): 1}
+samo u treningu: ['cilj']  samo u testu: []
+duplikati redaka u treningu: 0  jedinstveni id: True
+udio NaN po stupcu (samo > 0):
+f1    5.5
+f2    4.8
+f3    4.4
+raspodjela cilja:
+cilj
+0    0.79
+1    0.21
+kategorije 'regija': 4 u treningu, nove u testu: []
+</izlaz>
+<p>Pregled daje sve za dogovor u timu: binarna klasifikacija s oko 21 % pozitivnih (točnost je loša metrika, treba makro-$F_1$ ili AUC), tri stupca s nedostajućim vrijednostima (imputacija), jedna kategorička značajka bez novih kategorija u testu, identifikatori jedinstveni. U stvarnom zadatku ovdje bi se otkrio i „stupac koji postoji samo u treningu” – to je ili cilj ili protjecanje.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p><b>Checklist 2: baseline i prva predaja.</b> Metrika simuliranog zadatka je makro-$F_1$. Napiši funkciju za stratificiranu petostruku validaciju koja računa tu metriku, usporedi trivijalni model, logističku regresiju i gradijentni boosting s podrazumijevanim postavkama, a zatim napravi i provjeri datoteku za predaju.</p>
+<rjesenje>
+<p><b>Korak 1: predobrada u cjevovodu i funkcija ocjene.</b> Imputacija i kodiranje kategorija idu u <code>Pipeline</code> da se uče samo na foldovima za učenje (bez protjecanja). Foldovi su fiksirani jednim <code>StratifiedKFold</code> objektom koji koriste svi eksperimenti.</p>
+<kod jezik="python">
+from sklearn.compose import ColumnTransformer
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score, make_scorer
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+X_tr = train.drop(columns=["id", "cilj"])
+y_tr = train["cilj"].to_numpy()
+X_te = test.drop(columns="id")
+num = [c for c in X_tr.columns if c != "regija"]
+
+predobrada = ColumnTransformer([
+    ("num", make_pipeline(SimpleImputer(strategy="median"), StandardScaler()), num),
+    ("kat", OneHotEncoder(handle_unknown="ignore"), ["regija"]),
+])
+metrika = make_scorer(f1_score, average="macro")
+foldovi = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+
+def ocijeni(model):
+    cjevovod = Pipeline([("pred", predobrada), ("model", model)])
+    r = cross_val_score(cjevovod, X_tr, y_tr, cv=foldovi, scoring=metrika)
+    return r.mean(), r.std()
+
+for ime, model in [("najčešća klasa", DummyClassifier(strategy="most_frequent")),
+                   ("logistička regresija", LogisticRegression(max_iter=1000)),
+                   ("boosting (zadano)", HistGradientBoostingClassifier(random_state=0))]:
+    m, s = ocijeni(model)
+    print("%-22s makro-F1 = %.3f ± %.3f" % (ime, m, s))
+</kod>
+<izlaz>
+najčešća klasa         makro-F1 = 0.441 ± 0.000
+logistička regresija   makro-F1 = 0.798 ± 0.026
+boosting (zadano)      makro-F1 = 0.863 ± 0.013
+</izlaz>
+<p><b>Korak 2: čitanje rezultata.</b> Trivijalni model ima makro-$F_1$ ispod $0{,}5$ iako bi mu točnost bila 79 % – prvo upozorenje da metriku treba računati, ne pretpostavljati. Logistička regresija i boosting daju mjerilo za sve daljnje ideje; odstupanje među foldovima kaže koliko veliku razliku smijemo smatrati stvarnom.</p>
+<p><b>Korak 3: prva predaja i njezina provjera.</b> Pobjednik se trenira na <em>svim</em> podacima za učenje, predaja se zapisuje u CSV s rednim brojem, a odmah zatim provjerava: isti identifikatori i redoslijed kao u testu, dopuštene vrijednosti, bez praznina.</p>
+<kod jezik="python">
+najbolji = Pipeline([("pred", predobrada),
+                     ("model", HistGradientBoostingClassifier(random_state=0))]).fit(X_tr, y_tr)
+predaja = pd.DataFrame({"id": test["id"], "cilj": najbolji.predict(X_te)})
+predaja.to_csv("predaja_01_hgb.csv", index=False)
+
+ucitano = pd.read_csv("predaja_01_hgb.csv")
+assert list(ucitano.columns) == ["id", "cilj"], "kriva imena stupaca"
+assert (ucitano["id"].to_numpy() == test["id"].to_numpy()).all(), "id-ovi se ne poklapaju"
+assert ucitano["cilj"].isin([0, 1]).all() and not ucitano.isna().any().any()
+print("predaja OK:", len(ucitano), "redaka, udio predviđenih pozitivnih = %.3f"
+      % ucitano["cilj"].mean())
+</kod>
+<izlaz>
+predaja OK: 600 redaka, udio predviđenih pozitivnih = 0.168
+</izlaz>
+<p>Udio predviđenih pozitivnih ($0{,}168$) uspoređuj s udjelom u treningu ($0{,}21$): ako model gotovo nikad ne predviđa rijetku klasu, makro-$F_1$ će patiti i prag treba pomaknuti (Zadatak 5).</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p><b>Checklist 3: dnevnik eksperimenata i šum validacije.</b> Napravi jednostavan dnevnik u koji se svaki eksperiment upisuje jednim pozivom, zabilježi tri varijante boostinga, a zatim izmjeri koliko se rezultat validacije mijenja samo zbog drukčije podjele na foldove. Što od zabilježenih razlika smiješ smatrati stvarnim poboljšanjem?</p>
+<rjesenje>
+<p><b>Korak 1: dnevnik.</b> Lista rječnika koju na kraju pretvorimo u <code>DataFrame</code> i spremimo; na natjecanju bi se spremala nakon svakog unosa.</p>
+<kod jezik="python">
+dnevnik = []
+
+def zabiljezi(opis, model, predano=""):
+    m, s = ocijeni(model)
+    dnevnik.append({"br": len(dnevnik) + 1, "opis": opis, "F1": round(m, 4),
+                    "std": round(s, 4), "predano": predano})
+    return m
+
+zabiljezi("HGB zadano", HistGradientBoostingClassifier(random_state=0), "predaja_01_hgb.csv")
+zabiljezi("HGB lr=0.05, 300 iter", HistGradientBoostingClassifier(
+    learning_rate=0.05, max_iter=300, random_state=0))
+zabiljezi("HGB + class_weight", HistGradientBoostingClassifier(
+    class_weight="balanced", random_state=0))
+tablica = pd.DataFrame(dnevnik)
+tablica.to_csv("dnevnik.csv", index=False)
+print(tablica.to_string(index=False))
+</kod>
+<izlaz>
+ br                  opis     F1    std            predano
+  1            HGB zadano 0.8627 0.0126 predaja_01_hgb.csv
+  2 HGB lr=0.05, 300 iter 0.8622 0.0105
+  3    HGB + class_weight 0.8596 0.0079
+</izlaz>
+<p><b>Korak 2: koliko je šuma u validaciji?</b> Isti model ocijenimo s pet različitih sjemena podjele na foldove. Standardno odstupanje tih pet <em>prosjeka</em> je mjera koliko se rezultat mijenja ni zbog čega.</p>
+<kod jezik="python">
+rezultati = []
+for sjeme in range(5):
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=sjeme)
+    cjevovod = Pipeline([("pred", predobrada),
+                         ("model", HistGradientBoostingClassifier(random_state=0))])
+    rezultati.append(cross_val_score(cjevovod, X_tr, y_tr, cv=cv, scoring=metrika).mean())
+rezultati = np.array(rezultati)
+print("prosjeci po sjemenu podjele:", rezultati.round(4))
+print("raspon = %.4f, std = %.4f" % (rezultati.max() - rezultati.min(), rezultati.std()))
+</kod>
+<izlaz>
+prosjeci po sjemenu podjele: [0.8627 0.8499 0.8569 0.8622 0.8466]
+raspon = 0.0161, std = 0.0065
+</izlaz>
+<p><b>Korak 3: zaključak za dnevnik.</b> Tri varijante iz dnevnika razlikuju se za manje od $0{,}004$, a sam izbor podjele pomiče rezultat za $0{,}0065$ (raspon $0{,}016$). Razlika između dvaju eksperimenata manja od otprilike dva takva odstupanja nije dokaz ničega – isti model s drugom podjelom dao bi sličnu razliku. Zato se u dnevniku uz rezultat uvijek zapisuje i odstupanje, a dvije bliske varijante radije se <em>spoje</em> (lekcija N2) nego da se bira „bolja” po trećoj decimali. Bitno je i da svi u timu koriste iste foldove (<code>random_state=0</code>), inače uspoređuju brojeve koji se razlikuju već zbog podjele.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za svaki opis zadatka odredi (i) je li riječ o klasifikaciji ili regresiji, (ii) koja je metrika vjerojatno zadana i što ona traži od modela (oznake ili vjerojatnosti) te (iii) što predviđa trivijalni baseline: (a) „Predvidi hoće li korisnik otkazati pretplatu; 4 % korisnika otkazuje; ocjenjuje se AUC.” (b) „Razvrstaj novinske članke u 12 rubrika; ocjenjuje se makro-$F_1$.” (c) „Procijeni cijenu nekretnine; ocjenjuje se RMSE na logaritmu cijene.” (d) „Za svaku sliku odredi sadrži li defekt; ocjenjuje se $F_1$ pozitivne klase.”</p>
+<rjesenje>
+<p>(a) Binarna klasifikacija; AUC traži rezultate (vjerojatnosti ili bilo koji poredak), prag je nebitan; trivijalni baseline daje svima istu vjerojatnost, AUC $=0{,}5$. (b) Višeklasna klasifikacija; makro-$F_1$ traži oznake, svaka od 12 rubrika vrijedi jednako pa su rijetke rubrike presudne; baseline „najčešća rubrika” ima makro-$F_1$ blizu $\frac{1}{12}$ puta $F_1$ te rubrike. (c) Regresija; RMSE na $\log$ cijene znači da model treba trenirati na $\log(1+y)$ i predikcije vratiti eksponencijalom; baseline je prosjek logaritma cijene. (d) Binarna klasifikacija; $F_1$ pozitivne klase traži oznake i jako ovisi o pragu; baseline „uvijek defekt” ima odziv $1$ i preciznost jednaku udjelu defekata, što je često bolje od „nikad defekt” ($F_1=0$).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Skup ima 95 % negativnih i 5 % pozitivnih primjera. Izračunaj ručno točnost, $F_1$ pozitivne klase i makro-$F_1$ modela koji sve proglašava negativnim, a zatim provjeri u scikit-learnu. Što se događa s makro-$F_1$ ako model proglasi sve pozitivnim?</p>
+<rjesenje>
+<p>Točnost je $0{,}95$. Za pozitivnu klasu je $TP=0$, pa $P=R=F_1=0$. Za negativnu klasu je $R=1$ i $P=0{,}95$, pa $F_1=\frac{2\cdot0{,}95}{1{,}95}\approx0{,}974$; makro-$F_1\approx0{,}487$. Ako sve proglasi pozitivnim, točnost pada na $0{,}05$, $F_1$ pozitivne klase je $\frac{2\cdot0{,}05}{1{,}05}\approx0{,}095$, negativne $0$, makro-$F_1\approx0{,}048$.</p>
+<kod jezik="python">
+y_prava = np.array([0] * 95 + [1] * 5)
+for ime, pred in [("sve 0", np.zeros(100, int)), ("sve 1", np.ones(100, int))]:
+    print("%s: točnost %.3f, F1 poz. %.3f, makro-F1 %.3f" % (
+        ime, (pred == y_prava).mean(), f1_score(y_prava, pred, zero_division=0),
+        f1_score(y_prava, pred, average="macro", zero_division=0)))
+</kod>
+<izlaz>
+sve 0: točnost 0.950, F1 poz. 0.000, makro-F1 0.487
+sve 1: točnost 0.050, F1 poz. 0.095, makro-F1 0.048
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Zadatak se ocjenjuje AUC-om. Jedan član tima računa lokalni AUC iz <code>predict</code>, drugi iz <code>predict_proba</code>. Na logističkoj regresiji iz Primjera 2 (na jednoj podjeli trening/validacija) izračunaj oboje i objasni razliku. Što od toga treba poslati u predaju?</p>
+<rjesenje>
+<kod jezik="python">
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+
+A_tr, A_va, b_tr, b_va = train_test_split(X_tr, y_tr, test_size=0.25, stratify=y_tr, random_state=0)
+lr = Pipeline([("pred", predobrada), ("model", LogisticRegression(max_iter=1000))]).fit(A_tr, b_tr)
+print("AUC iz oznaka:        %.3f" % roc_auc_score(b_va, lr.predict(A_va)))
+print("AUC iz vjerojatnosti: %.3f" % roc_auc_score(b_va, lr.predict_proba(A_va)[:, 1]))
+</kod>
+<izlaz>
+AUC iz oznaka:        0.773
+AUC iz vjerojatnosti: 0.890
+</izlaz>
+<p>Oznake su rezultati s dvije vrijednosti: svi primjeri iste oznake su „izjednačeni” i AUC ne može nagraditi to što je model nekima od njih dao veću vjerojatnost. Vjerojatnosti daju puni poredak i veći AUC. U predaju za AUC uvijek idu vjerojatnosti (stupac <code>predict_proba(X)[:, 1]</code>), a za $F_1$ ili točnost oznake – to je dio trećeg pitanja iz teorije.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši funkciju <code>provjeri_predaju(predaja, primjer, dopustene)</code> koja prima tvoju predaju, službeni primjer predaje (engl. <i>sample submission</i>) i skup dopuštenih vrijednosti te vraća popis svih pronađenih problema: kriva imena stupaca, drukčiji skup identifikatora, drukčiji redoslijed, nedostajuće vrijednosti, nedopuštene vrijednosti. Provjeri je na ispravnoj predaji iz Primjera 2 i na namjerno pokvarenoj.</p>
+<rjesenje>
+<kod jezik="python">
+def provjeri_predaju(predaja, primjer, dopustene):
+    problemi = []
+    if list(predaja.columns) != list(primjer.columns):
+        problemi.append("stupci %s umjesto %s" % (list(predaja.columns), list(primjer.columns)))
+        return problemi
+    id_, cilj = primjer.columns[0], primjer.columns[1]
+    if set(predaja[id_]) != set(primjer[id_]):
+        problemi.append("skup id-ova se razlikuje (%d nedostaje, %d viška)" % (
+            len(set(primjer[id_]) - set(predaja[id_])), len(set(predaja[id_]) - set(primjer[id_]))))
+    elif (predaja[id_].to_numpy() != primjer[id_].to_numpy()).any():
+        problemi.append("redoslijed id-ova se razlikuje")
+    if predaja[cilj].isna().any():
+        problemi.append("%d NaN u stupcu %s" % (predaja[cilj].isna().sum(), cilj))
+    krive = set(predaja[cilj].dropna()) - set(dopustene)
+    if krive:
+        problemi.append("nedopuštene vrijednosti %s" % sorted(krive))
+    return problemi
+
+primjer_predaje = pd.DataFrame({"id": test["id"], "cilj": 0})
+print("ispravna:", provjeri_predaju(ucitano, primjer_predaje, {0, 1}))
+pokvarena = ucitano.sample(frac=1, random_state=0).iloc[:-3].copy()
+pokvarena.loc[pokvarena.index[:2], "cilj"] = [2, np.nan]
+print("pokvarena:", provjeri_predaju(pokvarena, primjer_predaje, {0, 1}))
+</kod>
+<izlaz>
+ispravna: []
+pokvarena: ['skup id-ova se razlikuje (3 nedostaje, 0 viška)', '1 NaN u stupcu cilj', 'nedopuštene vrijednosti [2.0]']
+</izlaz>
+<p>Takvu provjeru pokreni prije <em>svake</em> predaje. Funkcija prvo provjerava skup identifikatora, pa tek onda redoslijed – inače bi predaja s pogrešnim skupom prijavila i besmislenu grešku redoslijeda.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Tim od tri člana ima pet sati za tabularni zadatak klasifikacije s metrikom makro-$F_1$ i najviše deset predaja. Napiši plan: tko što radi u prvih 30 minuta, kako izgledaju sljedeća tri sata, što se radi zadnjih 45 minuta i koja su pravila za predaje. Zatim navedi tri znaka da plan treba promijeniti.</p>
+<rjesenje>
+<p>Jedan mogući plan (prilagodi ga zadatku, ne drži ga se slijepo):</p>
+<ul>
+<li><b>0–30 min.</b> Svi: čitanje zadatka, odgovori na pet pitanja, zapisani na zajedničkom mjestu. Osoba A: učitavanje, <code>pregled</code>, fiksni foldovi spremljeni u datoteku, funkcija metrike provjerena ručnim primjerom. Osoba B: baseline (najčešća klasa, logistička regresija) na tim foldovima. Osoba C: skripta za predaju i njezinu provjeru; predaja br. 1 čim B završi.</li>
+<li><b>30 min – 3 h 30 min.</b> Eksperimenti po dnevniku: B modeli (boosting, podešavanje), A značajke i čišćenje, C prag i spajanje te svakih 45–60 minuta predaja najbolje varijante (predaje 2–6). Ideja koja ne nadmaši šum odbacuje se bez rasprave.</li>
+<li><b>3 h 30 min – 4 h 15 min.</b> Zamrzavanje: spajanje dvaju-triju najboljih modela, konačni trening na svim podacima, predaje 7–8.</li>
+<li><b>Zadnjih 45 min.</b> Nema novih ideja. Provjera formata, ponovno pokretanje konačne skripte od nule (ponovljivost), usporedba udjela klasa u predaji s treningom, rezervne predaje 9–10 samo ako su već validirane.</li>
+<li><b>Predaje.</b> Prva odmah; zatim samo kad lokalni rezultat nadmaši najbolji za više od dva odstupanja; zadnje dvije rezervirane za kraj; svaka predaja ima redni broj i redak u dnevniku.</li>
+</ul>
+<p>Znakovi da plan treba promijeniti: (1) lokalna validacija i službeni rezultat idu u različitim smjerovima – zaustavi sve dok ne nađeš razlog (protjecanje, kriva metrika, pomak raspodjele); (2) fit traje mnogo dulje nego što si procijenio – podešavaj na poduzorku; (3) sve ideje daju razlike unutar šuma – zadatak je blizu plafona, prebaci vrijeme na robusnost (spajanje, ponovljivost).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Pokaži protjecanje eksperimentom. Generiraj $100$ primjera s $2000$ <em>potpuno slučajnih</em> značajki i slučajnim binarnim ciljem. Odaberi 20 „najboljih” značajki (<code>SelectKBest</code>) (a) na cijelom skupu pa onda napravi petostruku validaciju logističke regresije i (b) unutar <code>Pipeline</code>-a, pa usporedi točnosti. Koja je prava točnost koju takav model može postići?</p>
+<naputak>Ako je cilj neovisan o značajkama, nijedan model ne može biti bolji od slučajnog pogađanja. Što znači ako validacija ipak tvrdi da jest?</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.feature_selection import SelectKBest, f_classif
+
+rng = np.random.default_rng(1)
+Xs = rng.normal(size=(100, 2000))
+ys = rng.integers(0, 2, size=100)
+cv5 = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+
+odabir = SelectKBest(f_classif, k=20).fit(Xs, ys)          # (a) odabir na SVIM podacima
+Xs_odabrane = odabir.transform(Xs)
+krivo = cross_val_score(LogisticRegression(), Xs_odabrane, ys, cv=cv5).mean()
+
+ispravno = cross_val_score(make_pipeline(SelectKBest(f_classif, k=20), LogisticRegression()),
+                           Xs, ys, cv=cv5).mean()           # (b) odabir unutar svakog folda
+print("točnost s protjecanjem: %.3f   bez protjecanja: %.3f" % (krivo, ispravno))
+</kod>
+<izlaz>
+točnost s protjecanjem: 0.860   bez protjecanja: 0.470
+</izlaz>
+<p>Prava točnost je $0{,}5$ – cilj je slučajan. U varijanti (a) odabir je vidio i validacijske oznake: među 2000 slučajnih stupaca uvijek se nađe dvadesetak koji <em>slučajno</em> koreliraju s ciljem na cijelom skupu, a onda i na svakom validacijskom foldu. Rezultat je impresivna, posve lažna točnost. Varijanta (b) ponavlja odabir unutar svakog folda samo na podacima za učenje i daje pošten rezultat oko $0{,}5$. Isto vrijedi za skaliranje, imputaciju, kodiranje cilja i svaku drugu predobradu: sve u <code>Pipeline</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Prije nego što povjeruješ lokalnoj validaciji, provjeri jesu li testni podaci iz iste raspodjele kao podaci za učenje <b>suparničkom validacijom</b> (engl. <i>adversarial validation</i>): spoji trening i test, kao cilj uzmi „je li redak iz testa” i izmjeri AUC klasifikatora koji to pokušava pogoditi. Napravi to za simulirani zadatak iz Primjera 1, a zatim za test u kojem je značajka <code>f5</code> pomaknuta za $1$. Što znači AUC blizu $0{,}5$, a što blizu $1$?</p>
+<naputak>Ako se trening i test ne mogu razlikovati, AUC je oko $0{,}5$. Ako se mogu, značajke po kojima se razlikuju su važnosti tog klasifikatora.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.model_selection import cross_val_predict
+
+def suparnicki_auc(X_a, X_b):
+    X_sve = pd.concat([X_a, X_b], ignore_index=True)
+    je_test = np.r_[np.zeros(len(X_a)), np.ones(len(X_b))]
+    cjevovod = Pipeline([("pred", predobrada), ("model", HistGradientBoostingClassifier(
+        max_iter=100, random_state=0))])
+    p = cross_val_predict(cjevovod, X_sve, je_test, cv=cv5, method="predict_proba")[:, 1]
+    return roc_auc_score(je_test, p)
+
+print("isti izvor:      AUC = %.3f" % suparnicki_auc(X_tr, X_te))
+X_te_pomak = X_te.copy()
+X_te_pomak["f5"] = X_te_pomak["f5"] + 1
+print("f5 pomaknut za 1: AUC = %.3f" % suparnicki_auc(X_tr, X_te_pomak))
+</kod>
+<izlaz>
+isti izvor:      AUC = 0.512
+f5 pomaknut za 1: AUC = 0.774
+</izlaz>
+<p>AUC blizu $0{,}5$ znači da klasifikator ne razlikuje trening od testa – lokalna validacija je vjerodostojna. AUC znatno iznad $0{,}5$ – ovdje $0{,}77$ zbog pomaka u samo jednoj od devet numeričkih značajki, a u stvarnim zadacima zna biti blizu $1$ – znači <b>pomak raspodjele</b> (engl. <i>distribution shift</i>): neke značajke u testu izgledaju drukčije. Tada pogledaj koje su to značajke (važnosti ovog klasifikatora, lekcija N3) i razmisli: izbaciti ih, transformirati ih ili validirati na dijelu treninga koji najviše „sliči testu”. Pet minuta posla koje zna objasniti zašto se lokalni i službeni rezultat razilaze.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Makro-$F_1$ ovisi o pragu kojim vjerojatnost pretvaramo u oznaku, a <code>predict</code> koristi prag $0{,}5$. Za boosting iz Primjera 2 izračunaj <em>izvanuzoračke</em> (engl. <i>out-of-fold</i>) vjerojatnosti s <code>cross_val_predict</code>, nađi prag koji maksimizira makro-$F_1$ i usporedi s pragom $0{,}5$. Zašto prag ne smiješ birati na testnim podacima i zašto ga treba birati baš na izvanuzoračkim vjerojatnostima, a ne na onima iz treninga?</p>
+<naputak>Prođi pragove od $0{,}05$ do $0{,}95$ u koracima od $0{,}01$. Vjerojatnosti iz treninga su preoptimistične – model je te primjere vidio.</naputak>
+<rjesenje>
+<kod jezik="python">
+cjevovod = Pipeline([("pred", predobrada), ("model", HistGradientBoostingClassifier(random_state=0))])
+p_oof = cross_val_predict(cjevovod, X_tr, y_tr, cv=foldovi, method="predict_proba")[:, 1]
+pragovi = np.arange(0.05, 0.96, 0.01)
+f1_po_pragu = np.array([f1_score(y_tr, p_oof >= t, average="macro") for t in pragovi])
+najbolji_prag = pragovi[f1_po_pragu.argmax()]
+print("prag 0.50: makro-F1 = %.4f" % f1_score(y_tr, p_oof >= 0.5, average="macro"))
+print("prag %.2f: makro-F1 = %.4f" % (najbolji_prag, f1_po_pragu.max()))
+print("udio pozitivnih uz prag 0.5: %.3f, uz najbolji prag: %.3f, u podacima: %.3f"
+      % ((p_oof >= 0.5).mean(), (p_oof >= najbolji_prag).mean(), y_tr.mean()))
+</kod>
+<izlaz>
+prag 0.50: makro-F1 = 0.8629
+prag 0.42: makro-F1 = 0.8652
+udio pozitivnih uz prag 0.5: 0.167, uz najbolji prag: 0.180, u podacima: 0.210
+</izlaz>
+<p>Spuštanjem praga na $0{,}42$ model češće predviđa rijetku klasu, pa udio predviđenih pozitivnih prilazi stvarnom udjelu i makro-$F_1$ raste. Dobitak je ovdje malen ($0{,}002$, unutar šuma iz Primjera 3) jer boosting već dobro pogađa rijetku klasu; kod jače neuravnoteženih skupova ili slabijih modela isti postupak zna donijeti nekoliko stotinki, pa ga uvijek isprobaj. Prag je hiperparametar: da ga biramo na testu, podešavali bismo se na podatke na kojima se ocjenjujemo (protjecanje). Na vjerojatnostima iz treninga ne smijemo jer su one preoptimistične – boosting na viđenim primjerima daje vjerojatnosti blizu $0$ i $1$, pa bi „najbolji” prag bio proizvoljan i ne bi odgovarao ponašanju na novim podacima. Izvanuzoračke vjerojatnosti su jedino što imamo, a izgleda kao test. U predaji primijeni <code>predict_proba(X_te)[:, 1] &gt;= najbolji_prag</code> na modelu treniranom na svim podacima.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>IOAI je timsko natjecanje iz praktičnog strojnog učenja (tabularni podaci, NLP, CV) uz računalo, s pripremom kod kuće i natjecanjem na licu mjesta; sva konkretna pravila provjeri na <a href="https://ioai-official.org">ioai-official.org</a>.</li>
+<li>Prvih deset minuta: pet pitanja – što je $x$ i $y$, koja je metrika (formula, oznake ili vjerojatnosti), format predaje, ograničenja (CPU/GPU, internet), što je novo u odnosu na zadatak od kuće.</li>
+<li>Baseline u dvadeset minuta i odmah prva predaja; lokalna validacija računa istu metriku kao zadatak, na fiksnim stratificiranim foldovima koje dijeli cijeli tim; sva predobrada u <code>Pipeline</code>.</li>
+<li>Rezultat validacije ima šum: razlika manja od dva odstupanja nije poboljšanje. Dnevnik eksperimenata s rezultatom, odstupanjem i imenom predaje; datoteke predaja se ne prepisuju.</li>
+<li>Uloge u timu (podaci i validacija, modeli, predaja), raspored s rezervom na kraju koja se ne troši na nove ideje, provjera predaje prije svakog slanja, suparnička validacija kad se lokalni i službeni rezultat razilaze.</li>
+</ul>
+
+@@ literatura
+<li>Službena stranica IOAI: <a href="https://ioai-official.org">ioai-official.org</a> – pravilnik, format natjecanja i službene obavijesti.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/model_evaluation.html">Metrics and scoring</a>, <a href="https://scikit-learn.org/stable/modules/cross_validation.html">Cross-validation</a> i <a href="https://scikit-learn.org/stable/common_pitfalls.html">Common pitfalls and recommended practices</a> (protjecanje).</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 2 („End-to-End Machine Learning Project”).</li>
+<li>K. Banachewicz, L. Massaron, <i>The Kaggle Book</i>, Packt – natjecateljski tijek rada, validacija i dnevnik eksperimenata.</li>
