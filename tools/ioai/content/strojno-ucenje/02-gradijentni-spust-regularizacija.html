@@ -1,0 +1,607 @@
+@@ meta
+naslov = Gradijentni spust i regularizacija
+podnaslov = Kako se model uči kad formule nema: koraci niz gradijent, stopa učenja, skaliranje značajki i kazna za prevelike težine
+oznake = gradijentni spust, SGD, mini-batch, stopa učenja, standardizacija, ridge ($L_2$), lasso ($L_1$), prenaučenost
+
+@@ ciljevi
+<li>Objasniti zašto se većina modela uči gradijentnim spustom, a ne zatvorenom formulom, i razlikovati puni, mini-batch i stohastički gradijentni spust.</li>
+<li>Odabrati stopu učenja: prepoznati divergenciju i presporu konvergenciju na krivulji gubitka te razumjeti kako standardizacija značajki ubrzava učenje.</li>
+<li>Dodati gubitku $L_2$ (ridge) ili $L_1$ (lasso) kaznu, izvesti pripadne korake učenja i objasniti zašto lasso daje rijetke težine.</li>
+<li>Pomoću regularizacije kontrolirati prenaučenost: ručno u NumPy-ju, a zatim istim rezultatom u scikit-learnu (<code>Ridge</code>, <code>Lasso</code>, <code>SGDRegressor</code>).</li>
+
+@@ teorija
+<p>U lekciji M1 linearnu smo regresiju riješili normalnom jednadžbom $w^*=(X^\top X)^{-1}X^\top y$. Ta je formula iznimka, ne pravilo. Postoji samo zato što je MSE kvadratna funkcija parametara linearnog modela; čim zamijenimo gubitak (unakrsna entropija u M3) ili model (neuronska mreža u D1), minimum se više ne može „izračunati”, nego se do njega mora <em>hodati</em>. Čak i kad formula postoji, rješavanje sustava s $d$ nepoznanica košta $O(nd^2+d^3)$ operacija, što za $d$ od nekoliko stotina tisuća značajki (tekst, slike) nije izvedivo. Univerzalni alat koji radi u svim tim slučajevima zove se <b>gradijentni spust</b> i on je, u raznim oblicima, način na koji se uči gotovo svaki model u ovom kurikulumu.</p>
+
+<h3>Gubitak kao krajolik</h3>
+<p>Funkcija gubitka $L(w)=\frac1n\sum_{i=1}^n \ell(f_w(x_i),y_i)$ svakom izboru parametara $w\in\mathbb R^p$ pridružuje broj: koliko model s tim parametrima u prosjeku griješi. Zamisli $L$ kao krajolik nad $p$-dimenzionalnom ravninom parametara; učenje je traženje najniže točke. <b>Gradijent</b> $\nabla L(w)=\left(\frac{\partial L}{\partial w_1},\dots,\frac{\partial L}{\partial w_p}\right)$ (lekcija P6) pokazuje smjer najstrmijeg <em>uspona</em> u točki $w$, pa je $-\nabla L(w)$ smjer najstrmijeg spusta. Za MSE linearnog modela, uz matricu dizajna $X$ sa stupcem jedinica, u M1 smo izveli $\nabla L(w)=\frac2n X^\top(Xw-y)$.</p>
+
+<h3>Gradijentni spust i njegove inačice</h3>
+<definicija naslov="Gradijentni spust">
+Krenuvši od početne točke $w_0$ (obično nule ili mali slučajni brojevi), ponavljaj
+$$w_{t+1}=w_t-\eta\,\nabla L(w_t),$$
+gdje je $\eta\gt0$ <b>stopa učenja</b> (engl. <i>learning rate</i>). Postupak staje nakon zadanog broja koraka, kad gradijent postane malen ili kad se gubitak na validacijskom skupu prestane smanjivati.
+</definicija>
+<p>Gubitak je prosjek po primjerima, pa je i gradijent prosjek gradijenata pojedinih primjera, $\nabla L=\frac1n\sum_i\nabla\ell_i$. Prema tome koliko primjera uđe u taj prosjek u jednom koraku razlikujemo tri inačice.</p>
+<ul>
+<li><b>Puni (batch) gradijentni spust</b> koristi svih $n$ primjera: gradijent je točan, ali jedan korak košta $O(np)$ i za milijune primjera traje predugo.</li>
+<li><b>Stohastički gradijentni spust</b> (engl. <i>stochastic gradient descent</i>, SGD) u svakom koraku uzme <em>jedan</em> slučajno odabran primjer $i$ i napravi korak $w\leftarrow w-\eta\nabla\ell_i(w)$. Takav gradijent je šumovita, ali <em>nepristrana</em> procjena pravoga: $\mathbb E_i[\nabla\ell_i]=\nabla L$. Koraci su jeftini, putanja cik-cak.</li>
+<li><b>Mini-batch gradijentni spust</b> uzima $B$ primjera (tipično $32$ do $256$): manje šuma nego SGD, a $B$ primjera obrađuje se vektorizirano jednako brzo kao jedan. To je standard u dubokom učenju; kad se danas kaže „SGD”, gotovo uvijek se misli na mini-batch.</li>
+</ul>
+<p>Jedan prolaz kroz cijeli skup zove se <b>epoha</b>; prije svake epohe podaci se izmiješaju. U praksi se učenje prati crtanjem <b>krivulje gubitka</b> (gubitak u ovisnosti o koraku ili epohi), i to je prva slika koju treba pogledati kad god nešto ne radi.</p>
+
+<h3>Stopa učenja i konvergencija</h3>
+<p>Stopa učenja najvažniji je hiperparametar gradijentnog spusta. Premalena $\eta$ znači tisuće koraka za sitni pomak; prevelika znači da korak „preskoči” dolinu i gubitak <em>raste</em> umjesto da pada. Za kvadratni gubitak to se može točno opisati.</p>
+<teorem naslov="konvergencija gradijentnog spusta za MSE">
+<p>Neka je $L(w)=\frac1n\lVert Xw-y\rVert^2$ i neka Hesseova matrica $H=\frac2nX^\top X$ ima svojstvene vrijednosti $0\lt\lambda_{\min}\le\dots\le\lambda_{\max}$. Gradijentni spust s konstantnom stopom $\eta$ konvergira prema $w^*$ iz svake početne točke ako i samo ako je $0\lt\eta\lt 2/\lambda_{\max}$. Uz $\eta=1/\lambda_{\max}$ vrijedi
+$$\lVert w_{t}-w^*\rVert\le\left(1-\tfrac1\kappa\right)^t\lVert w_0-w^*\rVert,\qquad \kappa=\frac{\lambda_{\max}}{\lambda_{\min}}.$$</p>
+</teorem>
+<dokaz>
+<p>Za kvadratnu funkciju gradijent je linearan: $\nabla L(w)=H(w-w^*)$, jer je $\nabla L(w^*)=0$. Zato je $w_{t+1}-w^*=(I-\eta H)(w_t-w^*)$, pa je $w_t-w^*=(I-\eta H)^t(w_0-w^*)$. Matrica $I-\eta H$ simetrična je sa svojstvenim vrijednostima $1-\eta\lambda_j$; potencije $(I-\eta H)^t$ teže nuli točno onda kad je $|1-\eta\lambda_j|\lt1$ za sve $j$, tj. $0\lt\eta\lt2/\lambda_j$, a najstroži je uvjet za $\lambda_{\max}$. Uz $\eta=1/\lambda_{\max}$ svojstvene vrijednosti $1-\lambda_j/\lambda_{\max}$ leže u $[0,\,1-1/\kappa]$, pa se u svakom koraku udaljenost do minimuma smanji barem za faktor $1-1/\kappa$.</p>
+</dokaz>
+<p>Broj $\kappa$ zove se <b>kondicijski broj</b>; za preciznost $\varepsilon$ treba otprilike $\kappa\ln(1/\varepsilon)$ koraka. Geometrijski: $\kappa\gg1$ znači da je dolina gubitka uska i dugačka, gradijent pokazuje prema strmim stijenkama umjesto niz dolinu, a spust cik-cakira. Kod SGD-a šum ne nestaje ni blizu minimuma, pa konstantna stopa završava „lebdenjem” oko minimuma na udaljenosti razmjernoj $\eta$; zato se stopa tijekom učenja <em>smanjuje</em> (npr. $\eta_t=\eta_0/(1+t/t_0)$ ili stepenasto), što ćemo vidjeti u Primjeru 2 i detaljnije u D4.</p>
+<napomena>Praktičan recept: isprobaj $\eta\in\{10^{-3},10^{-2},10^{-1},1\}$ i nacrtaj krivulje gubitka. Ako gubitak raste ili postane <code>nan</code>, stopa je prevelika; ako nakon stotinu koraka jedva pada, premalena je. Prava vrijednost obično je najveća koja još ne divergira, podijeljena s dva ili tri.</napomena>
+
+<h3>Standardizacija značajki</h3>
+<p>Kondicijski broj ovisi o skali značajki. Ako je jedna značajka dob u godinama (raspon desetaka), a druga prihod u eurima (raspon desetaka tisuća), stupci matrice $X^\top X$ razlikuju se za faktor $10^6$ i $\kappa$ je golem: za prihod bi trebala sićušna stopa učenja, za dob velika, a konstantna $\eta$ ne može zadovoljiti oboje. Lijek je trivijalan.</p>
+<definicija naslov="Standardizacija">
+Za svaku značajku $j$ izračunaj na <em>skupu za učenje</em> prosjek $\mu_j$ i standardnu devijaciju $\sigma_j$ te zamijeni
+$$z_j=\frac{x_j-\mu_j}{\sigma_j}.$$
+Iste vrijednosti $\mu_j,\sigma_j$ primjenjuju se zatim i na testne podatke (u scikit-learnu: <code>StandardScaler().fit(X_tr)</code>, pa <code>transform</code> na oba skupa).
+</definicija>
+<p>Nakon standardizacije sve značajke imaju prosjek $0$ i raspršenje $1$, pa je $\frac1nX^\top X$ korelacijska matrica značajki; $\kappa$ je tada velik samo ako su značajke međusobno jako korelirane. U M1 smo pokazali da skaliranje ne mijenja predikcije OLS-a; za gradijentni spust ono mijenja <em>brzinu</em>, a za regularizaciju, kako slijedi, mijenja i samo <em>rješenje</em>. Zato je standardizacija obvezan prvi korak uvijek kad se koristi bilo što od ovoga dvoga. Statistike se računaju samo na treningu: ako bi se u $\mu_j$ i $\sigma_j$ uračunali i testni primjeri, informacija o testu bi „procurila” u model (engl. <i>data leakage</i>, lekcija M5).</p>
+
+<h3>Regularizacija</h3>
+<p>Primjer 3 u M1 pokazao je polinom stupnja $15$ koji između točaka divlja s koeficijentima reda milijuna, a Zadatak 8 dao je lijek: već sićušna kazna za velike težine vraća ga u red. To je opća ideja: umjesto samog gubitka minimiziraj gubitak <em>plus</em> kaznu za složenost.</p>
+<definicija naslov="Regularizirani gubitak">
+$$L_\lambda(w)=L(w)+\lambda\,\Omega(w),\qquad \lambda\ge0,$$
+gdje je $\Omega$ <b>regularizator</b>, a $\lambda$ <b>jačina regularizacije</b>. Dva standardna izbora su
+$$\Omega_{L_2}(w)=\lVert w\rVert_2^2=\sum_j w_j^2\quad(\text{grebena ili ridge regresija}),\qquad
+\Omega_{L_1}(w)=\lVert w\rVert_1=\sum_j |w_j|\quad(\text{lasso}).$$
+Pomak $b$ se ne kažnjava: on samo pomiče predikcije i ne pridonosi složenosti.
+</definicija>
+<p><b>Ridge.</b> Gradijent kazne je $2\lambda w$, pa gradijentni korak glasi $w\leftarrow w-\eta\nabla L(w)-2\eta\lambda w=(1-2\eta\lambda)\,w-\eta\nabla L(w)$: u svakom koraku težine se najprije <em>skupe</em> za faktor $1-2\eta\lambda$, pa tek onda naprave običan korak. Zato se $L_2$ regularizacija u dubokom učenju zove i <b>weight decay</b>. Za MSE postoji i zatvoreni oblik $w^*_\lambda=(X^\top X+n\lambda I)^{-1}X^\top y$ (M1, Zadatak 8, uz $L=\frac1n\lVert Xw-y\rVert^2$), koji postoji i kad je $X^\top X$ singularna.</p>
+<p><b>Lasso.</b> Funkcija $|w_j|$ nije derivabilna u nuli, pa se ne može izravno primijeniti gradijentni spust. Umjesto toga korak se razdvoji: najprije običan gradijentni korak po $L$, a zatim se kazna primijeni <em>točno</em> operatorom <b>mekog odsijecanja</b> (engl. <i>soft thresholding</i>)
+$$S_\tau(z)=\operatorname{sign}(z)\,\max(|z|-\tau,0),\qquad w\leftarrow S_{\eta\lambda}\!\left(w-\eta\nabla L(w)\right).$$
+Taj postupak zove se <b>proksimalni gradijentni spust</b> (za lasso: ISTA). Ključno svojstvo: $S_\tau$ svaku komponentu manju od $\tau$ po apsolutnoj vrijednosti postavi <em>točno</em> na nulu. Zato lasso daje <b>rijetke</b> (engl. <i>sparse</i>) težine i ujedno radi <b>odabir značajki</b>, dok ridge sve težine samo smanji, ali ih nikad ne poništi. Geometrijski: kugla $\lVert w\rVert_1\le c$ ima „šiljke” na koordinatnim osima, i elipse konstantnog gubitka najčešće je dotaknu baš u šiljku, gdje su neke koordinate nula.</p>
+<p><b>Prenaučenost i podnaučenost kroz $\lambda$.</b> Za $\lambda\to0$ dobivamo OLS: model slijedi podatke, uključujući šum (velika varijanca, prenaučenost). Za $\lambda\to\infty$ sve težine idu u nulu i model predviđa prosjek (velika pristranost, podnaučenost). Između je optimum, i greška na testu kao funkcija $\lambda$ ima oblik slova U. Vrijednost $\lambda$ je hiperparametar: bira se na validacijskom skupu ili unakrsnom validacijom (M5), nikad na testu.</p>
+<napomena>Svaka biblioteka ima vlastitu konvenciju za jačinu kazne. Scikit-learn: <code>Ridge(alpha)</code> minimizira $\lVert y-Xw\rVert^2+\alpha\lVert w\rVert^2$ (dakle $\alpha=n\lambda$ u odnosu na našu definiciju s MSE), a <code>Lasso(alpha)</code> minimizira $\frac1{2n}\lVert y-Xw\rVert^2+\alpha\lVert w\rVert_1$. Kad uspoređuješ rezultate ili prenosiš $\lambda$ iz članka u kod, prvo pročitaj koji se gubitak zapravo minimizira.</napomena>
+
+@@ primjeri
+<primjer izvor="skup podataka diabetes">
+<p>Na skupu <code>load_diabetes</code> iz M1 istreniraj linearnu regresiju punim gradijentnim spustom na standardiziranim značajkama. Isprobaj nekoliko stopa učenja, usporedi s rješenjem najmanjih kvadrata, izračunaj kondicijski broj i pokaži što se događa bez standardizacije.</p>
+<rjesenje>
+<p><b>Korak 1: podjela i standardizacija.</b> Prosjek i standardnu devijaciju računamo samo na skupu za učenje. Stupac jedinica za pomak dodajemo <em>nakon</em> standardizacije (standardizirati konstantu nema smisla).</p>
+<kod jezik="python">
+import numpy as np
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+podaci = load_diabetes()
+X_tr, X_te, y_tr, y_te = train_test_split(podaci.data, podaci.target,
+                                          test_size=0.2, random_state=42)
+mu, sigma = X_tr.mean(axis=0), X_tr.std(axis=0)
+Z_tr = (X_tr - mu) / sigma
+Z_te = (X_te - mu) / sigma           # iste mu i sigma, izračunate na treningu!
+n, d = Z_tr.shape
+A_tr = np.column_stack([np.ones(n), Z_tr])
+A_te = np.column_stack([np.ones(len(Z_te)), Z_te])
+print("std stupaca prije:", sigma[:3].round(4), " poslije:", Z_tr.std(axis=0)[:3].round(4))
+</kod>
+<izlaz>
+std stupaca prije: [0.0463 0.0476 0.0472]  poslije: [1. 1. 1.]
+</izlaz>
+<p><b>Korak 2: gradijentni spust s raznim stopama učenja.</b> Gubitak i gradijent pišemo kao funkcije; krećemo iz nule i bilježimo MSE nakon svakog koraka. Za usporedbu izračunamo OLS rješenje s <code>lstsq</code>.</p>
+<kod jezik="python">
+def mse(A, y, w):
+    return np.mean((A @ w - y) ** 2)
+
+def gradijent(A, y, w):
+    return 2 / len(y) * A.T @ (A @ w - y)
+
+def gradijentni_spust(A, y, eta, koraka):
+    w = np.zeros(A.shape[1])
+    povijest = [mse(A, y, w)]
+    for _ in range(koraka):
+        w -= eta * gradijent(A, y, w)
+        povijest.append(mse(A, y, w))
+    return w, np.array(povijest)
+
+w_ols = np.linalg.lstsq(A_tr, y_tr, rcond=None)[0]
+print("OLS: MSE trening = %.1f" % mse(A_tr, y_tr, w_ols))
+print("  eta    MSE nakon 10   nakon 100   nakon 1000 koraka")
+for eta in (0.001, 0.01, 0.1, 0.3):
+    w, pov = gradijentni_spust(A_tr, y_tr, eta, 1000)
+    red = ["%.1f" % v if v < 1e6 else "divergira" for v in (pov[10], pov[100], pov[1000])]
+    print("%5g  %13s  %10s  %11s" % (eta, *red))
+</kod>
+<izlaz>
+OLS: MSE trening = 2868.5
+  eta    MSE nakon 10   nakon 100   nakon 1000 koraka
+0.001        28453.3     19964.5       3354.7
+ 0.01        19880.9      3338.5       2890.3
+  0.1         3188.8      2890.3       2869.3
+  0.3      divergira   divergira    divergira
+</izlaz>
+<p>Uz $\eta=0{,}001$ nakon tisuću koraka još smo daleko od minimuma, uz $0{,}01$ blizu, uz $0{,}1$ praktički u njemu, a uz $0{,}3$ gubitak eksplodira već u prvih deset koraka. Deset puta veća stopa znači otprilike deset puta manje koraka, sve dok ne prijeđemo granicu.</p>
+<p><b>Korak 3: kondicijski broj objašnjava tablicu.</b> Teorem kaže da je granica divergencije $2/\lambda_{\max}$, a brzina konvergencije ovisi o $\kappa$.</p>
+<kod jezik="python">
+H = 2 / n * A_tr.T @ A_tr
+lam = np.linalg.eigvalsh(H)
+print("lambda_min = %.4f  lambda_max = %.4f  kappa = %.1f" % (lam[0], lam[-1], lam[-1] / lam[0]))
+print("granica divergencije 2/lambda_max = %.3f" % (2 / lam[-1]))
+w, pov = gradijentni_spust(A_tr, y_tr, 1 / lam[-1], 2000)
+print("eta = 1/lambda_max, 2000 koraka: ||w - w_ols|| = %.2e" % np.linalg.norm(w - w_ols))
+print("MSE test (GD) = %.1f   MSE test (OLS) = %.1f" % (mse(A_te, y_te, w), mse(A_te, y_te, w_ols)))
+</kod>
+<izlaz>
+lambda_min = 0.0185  lambda_max = 7.9376  kappa = 429.9
+granica divergencije 2/lambda_max = 0.252
+eta = 1/lambda_max, 2000 koraka: ||w - w_ols|| = 5.54e-01
+MSE test (GD) = 2899.9   MSE test (OLS) = 2900.2
+</izlaz>
+<p>Granica $2/\lambda_{\max}\approx0{,}25$ točno objašnjava zašto $\eta=0{,}3$ divergira, a $\eta=0{,}1$ ne. Uz $\kappa\approx430$ gradijentni spust nakon $2000$ koraka još nije stigao u sam minimum (udaljenost do $w^*$ pala je sa $170$ na pola jedinice), ali je testna greška jednaka OLS-ovoj na jednu decimalu: u praksi nas zanimaju predikcije, a ne zadnja znamenka težina.</p>
+<p><b>Korak 4: bez standardizacije.</b> Značajke u <code>diabetes</code> već su skalirane tako da svaki stupac ima jediničnu normu, dakle standardnu devijaciju oko $0{,}05$; stupac jedinica za pomak ima raspršenje reda $1$. Taj nerazmjer dovoljan je da $\kappa$ naraste za dva reda veličine.</p>
+<kod jezik="python">
+R_tr = np.column_stack([np.ones(n), X_tr])
+lam_r = np.linalg.eigvalsh(2 / n * R_tr.T @ R_tr)
+print("bez standardizacije: kappa = %.0f" % (lam_r[-1] / lam_r[0]))
+w_r, pov_r = gradijentni_spust(R_tr, y_tr, 1 / lam_r[-1], 2000)
+w_r_ols = np.linalg.lstsq(R_tr, y_tr, rcond=None)[0]
+print("MSE trening nakon 2000 koraka: %.1f   (OLS: %.1f)" % (pov_r[-1], mse(R_tr, y_tr, w_r_ols)))
+</kod>
+<izlaz>
+bez standardizacije: kappa = 47808
+MSE trening nakon 2000 koraka: 2898.0   (OLS: 2868.5)
+</izlaz>
+<p>Kondicijski broj skočio je sa $430$ na gotovo $50\,000$, a isti broj koraka s optimalnom konstantnom stopom ostavlja grešku na treningu primjetno iznad OLS-a: smjer pomaka uči se brzo, smjerovi sitnih značajki tisuću puta sporije. Standardizacija je besplatna i uklanja problem.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Generiraj $20\,000$ primjera s $20$ značajki, $y=w^\top x+3+\varepsilon$, $\varepsilon\sim\mathcal N(0,\,0{,}5^2)$. Usporedi SGD ($B=1$), mini-batch ($B=32$, $B=256$) i puni gradijentni spust po epohama. Zatim pokaži učinak smanjivanja stope učenja i usporedi sa <code>SGDRegressor</code>.</p>
+<rjesenje>
+<p><b>Korak 1: podaci i mini-batch petlja.</b> U svakoj epohi izmiješamo indekse i prolazimo kroz njih u komadima duljine $B$; za $B=n$ dobivamo puni gradijentni spust, za $B=1$ čisti SGD. Stopa učenja prilagođena je veličini batcha: šumovitiji gradijent traži manji korak.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+n2, d2 = 20000, 20
+X2 = rng.normal(size=(n2, d2))
+w_pravi = rng.normal(size=d2)
+y2 = X2 @ w_pravi + 3 + rng.normal(0, 0.5, size=n2)
+A2 = np.column_stack([np.ones(n2), X2])
+w2_ols = np.linalg.lstsq(A2, y2, rcond=None)[0]
+print("MSE OLS = %.4f  (varijanca šuma je 0.25)" % mse(A2, y2, w2_ols))
+
+def minibatch_gd(A, y, eta, B, epohe, raspored=None, seed=0):
+    rng = np.random.default_rng(seed)
+    w = np.zeros(A.shape[1])
+    gubici, t = [], 0
+    for ep in range(epohe):
+        perm = rng.permutation(len(y))
+        for k in range(0, len(y), B):
+            idx = perm[k:k + B]
+            eta_t = eta if raspored is None else raspored(eta, t)
+            w -= eta_t * gradijent(A[idx], y[idx], w)
+            t += 1
+        gubici.append(mse(A, y, w))
+    return w, gubici
+
+print("    B    eta   koraka/epohi   MSE ep.1   MSE ep.2   MSE ep.5")
+for B, eta in ((1, 0.005), (32, 0.05), (256, 0.1), (n2, 0.3)):
+    w, g = minibatch_gd(A2, y2, eta, B, 5)
+    print("%5d  %5g  %12d  %9.4f  %9.4f  %9.4f" % (B, eta, -(-n2 // B), g[0], g[1], g[4]))
+</kod>
+<izlaz>
+MSE OLS = 0.2467  (varijanca šuma je 0.25)
+    B    eta   koraka/epohi   MSE ep.1   MSE ep.2   MSE ep.5
+    1  0.005         20000     0.3097     0.2784     0.2779
+   32   0.05           625     0.2612     0.2576     0.2550
+  256    0.1            79     0.2707     0.2511     0.2558
+20000    0.3             1     4.6305     0.9272     0.2494
+</izlaz>
+<p>Puni gradijentni spust napravi jedan korak po epohi i nakon pet koraka tek se približi OLS-u; mini-batch inačice već nakon <em>jedne</em> epohe imaju MSE unutar nekoliko postotaka od optimuma jer su u istom prolazu napravile stotine ili tisuće koraka. Čisti SGD je najbrži na početku, ali s konstantnom stopom učenja zapne na oko $0{,}278$: šum gradijenta ga neprestano izbacuje iz minimuma.</p>
+<p><b>Korak 2: smanjivanje stope učenja.</b> Čisti SGD s konstantnom stopom zapne iznad optimuma jer šum gradijenta ne nestaje. Raspored $\eta_t=\eta_0/(1+t/t_0)$ u početku dopušta velike korake, a kasnije ih smanjuje.</p>
+<kod jezik="python">
+def opadajuca(eta0, t, t0=5000):
+    return eta0 / (1 + t / t0)
+
+w_konst, g_konst = minibatch_gd(A2, y2, 0.005, 1, 5)
+w_opad, g_opad = minibatch_gd(A2, y2, 0.02, 1, 5, raspored=opadajuca)
+print("SGD, 5 epoha:  konstantna eta  MSE = %.4f   opadajuća eta  MSE = %.4f" % (g_konst[-1], g_opad[-1]))
+print("max |w - w_ols|:  %.4f  odnosno  %.4f" % (np.abs(w_konst - w2_ols).max(), np.abs(w_opad - w2_ols).max()))
+</kod>
+<izlaz>
+SGD, 5 epoha:  konstantna eta  MSE = 0.2779   opadajuća eta  MSE = 0.2508
+max |w - w_ols|:  0.0795  odnosno  0.0316
+</izlaz>
+<p>S opadajućom stopom početni je korak četiri puta veći (brži start), a završni manji (manje šuma), pa isti broj obrađenih primjera daje MSE blizu optimalne i težine dvostruko bliže OLS-u.</p>
+<p><b>Korak 3: isto u scikit-learnu.</b> <code>SGDRegressor</code> radi upravo to: SGD po jednom primjeru s opadajućom stopom (zadano <code>learning_rate="invscaling"</code>, $\eta_t=\eta_0/t^{0{,}25}$). Zadano uključuje i malu $L_2$ kaznu; isključujemo je da bismo mogli usporediti s OLS-om. Scikit-learn sam vodi računa o pomaku, pa mu dajemo <code>X2</code> bez stupca jedinica.</p>
+<kod jezik="python">
+from sklearn.linear_model import SGDRegressor
+
+sgd = SGDRegressor(penalty=None, eta0=0.01, max_iter=5, tol=None, random_state=0)
+sgd.fit(X2, y2)
+print("SGDRegressor, 5 epoha: MSE = %.4f" % np.mean((sgd.predict(X2) - y2) ** 2))
+print("intercept_ = %.3f  (OLS %.3f),  max |coef_ - w_ols| = %.4f"
+      % (sgd.intercept_[0], w2_ols[0], np.abs(sgd.coef_ - w2_ols[1:]).max()))
+</kod>
+<izlaz>
+SGDRegressor, 5 epoha: MSE = 0.2484
+intercept_ = 3.003  (OLS 3.002),  max |coef_ - w_ols| = 0.0162
+</izlaz>
+<p>Pet epoha SGD-a iz biblioteke daje rezultat na dvije decimale jednak OLS-u, s istim mehanizmom koji smo upravo napisali ručno. Na velikim skupovima (<code>SGDRegressor</code> podržava i učenje po dijelovima s <code>partial_fit</code>) to je često jedini izvediv način treniranja linearnog modela.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Na polinomu stupnja $15$ iz M1 (Primjer 3) ručno izračunaj ridge rješenje za niz vrijednosti $\lambda$ i nacrtaj U-krivulju testne greške; provjeri da se ručno rješenje podudara sa <code>sklearn.linear_model.Ridge</code>. Zatim na skupu <code>diabetes</code> implementiraj lasso proksimalnim gradijentnim spustom, usporedi ga s <code>Lasso</code> i pogledaj koje značajke preživljavaju.</p>
+<rjesenje>
+<p><b>Korak 1: značajke i standardizacija.</b> Polinomijalne značajke $x,\dots,x^{15}$ na $[0,1]$ imaju drastično različite skale ($x^{15}$ je gotovo uvijek blizu nule), a kazna $\lVert w\rVert^2$ tretira sve težine jednako, pa bez standardizacije ridge ne bi imao smisla. Centriramo i $y$: tada je pomak jednak prosjeku $\bar y$ i ne ulazi u kaznu.</p>
+<kod jezik="python">
+from sklearn.preprocessing import PolynomialFeatures
+
+rng = np.random.default_rng(1)
+def uzorak(n):
+    x = np.sort(rng.uniform(0, 1, n))
+    return x, np.sin(2 * np.pi * x) + rng.normal(0, 0.2, n)
+
+xp_tr, yp_tr = uzorak(30)
+xp_te, yp_te = uzorak(200)
+pf = PolynomialFeatures(degree=15, include_bias=False)
+P_tr = pf.fit_transform(xp_tr[:, None])
+P_te = pf.transform(xp_te[:, None])
+mu_p, sd_p = P_tr.mean(axis=0), P_tr.std(axis=0)
+P_tr = (P_tr - mu_p) / sd_p
+P_te = (P_te - mu_p) / sd_p
+b0 = yp_tr.mean()
+yc = yp_tr - b0
+print("oblik P_tr:", P_tr.shape, " pomak b0 = %.4f" % b0)
+</kod>
+<izlaz>
+oblik P_tr: (30, 15)  pomak b0 = 0.1380
+</izlaz>
+<p><b>Korak 2: ridge za niz $\lambda$.</b> Rješavamo $(\frac1nX^\top X+\lambda I)w=\frac1nX^\top y$. Za $\lambda=0$ to je OLS na gotovo singularnoj matrici, pa <code>solve</code> daje numerički nestabilan rezultat, baš kao u M1.</p>
+<kod jezik="python">
+def ridge(P, yc, lam):
+    n, d = P.shape
+    return np.linalg.solve(P.T @ P / n + lam * np.eye(d), P.T @ yc / n)
+
+print("   lambda   MSE trening   MSE test   max|w|")
+lambde = [0, 1e-8, 1e-6, 1e-4, 1e-3, 1e-2, 1e-1, 1, 100]
+rez = []
+for lam in lambde:
+    w = ridge(P_tr, yc, lam)
+    tr = np.mean((P_tr @ w + b0 - yp_tr) ** 2)
+    te = np.mean((P_te @ w + b0 - yp_te) ** 2)
+    rez.append((tr, te))
+    print("%9g  %12.4f  %9.4f  %8.2f" % (lam, tr, te, np.abs(w).max()))
+</kod>
+<izlaz>
+   lambda   MSE trening   MSE test   max|w|
+        0        0.0202     1.0045  2357210.35
+    1e-08        0.0249     0.0448     66.82
+    1e-06        0.0254     0.0425      9.62
+   0.0001        0.0295     0.0391      5.57
+    0.001        0.0404     0.0576      2.60
+     0.01        0.0709     0.1154      0.86
+      0.1        0.0963     0.1534      0.34
+        1        0.1963     0.2531      0.18
+      100        0.4629     0.5390      0.01
+</izlaz>
+<p>Greška na treningu monotono raste s $\lambda$ (kazna sve više ograničava model), a testna najprije pada (do $\lambda=10^{-4}$, gdje je gotovo jednaka grešci kubnog polinoma iz M1), pa raste: za $\lambda=100$ sve su težine praktički nula i model predviđa prosjek. Najveći koeficijent pritom pada s milijuna na jedinice već za $\lambda=10^{-6}$.</p>
+<p><b>Korak 3: slika i usporedba sa scikit-learnom.</b> Krivulja testne greške po $\lambda$ (logaritamska os) ima U-oblik: lijevo prenaučenost, desno podnaučenost. <code>Ridge(alpha)</code> kažnjava zbroj, a ne prosjek kvadrata, pa je <code>alpha = n * lam</code>.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from sklearn.linear_model import Ridge
+
+tr_mse, te_mse = zip(*rez[1:])
+fig, os_ = plt.subplots(figsize=(5, 3.4))
+os_.semilogx(lambde[1:], tr_mse, "o-", label="trening")
+os_.semilogx(lambde[1:], te_mse, "s-", label="test")
+os_.set_xlabel("lambda"); os_.set_ylabel("MSE"); os_.legend()
+fig.tight_layout(); fig.savefig("ridge_u_krivulja.png", dpi=120)
+
+lam = 1e-3
+w_rucno = ridge(P_tr, yc, lam)
+sk = Ridge(alpha=len(yc) * lam).fit(P_tr, yp_tr)
+print("isti koeficijenti:", np.allclose(w_rucno, sk.coef_), " isti pomak:", np.isclose(b0, sk.intercept_))
+print("prva tri koeficijenta:", w_rucno[:3].round(3), sk.coef_[:3].round(3))
+</kod>
+<izlaz>
+isti koeficijenti: True  isti pomak: True
+prva tri koeficijenta: [ 1.05  -2.603 -1.167] [ 1.05  -2.603 -1.167]
+</izlaz>
+<p><b>Korak 4: lasso proksimalnim gradijentnim spustom.</b> Vraćamo se na standardizirani <code>diabetes</code> iz Primjera 1 (bez stupca jedinica, s centriranim $y$) i minimiziramo isti cilj kao <code>Lasso</code>: $\frac1{2n}\lVert Xw-y\rVert^2+\alpha\lVert w\rVert_1$. Gradijent prvog člana je $\frac1nX^\top(Xw-y)$, stopa učenja $\eta=1/\lambda_{\max}(\frac1nX^\top X)$, a nakon svakog koraka primjenjujemo meko odsijecanje s pragom $\eta\alpha$.</p>
+<kod jezik="python">
+from sklearn.linear_model import Lasso
+
+def meko_odsijecanje(z, tau):
+    return np.sign(z) * np.maximum(np.abs(z) - tau, 0)
+
+def lasso_ista(Z, yc, alpha, koraka=5000):
+    n, d = Z.shape
+    eta = 1 / np.linalg.eigvalsh(Z.T @ Z / n)[-1]
+    w = np.zeros(d)
+    for _ in range(koraka):
+        w = meko_odsijecanje(w - eta * Z.T @ (Z @ w - yc) / n, eta * alpha)
+    return w
+
+yc_d = y_tr - y_tr.mean()
+print("alpha   ne-nula   max|w_ista - w_sklearn|   MSE test")
+for alpha in (0.5, 5, 20, 40):
+    w_l = lasso_ista(Z_tr, yc_d, alpha)
+    sk = Lasso(alpha=alpha, max_iter=100000, tol=1e-12).fit(Z_tr, y_tr)
+    te = np.mean((Z_te @ w_l + y_tr.mean() - y_te) ** 2)
+    print("%5g  %8d  %24.2e  %9.1f" % (alpha, np.sum(w_l != 0), np.abs(w_l - sk.coef_).max(), te))
+</kod>
+<izlaz>
+alpha   ne-nula   max|w_ista - w_sklearn|   MSE test
+  0.5         9                  1.98e-10     2857.6
+    5         5                  6.16e-12     2837.0
+   20         3                  4.96e-12     3354.5
+   40         1                  8.88e-16     4855.6
+</izlaz>
+<p>Ručni ISTA i koordinatni spust iz scikit-learna slažu se na deset decimala. S porastom $\alpha$ broj značajki različitih od nule pada s devet na jednu; testna greška najmanja je za $\alpha=5$, gdje model koristi samo pet značajki, a predviđa čak malo bolje od OLS-a sa svih deset ($2900{,}2$ u M1).</p>
+<p><b>Korak 5: koje značajke preživljavaju?</b> Lasso s umjerenim $\alpha$ zadržava samo dio značajki; preostale su, prema ovom modelu, za predikciju suvišne ili zamjenjive drugima.</p>
+<kod jezik="python">
+w_l = lasso_ista(Z_tr, yc_d, 5)
+for naziv, wj, wo in zip(podaci.feature_names, w_l, w_ols[1:]):
+    print("%-4s  lasso %7.1f   OLS %7.1f" % (naziv, wj, wo))
+</kod>
+<izlaz>
+age   lasso     0.0   OLS     1.8
+sex   lasso    -2.5   OLS   -11.5
+bmi   lasso    25.8   OLS    25.6
+bp    lasso    11.9   OLS    16.8
+s1    lasso    -0.0   OLS   -44.4
+s2    lasso    -0.0   OLS    24.6
+s3    lasso    -8.3   OLS     7.7
+s4    lasso     0.0   OLS    13.1
+s5    lasso    18.7   OLS    35.2
+s6    lasso     0.0   OLS     2.4
+</izlaz>
+<p>Ostaju BMI, krvni tlak, <code>s3</code>, <code>s5</code> i spol. Zanimljiv je par <code>s1</code>/<code>s2</code>: OLS im daje velike koeficijente suprotnih predznaka ($-44$ i $+25$), što je tipičan simptom jako koreliranih značajki, a lasso ih obje izbaci jer njihov zajednički doprinos preuzima <code>s5</code>. Rijetki model lakše je tumačiti i stabilniji je, a to je često ono što se na natjecanju traži u pisanom obrazloženju rješenja.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Za $L(w_1,w_2)=w_1^2+10w_2^2$ i početnu točku $w_0=(10,1)$ ručno napravi dva koraka gradijentnog spusta sa stopom $\eta=0{,}1$. Što se događa s $w_2$? Za koje $\eta$ postupak konvergira? Provjeri u NumPy-ju.</p>
+<rjesenje>
+<p>$\nabla L=(2w_1,\,20w_2)$. Korak je $w_1\leftarrow w_1-0{,}2w_1=0{,}8w_1$ i $w_2\leftarrow w_2-2w_2=-w_2$. Dakle $w_1$ pada $10\to8\to6{,}4$, a $w_2$ samo mijenja predznak, $1\to-1\to1$, i nikad se ne približi nuli: za drugu koordinatu $\eta=0{,}1$ je točno na granici $2/\lambda_{\max}=2/20$. Postupak konvergira za $0\lt\eta\lt0{,}1$; Hesseova matrica je $\operatorname{diag}(2,20)$, $\kappa=10$, pa je najbrže uz $\eta$ tek malo manji od $0{,}1$, ali onda $w_1$ napreduje sporo. To je u malom slika svake loše uvjetovane doline.</p>
+<kod jezik="python">
+for eta in (0.05, 0.1, 0.11):
+    w = np.array([10.0, 1.0])
+    for _ in range(50):
+        w = w - eta * np.array([2 * w[0], 20 * w[1]])
+    print("eta = %.2f  nakon 50 koraka w = %s" % (eta, w.round(3)))
+</kod>
+<izlaz>
+eta = 0.05  nakon 50 koraka w = [0.052 0.   ]
+eta = 0.10  nakon 50 koraka w = [0. 1.]
+eta = 0.11  nakon 50 koraka w = [   0.    9100.438]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Kolega standardizira podatke ovako: <code>scaler.fit(X)</code> na cijelom skupu, pa tek onda <code>train_test_split</code>. Drugi kolega standardizira trening i test svaki vlastitim prosjekom i devijacijom. Objasni što je kod svakoga pogrešno i što bi se dogodilo s predikcijom za <em>jedan</em> novi primjer u drugom slučaju.</p>
+<rjesenje>
+<p>Prvi je u $\mu_j$ i $\sigma_j$ uračunao testne primjere: model je, makar malo, vidio test prije ocjenjivanja (curenje podataka). Učinak je ovdje sitan, ali isti obrazac s drugim pretprocesiranjem (npr. odabir značajki po korelaciji s $y$ na cijelom skupu) daje lažno dobre rezultate. Drugi je test transformirao drukčije nego trening, pa težine naučene na jednoj skali primjenjuje na drugoj; isti pacijent dobiva različite predikcije ovisno o tome tko je još u testnom skupu. Za jedan novi primjer standardna devijacija je nula i dijeljenje ne radi, što jasno pokazuje da transformacija mora biti fiksirana na treningu. Pravilo: sve što se „uči” iz podataka (uključujući skaliranje) uči se samo na skupu za učenje.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Dva su modela naučena na istim standardiziranim podacima, s koeficijentima $(2{,}1,\;0{,}0,\;-1{,}4,\;0{,}0,\;0{,}3)$ i $(1{,}9,\;0{,}2,\;-1{,}2,\;0{,}1,\;0{,}4)$. Koji je ridge, a koji lasso? Zašto ridge „nikad” ne daje točne nule?</p>
+<rjesenje>
+<p>Prvi je lasso (dvije točne nule), drugi ridge. Uvjet minimuma ridgea glasi $\nabla L(w)+2\lambda w=0$, tj. $w_j=-\frac{\partial L/\partial w_j}{2\lambda}$: koeficijent je nula samo ako je parcijalna derivacija gubitka u toj točki točno nula, što se u podacima sa šumom ne događa. Kod lassa je u nuli „kut” funkcije $|w_j|$ i subgradijent kazne pokriva cijeli interval $[-\lambda,\lambda]$, pa je $w_j=0$ optimalno čim je $|\partial L/\partial w_j|\le\lambda$; to vrijedi za svaku dovoljno slabu značajku. Isto govori i meko odsijecanje: sve ispod praga postaje nula.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Neka su stupci matrice $X$ ortonormirani nakon skaliranja, $\frac1nX^\top X=I$. Dokaži da je tada ridge rješenje (za $L=\frac1n\lVert Xw-y\rVert^2+\lambda\lVert w\rVert^2$) jednako $w^{\text{ridge}}_j=\dfrac{w^{\text{OLS}}_j}{1+\lambda}$, a lasso rješenje (za $\frac1{2n}\lVert Xw-y\rVert^2+\alpha\lVert w\rVert_1$) jednako $w^{\text{lasso}}_j=S_\alpha\!\left(w^{\text{OLS}}_j\right)$. Provjeri numerički.</p>
+<naputak>Uz $\frac1nX^\top X=I$ gubitak se raspada na zbroj po koordinatama; rješavaj svaku zasebno. Za lasso razmotri slučajeve $w_j\gt0$, $w_j\lt0$ i $w_j=0$.</naputak>
+<rjesenje>
+<p>Uz $\frac1nX^\top X=I$ je $w^{\text{OLS}}=\frac1nX^\top y$ i $\frac1n\lVert Xw-y\rVert^2=\lVert w\rVert^2-2w^\top w^{\text{OLS}}+\text{konst.}=\sum_j\left[(w_j-w^{\text{OLS}}_j)^2\right]+\text{konst.}$ Ridge: minimiziraj $(w_j-w^{\text{OLS}}_j)^2+\lambda w_j^2$ po $w_j$; derivacija $2(w_j-w^{\text{OLS}}_j)+2\lambda w_j=0$ daje $w_j=w^{\text{OLS}}_j/(1+\lambda)$. Lasso: minimiziraj $\frac12(w_j-w^{\text{OLS}}_j)^2+\alpha|w_j|$. Ako je $w_j\gt0$, derivacija je $w_j-w^{\text{OLS}}_j+\alpha=0$, pa $w_j=w^{\text{OLS}}_j-\alpha$, što je dopušteno samo ako je $w^{\text{OLS}}_j\gt\alpha$; simetrično za $w_j\lt0$. Ako je $|w^{\text{OLS}}_j|\le\alpha$, nijedan od tih slučajeva nije moguć i minimum je u $w_j=0$. Ukupno: $w_j=S_\alpha(w^{\text{OLS}}_j)$. Ridge skuplja sve koeficijente <em>proporcionalno</em>, lasso sve <em>pomiče</em> prema nuli za isti iznos i male poništi.</p>
+<kod jezik="python">
+rng = np.random.default_rng(3)
+Q, _ = np.linalg.qr(rng.normal(size=(100, 5)))
+Xo = Q * np.sqrt(100)                     # (1/n) Xo^T Xo = I
+yo = Xo @ np.array([3, -2, 0.5, 0.1, -0.05]) + rng.normal(0, 1, 100)
+w_o = Xo.T @ yo / 100
+print("OLS:  ", w_o.round(3))
+print("ridge:", Ridge(alpha=100 * 0.5, fit_intercept=False).fit(Xo, yo).coef_.round(3), " formula:", (w_o / 1.5).round(3))
+print("lasso:", Lasso(alpha=0.3, fit_intercept=False, tol=1e-10).fit(Xo, yo).coef_.round(3), " formula:", meko_odsijecanje(w_o, 0.3).round(3))
+</kod>
+<izlaz>
+OLS:   [ 2.976 -1.987  0.564  0.062 -0.103]
+ridge: [ 1.984 -1.325  0.376  0.042 -0.069]  formula: [ 1.984 -1.325  0.376  0.042 -0.069]
+lasso: [ 2.676 -1.687  0.264  0.    -0.   ]  formula: [ 2.676 -1.687  0.264  0.    -0.   ]
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Dokaži da se za ridge gradijentni spust svodi na „weight decay”: $w_{t+1}=(1-2\eta\lambda)w_t-\eta\nabla L(w_t)$. Implementiraj ga na standardiziranim polinomijalnim značajkama iz Primjera 3 (uz $\lambda=10^{-3}$) i provjeri da konvergira prema zatvorenom rješenju <code>ridge(P_tr, yc, 1e-3)</code>. Koliko koraka treba?</p>
+<rjesenje>
+<p>$\nabla(L+\lambda\lVert w\rVert^2)=\nabla L+2\lambda w$, pa je $w_{t+1}=w_t-\eta(\nabla L(w_t)+2\lambda w_t)=(1-2\eta\lambda)w_t-\eta\nabla L(w_t)$. Hesseova matrica reguliranog gubitka je $H+2\lambda I$: regularizacija podiže najmanju svojstvenu vrijednost na barem $2\lambda$ i time <em>smanjuje</em> kondicijski broj, pa gradijentni spust konvergira brže nego za OLS (još jedna korist od ridgea).</p>
+<kod jezik="python">
+lam = 1e-3
+w_cilj = ridge(P_tr, yc, lam)
+Hp = 2 / len(yc) * P_tr.T @ P_tr + 2 * lam * np.eye(P_tr.shape[1])
+eta = 1 / np.linalg.eigvalsh(Hp)[-1]
+w = np.zeros(P_tr.shape[1])
+for t in range(1, 200001):
+    w = (1 - 2 * eta * lam) * w - eta * gradijent(P_tr, yc, w)
+    if np.linalg.norm(w - w_cilj) < 1e-3:
+        break
+print("koraka do ||w - w_ridge|| < 1e-3:", t)
+lam_p = np.linalg.eigvalsh(2 / len(yc) * P_tr.T @ P_tr)
+print("kappa bez regularizacije: %.0e   s regularizacijom: %.0f"
+      % (lam_p[-1] / abs(lam_p[0]), np.linalg.eigvalsh(Hp)[-1] / np.linalg.eigvalsh(Hp)[0]))
+</kod>
+<izlaz>
+koraka do ||w - w_ridge|| < 1e-3: 81430
+kappa bez regularizacije: 1e+17   s regularizacijom: 14229
+</izlaz>
+<p>Bez regularizacije matrica $\frac2nX^\top X$ polinomijalnih značajki ima svojstvene vrijednosti na razini strojne preciznosti, pa je $\kappa$ praktički beskonačan i gradijentni spust prema OLS-u ne bi konvergirao u razumnom vremenu. Već $\lambda=10^{-3}$ spušta $\kappa$ na red $10^4$, no i to znači desetke tisuća koraka: za male probleme zatvoreni oblik je nenadmašan, a gradijentni spust vrijedi kad formule nema ili je $d$ prevelik.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Fiksiraj proračun od $20\,000$ obrađenih primjera na podacima iz Primjera 2 (dakle $20\,000/B$ koraka) i za $B\in\{1,8,64,512,4096\}$ izmjeri konačnu MSE, uprosječenu preko tri sjemena, uz dva pravila za stopu učenja: $\eta=0{,}001\,B$ i $\eta=0{,}004\,B$ (u oba slučaja najviše $0{,}3$). Objasni dva različita razloga zbog kojih najmanje i najveće serije gube.</p>
+<naputak>U <code>minibatch_gd</code> epoha je prolaz kroz cijeli skup; za fiksni broj koraka napiši kratku vlastitu petlju koja uzorkuje indekse s <code>rng.choice</code>. Šum SGD koraka raste s $\eta$ i pada s $B$; napredak po koraku raste s $\eta$.</naputak>
+<rjesenje>
+<kod jezik="python">
+def gd_proracun(A, y, B, eta, primjera=20000, seed=0):
+    rng = np.random.default_rng(seed)
+    w = np.zeros(A.shape[1])
+    for _ in range(primjera // B):
+        idx = rng.choice(len(y), size=B, replace=False)
+        w -= eta * gradijent(A[idx], y[idx], w)
+    return mse(A, y, w)
+
+print("    B   koraka   MSE (eta = 0.001 B)   MSE (eta = 0.004 B)")
+for B in (1, 8, 64, 512, 4096):
+    red = []
+    for c in (0.001, 0.004):
+        eta = min(c * B, 0.3)
+        red.append(np.mean([gd_proracun(A2, y2, B, eta, seed=s) for s in range(3)]))
+    print("%5d  %7d  %19.4f  %19.4f" % (B, 20000 // B, red[0], red[1]))
+</kod>
+<izlaz>
+    B   koraka   MSE (eta = 0.001 B)   MSE (eta = 0.004 B)
+    1    20000               0.2519               0.2658
+    8     2500               0.2509               0.2688
+   64      312               0.2539               0.2923
+  512       39               0.2507               0.2507
+ 4096        4               0.2654               0.2654
+</izlaz>
+<p>Dva su načina da se izgubi. Najveća serija ($B=4096$) ima samo četiri koraka, premalo da bi se stiglo do dna bez obzira na stopu: gubi zbog <em>premalog napretka</em>. Male serije ($B\le64$) s malom stopom prolaze dobro, ali čim stopu učetverostručimo, njihova MSE osjetno raste, dok $B=512$ (čija je stopa u oba slučaja ograničena na $0{,}3$) ostaje netaknut: gube zbog <em>šuma</em>, čija je varijanca razmjerna $\eta/B$. Srednje serije su kompromis koji podnosi veću stopu, a ipak napravi dovoljno koraka. U praksi ih dodatno favorizira vektorizacija (korak s $B=64$ na stvarnom hardveru traje gotovo koliko i s $B=1$), zato su tipične vrijednosti $32$ do $256$, uz opadajuću stopu koja na kraju ukloni preostali šum.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Na standardiziranim polinomijalnim značajkama iz Primjera 3 istreniraj <code>Lasso</code> za $\alpha\in\{10^{-3},10^{-2},10^{-1}\}$. Koliko koeficijenata je različito od nule i koje potencije preživljavaju? Usporedi testnu MSE s najboljim ridgeom iz Primjera 3 i objasni zašto se za polinome lasso ponaša drukčije nego za <code>diabetes</code>.</p>
+<rjesenje>
+<kod jezik="python">
+print(" alpha  ne-nula  MSE test  potencije s w != 0")
+for alpha in (1e-3, 1e-2, 1e-1):
+    m = Lasso(alpha=alpha, max_iter=200000, tol=1e-10).fit(P_tr, yp_tr)
+    te = np.mean((m.predict(P_te) - yp_te) ** 2)
+    print("%6g  %7d  %8.4f  %s" % (alpha, np.sum(m.coef_ != 0), te, [int(k) + 1 for k in np.flatnonzero(m.coef_)]))
+</kod>
+<izlaz>
+ alpha  ne-nula  MSE test  potencije s w != 0
+ 0.001        4    0.0447  [1, 2, 5, 15]
+  0.01        2    0.1275  [2, 9]
+   0.1        2    0.2637  [1, 15]
+</izlaz>
+<p>Standardizirane potencije $x^k$ na $[0,1]$ međusobno su gotovo savršeno korelirane (korelacija $x^{14}$ i $x^{15}$ premašuje $0{,}99$). Kad je skupina značajki tako zamjenjiva, lasso proizvoljno odabere nekoliko predstavnika i ostale poništi, pa je skup preživjelih potencija nestabilan i teško ga je tumačiti; ridge u istoj situaciji težinu rasporedi po svima. Za generalizaciju lasso s $\alpha=10^{-3}$ i četiri značajke daje testnu grešku nešto lošiju od najboljeg ridgea, a veći $\alpha$ brzo vodi u podnaučenost (dvije potencije ne mogu opisati sinus). Kod <code>diabetes</code> značajke su manje korelirane, pa odabir lassa ima stvarno značenje. Kombinacija obiju kazni zove se <em>elastic net</em> (<code>ElasticNet</code> u scikit-learnu) i u takvim slučajevima često je najbolja.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Numerički provjeri ocjenu iz teorema o konvergenciji na standardiziranom skupu <code>diabetes</code>: za $\eta=1/\lambda_{\max}$ nacrtaj (ili ispiši) $\lVert w_t-w^*\rVert$ i usporedi s $(1-1/\kappa)^t\lVert w_0-w^*\rVert$. Zatim pokaži da je ocjena <em>pesimistična</em>: koliko koraka stvarno treba za $\lVert w_t-w^*\rVert\lt10^{-6}\lVert w_0-w^*\rVert$, a koliko predviđa $\kappa\ln(10^6)$? Objasni razliku pomoću rastava $w_0-w^*$ po svojstvenim vektorima.</p>
+<naputak>Komponenta pogreške duž svojstvenog vektora $v_j$ množi se u svakom koraku s $1-\lambda_j/\lambda_{\max}$. Koja komponenta vlada na kraju, a koja na početku?</naputak>
+<rjesenje>
+<kod jezik="python">
+lam, V = np.linalg.eigh(H)
+eta, kappa = 1 / lam[-1], lam[-1] / lam[0]
+w = np.zeros(A_tr.shape[1])
+e0 = np.linalg.norm(w - w_ols)
+print("   t      ||w_t - w*||    ocjena (1-1/kappa)^t")
+t, koraka = 0, None
+while t < 100000:
+    if t in (0, 10, 100, 1000):
+        print("%5d  %14.4e  %14.4e" % (t, np.linalg.norm(w - w_ols), (1 - 1 / kappa) ** t * e0))
+    if koraka is None and np.linalg.norm(w - w_ols) < 1e-6 * e0:
+        koraka = t
+        break
+    w -= eta * gradijent(A_tr, y_tr, w)
+    t += 1
+print("stvarno koraka: %d   predviđeno kappa*ln(1e6) = %.0f" % (koraka, kappa * np.log(1e6)))
+komp = np.abs(V.T @ (np.zeros_like(w_ols) - w_ols))
+print("komponente w_0 - w* po svojstvenim vektorima (od lambda_min):", komp.round(1))
+</kod>
+<izlaz>
+   t      ||w_t - w*||    ocjena (1-1/kappa)^t
+    0      1.6960e+02      1.6960e+02
+   10      5.7758e+01      1.6570e+02
+  100      4.6258e+01      1.3437e+02
+ 1000      5.6869e+00      1.6519e+01
+stvarno koraka: 5475   predviđeno kappa*ln(1e6) = 5939
+komponente w_0 - w* po svojstvenim vektorima (od lambda_min): [ 58.4   1.1   1.5   6.1  11.9   1.2 153.7  24.9  17.9  11.6  21.6]
+</izlaz>
+<p>Pogreška $w_t-w^*=\sum_j c_j(1-\lambda_j/\lambda_{\max})^t v_j$. Na početku dominiraju komponente s velikim $c_j$, koje gradijentni spust brzo ukloni ako im je $\lambda_j$ velik; zato stvarna greška u prvih stotinjak koraka pada mnogo brže od ocjene. Pri kraju preživi samo komponenta uz $\lambda_{\min}$, koja se smanjuje točno faktorom $1-1/\kappa$ po koraku, pa je ocjena asimptotski točna, ali s manjom konstantom $|c_{\min}|$ umjesto $\lVert w_0-w^*\rVert$. Broj koraka je zato manji od $\kappa\ln(10^6)$, ali istog reda veličine: kondicijski broj doista određuje cijenu učenja.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><b>Rano zaustavljanje kao regularizacija.</b> Na standardiziranim polinomijalnim značajkama iz Primjera 3 promatraj <em>neregularizirani</em> gradijentni spust iz $w_0=0$ sa stopom $\eta=1/\lambda_{\max}$. Pokaži da je $w_t=\sum_j\left[1-(1-\eta\lambda_j)^t\right](v_j^\top w^*)\,v_j$, gdje su $(\lambda_j,v_j)$ svojstveni parovi Hesseove matrice, provjeri formulu usporedbom s petljom i pomoću nje izračunaj testnu MSE za $t=10,10^2,\dots,10^{12}$. U kojem je trenutku testna greška najmanja i kako se uspoređuje s najboljim ridgeom? Zašto broj koraka djeluje kao $1/\lambda$?</p>
+<naputak>Iz dokaza teorema: $w_t-w^*=(I-\eta H)^t(w_0-w^*)$. Rastavi $-w^*$ po svojstvenim vektorima. Ridge komponentu $j$ množi faktorom $\dfrac{\lambda_j}{\lambda_j+2\lambda}$.</naputak>
+<rjesenje>
+<p>Uz $w_0=0$ je $w_t=w^*-(I-\eta H)^tw^*$. Ako je $w^*=\sum_j c_jv_j$ s $c_j=v_j^\top w^*$, onda $(I-\eta H)^tv_j=(1-\eta\lambda_j)^tv_j$ daje $w_t=\sum_j\left[1-(1-\eta\lambda_j)^t\right]c_jv_j$. Formula omogućuje „skok” na bilo koji $t$ bez petlje.</p>
+<kod jezik="python">
+Hp = 2 / len(yc) * P_tr.T @ P_tr
+lam_p, V_p = np.linalg.eigh(Hp)
+eta = 1 / lam_p[-1]
+w_zvj = np.linalg.lstsq(P_tr, yc, rcond=None)[0]
+c = V_p.T @ w_zvj
+
+def w_nakon(t):
+    return V_p @ ((1 - (1 - eta * lam_p) ** float(t)) * c)
+
+w = np.zeros(P_tr.shape[1])
+for _ in range(1000):
+    w -= eta * gradijent(P_tr, yc, w)
+print("petlja vs. formula (t = 1000): max razlika = %.1e" % np.abs(w - w_nakon(1000)).max())
+
+print("       t   MSE trening   MSE test   max|w|")
+krivulja = []
+for k in range(1, 13):
+    w = w_nakon(10 ** k)
+    tr = np.mean((P_tr @ w + b0 - yp_tr) ** 2)
+    te = np.mean((P_te @ w + b0 - yp_te) ** 2)
+    krivulja.append((te, 10 ** k))
+    print("%8.0e  %12.4f  %9.4f  %8.1f" % (10 ** k, tr, te, np.abs(w).max()))
+print("najmanja testna MSE %.4f za t = %.0e;  najbolji ridge iz Primjera 3: %.4f"
+      % (min(krivulja)[0], min(krivulja)[1], min(te for _, te in rez)))
+</kod>
+<izlaz>
+petlja vs. formula (t = 1000): max razlika = 4.9e-04
+       t   MSE trening   MSE test   max|w|
+   1e+01        0.2009     0.2593       0.2
+   1e+02        0.0928     0.1593       0.4
+   1e+03        0.0742     0.1225       0.8
+   1e+04        0.0395     0.0552       2.6
+   1e+05        0.0290     0.0375       5.9
+   1e+06        0.0262     0.0385       9.6
+   1e+07        0.0253     0.0432      11.0
+   1e+08        0.0250     0.0453      39.9
+   1e+09        0.0247     0.0458     252.0
+   1e+10        0.0243     0.0565    1555.1
+   1e+11        0.0536     0.5736    9982.9
+   1e+12        0.1160     1.5200   37294.1
+najmanja testna MSE 0.0375 za t = 1e+05;  najbolji ridge iz Primjera 3: 0.0391
+</izlaz>
+<p>Krivulja testne greške po $t$ ima isti U-oblik kao po $\lambda$ (samo zrcalno: velik $t$ odgovara malom $\lambda$), a minimum oko $t=10^5$ čak je malo bolji od najboljeg ridgea. Objašnjenje je u formuli: komponente uz velike $\lambda_j$ (glatki dio polinoma) nauče se u nekoliko koraka, dok komponente uz sićušne $\lambda_j$, upravo one koje kod OLS-a poprimaju divovske vrijednosti, rastu brzinom $1-(1-\eta\lambda_j)^t\approx\eta\lambda_jt$ i praktički miruju dok $t$ nije reda $1/(\eta\lambda_j)$. Ridge iste komponente množi s $\lambda_j/(\lambda_j+2\lambda)$: blizu $1$ za velike, blizu $0$ za male $\lambda_j$. Oba postupka propuštaju „velike” smjerove i guše „male”, s pragom $2\lambda$ odnosno približno $1/(\eta t)$, pa mali broj koraka odgovara jakoj regularizaciji. Zaustavljanje u pravom trenutku, prema validacijskom skupu, zove se rano zaustavljanje (engl. <i>early stopping</i>) i u dubokom učenju jedan je od najčešćih oblika regularizacije (D4). (Razlika petlje i formule reda $10^{-4}$ dolazi od gotovo singularnih smjerova u kojima je $w^*$ iz <code>lstsq</code> numerički nepouzdan.)</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Gradijentni spust $w\leftarrow w-\eta\nabla L(w)$ univerzalan je algoritam učenja; puni GD koristi sve primjere, SGD jedan, mini-batch $B$ (tipično $32$–$256$) i to je standard.</li>
+<li>Stopa učenja: konvergencija za MSE zahtijeva $\eta\lt2/\lambda_{\max}$, broj koraka raste s kondicijskim brojem $\kappa=\lambda_{\max}/\lambda_{\min}$. Uvijek pogledaj krivulju gubitka; za SGD smanjuj $\eta$ tijekom učenja.</li>
+<li>Standardiziraj značajke (statistike samo s treninga!) prije gradijentnog spusta i prije regularizacije: smanjuje $\kappa$ i čini kaznu pravednom prema svim težinama.</li>
+<li>Ridge ($\lambda\lVert w\rVert_2^2$) skuplja težine (weight decay, zatvoreni oblik $(X^\top X+n\lambda I)^{-1}X^\top y$); lasso ($\lambda\lVert w\rVert_1$) mekim odsijecanjem postavlja slabe težine točno na nulu i tako odabire značajke.</li>
+<li>Jačina regularizacije upravlja kompromisom prenaučenost–podnaučenost: testna greška po $\lambda$ ima U-oblik, a $\lambda$ se bira validacijom, nikad na testu. Rano zaustavljanje djeluje slično ridgeu.</li>
+<li>Scikit-learn: <code>StandardScaler</code>, <code>Ridge(alpha)</code>, <code>Lasso(alpha)</code>, <code>ElasticNet</code>, <code>SGDRegressor</code>; provjeri konvenciju kazne (<code>alpha</code> nije uvijek isto što i $\lambda$).</li>
+</ul>
+
+@@ literatura
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 4 (Training Models: gradient descent, regularized linear models).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlje 3.4 (Shrinkage Methods); besplatno dostupno na stranicama autora.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/linear_model.html">Linear Models</a> (Ridge, Lasso, SGD) i <a href="https://scikit-learn.org/stable/modules/preprocessing.html">Preprocessing data</a> (StandardScaler).</li>
+<li>S. Ruder, <i>An overview of gradient descent optimization algorithms</i>, arXiv:1609.04747 – pregled inačica SGD-a i rasporeda stope učenja.</li>
