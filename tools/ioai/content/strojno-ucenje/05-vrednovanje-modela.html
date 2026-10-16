@@ -1,0 +1,493 @@
+@@ meta
+naslov = Vrednovanje modela i odabir hiperparametara
+podnaslov = Kako pošteno izmjeriti koliko je model dobar i kako izabrati hiperparametre, a da se pritom ne prevariš
+oznake = train/validation/test, unakrsna validacija, curenje podataka, Pipeline, GridSearchCV, krivulje učenja, pristranost–varijanca
+
+@@ ciljevi
+<li>Objasniti zašto su potrebna tri skupa (učenje, validacija, test) i zašto jedna slučajna podjela daje nepouzdanu procjenu.</li>
+<li>Provesti $k$-struku unakrsnu validaciju (<code>KFold</code>, <code>StratifiedKFold</code>) i prepoznati te ukloniti curenje podataka pomoću <code>Pipeline</code>.</li>
+<li>Odabrati hiperparametre s <code>GridSearchCV</code> i <code>RandomizedSearchCV</code> te pročitati krivulje učenja i validacije kroz razlaganje pristranost–varijanca.</li>
+<li>Izabrati metriku prema zadatku, učiniti eksperiment ponovljivim i ne nasjesti javnom leaderboardu.</li>
+
+@@ teorija
+<p>U lekciji M1 podijelili smo podatke na skup za učenje i testni skup. To rješava jedan problem (model koji je zapamtio podatke za učenje izgleda savršeno), ali otvara drugi: čim testni skup upotrijebimo da bismo <em>izabrali</em> model ili hiperparametar, on prestaje biti pošten. Svaki pogled na testni skup je mala količina informacije koja curi u naše odluke – nakon stotinu pogleda testni rezultat više ne mjeri generalizaciju, nego koliko smo se uspjeli prilagoditi upravo tim podacima. Ova lekcija bavi se disciplinom koja to sprječava; na natjecanju ona vrijedi više od bilo kojeg pojedinog algoritma.</p>
+
+<h3>Tri skupa: učenje, validacija, test</h3>
+<definicija naslov="Podjela podataka">
+<b>Skup za učenje</b> (engl. <i>train</i>) služi za prilagodbu parametara modela ($w$ u regresiji, težine mreže). <b>Validacijski skup</b> (engl. <i>validation</i>) služi za <em>odluke</em>: izbor modela, hiperparametara, značajki, trenutka zaustavljanja. <b>Testni skup</b> (engl. <i>test</i>) koristi se <em>jednom</em>, na kraju, samo da bi se izmjerila konačna greška. <b>Hiperparametar</b> je svaka postavka koju algoritam učenja ne uči sam iz podataka (stupanj polinoma, $\lambda$ u ridgeu, dubina stabla, stopa učenja).
+</definicija>
+<p>Tipične podjele su $60/20/20$ ili $80/10/10$, ali omjer je manje važan od pravila: <em>sve što utječe na model mora se odlučiti bez testnog skupa</em>. Na natjecanju je testni skup obično skriven i nazvan upravo tako – vidiš samo njegove ulaze, a organizator drži oznake. Tvoj validacijski skup tada mora biti vjerna simulacija tog skrivenog testa: ista raspodjela, ista vremenska struktura, iste grupe.</p>
+
+<h3>Unakrsna validacija</h3>
+<p>Jedna podjela ima dvije mane: procjena greške ovisi o slučaju (koji su primjeri završili u validaciji) i trošimo 20 % podataka koje bismo radije koristili za učenje. Oboje popravlja ideja da svaki primjer bude jednom u validaciji.</p>
+<definicija naslov="$k$-struka unakrsna validacija">
+Skup se slučajno podijeli na $k$ približno jednakih dijelova (engl. <i>folds</i>). Za $i=1,\dots,k$ model se uči na svih $k-1$ dijelova osim $i$-tog i ocijeni na $i$-tom; dobivamo $k$ ocjena $s_1,\dots,s_k$. Procjena kvalitete modela je $\bar s=\frac1k\sum_i s_i$, a njihova standardna devijacija govori koliko je ta procjena pouzdana. Uobičajeno je $k=5$ ili $k=10$; $k=n$ je <b>leave-one-out</b>.
+</definicija>
+<p>U scikit-learnu podjelu zadaje objekt <code>KFold(n_splits=k, shuffle=True, random_state=…)</code>, a <code>cross_val_score(model, X, y, cv=…)</code> provodi cijeli postupak. <b>Stratificirana</b> inačica <code>StratifiedKFold</code> čuva omjer klasa u svakom dijelu i obavezna je kod klasifikacije s neuravnoteženim klasama (inače neki dio može ostati bez rijetke klase). Kad primjeri dolaze u grupama (više slika istog pacijenta, više rečenica istog autora), koristi <code>GroupKFold</code> da cijela grupa bude na istoj strani; za vremenske nizove <code>TimeSeriesSplit</code>, u kojem se uvijek uči na prošlosti i ocjenjuje na budućnosti.</p>
+<napomena>Cijena unakrsne validacije je $k$ puta više učenja. Za male i srednje tabularne skupove to je zanemarivo; za duboke mreže često se vraćamo na jednu dobro odabranu validacijsku podjelu, ali tada barem provjeri rezultat s dva-tri različita <code>random_state</code>.</napomena>
+
+<h3>Curenje podataka i <code>Pipeline</code></h3>
+<definicija naslov="Curenje podataka">
+<b>Curenje podataka</b> (engl. <i>data leakage</i>) nastaje kad u učenje ili u odluke o modelu uđe informacija koja u trenutku predikcije ne bi bila dostupna – najčešće informacija iz validacijskog ili testnog skupa. Posljedica je procjena greške koja je <em>previše optimistična</em>, a model na novim podacima podbaci.
+</definicija>
+<p>Najčešći izvor curenja nije zlonamjeran: <em>pretprocesiranje na cijelom skupu prije podjele</em>. Standardizacija (<code>StandardScaler</code>) računa srednju vrijednost i standardnu devijaciju – ako ih izračunamo na svim podacima, statistike validacijskog dijela ušle su u učenje. Isto vrijedi za popunjavanje nedostajućih vrijednosti, odabir značajki prema korelaciji s ciljem, PCA, kodiranje kategorija prema cilju (engl. <i>target encoding</i>). Pravilo: <b>svaka transformacija koja se nečemu „uči” iz podataka mora se naučiti samo na dijelu za učenje</b>, a na validaciju i test samo <em>primijeniti</em>.</p>
+<p>Ručno je to zamorno i lako se pogriješi, pa scikit-learn nudi <code>Pipeline</code>: niz transformacija završen modelom koji se prema van ponaša kao jedan model. Poziv <code>cjevovod.fit(X_tr, y_tr)</code> redom uči svaku transformaciju na podacima za učenje, a <code>cjevovod.predict(X_te)</code> ih samo primjenjuje. Unutar <code>cross_val_score</code> i <code>GridSearchCV</code> to znači da se skaliranje ponovno uči u svakom dijelu – točno kako treba.</p>
+<napomena>Drugi izvori curenja koje treba tražiti u svakom natjecateljskom skupu: duplikati koji završe i u učenju i u testu, značajke koje su <em>izvedene iz cilja</em> (npr. „broj dana do otkaza” u zadatku predviđanja otkaza), identifikatori koji koreliraju s ciljem jer su podaci bili sortirani, i vremenski nizovi podijeljeni slučajno umjesto po vremenu. Sumnjivo dobar rezultat je gotovo uvijek curenje, a ne genijalnost.</napomena>
+
+<h3>Pretraživanje hiperparametara</h3>
+<p><code>GridSearchCV(model, mreza, cv=…)</code> za svaku kombinaciju vrijednosti iz rječnika <code>mreza</code> provede unakrsnu validaciju i zapamti najbolju kombinaciju (<code>best_params_</code>, <code>best_score_</code>), a zatim model s tim postavkama ponovno nauči na cijelom skupu (<code>best_estimator_</code>). Uz mrežu od $m_1\times m_2\times\dots$ kombinacija i $k$ dijelova to je $k\cdot\prod m_j$ učenja plus jedno završno. Hiperparametre koraka unutar cjevovoda zadaješ imenom koraka i dvostrukom podvlakom: <code>"svc__C"</code>.</p>
+<p><code>RandomizedSearchCV</code> umjesto mreže uzorkuje <code>n_iter</code> slučajnih kombinacija iz zadanih <em>razdioba</em> (npr. <code>loguniform(1e-3, 1e3)</code>). Kad hiperparametara ima više od dva, slučajno pretraživanje je u pravilu bolje za isti broj učenja: mreža troši većinu pokušaja na nevažne osi, a slučajni uzorak za svaki važan hiperparametar isprobava onoliko različitih vrijednosti koliko ima pokušaja. Hiperparametre koji se po prirodi mijenjaju za red veličine ($C$, $\gamma$, $\lambda$, stopa učenja) pretražuj na <em>logaritamskoj</em> skali.</p>
+
+<h3>Krivulje učenja i validacije</h3>
+<p><b>Krivulja validacije</b> (<code>validation_curve</code>) prikazuje rezultat na učenju i na validaciji u ovisnosti o <em>jednom hiperparametru</em>. Lijevo (jednostavan model) obje su krivulje loše i blizu – <b>podnaučenost</b>; desno (složen model) rezultat na učenju raste, a na validaciji pada – <b>prenaučenost</b>; optimum je između. <b>Krivulja učenja</b> (<code>learning_curve</code>) prikazuje iste dvije veličine u ovisnosti o <em>broju primjera za učenje</em>. Ako se krivulje s porastom podataka približavaju i obje su visoko, model je dobar; ako su obje nisko i blizu, više podataka neće pomoći – treba složeniji model ili bolje značajke; ako je jaz među njima velik, pomogli bi još podaci ili regularizacija.</p>
+
+<h3>Pristranost i varijanca</h3>
+<teorem naslov="razlaganje pristranost–varijanca">
+<p>Neka je $y=f(x)+\varepsilon$ sa šumom $\mathbb E[\varepsilon]=0$, $\operatorname{Var}\varepsilon=\sigma^2$, a $\hat f_D$ model naučen na slučajnom skupu za učenje $D$. Očekivana kvadratna greška u fiksnoj točki $x$ je
+$$\mathbb E_{D,\varepsilon}\big[(y-\hat f_D(x))^2\big]=\underbrace{\big(f(x)-\mathbb E_D[\hat f_D(x)]\big)^2}_{\text{pristranost}^2}+\underbrace{\mathbb E_D\big[(\hat f_D(x)-\mathbb E_D[\hat f_D(x)])^2\big]}_{\text{varijanca}}+\sigma^2 .$$</p>
+</teorem>
+<dokaz>
+<p>Označimo $\bar f(x)=\mathbb E_D[\hat f_D(x)]$ i raspišimo $y-\hat f_D=(f-\bar f)+(\bar f-\hat f_D)+\varepsilon$. Kvadriranjem i uzimanjem očekivanja svi mješoviti članovi nestaju: $\varepsilon$ je nezavisan od $D$ i ima očekivanje nula, a $\mathbb E_D[\bar f-\hat f_D]=0$ po definiciji $\bar f$. Ostaju tri kvadrata iz tvrdnje.</p>
+</dokaz>
+<p><b>Pristranost</b> (engl. <i>bias</i>) je sustavna greška: model je prejednostavan da bi opisao $f$ (pravac kroz sinusoidu). <b>Varijanca</b> je osjetljivost na slučajan izbor podataka: polinom visokog stupnja na drugih 30 točaka dao bi sasvim drugu krivulju. Složeniji model ima manju pristranost, a veću varijancu; optimalna složenost minimizira zbroj. Regularizacija, više podataka i usrednjavanje modela (ansambli iz lekcije M4) smanjuju varijancu; bogatiji model i bolje značajke smanjuju pristranost. Član $\sigma^2$ ne može smanjiti nitko.</p>
+
+<h3>Koja metrika?</h3>
+<p>Metrika je definicija uspjeha i mora odgovarati zadatku, a na natjecanju – <em>tekstu zadatka</em>; model treba birati i ugađati prema <em>toj</em> metrici (<code>scoring=</code> u <code>cross_val_score</code> i <code>GridSearchCV</code>). Grubi vodič: regresija – RMSE kažnjava velike greške, MAE je otporan na odstupanja, RMSLE kad su ciljevi raspona više redova veličine; klasifikacija – točnost samo uz uravnotežene klase, inače F1, uravnotežena točnost ili ROC-AUC (lekcija M3); kad se ocjenjuju vjerojatnosti, log-gubitak. Ako je metrika zadana, nema rasprave; ako nije, izaberi je prije prvog eksperimenta i ne mijenjaj je naknadno jer „bolje izgleda”.</p>
+
+<h3>Ponovljivost</h3>
+<p>Eksperiment koji ne možeš ponoviti ne možeš ni usporediti. Fiksiraj sjeme svugdje gdje postoji slučajnost: <code>random_state</code> u podjeli, u modelu i u pretraživanju; <code>np.random.default_rng(0)</code> za vlastiti kod. Dva eksperimenta uspoređuj na <em>istim</em> podjelama (isti <code>KFold</code> objekt) – razlika od pola postotka između dva modela na različitim podjelama ne znači ništa. Ipak, sjeme je i sredstvo ocjene pouzdanosti: na kraju ponovi najbolji postupak s nekoliko sjemena i gledaj raspon, ne samo prosjek.</p>
+
+<napomena>
+<b>Zamka natjecanja: javni leaderboard.</b> Na natjecanjima tipa Kaggle testni skup je podijeljen na <em>javni</em> dio (rezultat vidiš odmah) i <em>privatni</em> dio (odlučuje o poretku, otkriva se na kraju). Javni dio je mali testni skup koji „gledaš” pri svakom slanju – točno ono što smo gore zabranili. Tko bira model prema javnom leaderboardu, prilagođava se šumu tog malog uzorka i na privatnom dijelu redovito pada (Zadatak 8). Pravilo iskusnih natjecatelja: <em>vjeruj svojoj unakrsnoj validaciji</em>; javni rezultat je samo jedan dodatni dio, i to onaj koji si gledao previše puta. Na IOAI-ju, gdje je broj slanja ograničen, ista logika znači: svaki pokušaj mora prije slanja biti provjeren lokalno.
+</napomena>
+
+@@ primjeri
+<primjer izvor="skup podataka breast_cancer">
+<p>Na skupu <code>load_breast_cancer</code> ($569$ primjera, $30$ značajki, binarna klasifikacija) istreniraj logističku regresiju i procijeni njezinu točnost (a) jednom podjelom, (b) ponovljenom za 20 različitih <code>random_state</code>, (c) peterostrukom unakrsnom validacijom. Zatim pokaži zašto je kod klasifikacije potreban <code>StratifiedKFold</code>.</p>
+<rjesenje>
+<p><b>Korak 1: koliko jedna podjela ovisi o slučaju.</b> Model je cjevovod skaliranje + logistička regresija (zašto cjevovod, vidi Primjer 2). Istu procjenu ponavljamo za 20 različitih sjemena podjele.</p>
+<kod jezik="python">
+import numpy as np
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split, KFold, StratifiedKFold, cross_val_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+podaci = load_breast_cancer()
+X, y = podaci.data, podaci.target
+print(X.shape, "udio klase 1: %.3f" % y.mean())
+
+model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+tocnosti = []
+for sjeme in range(20):
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=sjeme)
+    tocnosti.append(model.fit(X_tr, y_tr).score(X_te, y_te))
+tocnosti = np.array(tocnosti)
+print("20 podjela: min %.3f  max %.3f  prosjek %.3f  std %.3f"
+      % (tocnosti.min(), tocnosti.max(), tocnosti.mean(), tocnosti.std()))
+</kod>
+<izlaz>
+(569, 30) udio klase 1: 0.627
+20 podjela: min 0.947  max 0.991  prosjek 0.975  std 0.011
+</izlaz>
+<p>Isti model, isti podaci, a izmjerena točnost varira za nekoliko postotaka samo zato što su u test završili drugi primjeri. Da si imao sreće sa sjemenom, prijavio bi rezultat koji model ne zaslužuje.</p>
+<p><b>Korak 2: unakrsna validacija.</b> Pet dijelova, svaki primjer jednom u validaciji; <code>shuffle=True</code> je nužan jer su podaci u mnogim skupovima sortirani.</p>
+<kod jezik="python">
+kf = KFold(n_splits=5, shuffle=True, random_state=0)
+rez = cross_val_score(model, X, y, cv=kf)
+print("po dijelovima:", rez.round(3))
+print("procjena: %.3f ± %.3f" % (rez.mean(), rez.std()))
+</kod>
+<izlaz>
+po dijelovima: [0.965 0.982 0.956 0.956 1.   ]
+procjena: 0.972 ± 0.017
+</izlaz>
+<p>Prosjek pet dijelova je stabilnija procjena od bilo koje pojedinačne podjele, a raspršenje među dijelovima odmah pokazuje koliko se procjeni može vjerovati – svaki rezultat prijavljuj kao „prosjek ± std”.</p>
+<p><b>Korak 3: stratifikacija.</b> Da bismo vidjeli problem, simuliramo česti slučaj: podaci sortirani po klasi i <code>KFold</code> bez miješanja. Ispisujemo udio klase 1 u svakom validacijskom dijelu.</p>
+<kod jezik="python">
+poredak = np.argsort(y, kind="stable")           # podaci sortirani po klasi
+X_s, y_s = X[poredak], y[poredak]
+for ime, cv in [("KFold bez miješanja", KFold(5)),
+                ("StratifiedKFold    ", StratifiedKFold(5))]:
+    udjeli = [y_s[te].mean() for _, te in cv.split(X_s, y_s)]
+    print(ime, np.round(udjeli, 2))
+print("StratifiedKFold:", cross_val_score(model, X_s, y_s, cv=StratifiedKFold(5)).mean().round(3))
+</kod>
+<izlaz>
+KFold bez miješanja [0.   0.14 1.   1.   1.  ]
+StratifiedKFold     [0.62 0.62 0.63 0.63 0.63]
+StratifiedKFold: 0.981
+</izlaz>
+<p>Bez miješanja prva dva dijela sadrže samo klasu 0, a zadnja tri samo klasu 1 – model se u svakom krugu ocjenjuje na klasi koja mu u učenju gotovo nedostaje. <code>StratifiedKFold</code> u svakom dijelu drži udio klasa jednak ukupnom. Kad u <code>cross_val_score</code> napišeš samo <code>cv=5</code>, scikit-learn za klasifikatore automatski koristi stratificiranu podjelu (bez miješanja!), a za regresiju običan <code>KFold</code>.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka digits">
+<p>(a) Pokaži na sintetičkom skupu kako odabir značajki prije unakrsne validacije stvara curenje podataka i kako ga <code>Pipeline</code> uklanja. (b) Na skupu <code>load_digits</code> ($1797$ slika znamenki $8\times8$) pronađi s <code>GridSearchCV</code> hiperparametre $C$ i $\gamma$ SVM-a s RBF jezgrom, pa isti posao obavi s <code>RandomizedSearchCV</code>.</p>
+<rjesenje>
+<p><b>Korak 1: curenje odabirom značajki.</b> Generiramo $100$ primjera s $2000$ značajki čistog šuma i <em>slučajne</em> oznake – nikakav model ne može biti bolji od 50 %. Zatim prvo odaberemo 20 značajki najkoreliranijih s oznakama na <em>cijelom</em> skupu i tek onda radimo unakrsnu validaciju.</p>
+<kod jezik="python">
+from sklearn.feature_selection import SelectKBest, f_classif
+
+rng = np.random.default_rng(0)
+X_sum = rng.normal(size=(100, 2000))
+y_sum = rng.integers(0, 2, size=100)
+
+odabir = SelectKBest(f_classif, k=20).fit(X_sum, y_sum)      # vidi SVE oznake
+X_odab = odabir.transform(X_sum)
+cv5 = StratifiedKFold(5, shuffle=True, random_state=0)
+print("odabir prije CV (curenje): %.3f" % cross_val_score(LogisticRegression(), X_odab, y_sum, cv=cv5).mean())
+
+cjevovod = make_pipeline(SelectKBest(f_classif, k=20), LogisticRegression())
+print("odabir unutar Pipeline:    %.3f" % cross_val_score(cjevovod, X_sum, y_sum, cv=cv5).mean())
+</kod>
+<izlaz>
+odabir prije CV (curenje): 0.810
+odabir unutar Pipeline:    0.520
+</izlaz>
+<p>S curenjem dobivamo točnost koja uvjerljivo „dokazuje” da u čistom šumu ima signala: od 2000 slučajnih stupaca uvijek se nađe 20 koji slučajno koreliraju s oznakama, uključujući i oznake validacijskog dijela. Unutar cjevovoda odabir se u svakom krugu ponavlja samo na dijelu za učenje i rezultat pada na očekivanih oko 50 %. Ista priča vrijedi za skaliranje, PCA i svako drugo pretprocesiranje.</p>
+<p><b>Korak 2: GridSearchCV.</b> Odvojimo pravi testni skup koji ćemo pogledati jednom, na kraju. SVM s RBF jezgrom ima dva ključna hiperparametra: $C$ (koliko kažnjavamo pogreške na učenju) i $\gamma$ (širina jezgre); oba pretražujemo logaritamski. Mreža $3\times3$ uz $5$ dijelova znači $45$ učenja.</p>
+<kod jezik="python">
+from sklearn.datasets import load_digits
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import SVC
+
+Xd, yd = load_digits(return_X_y=True)
+Xd_tr, Xd_te, yd_tr, yd_te = train_test_split(Xd, yd, test_size=0.2, random_state=0, stratify=yd)
+
+svm = make_pipeline(StandardScaler(), SVC())
+mreza = {"svc__C": [0.1, 1, 10], "svc__gamma": [0.001, 0.01, 0.1]}
+pretraga = GridSearchCV(svm, mreza, cv=cv5, scoring="accuracy")
+pretraga.fit(Xd_tr, yd_tr)
+print("najbolji:", pretraga.best_params_, " CV točnost %.4f" % pretraga.best_score_)
+
+rezultati = pretraga.cv_results_
+for p, m, s in zip(rezultati["params"], rezultati["mean_test_score"], rezultati["std_test_score"]):
+    print("C=%5g gamma=%5g   %.4f ± %.4f" % (p["svc__C"], p["svc__gamma"], m, s))
+print("test: %.4f" % pretraga.score(Xd_te, yd_te))
+</kod>
+<izlaz>
+najbolji: {'svc__C': 10, 'svc__gamma': 0.01}  CV točnost 0.9798
+C=  0.1 gamma=0.001   0.5121 ± 0.0528
+C=  0.1 gamma= 0.01   0.9325 ± 0.0126
+C=  0.1 gamma=  0.1   0.3528 ± 0.0468
+C=    1 gamma=0.001   0.9443 ± 0.0085
+C=    1 gamma= 0.01   0.9763 ± 0.0060
+C=    1 gamma=  0.1   0.9380 ± 0.0197
+C=   10 gamma=0.001   0.9791 ± 0.0110
+C=   10 gamma= 0.01   0.9798 ± 0.0060
+C=   10 gamma=  0.1   0.9394 ± 0.0197
+test: 0.9861
+</izlaz>
+<p>Tablica je važnija od samog pobjednika: pokazuje da je $\gamma=0{,}1$ loš izbor za svaki $C$ (preuska jezgra – model pamti pojedine primjere), da je uz $\gamma=0{,}001$ potreban veći $C$, i da je razlika između nekoliko najboljih kombinacija manja od njihove standardne devijacije – njih ne možemo pouzdano razlikovati. Rezultat na odvojenom testu blizu je validacijskom, kako i treba.</p>
+<p><b>Korak 3: RandomizedSearchCV.</b> Umjesto mreže zadajemo razdiobe; <code>loguniform</code> uzorkuje jednoliko po logaritmu. S $12$ pokušaja pokrivamo šire područje nego mreža s $9$ točaka.</p>
+<kod jezik="python">
+from scipy.stats import loguniform
+from sklearn.model_selection import RandomizedSearchCV
+
+razdiobe = {"svc__C": loguniform(1e-2, 1e3), "svc__gamma": loguniform(1e-4, 1e0)}
+slucajna = RandomizedSearchCV(svm, razdiobe, n_iter=12, cv=cv5, random_state=0)
+slucajna.fit(Xd_tr, yd_tr)
+print("najbolji: C=%.3g gamma=%.3g   CV točnost %.4f"
+      % (slucajna.best_params_["svc__C"], slucajna.best_params_["svc__gamma"], slucajna.best_score_))
+print("test: %.4f" % slucajna.score(Xd_te, yd_te))
+</kod>
+<izlaz>
+najbolji: C=658 gamma=0.00342   CV točnost 0.9791
+test: 0.9833
+</izlaz>
+<p>Slučajno pretraživanje našlo je kombinaciju jednako dobru kao mreža, a da smo imali još tri-četiri hiperparametra (stupanj jezgre, odabir značajki, …), prednost bi bila očita. Dobra praksa je dvofazno: grubo slučajno pretraživanje na širokom području, zatim fina mreža oko najboljeg.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka digits">
+<p>Za SVM iz Primjera 2 nacrtaj krivulju validacije po $\gamma$ i krivulju učenja za najbolji model. Pročitaj iz njih područja podnaučenosti i prenaučenosti te procijeni bi li više podataka pomoglo.</p>
+<rjesenje>
+<p><b>Korak 1: krivulja validacije.</b> <code>validation_curve</code> vraća matrice oblika (broj vrijednosti, broj dijelova) za učenje i validaciju.</p>
+<kod jezik="python">
+from sklearn.model_selection import validation_curve, learning_curve
+
+game = np.logspace(-4, 0, 7)
+uc, va = validation_curve(make_pipeline(StandardScaler(), SVC(C=10)), Xd_tr, yd_tr,
+                          param_name="svc__gamma", param_range=game, cv=cv5)
+print("   gamma   učenje  validacija")
+for g, u, v in zip(game, uc.mean(1), va.mean(1)):
+    print("%8.4f   %.3f    %.3f" % (g, u, v))
+</kod>
+<izlaz>
+   gamma   učenje  validacija
+  0.0001   0.953    0.944
+  0.0005   0.986    0.969
+  0.0022   0.995    0.981
+  0.0100   1.000    0.980
+  0.0464   1.000    0.974
+  0.2154   1.000    0.767
+  1.0000   1.000    0.158
+</izlaz>
+<p>Za male $\gamma$ obje su točnosti slične i niže – model je preglatka (podnaučen). Oko $\gamma\approx0{,}002$–$0{,}01$ validacija je najviša. Za $\gamma\ge0{,}2$ točnost na učenju je $1{,}000$, a validacijska se strmoglavljuje – klasična prenaučenost: svaka točka za učenje dobila je vlastiti „brežuljak” jezgre koji ne pokriva nijednog susjeda.</p>
+<p><b>Korak 2: krivulja učenja.</b> Isti model s najboljim $\gamma$, a mijenjamo udio podataka za učenje.</p>
+<kod jezik="python">
+najbolji = make_pipeline(StandardScaler(), SVC(C=10, gamma=0.001))
+velicine, uc2, va2 = learning_curve(najbolji, Xd_tr, yd_tr, cv=cv5,
+                                    train_sizes=np.linspace(0.1, 1.0, 6))
+print("  n   učenje  validacija")
+for n_, u, v in zip(velicine, uc2.mean(1), va2.mean(1)):
+    print("%4d   %.3f    %.3f" % (n_, u, v))
+</kod>
+<izlaz>
+  n   učenje  validacija
+ 114   0.989    0.881
+ 321   0.983    0.952
+ 528   0.988    0.962
+ 735   0.989    0.974
+ 942   0.991    0.975
+1149   0.991    0.979
+</izlaz>
+<p>Točnost na učenju je oko $0{,}99$ bez obzira na $n$ (SVM s ovim $\gamma$ ima dovoljno kapaciteta da gotovo savršeno nauči bilo koji od ovih skupova), a validacijska s količinom podataka raste – od $0{,}88$ sa $114$ primjera do $0{,}98$ sa svima – i još nije zasićena – jaz se zatvara, pa bi <em>više podataka</em> ovom modelu još pomoglo. Da su obje krivulje bile na, recimo, $0{,}90$ i spojene, podaci ne bi pomogli; trebalo bi mijenjati model.</p>
+<p><b>Korak 3: slika.</b> Na natjecanju ove dvije slike nacrtaj za svaki ozbiljan model – iz njih se u pet sekundi vidi što dalje: više podataka, više regularizacije ili drugi model.</p>
+<kod jezik="python">
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.4))
+a1.semilogx(game, uc.mean(1), "o-", label="učenje")
+a1.semilogx(game, va.mean(1), "s-", label="validacija")
+a1.set_xlabel("gamma"); a1.set_ylabel("točnost"); a1.set_title("krivulja validacije"); a1.legend()
+a2.plot(velicine, uc2.mean(1), "o-", label="učenje")
+a2.plot(velicine, va2.mean(1), "s-", label="validacija")
+a2.fill_between(velicine, va2.mean(1) - va2.std(1), va2.mean(1) + va2.std(1), alpha=0.2)
+a2.set_xlabel("broj primjera za učenje"); a2.set_title("krivulja učenja"); a2.legend()
+fig.tight_layout()
+fig.savefig("krivulje.png", dpi=120)
+print("spremljeno krivulje.png")
+</kod>
+<izlaz>
+spremljeno krivulje.png
+</izlaz>
+<p>Na lijevoj slici vidi se karakteristični „šator” validacijske krivulje s vrhom oko $10^{-3}$ i krivulja učenja koja desno od vrha ostaje na jedinici. Na desnoj je krivulja učenja gotovo ravna crta pri vrhu, a validacijska raste prema njoj; osjenčana vrpca je $\pm$ jedna standardna devijacija po dijelovima.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p><code>GridSearchCV</code> dobije mrežu <code>{"C": [0.01, 0.1, 1, 10], "gamma": [1e-4, 1e-3, 1e-2, 1e-1, 1]}</code> i <code>cv=5</code>. Koliko će puta model biti istreniran? Koliko kod <code>RandomizedSearchCV</code> s <code>n_iter=15</code> i istim <code>cv</code>? Provjeri na malom primjeru brojeći redove u <code>cv_results_</code>.</p>
+<rjesenje>
+<p>Mreža ima $4\cdot5=20$ kombinacija, svaka se ocjenjuje na $5$ dijelova: $100$ učenja, plus jedno završno učenje najboljeg modela na cijelom skupu (<code>refit=True</code>), ukupno $101$. Slučajno pretraživanje: $15\cdot5+1=76$. U <code>cv_results_</code> jedan je redak po kombinaciji, dakle $20$ odnosno $15$.</p>
+<kod jezik="python">
+mala = GridSearchCV(SVC(), {"C": [0.01, 0.1, 1, 10], "gamma": [1e-4, 1e-3, 1e-2, 1e-1, 1]}, cv=5)
+mala.fit(X[:200], y[:200])
+k = len(mala.cv_results_["params"])
+print("kombinacija:", k, " učenja:", k * 5 + 1)
+</kod>
+<izlaz>
+kombinacija: 20  učenja: 101
+</izlaz>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>U kojim od sljedećih postupaka curi informacija i kako bi ih popravio? (a) <code>StandardScaler().fit(X)</code> na cijelom skupu, pa <code>train_test_split</code>. (b) Nedostajuće vrijednosti popunjene medijanom stupca izračunatim na cijelom skupu. (c) U zadatku predviđanja hoće li pacijent biti ponovno primljen u bolnicu, jedna značajka je „broj dana do sljedećeg prijema”. (d) Vremenski niz prodaje podijeljen s <code>KFold(shuffle=True)</code>. (e) Skup slika u kojem se ista fotografija pojavljuje u različitim rezolucijama, podijeljen slučajno po slikama.</p>
+<rjesenje>
+<p>Sve curi. (a) i (b): statistike validacijskih/testnih primjera ušle su u transformaciju – staviti <code>StandardScaler</code>/<code>SimpleImputer</code> u <code>Pipeline</code>. (c) Značajka je izvedena iz cilja (poznata je tek <em>nakon</em> događaja koji predviđamo) – izbaciti je; takve značajke daju nerealno savršene rezultate. (d) Model uči na budućnosti i predviđa prošlost; interpolacija između susjednih dana je lagana, a stvarni zadatak je ekstrapolacija – koristiti <code>TimeSeriesSplit</code>. (e) Gotovo iste slike na obje strane podjele; model „prepoznaje” sliku, ne pojam – grupirati inačice iste slike i koristiti <code>GroupKFold</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za svaki zadatak predloži metriku i objasni zašto točnost (engl. <i>accuracy</i>) nije dobar izbor gdje nije: (a) otkrivanje prijevara s kreditnim karticama, $0{,}2$ % prijevara; (b) predviđanje cijene nekretnina od 50 tisuća do 20 milijuna; (c) rangiranje e-mailova po vjerojatnosti da su važni; (d) klasifikacija 10 vrsta ptica s podjednako primjera; (e) model čije izlazne vjerojatnosti ulaze u daljnji proračun rizika.</p>
+<rjesenje>
+<p>(a) Točnost $99{,}8$ % postiže model koji nikad ne prijavi prijevaru; koristi preciznost/odziv, F1 ili površinu ispod krivulje preciznost–odziv (PR-AUC). (b) Kvadratna greška bila bi dominirana vilama; RMSLE ili MAE na $\log$ cijene mjeri <em>relativnu</em> grešku. (c) Zanima nas poredak, ne prag – ROC-AUC (vjerojatnost da je slučajan važan e-mail rangiran iznad nevažnoga). (d) Uravnotežene klase – točnost je u redu, makro-F1 ako želimo paziti na svaku klasu. (e) Potrebne su kalibrirane vjerojatnosti – log-gubitak (engl. <i>log loss</i>) ili Brierov rezultat, jer točnost ignorira koliko je model siguran.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši vlastitu funkciju <code>moja_cv(model, X, y, k, sjeme)</code> koja provodi $k$-struku unakrsnu validaciju bez <code>cross_val_score</code>: promiješaj indekse, podijeli ih s <code>np.array_split</code>, u svakom krugu kloniraj model (<code>sklearn.base.clone</code>) i vrati niz točnosti. Usporedi s <code>cross_val_score</code> na skupu <code>breast_cancer</code>.</p>
+<rjesenje>
+<kod jezik="python">
+from sklearn.base import clone
+
+def moja_cv(model, X, y, k, sjeme):
+    idx = np.random.default_rng(sjeme).permutation(len(y))
+    dijelovi = np.array_split(idx, k)
+    rez = []
+    for i in range(k):
+        te = dijelovi[i]
+        tr = np.concatenate([d for j, d in enumerate(dijelovi) if j != i])
+        m = clone(model).fit(X[tr], y[tr])
+        rez.append(m.score(X[te], y[te]))
+    return np.array(rez)
+
+r1 = moja_cv(model, X, y, 5, 0)
+r2 = cross_val_score(model, X, y, cv=KFold(5, shuffle=True, random_state=0))
+print("moja_cv:         %.4f ± %.4f" % (r1.mean(), r1.std()))
+print("cross_val_score: %.4f ± %.4f" % (r2.mean(), r2.std()))
+</kod>
+<izlaz>
+moja_cv:         0.9789 ± 0.0071
+cross_val_score: 0.9719 ± 0.0170
+</izlaz>
+<p>Procjene se razlikuju za manje od jednog postotka iako podjele nisu iste (dva različita generatora slučajnih brojeva). Kloniranje je bitno: <code>fit</code> na istom objektu prepisao bi prethodni model, a kod cjevovoda bi i skaler „pamtio” prethodni dio.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Usporedi logističku regresiju i $k$-najbližih susjeda (<code>KNeighborsClassifier(5)</code>) na skupu <code>breast_cancer</code> pomoću <code>RepeatedStratifiedKFold(n_splits=5, n_repeats=10)</code>. Oba modela ocijeni na <em>istim</em> podjelama, izračunaj razliku točnosti po dijelu te prosjek i standardnu devijaciju tih razlika. Je li razlika stvarna ili šum?</p>
+<rjesenje>
+<kod jezik="python">
+from sklearn.model_selection import RepeatedStratifiedKFold
+from sklearn.neighbors import KNeighborsClassifier
+
+rskf = RepeatedStratifiedKFold(n_splits=5, n_repeats=10, random_state=0)
+knn = make_pipeline(StandardScaler(), KNeighborsClassifier(5))
+a = cross_val_score(model, X, y, cv=rskf)
+b = cross_val_score(knn, X, y, cv=rskf)
+d = a - b
+print("logistička %.4f   kNN %.4f" % (a.mean(), b.mean()))
+print("razlika po dijelu: %.4f ± %.4f  (pozitivna u %d od %d dijelova)"
+      % (d.mean(), d.std(), (d > 0).sum(), len(d)))
+</kod>
+<izlaz>
+logistička 0.9772   kNN 0.9666
+razlika po dijelu: 0.0106 ± 0.0178  (pozitivna u 33 od 50 dijelova)
+</izlaz>
+<p>Isti objekt <code>rskf</code> daje identične podjele za oba modela (sjeme je fiksirano), pa su razlike <em>uparene</em>: šum zbog izbora dijela poništava se. Prosjek razlike reda jednog postotka uz standardnu devijaciju sličnog reda te većina dijelova u korist logističke regresije kažu da razlika postoji, ali je mala; $50$ ocjena nije mnogo pa ne treba pretjerivati s pouzdanošću (dijelovi istog ponavljanja nisu nezavisni). Da si modele ocijenio na različitim podjelama, u razliku bi ušao i šum podjele i zaključak bi bio nepouzdaniji.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Eksperimentalno provjeri razlaganje pristranost–varijanca. Za $f(x)=\sin(2\pi x)$ na $[0,1]$ generiraj $300$ nezavisnih skupova za učenje od po $30$ točaka sa šumom $\sigma=0{,}3$. Za polinome stupnja $1$, $3$, $6$ i $9$ izračunaj na mreži od $100$ testnih točaka u $[0{,}05,\,0{,}95]$ prosječnu kvadratnu pristranost, prosječnu varijancu te očekivanu testnu grešku (sa šumom $\sigma^2$). Provjeri da je greška jednaka zbroju triju članova.</p>
+<naputak>Spremi predikcije svih $300$ modela u matricu oblika $(300,100)$; pristranost je kvadrat razlike njezina prosjeka po stupcima i $f$, varijanca je varijanca po stupcima.</naputak>
+<rjesenje>
+<kod jezik="python">
+from sklearn.preprocessing import PolynomialFeatures
+
+rng = np.random.default_rng(0)
+mreza_x = np.linspace(0.05, 0.95, 100)
+f_ist = np.sin(2 * np.pi * mreza_x)
+sigma = 0.3
+print("stupanj  bias^2   varijanca  sigma^2  zbroj   test MSE")
+for st in (1, 3, 6, 9):
+    pf = PolynomialFeatures(st)
+    A_te = pf.fit_transform(mreza_x[:, None])
+    pred = np.empty((300, 100))
+    for r in range(300):
+        xs = rng.uniform(0, 1, 30)
+        ys = np.sin(2 * np.pi * xs) + rng.normal(0, sigma, 30)
+        w, *_ = np.linalg.lstsq(pf.transform(xs[:, None]), ys, rcond=None)
+        pred[r] = A_te @ w
+    bias2 = np.mean((pred.mean(0) - f_ist) ** 2)
+    var = np.mean(pred.var(0))
+    y_te = f_ist + rng.normal(0, sigma, size=pred.shape)   # svježi šum za svaki model
+    mse = np.mean((pred - y_te) ** 2)
+    print("%6d  %7.4f  %9.4f  %7.4f  %6.4f  %8.4f" % (st, bias2, var, sigma**2, bias2 + var + sigma**2, mse))
+</kod>
+<izlaz>
+stupanj  bias^2   varijanca  sigma^2  zbroj   test MSE
+     1   0.1543     0.0212   0.0900  0.2654    0.2648
+     3   0.0030     0.0127   0.0900  0.1057    0.1067
+     6   0.0002     0.0315   0.0900  0.1217    0.1220
+     9   0.0221     6.5913   0.0900  6.7033    6.6896
+</izlaz>
+<p>Pravac ima veliku pristranost i malu varijancu; sa stupnjem pristranost pada prema nuli, a varijanca raste – za stupanj $9$ ($10$ parametara iz $30$ šumovitih točaka) eksplodira jer polinom između točaka i uz rubove divlja, pa i prosjek predikcija postaje nepouzdan. Stupanj $3$ ima najmanji zbroj. Zbroj triju članova poklapa se s izravno izmjerenom testnom greškom do na slučajnu grešku uzorka, što je upravo tvrdnja teorema. Primijeti da je član $\sigma^2=0{,}09$ donja granica koju nijedan model ne može probiti.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Rezultat <code>best_score_</code> iz <code>GridSearchCV</code> optimistična je procjena jer je izabran kao najbolji među mnogima. Pokaži to <b>ugniježđenom unakrsnom validacijom</b> na skupu <code>breast_cancer</code> sa SVM-om: vanjska petlja (5 dijelova) ocjenjuje cijeli postupak „pretraži hiperparametre pa predvidi”, unutarnja (3 dijela) bira hiperparametre. Usporedi s <code>best_score_</code> dobivenim pretraživanjem na cijelom skupu.</p>
+<naputak><code>GridSearchCV</code> je i sam estimator – može se predati u <code>cross_val_score</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+mreza2 = {"svc__C": [0.1, 1, 10, 100], "svc__gamma": [0.001, 0.01, 0.1]}
+unutarnja = StratifiedKFold(3, shuffle=True, random_state=1)
+vanjska = StratifiedKFold(5, shuffle=True, random_state=2)
+gs = GridSearchCV(make_pipeline(StandardScaler(), SVC()), mreza2, cv=unutarnja)
+
+gs.fit(X, y)
+print("neugniježđeno (best_score_): %.4f" % gs.best_score_)
+ugn = cross_val_score(gs, X, y, cv=vanjska)
+print("ugniježđeno:                 %.4f ± %.4f" % (ugn.mean(), ugn.std()))
+</kod>
+<izlaz>
+neugniježđeno (best_score_): 0.9771
+ugniježđeno:                 0.9737 ± 0.0229
+</izlaz>
+<p>Ugniježđena procjena niža je od <code>best_score_</code>: maksimum od 12 šumovitih procjena pristran je prema gore, kao što je i najbolji od 12 bacanja kocke veći od prosjeka. Razlika je ovdje mala jer su kombinacije u mreži slične i skup je relativno lak; s velikim mrežama i malim skupovima zna biti nekoliko postotaka. Pouka: broj koji prijavljuješ ne smije biti onaj po kojem si birao – zato i postoji odvojeni testni skup.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><b>Simulacija javnog leaderboarda.</b> Testni skup ima $2000$ binarnih oznaka; organizator $400$ nasumično odabranih stavlja u javni dio, ostalih $1600$ u privatni. Natjecatelj pošalje $200$ rješenja koja su <em>sva jednako dobra</em>: svako pogađa svaku oznaku nezavisno s vjerojatnošću $0{,}7$. Odabere ono s najboljim javnim rezultatom. Koliki je njegov javni, a koliki privatni rezultat? Što bi dobio da je umjesto najboljeg uzeo većinsko glasanje (engl. <i>majority vote</i>) svih 200 rješenja? Objasni oba učinka.</p>
+<naputak>Očekivana točnost svakog rješenja je $0{,}7$ na oba dijela; javni rezultat najboljeg među 200 je <em>maksimum</em> 200 slučajnih varijabli.</naputak>
+<rjesenje>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+n, n_jav = 2000, 400
+istina = rng.integers(0, 2, n)
+javni = np.zeros(n, bool); javni[rng.choice(n, n_jav, replace=False)] = True
+
+pogodak = rng.random((200, n)) < 0.7                 # 200 rješenja, svako pogađa 70 % oznaka
+rjesenja = np.where(pogodak, istina, 1 - istina)
+toc_jav = (rjesenja[:, javni] == istina[javni]).mean(1)
+toc_priv = (rjesenja[:, ~javni] == istina[~javni]).mean(1)
+
+naj = toc_jav.argmax()
+print("najbolje po javnom:  javni %.3f   privatni %.3f" % (toc_jav[naj], toc_priv[naj]))
+print("prosjek svih 200:    javni %.3f   privatni %.3f" % (toc_jav.mean(), toc_priv.mean()))
+glasanje = (rjesenja.mean(0) > 0.5).astype(int)
+print("većinsko glasanje:   javni %.3f   privatni %.3f"
+      % ((glasanje[javni] == istina[javni]).mean(), (glasanje[~javni] == istina[~javni]).mean()))
+</kod>
+<izlaz>
+najbolje po javnom:  javni 0.755   privatni 0.700
+prosjek svih 200:    javni 0.701   privatni 0.699
+većinsko glasanje:   javni 1.000   privatni 1.000
+</izlaz>
+<p>Dva učinka. <em>Prvi:</em> javni rezultat pobjednika je za nekoliko postotaka iznad njegove stvarne kvalitete – to je maksimum od 200 šumovitih mjerenja na uzorku od 400 (standardna devijacija jednog mjerenja je $\sqrt{0{,}7\cdot0{,}3/400}\approx0{,}023$), a na privatnom dijelu pada natrag na oko $0{,}70$. Natjecatelj koji je rangiran po javnom rezultatu bit će na privatnom „iznenađen”. <em>Drugi:</em> većinsko glasanje 200 nezavisnih rješenja točnih $70$ % vremena točno je gotovo uvijek – greške se poništavaju (to je ideja ansambala iz M4 i razlog zašto se na kraju natjecanja usrednjavaju najbolja rješenja). U stvarnosti rješenja nisu nezavisna, pa je dobitak manji, ali smjer je isti: ne biraj po javnom rezultatu, kombiniraj po vlastitoj validaciji.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Testna točnost je slučajna varijabla: ovisi o tome kojih je $114$ primjera završilo u testu. Procijeni njezinu nesigurnost <b>bootstrapom</b>: iz testnih predikcija modela uzorkuj s vraćanjem $2000$ puta po $114$ indeksa, izračunaj točnost svakog uzorka i navedi 95 %-tni interval (2,5. i 97,5. percentil). Napravi to za logističku regresiju i kNN na istoj podjeli skupa <code>breast_cancer</code> te za <em>razliku</em> njihovih točnosti. Može li se iz ovog testa zaključiti koji je model bolji?</p>
+<naputak>Za razliku uzorkuj iste indekse za oba modela (upareno).</naputak>
+<rjesenje>
+<kod jezik="python">
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=3, stratify=y)
+p_log = model.fit(X_tr, y_tr).predict(X_te)
+p_knn = knn.fit(X_tr, y_tr).predict(X_te)
+tocni_log, tocni_knn = (p_log == y_te), (p_knn == y_te)
+
+rng = np.random.default_rng(0)
+idx = rng.integers(0, len(y_te), size=(2000, len(y_te)))
+boot_log = tocni_log[idx].mean(1)
+boot_knn = tocni_knn[idx].mean(1)
+def interval(v):
+    return "%.3f  [%.3f, %.3f]" % (v.mean(), *np.percentile(v, [2.5, 97.5]))
+print("logistička:", interval(boot_log))
+print("kNN:       ", interval(boot_knn))
+print("razlika:   ", interval(boot_log - boot_knn))
+</kod>
+<izlaz>
+logistička: 0.973  [0.939, 1.000]
+kNN:        0.974  [0.939, 1.000]
+razlika:    -0.001  [-0.035, 0.035]
+</izlaz>
+<p>Interval širok oko $\pm3$ postotna boda na $114$ primjera: razlike između modela od jednog ili dva postotka na ovakvom testu naprosto se ne mogu razlučiti od šuma, a interval za razliku sadrži nulu. To je ključna lekcija za natjecanja s malim testnim skupovima: ne mijenjaj model zbog razlike koja je unutar intervala, i prije no što prijaviš „poboljšanje” pogledaj koliko je testni skup velik. Veći testni skup (ili unakrsna validacija na svim podacima) sužava interval s $\sqrt{n}$.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Tri skupa: na učenju se uče parametri, na validaciji se donose <em>sve</em> odluke, test se gleda jednom. Sve što utječe na model mora se odlučiti bez testa.</li>
+<li>Unakrsna validacija (<code>KFold</code>, <code>StratifiedKFold</code>, <code>GroupKFold</code>, <code>TimeSeriesSplit</code>) daje stabilniju procjenu i njezino raspršenje; rezultat prijavljuj kao prosjek ± std i uspoređuj modele na istim podjelama.</li>
+<li>Svako pretprocesiranje koje se uči iz podataka ide u <code>Pipeline</code>, inače curi informacija iz validacije; sumnjivo dobar rezultat gotovo uvijek znači curenje.</li>
+<li><code>GridSearchCV</code> za malo hiperparametara, <code>RandomizedSearchCV</code> za više; logaritamska skala za $C$, $\gamma$, $\lambda$; <code>best_score_</code> je optimističan, ugniježđena validacija ili odvojeni test daju pošten broj.</li>
+<li>Krivulja validacije pokazuje podnaučenost/prenaučenost po hiperparametru, krivulja učenja kaže bi li pomogli još podaci; iza toga stoji razlaganje greške na pristranost², varijancu i šum.</li>
+<li>Metriku diktira zadatak; eksperimente fiksiraj sjemenom; vjeruj svojoj validaciji, ne javnom leaderboardu.</li>
+</ul>
+
+@@ literatura
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/cross_validation.html">Cross-validation</a>, <a href="https://scikit-learn.org/stable/modules/grid_search.html">Tuning the hyper-parameters of an estimator</a> i <a href="https://scikit-learn.org/stable/common_pitfalls.html">Common pitfalls and recommended practices</a> (curenje podataka).</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 2 (cjelovit projekt s validacijom i pretraživanjem hiperparametara).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlje 7 (Model Assessment and Selection) – pristranost–varijanca i unakrsna validacija s dokazima.</li>
+<li>J. Bergstra, Y. Bengio, <i>Random Search for Hyper-Parameter Optimization</i>, JMLR 13 (2012) – zašto je slučajno pretraživanje bolje od mreže.</li>
