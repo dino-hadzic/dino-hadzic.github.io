@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Python i alati 4: pandas: tablični podaci</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#python">Python i alati</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Python i alati · lekcija 4 od 6</p>
+            <h1><span class="broj-lekcije">P4</span> pandas: tablični podaci</h1>
+            <p class="meta">Series i DataFrame: čitanje, odabir, čišćenje, grupiranje, spajanje i priprema tablice za scikit-learn</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.6" title="razina nacionalnog izbora i kvalifikacija">Razina: Srednje</li>
+                <li>Series</li>
+                <li>DataFrame</li>
+                <li>loc/iloc</li>
+                <li>nedostajuće vrijednosti</li>
+                <li>groupby</li>
+                <li>merge</li>
+                <li>get_dummies</li>
+                <li>$X$ i $y$</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Razlikovati <code>Series</code> i <code>DataFrame</code>, učitati CSV i brzo upoznati tablicu (<code>head</code>, <code>info</code>, <code>describe</code>, <code>value_counts</code>).</li>
+<li>Odabirati retke i stupce s <code>loc</code>/<code>iloc</code> i logičkim maskama te pronaći i obraditi nedostajuće vrijednosti (<code>isna</code>, <code>fillna</code>, <code>dropna</code>).</li>
+<li>Grupirati i agregirati (<code>groupby</code>/<code>agg</code>), spajati tablice (<code>merge</code>), sortirati i primjenjivati funkcije (<code>apply</code>).</li>
+<li>Kodirati kategoričke varijable (<code>get_dummies</code>) i iz tablice složiti matricu značajki $X$ i vektor cilja $y$ za scikit-learn.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>NumPy polje (lekcija P3) je homogeno: svi elementi istog su tipa i nemaju imena. Stvarni podaci rijetko izgledaju tako – tablica s natjecanja ima stupce različitih tipova (brojevi, tekst, datumi), imena stupaca, rupe gdje vrijednost nedostaje i retke koje treba spojiti s drugom tablicom. Za to služi biblioteka <b>pandas</b>: tablica s imenovanim stupcima i redcima, iza koje i dalje stoje NumPy polja (po jedno po stupcu), pa je sve što znaš o vektorizaciji i dalje istina. Na IOAI tabularni zadaci u pravilu dolaze kao CSV datoteke; pandas je alat kojim ih pretvoriš u $X$ i $y$ za model.</p>
+
+<h3>Series i DataFrame</h3>
+<div class="pojam">
+<h4>Series i DataFrame</h4>
+<p><b>Series</b> je jednodimenzionalni niz vrijednosti istog tipa (<code>dtype</code>) uz <b>indeks</b> – niz oznaka redaka. <b>DataFrame</b> je tablica: uređeni rječnik Seriesa (stupaca) koji dijele isti indeks. Stupac <code>df["ime"]</code> je Series, redak <code>df.loc[oznaka]</code> također (s imenima stupaca kao indeksom), a <code>df.to_numpy()</code> vraća golo NumPy polje.</p>
+</div>
+<p>Zadani indeks je <code>RangeIndex</code> $0,1,\dots,n-1$, ali indeks može biti bilo što (imena, datumi). Ključna razlika prema NumPy-ju: <em>oznaka retka nije njegov položaj</em>. Nakon filtriranja redaka indeks ostaje „rupičast” ($0,2,5,\dots$), a aritmetika između dva Seriesa <b>poravnava se po indeksu</b>, ne po položaju – gdje se oznake ne poklope, rezultat je <code>NaN</code>. Kad ti indeks ne znači ništa, vrati ga u $0,\dots,n-1$ s <code>reset_index(drop=True)</code>.</p>
+
+<h3>Čitanje i prvi pogled</h3>
+<p><code>pd.read_csv(put)</code> čita datoteku ili bilo koji objekt s metodom <code>read</code>, pa i <code>io.StringIO(tekst)</code> – tako se u lekcijama tablica može zadati izravno u kodu. Važniji parametri: <code>sep</code> (razdjelnik, zadano zarez), <code>header</code>/<code>names</code> (ima li zaglavlje), <code>na_values</code> (koji se tekst čita kao nedostajuća vrijednost), <code>dtype</code>. Prvih pet minuta s novom tablicom uvijek izgleda isto:</p>
+<ul>
+<li><code>df.shape</code>, <code>df.head()</code>, <code>df.dtypes</code> – koliko redaka i stupaca, kako izgledaju, je li svaki stupac dobrog tipa (broj zapisan kao tekst znak je prljavih podataka);</li>
+<li><code>df.info()</code> – isto plus broj ne-praznih vrijednosti po stupcu;</li>
+<li><code>df.describe()</code> – prosjek, standardna devijacija, minimum, kvartili i maksimum numeričkih stupaca; <code>describe(include="object")</code> za tekstualne;</li>
+<li><code>df["stupac"].value_counts()</code> – frekvencije kategorija (uz <code>normalize=True</code> udjeli); ovdje se vidi neuravnoteženost klasa.</li>
+</ul>
+
+<h3>Odabir: loc, iloc i maske</h3>
+<div class="pojam">
+<h4>loc i iloc</h4>
+<p><code>df.loc[retci, stupci]</code> bira <b>po oznakama</b> (indeks i imena stupaca); rez <code>loc[a:b]</code> <em>uključuje</em> oba kraja. <code>df.iloc[retci, stupci]</code> bira <b>po položajima</b> (cijeli brojevi), kao u NumPy-ju – rez <code>iloc[a:b]</code> isključuje $b$. Oba primaju pojedinačnu vrijednost, listu, rez ili logičku masku.</p>
+</div>
+<p><b>Filtriranje</b> je logička maska: <code>df[df["dob"] &gt; 18]</code>. Uvjeti se spajaju s <code>&amp;</code>, <code>|</code> i <code>~</code> (ne <code>and</code>/<code>or</code>), svaki u zagradama. Pomoćne metode: <code>isin(lista)</code>, <code>between(a, b)</code>, <code>str.contains(…)</code> za tekst.</p>
+<div class="trener-umetak">
+<p>Pri <em>pisanju</em> u dio tablice uvijek koristi jedan poziv <code>df.loc[maska, "stupac"] = vrijednost</code>. Lančani oblik <code>df[maska]["stupac"] = …</code> može mijenjati kopiju umjesto izvorne tablice (pandas tada ispisuje <code>SettingWithCopyWarning</code>) i na natjecanju je to klasičan tihi bug. Kad od tablice napraviš podskup koji ćeš dalje mijenjati, napravi <code>.copy()</code>.</p>
+</div>
+
+<h3>Nedostajuće vrijednosti</h3>
+<p>Prazna ćelija u CSV-u postaje <code>NaN</code> (<i>not a number</i>, tipa <code>float</code>), pa stupac cijelih brojeva s jednom rupom postaje <code>float64</code>. Alati: <code>df.isna()</code> daje tablicu istina/laž (pa <code>df.isna().sum()</code> broji rupe po stupcu), <code>df.dropna()</code> briše retke s rupom (<code>subset=[…]</code> gleda samo neke stupce, <code>axis=1</code> briše stupce), <code>df["s"].fillna(v)</code> popunjava zadanom vrijednošću. Modeli u scikit-learnu ne prihvaćaju <code>NaN</code>, pa se prije učenja uvijek mora odlučiti: izbaciti ili <b>imputirati</b> (engl. <i>impute</i>) – numeričke stupce tipično medijanom, kategoričke najčešćom vrijednošću (<code>mode()[0]</code>). Često je korisno i dodati stupac-indikator „vrijednost je nedostajala”: sama činjenica da nešto nije izmjereno može nositi informaciju.</p>
+<div class="trener-umetak">
+<p>Statistiku za popunjavanje (medijan, prosjek) računaj <em>samo na skupu za učenje</em> i istu vrijednost primijeni na test. Ako medijan računaš na svim podacima, informacija iz testa „procuri” u učenje (engl. <i>data leakage</i>) i procjena točnosti postaje preoptimistična – lekcija M5.</p>
+</div>
+
+<h3>Grupiranje, agregiranje, spajanje</h3>
+<p><code>groupby</code> provodi obrazac <b>podijeli – primijeni – spoji</b>: tablica se podijeli po vrijednostima ključa, na svaku grupu primijeni se funkcija, rezultati se spoje u novu tablicu. Za grupu $g$ s $|g|$ redaka prosjek je $\bar x_g=\frac1{|g|}\sum_{i\in g}x_i$; <code>df.groupby("k")["x"].mean()</code> računa sve $\bar x_g$ odjednom. Više statistika daje <code>agg(["mean", "std", "count"])</code> ili imenovane agregacije <code>agg(prosjek=("x", "mean"))</code>. Kad rezultat treba vratiti u <em>svaki redak</em> (npr. oduzeti prosjek grupe), koristi <code>groupby(…)["x"].transform("mean")</code>, koji vraća Series iste duljine kao tablica.</p>
+<p><code>pd.merge(a, b, on="kljuc", how=…)</code> spaja dvije tablice po zajedničkom stupcu kao SQL <i>join</i>: <code>how="inner"</code> zadržava samo ključeve prisutne u objema, <code>"left"</code> sve retke lijeve (desno nepostojeće postaje <code>NaN</code>), <code>"outer"</code> sve ključeve. Ako se ključ u desnoj tablici ponavlja, lijevi se redak <em>umnoži</em> – uvijek provjeri broj redaka prije i poslije spajanja. <code>pd.concat([a, b])</code> slaže tablice jednu ispod druge (ili uz <code>axis=1</code> jednu uz drugu).</p>
+<p><code>sort_values("x", ascending=False)</code> sortira po stupcu (ili listi stupaca), <code>nlargest(k, "x")</code> daje $k$ najvećih. <code>s.map(f)</code> i <code>df.apply(f, axis=1)</code> primjenjuju proizvoljnu Python funkciju na svaki element odnosno redak – fleksibilno, ali <em>sporo</em>, jer je to petlja u Pythonu. Što god se može zapisati stupčanom aritmetikom (<code>df["a"] / df["b"]</code>, <code>np.where</code>, <code>clip</code>), zapiši tako; <code>apply</code> ostavi za stvarno nestandardne operacije.</p>
+
+<h3>Kategoričke varijable i tablica za model</h3>
+<p>Model prima brojeve. <b>Nominalna</b> kategorija (grad, boja) nema poredak, pa se kodira <b>one-hot</b>: za $k$ kategorija nastaje $k$ stupaca s vrijednostima $0/1$ – <code>pd.get_dummies(df, columns=[…], dtype=int)</code>. <b>Ordinalna</b> kategorija (malo/srednje/veliko) ima poredak i smije postati cijeli broj preko <code>map({"malo": 0, …})</code>. Kodirati nominalnu kategoriju brojevima $0,1,2$ pogrešno je za linearne modele (izmišlja poredak i razmake), a za stabla (M4) prolazi.</p>
+<p>Na kraju tablicu razdvojimo: <code>y = df["cilj"]</code> i <code>X = df.drop(columns="cilj")</code>. Scikit-learn prima DataFrame izravno (pamti imena stupaca u <code>feature_names_in_</code>) i interno ga pretvara u NumPy polje oblika $(n, d)$. Tri uvjeta moraju biti ispunjeni: svi stupci numerički, nijedan <code>NaN</code>, i – najčešća greška – <em>isti stupci istim redom</em> u skupu za učenje i u testu. One-hot kodiranje testa u kojem se neka kategorija ne pojavljuje daje manje stupaca; lijek je <code>X_te.reindex(columns=X_tr.columns, fill_value=0)</code> ili <code>OneHotEncoder(handle_unknown="ignore")</code> iz scikit-learna, koji to radi sam (lekcija N3).</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Tablica rezultata iz škole zadana je kao CSV tekst (ime, razred, sati učenja tjedno, bodovi na testu, grad). Učitaj je iz <code>io.StringIO</code>, upoznaj je, odaberi retke i stupce s <code>loc</code>/<code>iloc</code>, filtriraj učenike 2. razreda s više od $70$ bodova i obradi nedostajuće vrijednosti.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: čitanje i pregled.</b> Prazno polje u retku Ive i Marka postaje <code>NaN</code>; primijeti da je zato stupac <code>sati</code> tipa <code>float64</code> iako su svi brojevi cijeli.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="n">csv</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;ime,razred,sati,bodovi,grad</span>
+<span class="s2">Ana,1,6,78,Zagreb</span>
+<span class="s2">Ivo,2,,91,Split</span>
+<span class="s2">Maja,2,9,85,Zagreb</span>
+<span class="s2">Luka,1,3,52,Osijek</span>
+<span class="s2">Petra,3,7,,Rijeka</span>
+<span class="s2">Marko,3,,66,Split</span>
+<span class="s2">Sara,2,5,73,Osijek</span>
+<span class="s2">Filip,1,8,88,Zagreb</span>
+<span class="s2">&quot;&quot;&quot;</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">csv</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">dtypes</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(8, 5)
+ime        object
+razred      int64
+sati      float64
+bodovi    float64
+grad       object
+dtype: object
+    ime  razred  sati  bodovi    grad
+0   Ana       1   6.0    78.0  Zagreb
+1   Ivo       2   NaN    91.0   Split
+2  Maja       2   9.0    85.0  Zagreb</code></pre>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">describe</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>       razred  sati  bodovi
+count    8.00  6.00    7.00
+mean     1.88  6.33   76.14
+std      0.83  2.16   13.78
+min      1.00  3.00   52.00
+25%      1.00  5.25   69.50
+50%      2.00  6.50   78.00
+75%      2.25  7.75   86.50
+max      3.00  9.00   91.00
+grad
+Zagreb    3
+Split     2
+Osijek    2
+Rijeka    1
+Name: count, dtype: int64</code></pre>
+<p><code>describe</code> gleda samo numeričke stupce; redak <code>count</code> odmah otkriva rupe (dvije u <code>sati</code>, jedna u <code>bodovi</code>). Razred je ovdje broj, ali zapravo kategorija – <code>describe</code> će mu bez pogovora izračunati prosjek, što nema smisla; na tebi je da to primijetiš.</p>
+<p><b>Korak 2: loc i iloc.</b> Oznake redaka su $0,\dots,7$, pa <code>loc</code> i <code>iloc</code> ovdje biraju iste retke, ali rez po oznakama uključuje kraj, a rez po položajima ne.</p>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;ime&quot;</span><span class="p">,</span> <span class="s2">&quot;bodovi&quot;</span><span class="p">]])</span>      <span class="c1"># oznake 1, 2 i 3</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">3</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]])</span>                <span class="c1"># položaji 1 i 2</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;ime&quot;</span><span class="p">],</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span>    <span class="c1"># pojedinačne vrijednosti</span></code></pre></div>
+<pre class="izlaz"><code>    ime  bodovi
+1   Ivo    91.0
+2  Maja    85.0
+3  Luka    52.0
+    ime  bodovi
+1   Ivo    91.0
+2  Maja    85.0
+Petra Filip</code></pre>
+<p><b>Korak 3: filtriranje.</b> Svaki uvjet u zagrade, spajanje s <code>&amp;</code>. Indeks rezultata zadržava izvorne oznake.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">maska</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;razred&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;bodovi&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">70</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">maska</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">([</span><span class="s2">&quot;Split&quot;</span><span class="p">,</span> <span class="s2">&quot;Rijeka&quot;</span><span class="p">]),</span> <span class="s2">&quot;ime&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>    ime  razred  sati  bodovi    grad
+1   Ivo       2   NaN    91.0   Split
+2  Maja       2   9.0    85.0  Zagreb
+6  Sara       2   5.0    73.0  Osijek
+['Ivo', 'Petra', 'Marko']</code></pre>
+<p><b>Korak 4: nedostajuće vrijednosti.</b> Prebrojimo ih, pa sate popunimo medijanom (otporniji na odstupanja od prosjeka), a redak bez bodova izbacimo – bodovi su ciljna vrijednost i nju nema smisla izmišljati.</p>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+<span class="n">cisto</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">cisto</span><span class="p">[</span><span class="s2">&quot;sati&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cisto</span><span class="p">[</span><span class="s2">&quot;sati&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">cisto</span><span class="p">[</span><span class="s2">&quot;sati&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">())</span>
+<span class="n">cisto</span> <span class="o">=</span> <span class="n">cisto</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;bodovi&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cisto</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;preostale rupe:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">cisto</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>ime       0
+razred    0
+sati      2
+bodovi    1
+grad      0
+dtype: int64
+     ime  razred  sati  bodovi    grad
+0    Ana       1   6.0    78.0  Zagreb
+1    Ivo       2   6.5    91.0   Split
+2   Maja       2   9.0    85.0  Zagreb
+3   Luka       1   3.0    52.0  Osijek
+4  Marko       3   6.5    66.0   Split
+5   Sara       2   5.0    73.0  Osijek
+6  Filip       1   8.0    88.0  Zagreb
+preostale rupe: 0</code></pre>
+<p>Medijan sati je $6{,}5$, pa su Ivo i Marko dobili tu vrijednost; Petra je izbačena, a <code>reset_index</code> je oznake vratio u $0,\dots,6$. Primijeti da smo radili na kopiji – izvorni <code>df</code> i dalje ima rupe, što je korisno kad poslije želiš usporediti varijante čišćenja.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka iris</span></h3>
+<div class="zadatak">
+<p>Skup <code>load_iris(as_frame=True)</code> sadrži $150$ cvjetova perunike, četiri mjere (duljina i širina lapa i latice u cm) i vrstu ($0$, $1$, $2$). Učitaj ga kao DataFrame, pogledaj raspodjelu klasa, izračunaj prosjek i standardnu devijaciju mjera po vrsti, dodaj izvedenu značajku omjera latice i pripremi $X$ i $y$ za model.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: učitavanje i raspodjela klasa.</b> Uz <code>as_frame=True</code> atribut <code>frame</code> je cijela tablica (značajke + stupac <code>target</code>). Imena stupaca skratimo da ispis bude čitljiv.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_iris</span>
+
+<span class="n">iris</span> <span class="o">=</span> <span class="n">load_iris</span><span class="p">(</span><span class="n">as_frame</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">iris_df</span> <span class="o">=</span> <span class="n">iris</span><span class="o">.</span><span class="n">frame</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span>
+    <span class="s2">&quot;sepal length (cm)&quot;</span><span class="p">:</span> <span class="s2">&quot;lap_d&quot;</span><span class="p">,</span> <span class="s2">&quot;sepal width (cm)&quot;</span><span class="p">:</span> <span class="s2">&quot;lap_s&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;petal length (cm)&quot;</span><span class="p">:</span> <span class="s2">&quot;lat_d&quot;</span><span class="p">,</span> <span class="s2">&quot;petal width (cm)&quot;</span><span class="p">:</span> <span class="s2">&quot;lat_s&quot;</span><span class="p">})</span>
+<span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;vrsta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">iris</span><span class="o">.</span><span class="n">target_names</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">iris_df</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;vrsta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>   lap_d  lap_s  lat_d  lat_s  target   vrsta
+0    5.1    3.5    1.4    0.2       0  setosa
+1    4.9    3.0    1.4    0.2       0  setosa
+2    4.7    3.2    1.3    0.2       0  setosa
+3    4.6    3.1    1.5    0.2       0  setosa
+4    5.0    3.6    1.4    0.2       0  setosa
+vrsta
+setosa        0.333333
+versicolor    0.333333
+virginica     0.333333
+Name: proportion, dtype: float64</code></pre>
+<p>Klase su savršeno uravnotežene (po $50$ cvjetova), što je u stvarnim zadacima rijetkost – obično je ovaj ispis prvi znak da ćeš trebati metrike otpornije od točnosti (lekcija M3).</p>
+<p><b>Korak 2: groupby i agg.</b> Prosjek i standardna devijacija duljine latice po vrsti; zatim sortiranje po prosjeku.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">po_vrsti</span> <span class="o">=</span> <span class="n">iris_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;vrsta&quot;</span><span class="p">)[[</span><span class="s2">&quot;lat_d&quot;</span><span class="p">,</span> <span class="s2">&quot;lat_s&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;std&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">po_vrsti</span><span class="p">)</span>
+<span class="n">prosjeci</span> <span class="o">=</span> <span class="n">iris_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;vrsta&quot;</span><span class="p">)[</span><span class="s2">&quot;lat_d&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">prosjeci</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>           lat_d       lat_s
+            mean   std  mean   std
+vrsta
+setosa      1.46  0.17  0.25  0.11
+versicolor  4.26  0.47  1.33  0.20
+virginica   5.55  0.55  2.03  0.27
+vrsta
+virginica     5.552
+versicolor    4.260
+setosa        1.462
+Name: lat_d, dtype: float64</code></pre>
+<p>Vrste se po duljini latice gotovo ne preklapaju: <i>setosa</i> ima latice oko $1{,}5$ cm s malim rasipanjem, <i>virginica</i> oko $5{,}6$ cm. Već iz ove tablice vidiš da će zadatak klasifikacije biti lagan – takav pogled na podatke prije modela (engl. <i>exploratory data analysis</i>, EDA) uvijek se isplati.</p>
+<p><b>Korak 3: nova značajka i apply.</b> Omjer duljine i širine latice je stupčana aritmetika (brzo). Za usporedbu, ista stvar s <code>apply</code> po retcima daje isti rezultat, ali petljom u Pythonu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;omjer&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;lat_d&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;lat_s&quot;</span><span class="p">]</span>
+<span class="n">omjer_apply</span> <span class="o">=</span> <span class="n">iris_df</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">red</span><span class="p">:</span> <span class="n">red</span><span class="p">[</span><span class="s2">&quot;lat_d&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">red</span><span class="p">[</span><span class="s2">&quot;lat_s&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;jednako:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;omjer&quot;</span><span class="p">],</span> <span class="n">omjer_apply</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">iris_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;vrsta&quot;</span><span class="p">)[</span><span class="s2">&quot;omjer&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>jednako: True
+vrsta
+setosa        7.00
+versicolor    3.24
+virginica     2.67
+Name: omjer, dtype: float64</code></pre>
+<p><b>Korak 4: X i y za scikit-learn.</b> Cilj je stupac <code>target</code>; iz $X$ izbacimo i tekstualni stupac <code>vrsta</code> (duplikat cilja – ostaviti ga bio bi <em>leakage</em>). Model je ovdje samo ilustracija sučelja; klasifikacija se obrađuje u lekciji M3.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">X</span> <span class="o">=</span> <span class="n">iris_df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">,</span> <span class="s2">&quot;vrsta&quot;</span><span class="p">])</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;točnost na testu: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;model pamti stupce:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">feature_names_in_</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(150, 5) (150,) ['lap_d', 'lap_s', 'lat_d', 'lat_s', 'omjer']
+točnost na testu: 0.978
+model pamti stupce: ['lap_d', 'lap_s', 'lat_d', 'lat_s', 'omjer']</code></pre>
+<p><code>stratify=y</code> čuva omjer klasa u obje polovice. Model je naučio imena stupaca, pa će se buniti ako mu u <code>predict</code> daš tablicu s drugim imenima ili drugim redoslijedom – to je zaštita koju gubiš ako prerano pretvoriš sve u NumPy.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Simulacija tabularnog zadatka: tablica <code>stanovi</code> (površina, broj soba, kat, grad, cijena) s nedostajućim vrijednostima i zasebna tablica <code>gradovi</code> s prosječnom plaćom po gradu. Spoji ih, očisti, kodiraj grad one-hot kodiranjem i izmjeri koliko linearna regresija (lekcija M1) objašnjava cijenu.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: sintetički podaci.</b> Cijena ovisi o površini, katu i gradu uz šum; u $40$ od $300$ redaka kat nedostaje. Grad Pula postoji u <code>stanovi</code>, ali ne i u <code>gradovi</code> – namjerno, da vidimo kako se <code>merge</code> ponaša.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">n</span> <span class="o">=</span> <span class="mi">300</span>
+<span class="n">gradovi_lista</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Zagreb&quot;</span><span class="p">,</span> <span class="s2">&quot;Split&quot;</span><span class="p">,</span> <span class="s2">&quot;Osijek&quot;</span><span class="p">,</span> <span class="s2">&quot;Rijeka&quot;</span><span class="p">,</span> <span class="s2">&quot;Pula&quot;</span><span class="p">]</span>
+<span class="n">stanovi</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;povrsina&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span>
+    <span class="s2">&quot;sobe&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span>
+    <span class="s2">&quot;kat&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">),</span>
+    <span class="s2">&quot;grad&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">gradovi_lista</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="p">[</span><span class="mf">0.4</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">]),</span>
+<span class="p">})</span>
+<span class="n">premija</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Zagreb&quot;</span><span class="p">:</span> <span class="mi">900</span><span class="p">,</span> <span class="s2">&quot;Split&quot;</span><span class="p">:</span> <span class="mi">1100</span><span class="p">,</span> <span class="s2">&quot;Osijek&quot;</span><span class="p">:</span> <span class="mi">300</span><span class="p">,</span> <span class="s2">&quot;Rijeka&quot;</span><span class="p">:</span> <span class="mi">600</span><span class="p">,</span> <span class="s2">&quot;Pula&quot;</span><span class="p">:</span> <span class="mi">800</span><span class="p">}</span>
+<span class="n">stanovi</span><span class="p">[</span><span class="s2">&quot;cijena&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">stanovi</span><span class="p">[</span><span class="s2">&quot;povrsina&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1800</span> <span class="o">+</span> <span class="n">stanovi</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">premija</span><span class="p">))</span>
+                     <span class="o">+</span> <span class="mi">3000</span> <span class="o">*</span> <span class="n">stanovi</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">15000</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">stanovi</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">,</span> <span class="s2">&quot;kat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+<span class="n">gradovi</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;grad&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Zagreb&quot;</span><span class="p">,</span> <span class="s2">&quot;Split&quot;</span><span class="p">,</span> <span class="s2">&quot;Osijek&quot;</span><span class="p">,</span> <span class="s2">&quot;Rijeka&quot;</span><span class="p">],</span>
+                        <span class="s2">&quot;placa&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1450</span><span class="p">,</span> <span class="mi">1300</span><span class="p">,</span> <span class="mi">1150</span><span class="p">,</span> <span class="mi">1350</span><span class="p">]})</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">stanovi</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;rupe:&quot;</span><span class="p">,</span> <span class="n">stanovi</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>   povrsina  sobe  kat    grad    cijena
+0      87.3     3  4.0  Zagreb  257800.0
+1      54.3     4  7.0  Osijek  127100.0
+2      33.7     3  7.0  Osijek   85200.0
+3      31.5     3  8.0  Osijek   98300.0
+4     103.2     2  1.0  Osijek  216200.0
+rupe: {'povrsina': 0, 'sobe': 0, 'kat': 40, 'grad': 0, 'cijena': 0}</code></pre>
+<p><b>Korak 2: merge.</b> Unutarnje spajanje gubi sve stanove iz Pule; lijevo ih čuva s <code>NaN</code> plaćom. Broj redaka prije i poslije uvijek ispiši.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">unutarnje</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">stanovi</span><span class="p">,</span> <span class="n">gradovi</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;grad&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">)</span>
+<span class="n">lijevo</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">stanovi</span><span class="p">,</span> <span class="n">gradovi</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;grad&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stanovi</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">unutarnje</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">lijevo</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">lijevo</span><span class="p">[</span><span class="n">lijevo</span><span class="p">[</span><span class="s2">&quot;placa&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()][</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">lijevo</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;grad&quot;</span><span class="p">)[</span><span class="s2">&quot;cijena&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>300 288 300
+{'Pula': 12}
+        count      mean
+grad
+Osijek     51  180639.0
+Pula       12  215250.0
+Rijeka     48  200675.0
+Split      71  249868.0
+Zagreb    118  218397.0</code></pre>
+<p><b>Korak 3: čišćenje i kodiranje.</b> Kat popunimo medijanom, plaću za Pulu medijanom ostalih (bolje bi bilo zasebno obilježje „plaća nepoznata”, ali držimo primjer kratkim), a grad pretvorimo u pet stupaca $0/1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">df</span> <span class="o">=</span> <span class="n">lijevo</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">())</span>
+<span class="n">df</span><span class="p">[</span><span class="s2">&quot;placa&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;placa&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;placa&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">())</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">:]</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>['povrsina', 'sobe', 'kat', 'cijena', 'placa', 'grad_Osijek', 'grad_Pula', 'grad_Rijeka', 'grad_Split', 'grad_Zagreb']
+    placa  grad_Osijek  grad_Pula  grad_Rijeka  grad_Split  grad_Zagreb
+0  1450.0            0          0            0           0            1
+1  1150.0            1          0            0           0            0
+2  1150.0            1          0            0           0            0</code></pre>
+<p><b>Korak 4: X, y i model.</b> Sve je numeričko i bez rupa, pa tablica ide ravno u scikit-learn.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LinearRegression</span>
+
+<span class="n">X</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="s2">&quot;cijena&quot;</span><span class="p">)</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;cijena&quot;</span><span class="p">]</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">reg</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;R^2 trening: </span><span class="si">%.3f</span><span class="s2">   R^2 test: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">),</span> <span class="n">reg</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span>
+<span class="n">koef</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">reg</span><span class="o">.</span><span class="n">coef_</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">koef</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>R^2 trening: 0.945   R^2 test: 0.951
+grad_Split    31398.0
+kat            2640.0
+povrsina       2510.0
+sobe           1121.0
+dtype: float64</code></pre>
+<p>Visoki $R^2$ nije iznenađenje – podatke smo sami generirali linearnim pravilom. Koeficijenti, međutim, nisu „pravi” brojevi iz generatora: one-hot stupci i plaća nose istu informaciju (grad), pa ih model raspodjeljuje međusobno, a <code>sobe</code> dobivaju koeficijent iako u pravilu ne sudjeluju – to je šum, ne otkriće. Pouka primjera je tijek rada: <em>spoji → provjeri broj redaka → popuni rupe → kodiraj → X, y → model</em>. Taj slijed vrijedi za gotovo svaki tabularni zadatak, a poslije (lekcija N3) ćeš ga zapakirati u scikit-learnov <code>Pipeline</code> da se isti koraci automatski primijene i na test.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Napravi Series <code>a</code> iz rječnika <code>{"x": 1, "y": 2, "z": 3}</code> i Series <code>b</code> iz <code>{"y": 10, "z": 20, "w": 30}</code>. Što je <code>a + b</code>? Zašto se u rezultatu pojavljuju <code>NaN</code> i kako ih izbjeći?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">a</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">})</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">({</span><span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">})</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>{'w': nan, 'x': nan, 'y': 12.0, 'z': 23.0}
+{'w': 30.0, 'x': 1.0, 'y': 12.0, 'z': 23.0}</code></pre>
+<p>Zbrajanje se poravnava po indeksu, ne po položaju: za <code>x</code> i <code>w</code> jedan od pribrojnika ne postoji, pa je rezultat <code>NaN</code>. Metoda <code>add(…, fill_value=0)</code> nepostojeće tretira kao nulu. Ista pravila vrijede za stupce DataFramea – zato je nakon filtriranja ili sortiranja tablica često pametno pozvati <code>reset_index(drop=True)</code> prije kombiniranja s drugom.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Neka je <code>t = pd.DataFrame({"v": [10, 20, 30, 40, 50]}, index=[5, 3, 1, 4, 2])</code>. Bez pokretanja predvidi što vraćaju <code>t.loc[3:4]</code>, <code>t.iloc[3:4]</code> i <code>t.loc[1]</code>, pa provjeri.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">t</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;v&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">50</span><span class="p">]},</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">][</span><span class="s2">&quot;v&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="n">t</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">][</span><span class="s2">&quot;v&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="nb">int</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;v&quot;</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>[20, 30, 40] [40] 30</code></pre>
+<p><code>loc[3:4]</code> reže po <em>oznakama</em> od retka s oznakom $3$ do retka s oznakom $4$ uključivo, prema redoslijedu u tablici: $20, 30, 40$. <code>iloc[3:4]</code> uzima samo položaj $3$: $40$. <code>loc[1]</code> je redak s oznakom $1$ (treći po redu), vrijednost $30$ – nije redak na položaju $1$. Kad indeks nije $0,\dots,n-1$, miješanje tih dvoje najčešći je izvor „nemogućih” rezultata.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>U tablici perunika iz Primjera 2 izdvoji cvjetove s duljinom latice većom od $4$ cm. Koliki je udio svake vrste među njima? Ispiši imena vrsta i širine lapa za tri cvijeta s najširim lapom među izdvojenima.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">velike</span> <span class="o">=</span> <span class="n">iris_df</span><span class="p">[</span><span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;lat_d&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">4</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">velike</span><span class="p">),</span> <span class="s2">&quot;cvjetova&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">velike</span><span class="p">[</span><span class="s2">&quot;vrsta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">velike</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;lap_s&quot;</span><span class="p">)[[</span><span class="s2">&quot;vrsta&quot;</span><span class="p">,</span> <span class="s2">&quot;lap_s&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>84 cvjetova
+vrsta
+virginica     0.595
+versicolor    0.405
+Name: proportion, dtype: float64
+         vrsta  lap_s
+117  virginica    3.8
+131  virginica    3.8
+109  virginica    3.6</code></pre>
+<p>Nijedna <i>setosa</i> nema laticu dulju od $4$ cm, pa je uvjet sam po sebi savršen klasifikator te vrste. Primijeti da <code>nlargest</code> zadržava izvorne oznake redaka ($117$, $131$, …) – to su položaji u <em>izvornoj</em> tablici, koristan trag pri provjeri podataka.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>U tablici <code>stanovi</code> iz Primjera 3 kat nedostaje u $40$ redaka. Umjesto jednim medijanom, popuni rupe <em>medijanom kata unutar istog grada</em>. Provjeri da rupa više nema i ispiši medijane po gradu koji su upotrijebljeni.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>groupby("grad")["kat"].transform("median")</code> vraća Series iste duljine kao tablica, s medijanom grupe u svakom retku.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">s</span> <span class="o">=</span> <span class="n">stanovi</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">medijani</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;grad&quot;</span><span class="p">)[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="s2">&quot;median&quot;</span><span class="p">)</span>
+<span class="n">s</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">medijani</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;rupa u katu:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;grad&quot;</span><span class="p">)[</span><span class="s2">&quot;kat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>rupa u katu: 0
+{'Osijek': 5.0, 'Pula': 6.0, 'Rijeka': 4.0, 'Split': 5.0, 'Zagreb': 4.0}</code></pre>
+<p><code>transform</code> je ključna riječ: vraća rezultat agregacije „razvučen” natrag na sve retke, pa ga <code>fillna</code> može poravnati po indeksu. Isti obrazac služi za oduzimanje prosjeka grupe, udjele unutar grupe (<code>x / transform("sum")</code>) i slično. Kad bi neki grad imao <em>sve</em> katove prazne, njegov medijan bio bi <code>NaN</code> i rupa bi ostala – zato na kraju uvijek prebroji.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napravi tablicu prosječne cijene po kvadratnom metru u ovisnosti o gradu (retci) i broju soba (stupci) za podatke iz Primjera 3. Koja kombinacija ima najviše stanova?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>pd.pivot_table(df, values=…, index=…, columns=…, aggfunc=…)</code>; za broj stanova <code>aggfunc="size"</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">s</span> <span class="o">=</span> <span class="n">stanovi</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<span class="n">s</span><span class="p">[</span><span class="s2">&quot;po_m2&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;cijena&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;povrsina&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="s2">&quot;po_m2&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="s2">&quot;grad&quot;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s2">&quot;sobe&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;mean&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+<span class="n">broj</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="s2">&quot;po_m2&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="s2">&quot;grad&quot;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s2">&quot;sobe&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;size&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">broj</span><span class="p">)</span>
+<span class="n">g</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">broj</span><span class="o">.</span><span class="n">stack</span><span class="p">()</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najviše stanova:&quot;</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="s2">&quot;sobe:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">broj</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">g</span><span class="p">,</span> <span class="n">k</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>sobe         1       2       3       4
+grad
+Osijek  2130.0  2478.0  2320.0  2320.0
+Pula    2844.0  2797.0  2609.0  3574.0
+Rijeka  2585.0  2707.0  2674.0  2789.0
+Split   3085.0  2961.0  2998.0  3107.0
+Zagreb  2914.0  2912.0  2885.0  2808.0
+sobe     1   2   3   4
+grad
+Osijek   9  12  17  13
+Pula     3   4   4   1
+Rijeka  11  11  18   8
+Split   18  19  12  22
+Zagreb  29  24  34  31
+najviše stanova: Zagreb s 3 sobe: 34</code></pre>
+<p>Cijena po kvadratu ovisi o gradu (Split najskuplji, Osijek najjeftiniji – tako smo generirali podatke), a o broju soba ne, jer sobe uopće nisu u pravilu za cijenu. Pivot tablica je <code>groupby</code> po dva ključa s rezultatom „raširenim” u mrežu; isto bi dao <code>s.groupby(["grad", "sobe"])["po_m2"].mean().unstack()</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Standardiziraj četiri mjere perunike <em>unutar svake vrste</em>: $z=\dfrac{x-\bar x_g}{s_g}$, gdje su $\bar x_g$ i $s_g$ prosjek i standardna devijacija grupe. Provjeri da je u svakoj grupi prosjek $z$ približno $0$ i standardna devijacija $1$. Zašto takve značajke <em>ne smiješ</em> dati modelu koji predviđa vrstu?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Dva poziva <code>transform</code>, ili jedan <code>transform(lambda g: (g - g.mean()) / g.std())</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">mjere</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;lap_d&quot;</span><span class="p">,</span> <span class="s2">&quot;lap_s&quot;</span><span class="p">,</span> <span class="s2">&quot;lat_d&quot;</span><span class="p">,</span> <span class="s2">&quot;lat_s&quot;</span><span class="p">]</span>
+<span class="n">grupe</span> <span class="o">=</span> <span class="n">iris_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;vrsta&quot;</span><span class="p">)[</span><span class="n">mjere</span><span class="p">]</span>
+<span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">iris_df</span><span class="p">[</span><span class="n">mjere</span><span class="p">]</span> <span class="o">-</span> <span class="n">grupe</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="s2">&quot;mean&quot;</span><span class="p">))</span> <span class="o">/</span> <span class="n">grupe</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="s2">&quot;std&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;vrsta&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">iris_df</span><span class="p">[</span><span class="s2">&quot;vrsta&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>True
+{'lap_d': 1.0, 'lap_s': 1.0, 'lat_d': 1.0, 'lat_s': 1.0}</code></pre>
+<p>Standardizacija po grupama koristi <em>ciljnu varijablu</em> (vrstu) za izračun značajki: za novi cvijet čiju vrstu tek trebamo predvidjeti ne znamo kojim prosjekom i devijacijom ga standardizirati. To je oblik propuštanja informacije (<i>leakage</i>) – na treningu bi model izgledao sjajno, a u primjeni bio neupotrebljiv. Standardizacija po grupama je legitimna samo kad je ključ grupe poznat i u primjeni (npr. normalizacija unutar iste bolnice ili istog senzora).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>U tablicu <code>gradovi</code> iz Primjera 3 greškom je dva puta upisan Zagreb (s plaćama $1450$ i $1500$). Spoji je s tablicom <code>stanovi</code> (<code>how="left"</code>) i objasni što se dogodilo s brojem redaka. Pomoću <code>indicator=True</code> prebroji koliko stanova nije našlo svoj grad. Kako bi u praksi otkrio i spriječio takvu grešku?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Parametar <code>validate="many_to_one"</code> u <code>pd.merge</code> provjerava da je ključ u desnoj tablici jedinstven.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">gradovi2</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">gradovi</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;grad&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Zagreb&quot;</span><span class="p">],</span> <span class="s2">&quot;placa&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1500</span><span class="p">]})],</span>
+                     <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">sp</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">stanovi</span><span class="p">,</span> <span class="n">gradovi2</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;grad&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">indicator</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">stanovi</span><span class="p">),</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sp</span><span class="p">),</span> <span class="s2">&quot;redaka;&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">((</span><span class="n">stanovi</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Zagreb&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="s2">&quot;stanova u Zagrebu&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sp</span><span class="p">[</span><span class="s2">&quot;_merge&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">stanovi</span><span class="p">,</span> <span class="n">gradovi2</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;grad&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="s2">&quot;many_to_one&quot;</span><span class="p">)</span>
+<span class="k">except</span> <span class="n">pd</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">MergeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MergeError:&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)[:</span><span class="mi">60</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>300 -&gt; 418 redaka; 118 stanova u Zagrebu
+{'both': 406, 'left_only': 12, 'right_only': 0}
+MergeError: Merge keys are not unique in right dataset; not a many-to-on</code></pre>
+<p>Svaki zagrebački stan spario se s <em>oba</em> retka Zagreba, pa se tablica povećala točno za broj zagrebačkih stanova – duplikati u ključu umnožavaju retke, a svaki od dupliciranih stanova sad bi dvaput ušao u učenje. Obrana: prije spajanja provjeri <code>gradovi["grad"].is_unique</code> ili traži <code>validate="many_to_one"</code>, koji na duplikat baca grešku umjesto da tiho umnoži podatke, i nakon spajanja uvijek usporedi <code>len</code> prije i poslije. Stupac <code>_merge</code> pokazuje i $12$ stanova iz Pule koji su ostali bez plaće (<code>left_only</code>).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Napiši funkciju <code>pripremi(train, test)</code> koja iz dviju tablica oblika <code>stanovi</code> vraća <code>X_tr, y_tr, X_te, y_te</code> spremne za scikit-learn: numeričke rupe popunjava <em>medijanima iz treninga</em>, grad kodira one-hot kodiranjem i jamči da test ima <em>iste stupce istim redom</em> kao trening – i kad se u testu pojavi grad kojeg u treningu nema ili obrnuto. Ispitaj je na podjeli u kojoj svi stanovi iz Pule završe u testu.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Posljednji korak: <code>X_te = X_te.reindex(columns=X_tr.columns, fill_value=0)</code>. Što se dogodi sa stupcem <code>grad_Pula</code>?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">pripremi</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">,</span> <span class="n">cilj</span><span class="o">=</span><span class="s2">&quot;cijena&quot;</span><span class="p">):</span>
+    <span class="n">train</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">test</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">numericki</span> <span class="o">=</span> <span class="n">train</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">cilj</span><span class="p">)</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="s2">&quot;number&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">columns</span>
+    <span class="n">medijani</span> <span class="o">=</span> <span class="n">train</span><span class="p">[</span><span class="n">numericki</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>            <span class="c1"># SAMO iz treninga</span>
+    <span class="n">train</span><span class="p">[</span><span class="n">numericki</span><span class="p">]</span> <span class="o">=</span> <span class="n">train</span><span class="p">[</span><span class="n">numericki</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">medijani</span><span class="p">)</span>
+    <span class="n">test</span><span class="p">[</span><span class="n">numericki</span><span class="p">]</span> <span class="o">=</span> <span class="n">test</span><span class="p">[</span><span class="n">numericki</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">medijani</span><span class="p">)</span>
+    <span class="n">X_tr</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">cilj</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">X_te</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">test</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">cilj</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">X_te</span> <span class="o">=</span> <span class="n">X_te</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">X_tr</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">fill_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">train</span><span class="p">[</span><span class="n">cilj</span><span class="p">],</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">test</span><span class="p">[</span><span class="n">cilj</span><span class="p">]</span>
+
+<span class="n">pula</span> <span class="o">=</span> <span class="n">stanovi</span><span class="p">[</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Pula&quot;</span>
+<span class="n">ostali</span> <span class="o">=</span> <span class="n">stanovi</span><span class="p">[</span><span class="o">~</span><span class="n">pula</span><span class="p">]</span>
+<span class="n">tr_idx</span><span class="p">,</span> <span class="n">te_idx</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">ostali</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">train</span> <span class="o">=</span> <span class="n">stanovi</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">tr_idx</span><span class="p">]</span>
+<span class="n">test</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">stanovi</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">te_idx</span><span class="p">],</span> <span class="n">stanovi</span><span class="p">[</span><span class="n">pula</span><span class="p">]])</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">pripremi</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="n">test</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isti stupci:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="n">X_te</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="s2">&quot; rupe:&quot;</span><span class="p">,</span>
+      <span class="nb">int</span><span class="p">(</span><span class="n">X_tr</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="n">X_te</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pula u testu:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">pula</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="s2">&quot;stanova; redak jednog od njih:&quot;</span><span class="p">,</span>
+      <span class="n">X_te</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">stanovi</span><span class="p">[</span><span class="n">pula</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="s2">&quot;grad_Zagreb&quot;</span><span class="p">,</span> <span class="s2">&quot;grad_Split&quot;</span><span class="p">,</span> <span class="s2">&quot;grad_Osijek&quot;</span><span class="p">,</span> <span class="s2">&quot;grad_Rijeka&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>['povrsina', 'sobe', 'kat', 'grad_Osijek', 'grad_Rijeka', 'grad_Split', 'grad_Zagreb']
+isti stupci: True  rupe: 0
+Pula u testu: 12 stanova; redak jednog od njih: [0.0, 0.0, 0.0, 0.0]</code></pre>
+<p>Stupac <code>grad_Pula</code> postoji samo u testu, pa ga <code>reindex</code> briše; stanovi iz Pule dobivaju nule u svim gradskim stupcima – model ih tretira kao „nepoznati grad”, što je jedino pošteno jer o Puli nije ništa naučio. Kad bi se, obrnuto, neki grad pojavio samo u treningu, <code>reindex</code> bi testu dodao stupac nula. Upravo ovu logiku (statistike iz treninga, nepoznate kategorije u nule) scikit-learn ugrađuje u <code>SimpleImputer</code>, <code>OneHotEncoder(handle_unknown="ignore")</code> i <code>Pipeline</code>, o kojima u lekciji N3 – ali vrijedi je jednom napisati rukom da znaš što se događa.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Tablica ima $200\,000$ redaka sa stupcima <code>a</code> i <code>b</code>. Treba izračunati stupac <code>c = a / b</code>, ali tako da je <code>c = 0</code> gdje je <code>b = 0</code>. Napiši to (a) s <code>apply</code> po retcima, (b) vektorizirano s <code>np.where</code>. Izmjeri vrijeme obaju načina i provjeri da daju iste rezultate. Koliko je puta vektorizirano brže?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>time.perf_counter()</code> prije i poslije; dijeljenje nulom u NumPy-ju daje <code>inf</code> uz upozorenje, pa dijeli s <code>np.where(b == 0, 1, b)</code> ili koristi <code>np.divide(…, where=…)</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">time</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="mi">200_000</span>
+<span class="n">velika</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;a&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">m</span><span class="p">),</span> <span class="s2">&quot;b&quot;</span><span class="p">:</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)})</span>
+
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="n">c_apply</span> <span class="o">=</span> <span class="n">velika</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="mf">0.0</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">r</span><span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">t_apply</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="n">b_sigurno</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">velika</span><span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">velika</span><span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">])</span>
+<span class="n">c_vekt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">velika</span><span class="p">[</span><span class="s2">&quot;b&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">velika</span><span class="p">[</span><span class="s2">&quot;a&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">b_sigurno</span><span class="p">)</span>
+<span class="n">t_vekt</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t0</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;jednako:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">c_apply</span><span class="p">,</span> <span class="n">c_vekt</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;apply: </span><span class="si">%.2f</span><span class="s2"> s   vektorizirano: </span><span class="si">%.4f</span><span class="s2"> s   omjer: </span><span class="si">%.0f</span><span class="s2">x&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t_apply</span><span class="p">,</span> <span class="n">t_vekt</span><span class="p">,</span> <span class="n">t_apply</span> <span class="o">/</span> <span class="n">t_vekt</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>jednako: True
+apply: 1.17 s   vektorizirano: 0.0028 s   omjer: 418x</code></pre>
+<p>Točni brojevi ovise o računalu, ali omjer je redovito u stotinama: <code>apply(axis=1)</code> za svaki redak gradi Series i poziva Python funkciju, dok <code>np.where</code> radi nad cijelim stupcima u C-u. Na natjecanju, gdje tablice imaju milijune redaka i vrijeme je ograničeno, to je razlika između rješenja koje se izvrši i onoga koje ne stigne. Pravilo: <code>apply</code> po retcima je posljednje sredstvo; prvo potraži stupčanu operaciju, <code>np.where</code>/<code>np.select</code>, <code>map</code> s rječnikom ili <code>groupby().transform</code>.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Series = stupac s indeksom, DataFrame = tablica Seriesa; operacije se poravnavaju po <em>indeksu</em>, a <code>reset_index(drop=True)</code> vraća oznake u $0,\dots,n-1$.</li>
+<li>Prvi pogled: <code>shape</code>, <code>head</code>, <code>dtypes</code>/<code>info</code>, <code>describe</code>, <code>value_counts</code>; odabir <code>loc</code> (oznake, kraj uključen) i <code>iloc</code> (položaji); filtriranje maskama s <code>&amp;</code>, <code>|</code>, <code>~</code>; pisanje samo kroz <code>df.loc[maska, stupac] = …</code>.</li>
+<li>Rupe: <code>isna().sum()</code>, <code>dropna</code>, <code>fillna</code> medijanom/modom <em>izračunatim na treningu</em>; po želji indikator „nedostajalo”.</li>
+<li><code>groupby</code> + <code>agg</code> za sažetke po grupi, <code>transform</code> za vrijednost grupe u svakom retku; <code>merge</code> s <code>how=</code> i provjerom broja redaka (<code>validate</code>); <code>sort_values</code>, <code>pivot_table</code>.</li>
+<li>Kategorije: nominalne <code>get_dummies</code> (one-hot), ordinalne <code>map</code>; <code>apply</code> po retcima izbjegavaj – vektoriziraj.</li>
+<li>Za model: <code>y = df[cilj]</code>, <code>X = df.drop(columns=cilj)</code>; sve numeričko, bez <code>NaN</code>, isti stupci u treningu i testu (<code>reindex(columns=…)</code>).</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>W. McKinney, <i>Python for Data Analysis</i>, 3. izd., O'Reilly – autor pandasa; poglavlja 5–8 i 10 (besplatno na <a href="https://wesmckinney.com/book/">wesmckinney.com/book</a>).</li>
+<li>pandas dokumentacija: <a href="https://pandas.pydata.org/docs/user_guide/10min.html">10 minutes to pandas</a>, <a href="https://pandas.pydata.org/docs/user_guide/indexing.html">Indexing and selecting data</a>, <a href="https://pandas.pydata.org/docs/user_guide/groupby.html">Group by</a>, <a href="https://pandas.pydata.org/docs/user_guide/merging.html">Merge, join, concatenate</a>.</li>
+<li>J. VanderPlas, <i>Python Data Science Handbook</i>, 2. izd., poglavlje „Data Manipulation with Pandas” (besplatno na <a href="https://jakevdp.github.io/PythonDataScienceHandbook/">jakevdp.github.io</a>).</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="03-numpy.html"><small>← Prethodna lekcija</small>P3 · NumPy: vektori, matrice i vektorizacija</a>
+                <a class="sljedeca" href="05-vizualizacija.html"><small>Sljedeća lekcija →</small>P5 · Vizualizacija podataka: Matplotlib</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

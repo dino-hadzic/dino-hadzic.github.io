@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Strojno učenje 3: Klasifikacija: logistička regresija i metrike</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#strojno-ucenje">Strojno učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Strojno učenje · lekcija 3 od 6</p>
+            <h1><span class="broj-lekcije">M3</span> Klasifikacija: logistička regresija i metrike</h1>
+            <p class="meta">Od vjerojatnosti do odluke: sigmoid, unakrsna entropija, prag odluke i kako pošteno izmjeriti klasifikator</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.4" title="razina nacionalnog izbora i kvalifikacija">Razina: Srednje</li>
+                <li>sigmoid</li>
+                <li>unakrsna entropija</li>
+                <li>logistička regresija</li>
+                <li>softmax</li>
+                <li>preciznost i odziv</li>
+                <li>$F_1$</li>
+                <li>ROC i AUC</li>
+                <li>neuravnoteženi razredi</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Zapisati logističku regresiju kao model vjerojatnosti $P(y=1\mid x)=\sigma(w^\top x+b)$, izvesti log-gubitak i njegov gradijent te istrenirati model ručno u NumPy-ju.</li>
+<li>Proširiti model na više razreda softmaxom ili pristupom jedan-protiv-ostalih.</li>
+<li>Iz matrice zabune izračunati točnost, preciznost, odziv i $F_1$, nacrtati ROC krivulju i izračunati AUC – ručno i sa scikit-learnom.</li>
+<li>Prepoznati neuravnotežene razrede, upotrijebiti <code>class_weight</code> i odabrati prag odluke prema cijeni pogrešaka umjesto slijepog $0{,}5$.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U M1 i M2 ciljna je vrijednost bila broj. Većina zadataka na IOAI ipak traži <b>razred</b>: je li tumor zloćudan, koja je životinja na slici, je li recenzija pozitivna. Linearnu regresiju za to ne vrijedi rabiti: predikcije $w^\top x+b$ izlaze iz $[0,1]$, pa se ne mogu tumačiti kao vjerojatnosti, a MSE kažnjava „previše sigurne” točne odgovore. Treba nam model čiji je izlaz vjerojatnost i gubitak koji tu vjerojatnost pošteno ocjenjuje.</p>
+
+<h3>Sigmoid i logistička regresija</h3>
+<div class="pojam">
+<h4>Sigmoid</h4>
+<p>$$\sigma(z)=\frac1{1+e^{-z}},\qquad \sigma(-z)=1-\sigma(z),\qquad \sigma'(z)=\sigma(z)\bigl(1-\sigma(z)\bigr).$$
+Sigmoid preslikava $\mathbb R$ na $(0,1)$; $\sigma(0)=\frac12$. Njegov inverz $\operatorname{logit}(p)=\ln\frac p{1-p}$ zove se <b>logit</b> ili log-omjer izgleda.</p>
+</div>
+<div class="pojam">
+<h4>Logistička regresija</h4>
+<p>Za binarni razred $y\in\{0,1\}$ model je
+$$p_w(x)=P(y=1\mid x)=\sigma(w^\top x+b).$$
+Linearna funkcija $z=w^\top x+b$ zove se <b>logit</b> ili <em>score</em>; model tvrdi da log-omjer izgleda $\ln\frac{P(y=1\mid x)}{P(y=0\mid x)}=z$ ovisi linearno o značajkama. Granica odluke $z=0$ je hiperravnina, pa je logistička regresija <em>linearni klasifikator</em> unatoč imenu.</p>
+</div>
+<p>Kao i u M1, pomak $b$ obrađujemo stupcem jedinica u $X$ i pišemo $z=Xw$, $p=\sigma(Xw)$ po komponentama.</p>
+
+<h3>Log-gubitak (unakrsna entropija)</h3>
+<div class="pojam">
+<h4>Log-gubitak</h4>
+<p>$$L(w)=-\frac1n\sum_{i=1}^n\Bigl[y_i\ln p_i+(1-y_i)\ln(1-p_i)\Bigr],\qquad p_i=\sigma(w^\top x_i).$$</p>
+</div>
+<p>Za primjer s $y_i=1$ gubitak je $-\ln p_i$: nula ako je model siguran i u pravu, a teži u beskonačnost ako je siguran i u krivu. To je upravo negativna log-izglednost podataka pod modelom, pa je minimizacija log-gubitka isto što i procjena najveće izglednosti (engl. <i>maximum likelihood</i>). Isti gubitak u dubokom učenju zove se <b>binarna unakrsna entropija</b> (engl. <i>binary cross-entropy</i>).</p>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (gradijent log-gubitka).</strong> $$\nabla_wL(w)=\frac1n\sum_{i=1}^n\bigl(p_i-y_i\bigr)x_i=\frac1nX^\top(p-y).$$
+Gubitak je konveksan, pa gradijentni spust iz M2 konvergira u globalni minimum; zatvorene formule nema.</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Za jedan primjer $\ell=-y\ln\sigma(z)-(1-y)\ln(1-\sigma(z))$ uz $z=w^\top x$. Iz $\sigma'=\sigma(1-\sigma)$ slijedi $\frac{d}{dz}\ln\sigma(z)=1-\sigma(z)$ i $\frac{d}{dz}\ln(1-\sigma(z))=-\sigma(z)$, pa je $\frac{\partial\ell}{\partial z}=-y(1-\sigma)+(1-y)\sigma=\sigma(z)-y$. Lančano pravilo daje $\nabla_w\ell=(\sigma(z)-y)\,x$; usrednjavanje po primjerima daje tvrdnju. Oblik „(predikcija − istina) × ulaz” isti je kao kod MSE-a u M1, što nije slučajnost (D2). Hesseova matrica $\frac1nX^\top DX$ s $D=\operatorname{diag}(p_i(1-p_i))$ pozitivno je semidefinitna, odakle konveksnost (Zadatak 8). <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<div class="trener-umetak">
+<p>Scikit-learnov <code>LogisticRegression</code> zadano koristi $L_2$ regularizaciju s parametrom <code>C</code>$=1/\lambda$ (<em>veći</em> <code>C</code> = slabija regularizacija) i rješava optimizaciju kvazi-Newtonovom metodom <code>lbfgs</code>. Kad uspoređuješ s ručnom implementacijom bez kazne, postavi <code>penalty=None</code>. Regularizacija je ovdje i praktična nužnost: na linearno odvojivim podacima bez nje težine rastu u beskonačnost (Zadatak 8).</p>
+</div>
+
+<h3>Od vjerojatnosti do odluke</h3>
+<p>Model daje vjerojatnost; odluku donosi <b>prag</b> $\tau$: predvidi $1$ ako je $p_w(x)\ge\tau$. Zadano $\tau=0{,}5$ odgovara granici $z=0$ i minimizira očekivani broj pogrešaka <em>ako</em> su obje pogreške jednako skupe i vjerojatnosti točne. Kad propustiti bolest košta deset puta više od lažnog alarma, prag treba spustiti; kad je lažna optužba za plagijat skupa, podići. Prag je stoga poslovna, a ne statistička odluka, i bira se nakon treniranja, na validacijskim podacima.</p>
+
+<h3>Više razreda</h3>
+<div class="pojam">
+<h4>Softmax regresija</h4>
+<p>Za $K$ razreda model ima matricu težina $W\in\mathbb R^{(d+1)\times K}$, logite $z=W^\top x\in\mathbb R^K$ i vjerojatnosti
+$$P(y=k\mid x)=\operatorname{softmax}(z)_k=\frac{e^{z_k}}{\sum_{j=1}^Ke^{z_j}},$$
+a gubitak je <b>unakrsna entropija</b> $L=-\frac1n\sum_i\ln P(y=y_i\mid x_i)$. Gradijent je $\nabla_WL=\frac1nX^\top(P-Y)$, gdje je $Y$ matrica s jedinicom na mjestu točnog razreda (<em>one-hot</em>), a $P$ matrica predviđenih vjerojatnosti.</p>
+</div>
+<p>Za $K=2$ softmax se svodi na sigmoid. Alternativa je <b>jedan protiv ostalih</b> (engl. <i>one-vs-rest</i>, OvR): $K$ binarnih modela „razred $k$ ili ne”, odluka je razred s najvećom vjerojatnošću. OvR radi s bilo kojim binarnim klasifikatorom, softmax daje konzistentne vjerojatnosti koje se zbrajaju u $1$; u praksi daju slične točnosti. U kodu softmax uvijek računaj uz oduzimanje maksimuma, $e^{z_k-\max_jz_j}$, inače $e^{z}$ prelije.</p>
+
+<h3>Metrike klasifikacije</h3>
+<div class="pojam">
+<h4>Matrica zabune i osnovne metrike</h4>
+<p>Za binarni klasifikator s pozitivnim razredom $1$ razlikujemo <b>TP</b> (točno pozitivni), <b>FP</b> (lažno pozitivni), <b>FN</b> (lažno negativni) i <b>TN</b> (točno negativni); njihova $2\times2$ tablica je <b>matrica zabune</b> (engl. <i>confusion matrix</i>). Tada je
+$$\text{točnost}=\frac{TP+TN}{n},\quad \text{preciznost}=\frac{TP}{TP+FP},\quad \text{odziv}=\frac{TP}{TP+FN},\quad F_1=\frac{2\cdot\text{prec}\cdot\text{odz}}{\text{prec}+\text{odz}}=\frac{2TP}{2TP+FP+FN}.$$</p>
+</div>
+<p><b>Preciznost</b> (engl. <i>precision</i>) odgovara na „koliko je onih koje sam proglasio pozitivnima doista pozitivno”, <b>odziv</b> (engl. <i>recall</i>, osjetljivost) na „koliki sam dio pozitivnih uhvatio”. Podizanjem praga preciznost obično raste, a odziv pada; $F_1$ je njihova harmonijska sredina i kažnjava kad je ijedno malo. <b>Točnost</b> (engl. <i>accuracy</i>) vara čim su razredi <b>neuravnoteženi</b>: ako je $1\,\%$ transakcija prijevara, model koji sve proglasi poštenima ima točnost $99\,\%$ i nulu koristi. Zato se na natjecanjima metrika redovito bira među $F_1$, AUC ili uravnoteženom točnošću, a tekst zadatka uvijek kaže koja.</p>
+<div class="pojam">
+<h4>ROC krivulja i AUC</h4>
+<p>Mijenjajući prag $\tau$ od $1$ do $0$ dobivamo točke $(\text{FPR},\text{TPR})$ s $\text{TPR}=\frac{TP}{TP+FN}$ (odziv) i $\text{FPR}=\frac{FP}{FP+TN}$; spojene daju <b>ROC krivulju</b>. <b>AUC</b> je površina ispod nje: $1$ za savršen poredak, $0{,}5$ za slučajno pogađanje. AUC je jednak vjerojatnosti da slučajno odabran pozitivan primjer dobije veći score od slučajno odabranog negativnog, pa ovisi samo o <em>poretku</em> primjera, ne o pragu ni o skali scoreova.</p>
+</div>
+<p><b>Neuravnoteženi razredi</b> popravljaju se na tri razine: podacima (poduzorkovanje većinskog ili naduzorkovanje manjinskog razreda), gubitkom (<code>class_weight="balanced"</code> množi gubitak svakog primjera s $\frac{n}{K\,n_k}$, pa manjinski razred „vrijedi” više) i odlukom (pomicanje praga). <b>Kalibracija praga</b> znači nacrtati preciznost, odziv ili očekivani trošak kao funkciju $\tau$ na validacijskom skupu i odabrati $\tau$ koji optimizira ono što zadatak traži. Ako zadatak ocjenjuje same vjerojatnosti (log-gubitak, Brierov rezultat), gleda se i <em>kalibriranost</em> modela: među primjerima s $p\approx0{,}7$ treba doista biti oko $70\,\%$ pozitivnih (<code>CalibratedClassifierCV</code>).</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Na sintetičkom skupu <code>make_classification</code> s $1000$ primjera i $5$ značajki istreniraj logističku regresiju gradijentnim spustom u NumPy-ju, prati log-gubitak, izmjeri točnost i usporedi težine sa <code>sklearn.linear_model.LogisticRegression</code>.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci.</b> <code>stratify=y</code> čuva omjer razreda u obje polovice. Standardiziramo kao u M2 i dodajemo stupac jedinica.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">make_classification</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">make_classification</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">n_features</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">n_informative</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">n_redundant</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                           <span class="n">flip_y</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">class_sep</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+<span class="n">mu</span><span class="p">,</span> <span class="n">sd</span> <span class="o">=</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Z_tr</span><span class="p">,</span> <span class="n">Z_te</span> <span class="o">=</span> <span class="p">(</span><span class="n">X_tr</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span><span class="p">,</span> <span class="p">(</span><span class="n">X_te</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd</span>
+<span class="n">A_tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Z_tr</span><span class="p">)),</span> <span class="n">Z_tr</span><span class="p">])</span>
+<span class="n">A_te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Z_te</span><span class="p">)),</span> <span class="n">Z_te</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot; udio razreda 1: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">y</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>(1000, 5)  udio razreda 1: 0.503</code></pre>
+<p><b>Korak 2: model, gubitak, gradijent, spust.</b> Vjerojatnosti u logaritmu odsijecamo na $[10^{-12},1-10^{-12}]$ da $\ln0$ ne da <code>-inf</code>. Gradijent je točno formula iz teorema.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">sigmoid</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">z</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">log_gubitak</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">):</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">A</span> <span class="o">@</span> <span class="n">w</span><span class="p">),</span> <span class="n">eps</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">gradijent</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">A</span> <span class="o">@</span> <span class="n">w</span><span class="p">)</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">A_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;korak  log-gubitak&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2001</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">  </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">log_gubitak</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;w =&quot;</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>korak  log-gubitak
+    1  0.6641
+   10  0.5503
+  100  0.4661
+ 1000  0.4648
+ 2000  0.4648
+w = [ 0.087 -0.921  2.253  0.059  0.203  1.041]</code></pre>
+<p>Gubitak kreće od $\ln2\approx0{,}693$ (model koji svima daje $p=\frac12$) i nakon stotinjak koraka praktički stane: za konveksan gubitak to znači da smo blizu globalnog minimuma. Preostala vrijednost nije nula jer je $5\,\%$ oznaka namjerno pogrešno (<code>flip_y</code>) i jer razredi nisu savršeno odvojivi.</p>
+<p><b>Korak 3: odluka, točnost i usporedba sa scikit-learnom.</b> Prag $0{,}5$ na vjerojatnosti isto je što i prag $0$ na logitu. <code>penalty=None</code> isključuje zadanu $L_2$ kaznu; scikit-learn sam dodaje pomak, pa mu dajemo <code>Z_tr</code> bez stupca jedinica.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+
+<span class="n">y_hat</span> <span class="o">=</span> <span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">A_te</span> <span class="o">@</span> <span class="n">w</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;točnost na testu (ručno): </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">y_hat</span> <span class="o">==</span> <span class="n">y_te</span><span class="p">))</span>
+
+<span class="n">lr</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">penalty</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Z_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;točnost na testu (sklearn): </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">lr</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Z_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;intercept_ = </span><span class="si">%.3f</span><span class="s2">, coef_ = </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lr</span><span class="o">.</span><span class="n">intercept_</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lr</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;max |razlika težina| = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">lr</span><span class="o">.</span><span class="n">intercept_</span><span class="p">,</span> <span class="n">lr</span><span class="o">.</span><span class="n">coef_</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">-</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>točnost na testu (ručno): 0.804
+točnost na testu (sklearn): 0.804
+intercept_ = 0.087, coef_ = [-0.921  2.252  0.059  0.203  1.041]
+max |razlika težina| = 0.0005</code></pre>
+<p>Težine se podudaraju na tri decimale (ostatak je tolerancija optimizatora), a točnost je ista. Primijeti da dvije značajke (treća i četvrta) imaju osjetno manje težine od ostalih: <code>make_classification</code> s <code>n_informative=3</code> generira upravo dvije značajke čistog šuma, a model im sam ne pridaje puno važnosti.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka breast_cancer</span></h3>
+<div class="zadatak">
+<p>Skup <code>load_breast_cancer</code> ima $569$ tumora opisanih s $30$ značajki i oznaku zloćudan/dobroćudan. Istreniraj logističku regresiju, ispiši matricu zabune i izračunaj točnost, preciznost, odziv i $F_1$ ručno i scikit-learnom. Nacrtaj ROC krivulju i izračunaj AUC ručno. Zatim odaberi prag tako da odziv za zloćudne tumore bude barem $0{,}98$.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: tko je „pozitivan”?</b> U ovom je skupu oznaka $1$ <em>dobroćudan</em> tumor. Za medicinski smisao metrika pozitivan razred mora biti onaj koji tražimo – zloćudan – pa oznake obrćemo. Ovaj korak (provjera što znači $1$) spasio je mnoge natjecatelje od naopakih metrika. <code>Pipeline</code> veže standardizaciju i model, pa se statistike skaliranja uče samo na treningu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_breast_cancer</span>
+<span class="kn">from</span> <span class="nn">sklearn.pipeline</span> <span class="kn">import</span> <span class="n">make_pipeline</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="p">(</span><span class="n">confusion_matrix</span><span class="p">,</span> <span class="n">accuracy_score</span><span class="p">,</span> <span class="n">precision_score</span><span class="p">,</span>
+                             <span class="n">recall_score</span><span class="p">,</span> <span class="n">f1_score</span><span class="p">,</span> <span class="n">roc_auc_score</span><span class="p">)</span>
+
+<span class="n">bc</span> <span class="o">=</span> <span class="n">load_breast_cancer</span><span class="p">()</span>
+<span class="n">Xb</span><span class="p">,</span> <span class="n">yb</span> <span class="o">=</span> <span class="n">bc</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">bc</span><span class="o">.</span><span class="n">target</span>          <span class="c1"># 1 = zloćudan (pozitivan), 0 = dobroćudan</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">Xb</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot; zloćudnih: </span><span class="si">%d</span><span class="s2">, dobroćudnih: </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">yb</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="n">yb</span><span class="p">)</span> <span class="o">-</span> <span class="n">yb</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+<span class="n">Xb_tr</span><span class="p">,</span> <span class="n">Xb_te</span><span class="p">,</span> <span class="n">yb_tr</span><span class="p">,</span> <span class="n">yb_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xb</span><span class="p">,</span> <span class="n">yb</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yb</span><span class="p">)</span>
+<span class="n">klf</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xb_tr</span><span class="p">,</span> <span class="n">yb_tr</span><span class="p">)</span>
+<span class="n">p_te</span> <span class="o">=</span> <span class="n">klf</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">Xb_te</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">y_hat</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_te</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="n">M</span> <span class="o">=</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matrica zabune [[TN FP] [FN TP]]:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">M</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>(569, 30)  zloćudnih: 212, dobroćudnih: 357
+matrica zabune [[TN FP] [FN TP]]:
+ [[90  0]
+ [ 2 51]]</code></pre>
+<p><b>Korak 2: metrike iz matrice.</b> Iste brojeve daju funkcije iz <code>sklearn.metrics</code>; ručni račun služi da ih više nikad ne pomiješaš.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">TN</span><span class="p">,</span> <span class="n">FP</span><span class="p">,</span> <span class="n">FN</span><span class="p">,</span> <span class="n">TP</span> <span class="o">=</span> <span class="n">M</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ručno:   točnost </span><span class="si">%.3f</span><span class="s2">  preciznost </span><span class="si">%.3f</span><span class="s2">  odziv </span><span class="si">%.3f</span><span class="s2">  F1 </span><span class="si">%.3f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">((</span><span class="n">TP</span> <span class="o">+</span> <span class="n">TN</span><span class="p">)</span> <span class="o">/</span> <span class="n">M</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">TP</span> <span class="o">/</span> <span class="p">(</span><span class="n">TP</span> <span class="o">+</span> <span class="n">FP</span><span class="p">),</span> <span class="n">TP</span> <span class="o">/</span> <span class="p">(</span><span class="n">TP</span> <span class="o">+</span> <span class="n">FN</span><span class="p">),</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">TP</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">TP</span> <span class="o">+</span> <span class="n">FP</span> <span class="o">+</span> <span class="n">FN</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;sklearn: točnost </span><span class="si">%.3f</span><span class="s2">  preciznost </span><span class="si">%.3f</span><span class="s2">  odziv </span><span class="si">%.3f</span><span class="s2">  F1 </span><span class="si">%.3f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">accuracy_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">),</span> <span class="n">precision_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">),</span>
+         <span class="n">recall_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">),</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">y_hat</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>ručno:   točnost 0.986  preciznost 1.000  odziv 0.962  F1 0.981
+sklearn: točnost 0.986  preciznost 1.000  odziv 0.962  F1 0.981</code></pre>
+<p>Model je vrlo dobar, ali pogledaj što znače FN: zloćudni tumori proglašeni dobroćudnima. Za probir je upravo taj broj jedini koji pacijenta zanima, a točnost ga skriva.</p>
+<p><b>Korak 3: ROC krivulja i AUC ručno.</b> Poredamo primjere po scoreu silazno; spuštajući prag primjer po primjer, svaki pozitivan primjer podiže TPR za $1/n_+$, a svaki negativan pomiče FPR za $1/n_-$. Površinu računamo trapeznom formulom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;Agg&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="k">def</span> <span class="nf">roc_rucno</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span>
+    <span class="n">poredak</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">s</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="n">poredak</span><span class="p">]</span>
+    <span class="n">tpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">/</span> <span class="n">y</span><span class="o">.</span><span class="n">sum</span><span class="p">()]</span>
+    <span class="n">fpr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()]</span>
+    <span class="k">return</span> <span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">trapezoid</span><span class="p">(</span><span class="n">tpr</span><span class="p">,</span> <span class="n">fpr</span><span class="p">)</span>
+
+<span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span><span class="p">,</span> <span class="n">auc</span> <span class="o">=</span> <span class="n">roc_rucno</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">p_te</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;AUC ručno = </span><span class="si">%.4f</span><span class="s2">   sklearn = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">auc</span><span class="p">,</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">p_te</span><span class="p">)))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">fpr</span><span class="p">,</span> <span class="n">tpr</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;logistička regresija&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;k--&quot;</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;slučajno&quot;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;FPR&quot;</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;TPR (odziv)&quot;</span><span class="p">);</span> <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;roc.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>AUC ručno = 0.9958   sklearn = 0.9958</code></pre>
+<p>Krivulja se gotovo lijepi uz lijevi i gornji rub: gotovo svi zloćudni tumori imaju veći score od gotovo svih dobroćudnih. AUC blizu $1$ govori o kvaliteti <em>poretka</em>; koju točku krivulje odabrati, odlučuje prag.</p>
+<p><b>Korak 4: kalibracija praga.</b> Prag ne smijemo birati na testu. Umjesto toga vjerojatnosti za trening dobivamo <em>izvan uzorka</em> petostrukom unakrsnom validacijom (<code>cross_val_predict</code>, M5): svaki je primjer predviđen modelom koji ga nije vidio. Tražimo najveći prag uz koji je odziv barem $0{,}98$ i primjenjujemo ga na test.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">cross_val_predict</span>
+
+<span class="n">p_cv</span> <span class="o">=</span> <span class="n">cross_val_predict</span><span class="p">(</span><span class="n">klf</span><span class="p">,</span> <span class="n">Xb_tr</span><span class="p">,</span> <span class="n">yb_tr</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;predict_proba&quot;</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">kandidati</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">p_cv</span><span class="p">[</span><span class="n">yb_tr</span> <span class="o">==</span> <span class="mi">1</span><span class="p">])</span>              <span class="c1"># pragovi na scoreovima pozitivnih</span>
+<span class="n">odzivi</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kandidati</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">kandidati</span><span class="p">)</span>
+<span class="n">tau</span> <span class="o">=</span> <span class="n">kandidati</span><span class="p">[</span><span class="n">odzivi</span> <span class="o">&gt;=</span> <span class="mf">0.98</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;odabrani prag tau = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tau</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">naziv</span><span class="p">,</span> <span class="n">prag</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">&quot;tau = 0.5&quot;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;tau = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tau</span><span class="p">,</span> <span class="n">tau</span><span class="p">)):</span>
+    <span class="n">yh</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_te</span> <span class="o">&gt;=</span> <span class="n">prag</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-12s</span><span class="s2">  FN = </span><span class="si">%d</span><span class="s2">  FP = </span><span class="si">%d</span><span class="s2">  odziv </span><span class="si">%.3f</span><span class="s2">  preciznost </span><span class="si">%.3f</span><span class="s2">&quot;</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="p">((</span><span class="n">yb_te</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">yh</span> <span class="o">==</span> <span class="mi">0</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="p">((</span><span class="n">yb_te</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">yh</span> <span class="o">==</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+             <span class="n">recall_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">yh</span><span class="p">),</span> <span class="n">precision_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">yh</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>odabrani prag tau = 0.101
+tau = 0.5     FN = 2  FP = 0  odziv 0.962  preciznost 1.000
+tau = 0.101   FN = 0  FP = 11  odziv 1.000  preciznost 0.828</code></pre>
+<p>Spuštanjem praga svi su zloćudni tumori na testu uhvaćeni, po cijeni jedanaest lažnih alarma koji se rješavaju dodatnom pretragom. To je tipična zamjena odziva za preciznost, i smjer u kojem je treba napraviti ovisi o zadatku, ne o algoritmu.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Generiraj skup s $5000$ primjera u kojem je samo $5\,\%$ pozitivnih. Pokaži paradoks točnosti, usporedi običnu logističku regresiju i onu s <code>class_weight="balanced"</code> te prođi kroz pragove i nađi onaj s najvećim $F_1$.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci i paradoks točnosti.</b></p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Xn</span><span class="p">,</span> <span class="n">yn</span> <span class="o">=</span> <span class="n">make_classification</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span> <span class="n">n_features</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">n_informative</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">n_redundant</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+                             <span class="n">weights</span><span class="o">=</span><span class="p">[</span><span class="mf">0.95</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">],</span> <span class="n">flip_y</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">Xn_tr</span><span class="p">,</span> <span class="n">Xn_te</span><span class="p">,</span> <span class="n">yn_tr</span><span class="p">,</span> <span class="n">yn_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yn</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;udio pozitivnih: </span><span class="si">%.3f</span><span class="s2">   točnost modela &#39;uvijek 0&#39;: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">yn</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">yn_te</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>udio pozitivnih: 0.055   točnost modela 'uvijek 0': 0.945</code></pre>
+<p><b>Korak 2: obična i uravnotežena logistička regresija.</b> <code>class_weight="balanced"</code> daje pozitivnim primjerima težinu oko $9$ u gubitku ($\frac{n}{2n_1}$), čime granicu odluke pomiče prema većinskom razredu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">metrike</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">prag</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+    <span class="n">yh</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="o">&gt;=</span> <span class="n">prag</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">accuracy_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yh</span><span class="p">),</span> <span class="n">precision_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yh</span><span class="p">,</span> <span class="n">zero_division</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span>
+            <span class="n">recall_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yh</span><span class="p">),</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">yh</span><span class="p">),</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-22s</span><span class="s2"> </span><span class="si">%7s</span><span class="s2"> </span><span class="si">%10s</span><span class="s2"> </span><span class="si">%6s</span><span class="s2"> </span><span class="si">%6s</span><span class="s2"> </span><span class="si">%6s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="s2">&quot;točnost&quot;</span><span class="p">,</span> <span class="s2">&quot;preciznost&quot;</span><span class="p">,</span> <span class="s2">&quot;odziv&quot;</span><span class="p">,</span> <span class="s2">&quot;F1&quot;</span><span class="p">,</span> <span class="s2">&quot;AUC&quot;</span><span class="p">))</span>
+<span class="n">modeli</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;obična&quot;</span><span class="p">:</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">),</span>
+          <span class="s2">&quot;class_weight=balanced&quot;</span><span class="p">:</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">class_weight</span><span class="o">=</span><span class="s2">&quot;balanced&quot;</span><span class="p">)}</span>
+<span class="n">vjer</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">naziv</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">modeli</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">pipe</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">m</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xn_tr</span><span class="p">,</span> <span class="n">yn_tr</span><span class="p">)</span>
+    <span class="n">vjer</span><span class="p">[</span><span class="n">naziv</span><span class="p">]</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">Xn_te</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-22s</span><span class="s2"> </span><span class="si">%7.3f</span><span class="s2"> </span><span class="si">%10.3f</span><span class="s2"> </span><span class="si">%6.3f</span><span class="s2"> </span><span class="si">%6.3f</span><span class="s2"> </span><span class="si">%6.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="o">*</span><span class="n">metrike</span><span class="p">(</span><span class="n">yn_te</span><span class="p">,</span> <span class="n">vjer</span><span class="p">[</span><span class="n">naziv</span><span class="p">])))</span></code></pre></div>
+<pre class="izlaz"><code>model                  točnost preciznost  odziv     F1    AUC
+obična                   0.966      0.971  0.398  0.564  0.858
+class_weight=balanced    0.805      0.188  0.759  0.301  0.857</code></pre>
+<p>Obični model ima visoku točnost, ali hvata manje od polovice pozitivnih; uravnoteženi hvata većinu, uz nižu preciznost i točnost ispod one „uvijek 0” modela. AUC je gotovo isti: ponderiranje jedva mijenja <em>poredak</em> primjera, mijenja uglavnom gdje pada granica $0{,}5$. Zato je isti učinak moguće postići i samo pomicanjem praga običnog modela.</p>
+<p><b>Korak 3: prolaz kroz pragove.</b> Preciznost, odziv i $F_1$ običnog modela za niz pragova; prag s najboljim $F_1$ u pravilu nije $0{,}5$. (Odabir praga na testu ovdje služi samo ilustraciji; u stvarnom radu uzmi validacijski skup kao u Primjeru 2.)</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">p</span> <span class="o">=</span> <span class="n">vjer</span><span class="p">[</span><span class="s2">&quot;obična&quot;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot; prag  preciznost  odziv     F1&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">prag</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.7</span><span class="p">):</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">prec</span><span class="p">,</span> <span class="n">odz</span><span class="p">,</span> <span class="n">f1</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">metrike</span><span class="p">(</span><span class="n">yn_te</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">prag</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5.2f</span><span class="s2">  </span><span class="si">%10.3f</span><span class="s2">  </span><span class="si">%5.3f</span><span class="s2">  </span><span class="si">%5.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">prag</span><span class="p">,</span> <span class="n">prec</span><span class="p">,</span> <span class="n">odz</span><span class="p">,</span> <span class="n">f1</span><span class="p">))</span>
+<span class="n">pragovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">,</span> <span class="mi">99</span><span class="p">)</span>
+<span class="n">f1s</span> <span class="o">=</span> <span class="p">[</span><span class="n">metrike</span><span class="p">(</span><span class="n">yn_te</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">t</span><span class="p">)[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pragovi</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najveći F1 = </span><span class="si">%.3f</span><span class="s2"> pri pragu </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">f1s</span><span class="p">),</span> <span class="n">pragovi</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">f1s</span><span class="p">))]))</span></code></pre></div>
+<pre class="izlaz"><code> prag  preciznost  odziv     F1
+ 0.05       0.169  0.783  0.278
+ 0.10       0.319  0.735  0.445
+ 0.20       0.551  0.590  0.570
+ 0.30       0.657  0.530  0.587
+ 0.50       0.971  0.398  0.564
+ 0.70       1.000  0.253  0.404
+najveći F1 = 0.613 pri pragu 0.42</code></pre>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Bez računala: koliko je $\sigma(0)$, $\sigma(\ln3)$ i $\sigma(-\ln3)$? Model daje logit $z=2$; kolika je vjerojatnost pozitivnog razreda i koliki je omjer izgleda $P(y=1)/P(y=0)$? Provjeri u NumPy-ju.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$\sigma(0)=\frac12$; $\sigma(\ln3)=\frac1{1+e^{-\ln3}}=\frac1{1+1/3}=\frac34$; $\sigma(-\ln3)=1-\frac34=\frac14$. Za $z=2$ omjer izgleda je $e^2\approx7{,}39$, a vjerojatnost $\sigma(2)=e^2/(1+e^2)\approx0{,}881$. Općenito: logit $z$ znači „izgledi $e^z:1$”, što je često zgodnije za tumačenje težina od same vjerojatnosti.</p>
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="mi">2</span><span class="p">]))</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="s2">&quot; omjer izgleda za z=2: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>[0.5    0.75   0.25   0.8808]  omjer izgleda za z=2: 7.389</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Detektor prijevara na $1000$ transakcija dao je $TP=40$, $FP=10$, $FN=20$, $TN=930$. Izračunaj točnost, preciznost, odziv i $F_1$. Koliku točnost ima model koji sve proglasi poštenima? Koju metriku bi ti izvijestio?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Točnost $=970/1000=0{,}97$; preciznost $=40/50=0{,}8$; odziv $=40/60\approx0{,}667$; $F_1=80/(80+10+20)\approx0{,}727$. Model „sve pošteno” ima točnost $940/1000=0{,}94$, dakle samo tri postotna boda manje, iako ne otkriva nijednu prijevaru. Izvijestio bih preciznost i odziv (ili $F_1$) uz matricu zabune; točnost je ovdje gotovo besmislena.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">TP</span><span class="p">,</span> <span class="n">FP</span><span class="p">,</span> <span class="n">FN</span><span class="p">,</span> <span class="n">TN</span> <span class="o">=</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">930</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;točnost </span><span class="si">%.3f</span><span class="s2">  preciznost </span><span class="si">%.3f</span><span class="s2">  odziv </span><span class="si">%.3f</span><span class="s2">  F1 </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">((</span><span class="n">TP</span> <span class="o">+</span> <span class="n">TN</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">TP</span> <span class="o">/</span> <span class="mi">50</span><span class="p">,</span> <span class="n">TP</span> <span class="o">/</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">TP</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">TP</span> <span class="o">+</span> <span class="n">FP</span> <span class="o">+</span> <span class="n">FN</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>točnost 0.970  preciznost 0.800  odziv 0.667  F1 0.727</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za svaki slučaj reci je li važnija preciznost ili odziv i treba li prag spustiti ili podići u odnosu na $0{,}5$: (a) probir za rijetku, ali izlječivu bolest; (b) filtar neželjene pošte koji premješta poruke u smeće; (c) automatsko označavanje plagijata u natjecateljskim rješenjima; (d) preporuka sadržaja na početnoj stranici.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) Odziv: propušten bolesnik je skup, lažni alarm znači dodatnu pretragu – prag dolje. (b) Preciznost: izgubljena važna poruka gora je od propuštene reklame – prag gore. (c) Preciznost: lažna optužba je neprihvatljiva, sumnjive slučajeve ionako pregledava čovjek – prag gore. (d) Nijedno nije kritično; obično se gleda poredak (AUC ili metrike rangiranja), a ne prag. Pravilo: pitaj se koja je pogreška skuplja, FP ili FN, pa prag pomakni tako da nju smanjiš.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Numerički provjeri formulu $\nabla_wL=\frac1nX^\top(p-y)$ konačnim razlikama na podacima iz Primjera 1, kao u M1. Zatim izvedi i provjeri formulu za gradijent <em>regulariziranog</em> gubitka $L+\frac\lambda2\lVert w_{1:}\rVert^2$ (pomak se ne kažnjava).</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Gradijent kazne je $\lambda w$ za sve komponente osim pomaka, gdje je $0$. Provjera konačnim razlikama ista je kao u M1: $\partial L/\partial w_j\approx\frac{L(w+\varepsilon e_j)-L(w-\varepsilon e_j)}{2\varepsilon}$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">w0</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">A_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">lam</span><span class="p">,</span> <span class="n">eps</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">1e-6</span>
+<span class="n">maska</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">A_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">L_reg</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">log_gubitak</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span> <span class="o">+</span> <span class="n">lam</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">maska</span> <span class="o">*</span> <span class="n">w</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="n">analiticki</span> <span class="o">=</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w0</span><span class="p">)</span> <span class="o">+</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">maska</span> <span class="o">*</span> <span class="n">w0</span>
+<span class="n">numericki</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([(</span><span class="n">L_reg</span><span class="p">(</span><span class="n">w0</span> <span class="o">+</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">)</span> <span class="o">-</span> <span class="n">L_reg</span><span class="p">(</span><span class="n">w0</span> <span class="o">-</span> <span class="n">eps</span> <span class="o">*</span> <span class="n">e</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">eps</span><span class="p">)</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">w0</span><span class="p">))])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;analitički:&quot;</span><span class="p">,</span> <span class="n">analiticki</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;numerički: &quot;</span><span class="p">,</span> <span class="n">numericki</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>analitički: [ 0.025092  0.024059 -0.080191  0.034284 -0.201346  0.041756]
+numerički:  [ 0.025092  0.024059 -0.080191  0.034284 -0.201346  0.041756]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Na skupu <code>load_iris</code> (tri razreda, četiri značajke) izgradi klasifikator jedan-protiv-ostalih od tri binarne logističke regresije naučene funkcijama iz Primjera 1. Izmjeri točnost na testu i usporedi s <code>OneVsRestClassifier(LogisticRegression(C=100))</code> (slaba regularizacija, da bude usporediv s ručnim modelom bez kazne).</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_iris</span>
+<span class="kn">from</span> <span class="nn">sklearn.multiclass</span> <span class="kn">import</span> <span class="n">OneVsRestClassifier</span>
+
+<span class="n">iris</span> <span class="o">=</span> <span class="n">load_iris</span><span class="p">()</span>
+<span class="n">Xi_tr</span><span class="p">,</span> <span class="n">Xi_te</span><span class="p">,</span> <span class="n">yi_tr</span><span class="p">,</span> <span class="n">yi_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">iris</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">iris</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+                                              <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">iris</span><span class="o">.</span><span class="n">target</span><span class="p">)</span>
+<span class="n">mu_i</span><span class="p">,</span> <span class="n">sd_i</span> <span class="o">=</span> <span class="n">Xi_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">Xi_tr</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Ai_tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xi_tr</span><span class="p">)),</span> <span class="p">(</span><span class="n">Xi_tr</span> <span class="o">-</span> <span class="n">mu_i</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd_i</span><span class="p">])</span>
+<span class="n">Ai_te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xi_te</span><span class="p">)),</span> <span class="p">(</span><span class="n">Xi_te</span> <span class="o">-</span> <span class="n">mu_i</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd_i</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">nauci_binarni</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">koraka</span><span class="o">=</span><span class="mi">3000</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">koraka</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">w</span>
+
+<span class="n">W_ovr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">nauci_binarni</span><span class="p">(</span><span class="n">Ai_tr</span><span class="p">,</span> <span class="p">(</span><span class="n">yi_tr</span> <span class="o">==</span> <span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])</span>
+<span class="n">pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">Ai_te</span> <span class="o">@</span> <span class="n">W_ovr</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OvR ručno: točnost </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">pred</span> <span class="o">==</span> <span class="n">yi_te</span><span class="p">))</span>
+<span class="n">ovr</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">OneVsRestClassifier</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">)))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xi_tr</span><span class="p">,</span> <span class="n">yi_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OvR sklearn: točnost </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">ovr</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xi_te</span><span class="p">,</span> <span class="n">yi_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>OvR ručno: točnost 0.978
+OvR sklearn: točnost 0.978</code></pre>
+<p>Tri binarna modela postavljaju tri hiperravnine „$k$ protiv ostalih”, a odluka je argmax njihovih vjerojatnosti. Vjerojatnosti se ne zbrajaju u $1$, što za točnost nije važno, ali jest ako zadatak ocjenjuje log-gubitak; tada je prirodniji softmax iz sljedećeg zadatka.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Implementiraj softmax regresiju u NumPy-ju (gradijent $\frac1nX^\top(P-Y)$) na skupu iris iz prethodnog zadatka. Ispiši unakrsnu entropiju tijekom učenja, točnost na testu i usporedi s <code>LogisticRegression</code> (koji za više razreda zadano uči softmax). Zašto se jedan stupac matrice $W$ može bez gubitka općenitosti fiksirati na nulu?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Softmax je invarijantan na dodavanje iste konstante svim logitima: $\operatorname{softmax}(z+c\mathbf 1)=\operatorname{softmax}(z)$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">softmax</span><span class="p">(</span><span class="n">S</span><span class="p">):</span>
+    <span class="n">E</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">S</span> <span class="o">-</span> <span class="n">S</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">E</span> <span class="o">/</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">Y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">3</span><span class="p">)[</span><span class="n">yi_tr</span><span class="p">]</span>
+<span class="n">W</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">Ai_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">3</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3001</span><span class="p">):</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">Ai_tr</span> <span class="o">@</span> <span class="n">W</span><span class="p">)</span>
+    <span class="n">W</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">Ai_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">P</span> <span class="o">-</span> <span class="n">Y</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">3000</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;korak </span><span class="si">%4d</span><span class="s2">  unakrsna entropija </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">P</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Y</span><span class="p">)),</span> <span class="n">yi_tr</span><span class="p">]))))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;softmax ručno: točnost </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">Ai_te</span> <span class="o">@</span> <span class="n">W</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">yi_te</span><span class="p">))</span>
+<span class="n">sm</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">))</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xi_tr</span><span class="p">,</span> <span class="n">yi_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;softmax sklearn: točnost </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">sm</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xi_te</span><span class="p">,</span> <span class="n">yi_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>korak    1  unakrsna entropija 1.0986
+korak  100  unakrsna entropija 0.1790
+korak 1000  unakrsna entropija 0.0733
+korak 3000  unakrsna entropija 0.0598
+softmax ručno: točnost 1.000
+softmax sklearn: točnost 1.000</code></pre>
+<p>Ako svakom stupcu matrice $W$ dodamo isti vektor $v$, logiti svih razreda pomaknu se za istu vrijednost $v^\top x$, a softmax se ne mijenja. Model dakle ima $d+1$ suvišnih parametara i smije se, primjerice, uzeti $W_{\cdot K}=0$; tada za $K=2$ ostaje jedan vektor težina i softmax postaje točno sigmoid. Bez regularizacije ta sloboda znači da minimum nije jedinstven, što optimizaciji ne smeta, ali objašnjava zašto se težine ručnog i scikit-learnovog modela ne moraju podudarati iako su predikcije iste.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Provjeri eksperimentom tvrdnju da je AUC vjerojatnost da slučajan pozitivan primjer ima veći score od slučajnog negativnog: na testnim scoreovima iz Primjera 2 izračunaj udio takvih parova (svih $n_+n_-$) i usporedi s AUC-om. Zatim pokaži da se AUC ne mijenja ako scoreove transformiraš rastućom funkcijom (npr. $\operatorname{logit}$ ili $p^3$), a $F_1$ pri pragu $0{,}5$ mijenja.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">poz</span><span class="p">,</span> <span class="n">neg</span> <span class="o">=</span> <span class="n">p_te</span><span class="p">[</span><span class="n">yb_te</span> <span class="o">==</span> <span class="mi">1</span><span class="p">],</span> <span class="n">p_te</span><span class="p">[</span><span class="n">yb_te</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">parovi</span> <span class="o">=</span> <span class="p">(</span><span class="n">poz</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">neg</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">poz</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">==</span> <span class="n">neg</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;udio parova pozitivan &gt; negativan: </span><span class="si">%.4f</span><span class="s2">   AUC: </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">parovi</span><span class="p">,</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">p_te</span><span class="p">)))</span>
+<span class="k">for</span> <span class="n">naziv</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">&quot;p^3&quot;</span><span class="p">,</span> <span class="n">p_te</span> <span class="o">**</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;logit&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p_te</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">p_te</span><span class="p">)))):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-6s</span><span class="s2"> AUC = </span><span class="si">%.4f</span><span class="s2">   F1 pri pragu 0.5 = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="n">roc_auc_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="n">s</span><span class="p">),</span> <span class="n">f1_score</span><span class="p">(</span><span class="n">yb_te</span><span class="p">,</span> <span class="p">(</span><span class="n">s</span> <span class="o">&gt;=</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))))</span></code></pre></div>
+<pre class="izlaz"><code>udio parova pozitivan &gt; negativan: 0.9958   AUC: 0.9958
+p^3    AUC = 0.9958   F1 pri pragu 0.5 = 0.940
+logit  AUC = 0.9958   F1 pri pragu 0.5 = 0.971</code></pre>
+<p>Udio parova jednak je AUC-u (uz pola boda za izjednačene scoreove, kojih ovdje nema). Rastuća transformacija ne mijenja poredak, pa ni ROC krivulju ni AUC, ali mijenja koji primjeri padnu iznad fiksnog praga: $p^3\ge0{,}5$ znači $p\ge0{,}794$, a $\operatorname{logit}(p)\ge0{,}5$ znači $p\ge0{,}622$, pa $F_1$ pada. Poruka: AUC mjeri model, $F_1$ mjeri model <em>zajedno s pragom</em>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>(a) Dokaži da je log-gubitak konveksan u $w$: izračunaj Hesseovu matricu i pokaži da je pozitivno semidefinitna. (b) Na linearno odvojivim podacima ($100$ točaka u ravnini, $y=1$ ako je $x_1+x_2\gt0$) pokreni gradijentni spust iz Primjera 1 i prati $\lVert w\rVert$ i gubitak nakon $10^2$, $10^3$, $10^4$ i $10^5$ koraka. Što se događa i zašto? Kako to popravlja $L_2$ regularizacija?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Hesseova matrica je $\frac1nX^\top DX$ s dijagonalnom $D$. Za odvojive podatke postoji $w$ sa $y_i(w^\top x_i)\gt0$ za sve $i$; što se događa s gubitkom u točki $cw$ kad $c\to\infty$?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) Iz dokaza teorema, $\nabla L=\frac1nX^\top(p-y)$ s $p_i=\sigma(x_i^\top w)$; derivirajući još jednom, $\nabla^2L=\frac1n\sum_ip_i(1-p_i)x_ix_i^\top=\frac1nX^\top DX$, $D=\operatorname{diag}(p_i(1-p_i))$. Za svaki $v$ je $v^\top\nabla^2Lv=\frac1n\sum_ip_i(1-p_i)(x_i^\top v)^2\ge0$, dakle Hesseova matrica je pozitivno semidefinitna i $L$ je konveksan. (b) Ako hiperravnina $w$ savršeno razdvaja podatke, onda za $c\to\infty$ sve vjerojatnosti $\sigma(c\,w^\top x_i)$ teže u $0$ ili $1$ na pravoj strani i gubitak teži u $0$, ali ga nikad ne dosegne: minimum ne postoji, a gradijentni spust šalje $\lVert w\rVert$ u beskonačnost (sve sporije, jer gradijent trne). Model postaje apsurdno samouvjeren i vrlo osjetljiv na svaku novu točku. Kazna $\frac\lambda2\lVert w\rVert^2$ raste s $\lVert w\rVert$, pa regularizirani gubitak ima konačan minimum – zato scikit-learn regularizira zadano.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Xs</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">ys</span> <span class="o">=</span> <span class="p">(</span><span class="n">Xs</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">Xs</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">As</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">100</span><span class="p">),</span> <span class="n">Xs</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;      koraka   ||w||    gubitak   | s L2 (lam = 0.01):  ||w||   gubitak&quot;</span><span class="p">)</span>
+<span class="n">w</span><span class="p">,</span> <span class="n">w_reg</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100001</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">As</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+    <span class="n">w_reg</span> <span class="o">-=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">gradijent</span><span class="p">(</span><span class="n">As</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">w_reg</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">w_reg</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">10000</span><span class="p">,</span> <span class="mi">100000</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%12d</span><span class="s2">  </span><span class="si">%6.1f</span><span class="s2">  </span><span class="si">%9.6f</span><span class="s2">   |  </span><span class="si">%18.3f</span><span class="s2">  </span><span class="si">%8.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span><span class="p">),</span> <span class="n">log_gubitak</span><span class="p">(</span><span class="n">As</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">w</span><span class="p">),</span>
+                                                      <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w_reg</span><span class="p">),</span> <span class="n">log_gubitak</span><span class="p">(</span><span class="n">As</span><span class="p">,</span> <span class="n">ys</span><span class="p">,</span> <span class="n">w_reg</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>      koraka   ||w||    gubitak   | s L2 (lam = 0.01):  ||w||   gubitak
+         100     4.0   0.149251   |               3.227    0.1781
+        1000     9.5   0.067996   |               3.670    0.1600
+       10000    21.9   0.026905   |               3.670    0.1600
+      100000    47.9   0.008483   |               3.670    0.1600</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><b>Prag prema cijeni pogrešaka.</b> Pretpostavi da u Primjeru 3 propušten pozitivan primjer (FN) košta $10$, a lažni alarm (FP) $1$. (a) Dokaži: ako su vjerojatnosti modela točne (kalibrirane), očekivani trošak minimizira prag $\tau^*=\dfrac{c_{FP}}{c_{FP}+c_{FN}}$. (b) Na vjerojatnostima običnog modela izračunaj prosječni trošak po primjeru za niz pragova (koristi <code>cross_val_predict</code> na treningu kao u Primjeru 2) i usporedi empirijski najbolji prag s $\tau^*=1/11$. Što bi razlika govorila o kalibraciji modela?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za primjer s vjerojatnošću $p$ usporedi očekivani trošak odluke „pozitivan” ($(1-p)\,c_{FP}$) i odluke „negativan” ($p\,c_{FN}$).</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) Ako je $P(y=1\mid x)=p$, odluka „pozitivan” košta u očekivanju $(1-p)c_{FP}$ (plaćamo ako je zapravo negativan), a „negativan” $p\,c_{FN}$. Pozitivna je odluka bolja čim je $(1-p)c_{FP}\lt p\,c_{FN}$, tj. $p\gt\frac{c_{FP}}{c_{FP}+c_{FN}}=\tau^*$. Za $c_{FN}=10c_{FP}$ to je $\tau^*=1/11\approx0{,}091$: pozitivno proglašavamo sve s više od $9\,\%$ vjerojatnosti. Jednaki troškovi daju $\tau^*=0{,}5$, odakle i dolazi zadani prag.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pipe</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">))</span>
+<span class="n">p_cv</span> <span class="o">=</span> <span class="n">cross_val_predict</span><span class="p">(</span><span class="n">pipe</span><span class="p">,</span> <span class="n">Xn_tr</span><span class="p">,</span> <span class="n">yn_tr</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">&quot;predict_proba&quot;</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">trosak</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">prag</span><span class="p">,</span> <span class="n">c_fn</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">c_fp</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">yh</span> <span class="o">=</span> <span class="n">p</span> <span class="o">&gt;=</span> <span class="n">prag</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">c_fn</span> <span class="o">*</span> <span class="p">((</span><span class="n">y</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="n">yh</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="n">c_fp</span> <span class="o">*</span> <span class="p">((</span><span class="n">y</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">yh</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="n">pragovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.6</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">troskovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">trosak</span><span class="p">(</span><span class="n">yn_tr</span><span class="p">,</span> <span class="n">p_cv</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">pragovi</span><span class="p">])</span>
+<span class="n">najbolji</span> <span class="o">=</span> <span class="n">pragovi</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">troskovi</span><span class="p">))]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prag   trošak/primjer&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">11</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%.3f</span><span class="s2">  </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">trosak</span><span class="p">(</span><span class="n">yn_tr</span><span class="p">,</span> <span class="n">p_cv</span><span class="p">,</span> <span class="n">t</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;empirijski najbolji prag: </span><span class="si">%.2f</span><span class="s2"> (trošak </span><span class="si">%.4f</span><span class="s2">);  teorijski 1/11 = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">najbolji</span><span class="p">,</span> <span class="n">troskovi</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">11</span><span class="p">))</span>
+<span class="n">pipe</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xn_tr</span><span class="p">,</span> <span class="n">yn_tr</span><span class="p">)</span>
+<span class="n">p_test</span> <span class="o">=</span> <span class="n">pipe</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">Xn_te</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;na testu: trošak uz prag 0.5 = </span><span class="si">%.4f</span><span class="s2">, uz 1/11 = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">trosak</span><span class="p">(</span><span class="n">yn_te</span><span class="p">,</span> <span class="n">p_test</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span> <span class="n">trosak</span><span class="p">(</span><span class="n">yn_te</span><span class="p">,</span> <span class="n">p_test</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">11</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>prag   trošak/primjer
+0.050  0.3360
+0.091  0.2589
+0.200  0.2517
+0.500  0.3706
+empirijski najbolji prag: 0.15 (trošak 0.2371);  teorijski 1/11 = 0.091
+na testu: trošak uz prag 0.5 = 0.3340, uz 1/11 = 0.2460</code></pre>
+<p>Oba su praga, $1/11$ i empirijski najbolji $0{,}15$, daleko bolja od zadanog $0{,}5$, koji trošak gotovo udvostručuje. Krivulja troška plitka je oko minimuma, pa je razlika između njih mala, ali empirijski optimum ipak leži nešto desno od $\tau^*$: to znači da je među primjerima s $p$ između $0{,}09$ i $0{,}15$ pozitivnih manje nego što model tvrdi, tj. model u području malih vjerojatnosti blago precjenjuje manjinski razred. Kad je takav pomak velik, ili se prag bira empirijski, ili se vjerojatnosti najprije kalibriraju (<code>CalibratedClassifierCV</code>). U oba slučaja odluka se donosi na validacijskim podacima, a test ostaje netaknut do kraja.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Logistička regresija: $P(y=1\mid x)=\sigma(w^\top x+b)$, linearna granica odluke, log-gubitak (unakrsna entropija) $-\frac1n\sum[y\ln p+(1-y)\ln(1-p)]$, gradijent $\frac1nX^\top(p-y)$, konveksno, bez zatvorene formule.</li>
+<li>Više razreda: softmax s unakrsnom entropijom (gradijent $\frac1nX^\top(P-Y)$) ili jedan-protiv-ostalih; softmax računaj uz oduzimanje maksimuma.</li>
+<li>Matrica zabune daje točnost, preciznost ($TP/(TP+FP)$), odziv ($TP/(TP+FN)$) i $F_1$; točnost vara kod neuravnoteženih razreda.</li>
+<li>ROC krivulja i AUC mjere kvalitetu poretka neovisno o pragu; $F_1$, preciznost i odziv mjere model zajedno s pragom.</li>
+<li>Prag je odluka o cijeni pogrešaka: biraj ga na validacijskom skupu (<code>cross_val_predict</code>), prema metrici zadatka ili trošku ($\tau^*=c_{FP}/(c_{FP}+c_{FN})$ za kalibrirane vjerojatnosti); <code>class_weight="balanced"</code> je alternativa na razini gubitka.</li>
+<li>Scikit-learn: <code>LogisticRegression(C, penalty, class_weight)</code>, <code>predict_proba</code>, <code>confusion_matrix</code>, <code>precision_score</code>, <code>recall_score</code>, <code>f1_score</code>, <code>roc_auc_score</code>, <code>roc_curve</code>, <code>precision_recall_curve</code>.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 3 (Classification: metrike, ROC, višeklasna klasifikacija) i poglavlje 4 (Logistic Regression, Softmax Regression).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlje 4.4 (Logistic Regression).</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression">Logistic regression</a> i <a href="https://scikit-learn.org/stable/modules/model_evaluation.html#classification-metrics">Classification metrics</a>.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="02-gradijentni-spust-regularizacija.html"><small>← Prethodna lekcija</small>M2 · Gradijentni spust i regularizacija</a>
+                <a class="sljedeca" href="04-stabla-sume-boosting.html"><small>Sljedeća lekcija →</small>M4 · Stabla odluke, slučajne šume i boosting</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

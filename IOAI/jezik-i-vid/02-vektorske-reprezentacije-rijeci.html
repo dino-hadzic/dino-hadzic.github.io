@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Jezik i vid 2: Vektorske reprezentacije riječi (embeddings)</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#jezik-i-vid">Jezik i vid</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Jezik i vid · lekcija 2 od 6</p>
+            <h1><span class="broj-lekcije">V2</span> Vektorske reprezentacije riječi (embeddings)</h1>
+            <p class="meta">Od one-hot vektora preko ko-okurencija i SVD-a do word2veca: kako riječi dobivaju geometriju u kojoj „sličan” znači „blizu”</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.2" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>one-hot</li>
+                <li>distribucijska hipoteza</li>
+                <li>ko-okurencijska matrica</li>
+                <li>PPMI</li>
+                <li>SVD</li>
+                <li>word2vec</li>
+                <li>skip-gram</li>
+                <li>negativno uzorkovanje</li>
+                <li>kosinusna sličnost</li>
+                <li>nn.Embedding</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Objasniti zašto one-hot kodiranje riječi ne nosi značenje i kako ga distribucijska hipoteza zamjenjuje gustim vektorima.</li>
+<li>Izgraditi prvi embedding ručno: ko-okurencijska matrica, PPMI težine i SVD; mjeriti sličnost kosinusom i rješavati analogije.</li>
+<li>Razumjeti skip-gram s negativnim uzorkovanjem (word2vec) i implementirati ga u PyTorchu od nule; znati što je <code>nn.Embedding</code>.</li>
+<li>Vizualizirati embeddinge PCA-om i razlikovati statične od kontekstualnih reprezentacija (uvod u transformere, lekcija V3).</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji V1 dokument je bio vektor duljine $|V|$ s brojem pojavljivanja svake riječi. Ta reprezentacija ima skrivenu pretpostavku: <em>svake dvije različite riječi jednako su različite</em>. „Pas” je od „mačke” udaljen točno koliko i od „procesora”. Model koji je na treningu vidio samo „pas” ne zna ništa o rečenici s „psom”, a kamoli s „mačkom”. <b>Vektorske reprezentacije riječi</b> (engl. <i>word embeddings</i>) rješavaju to tako da svakoj riječi pridruže <em>gusti</em> vektor u $\mathbb R^d$ s $d\approx50$–$300$, naučen iz podataka tako da riječi sličnog značenja imaju bliske vektore.</p>
+
+<h3>Zašto one-hot ne radi</h3>
+<div class="pojam">
+<h4>One-hot kodiranje</h4>
+<p>Uz rječnik $V=\{t_1,\dots,t_{|V|}\}$ riječ $t_j$ predstavlja se vektorom $e_j\in\{0,1\}^{|V|}$ koji ima jedinicu na mjestu $j$ i nule drugdje. BoW vektor dokumenta iz lekcije V1 upravo je zbroj one-hot vektora njegovih riječi.</p>
+</div>
+<p>Za $i\ne j$ vrijedi $e_i^\top e_j=0$ i $\lVert e_i-e_j\rVert=\sqrt2$: svi parovi riječi su međusobno okomiti i jednako udaljeni, pa iz samog kodiranja ne možemo pročitati nikakvu sličnost. Uz to je dimenzija golema ($|V|$ je desetci tisuća), a model s one-hot ulazom mora za svaku riječ zasebno naučiti sve što o njoj zna – znanje se ne prenosi s „pas” na „psa”.</p>
+
+<h3>Distribucijska hipoteza</h3>
+<p>Odakle uopće učiti značenje bez rječnika i označenih podataka? Iz konteksta. <b>Distribucijska hipoteza</b> (Harris, 1954; Firth: „<i>You shall know a word by the company it keeps</i>”) kaže: riječi koje se pojavljuju u sličnim kontekstima imaju slično značenje. „Pas” i „mačka” oboje se javljaju uz „hrani”, „spava”, „dlaka”, „veterinar”; „procesor” se javlja uz „jezgre”, „brzina”, „računalo”. Ako riječ opišemo <em>statistikom njezinih susjeda</em>, sličnost tih statistika postaje sličnost značenja. Sve metode u ovoj lekciji – i transformeri u sljedećoj – samo su različiti načini da se ta ideja pretvori u brojeve.</p>
+
+<h3>Ko-okurencijska matrica i SVD</h3>
+<div class="pojam">
+<h4>Ko-okurencijska matrica</h4>
+<p>Za prozor širine $k$ neka je $C_{ij}$ broj puta kad se riječ $t_j$ pojavila najviše $k$ mjesta lijevo ili desno od riječi $t_i$ u korpusu. Redak $C_{i\cdot}\in\mathbb R^{|V|}$ je <em>distribucijski profil</em> riječi $t_i$ i već je prva (visokodimenzionalna, rijetka) vektorska reprezentacija.</p>
+</div>
+<p>Sirovi brojači imaju isti problem kao u V1: dominiraju ih česte riječi („je”, „i”). Rješenje je <b>pozitivna točkasta uzajamna informacija</b> (engl. <i>positive pointwise mutual information</i>):
+$$\mathrm{PPMI}(i,j)=\max\!\left(0,\ \ln\frac{P(i,j)}{P(i)\,P(j)}\right),\qquad P(i,j)=\frac{C_{ij}}{\sum_{a,b}C_{ab}},$$
+koja mjeri koliko se par pojavljuje <em>češće nego slučajno</em>; za neovisne riječi je nula. Matrica PPMI je i dalje $|V|\times|V|$, pa je smanjimo <b>dekompozicijom singularnih vrijednosti</b> (SVD): $M=U\Sigma W^\top$, a prvih $d$ stupaca matrice $U\Sigma$ (ili $U\sqrt\Sigma$) daje $d$-dimenzionalni vektor svake riječi. To je u suštini metoda poznata kao LSA (<i>latent semantic analysis</i>), prvi uspješni embedding iz 1990-ih. Lekcija M6 objašnjava SVD i PCA detaljnije; ovdje je dovoljno znati da SVD bira $d$ smjerova koji najbolje rekonstruiraju matricu.</p>
+
+<h3>word2vec: skip-gram s negativnim uzorkovanjem</h3>
+<p>Umjesto brojanja pa faktorizacije, word2vec (Mikolov i sur., 2013) embedding uči izravno <em>predviđanjem</em>. Svaka riječ ima dva vektora: $v_t$ kad je <b>središnja</b> i $u_t$ kad je <b>kontekstna</b>.</p>
+<div class="pojam">
+<h4>Skip-gram</h4>
+<p>Za svaku poziciju u korpusu središnja riječ $c$ treba predvidjeti svaku kontekstnu riječ $o$ u prozoru. Vjerojatnost modeliramo softmaxom nad skalarnim produktima:
+$$P(o\mid c)=\frac{\exp(u_o^\top v_c)}{\sum_{t\in V}\exp(u_t^\top v_c)},$$
+a učimo maksimizirajući $\sum\ln P(o\mid c)$ po svim parovima (središnja, kontekstna) u korpusu. Varijanta <b>CBOW</b> (<i>continuous bag of words</i>) radi obrnuto: iz zbroja konteksta predviđa središnju riječ.</p>
+</div>
+<p>Nazivnik softmaxa zbraja po cijelom rječniku – za $|V|=10^5$ to je preskupo za svaki par. <b>Negativno uzorkovanje</b> (engl. <i>negative sampling</i>) zamjenjuje višeklasni problem binarnim: za pravi par $(c,o)$ model treba reći „da”, a za $K$ slučajno izvučenih <b>negativnih</b> riječi $n_1,\dots,n_K$ „ne”:
+$$L(c,o)=-\ln\sigma(u_o^\top v_c)-\sum_{k=1}^{K}\ln\sigma(-u_{n_k}^\top v_c),\qquad \sigma(z)=\frac1{1+e^{-z}} .$$
+Negativne riječi vuku se iz raspodjele $P(t)\propto f(t)^{3/4}$ ($f$ je frekvencija), koja rijetke riječi izvlači nešto češće od njihove frekvencije. Tipično je $K=5$–$20$, $d=100$–$300$, prozor $2$–$5$. Pokazano je (Levy i Goldberg, 2014) da SGNS implicitno faktorizira matricu pomaknutog PMI-ja – obje metode iz ove lekcije rade u suštini isto, samo što je word2vec skalabilan na milijarde tokena.</p>
+<div class="trener-umetak">
+<p>Gradijent gubitka po $v_c$ je $(\sigma(u_o^\top v_c)-1)\,u_o+\sum_k\sigma(u_{n_k}^\top v_c)\,u_{n_k}$: središnji vektor privlači se k pravom kontekstu i odguruje od negativnih primjera, jače što je model „sigurniji” u pogrešku. Izvedi to u Zadatku 4 i provjeri autogradom – isti račun je u pozadini svakog <code>loss.backward()</code>.</p>
+</div>
+
+<h3>Sličnost i analogije</h3>
+<div class="pojam">
+<h4>Kosinusna sličnost</h4>
+<p>$$\cos(a,b)=\frac{a^\top b}{\lVert a\rVert\,\lVert b\rVert}\in[-1,1].$$
+Mjeri kut, ne duljinu: vektori čestih riječi imaju veću normu, a kosinus to ignorira. Za normirane vektore vrijedi $\lVert a-b\rVert^2=2-2\cos(a,b)$, pa su kosinusna sličnost i euklidska udaljenost tada ekvivalentne.</p>
+</div>
+<p><b>Analogije</b> su najpoznatiji test embeddinga: „kralj : kraljica = princ : ?”. Metoda 3CosAdd traži riječ $x$ koja maksimizira $\cos(x,\ v_{\text{kraljica}}-v_{\text{kralj}}+v_{\text{princ}})$, isključujući tri zadane riječi. Radi kad je razlika „ženski rod − muški rod” u prostoru približno isti vektor za sve parove – a to se u dobrim embeddinzima stvarno događa, jer parovi dijele istu razliku u kontekstima („ona”, „njezin” umjesto „on”, „njegov”).</p>
+
+<h3>nn.Embedding</h3>
+<p>U PyTorchu je <code>nn.Embedding(V, d)</code> jednostavno matrica $E\in\mathbb R^{|V|\times d}$ koja za niz indeksa vraća odgovarajuće retke: <code>emb(torch.tensor([3, 7]))</code> daje $E_3$ i $E_7$. Matematički je to one-hot vektor pomnožen matricom, $e_j^\top E=E_j$, ali implementirano kao <em>pretraživanje tablice</em> (lookup), bez množenja s golemim rijetkim vektorom. Slojevi embeddinga mogu se (a) učiti od nule zajedno s ostatkom mreže (prvi sloj svakog NLP modela), (b) inicijalizirati prethodno naučenim vektorima (<code>nn.Embedding.from_pretrained</code>) i po želji zamrznuti (<code>freeze=True</code>). Isti sloj koristi se i za bilo koju kategorijsku varijablu u tabularnim zadacima: umjesto one-hot stupaca za „grad” ili „ID proizvoda”, model uči $d$-dimenzionalni vektor za svaku kategoriju.</p>
+
+<h3>Statični i kontekstualni embeddinzi</h3>
+<p>Sve reprezentacije iz ove lekcije su <b>statične</b>: riječ ima jedan vektor bez obzira na rečenicu. „Grad” u „oluja s gradom” i „grad Zagreb” dobit će isti vektor – nužno negdje između dvaju značenja (Zadatak 6). Modeli iz lekcije V3 (BERT i srodnici) računaju <b>kontekstualne</b> embeddinge: vektor riječi ovisi o cijeloj rečenici, pa dva značenja dobiju dva različita vektora. Statični embeddinzi i dalje su koristan alat (brzi, mali, prikladni za pretraživanje i kao inicijalizacija), a ideje iz ove lekcije – lookup tablica, kosinus, predviđanje konteksta kao cilj učenja – ostaju identične u transformerima.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Generiraj sintetički korpus u kojem riječi imaju jasnu „značenjsku” strukturu (osobe s rodom i ulogom, životinje, hrana, gradovi, vrijeme), izgradi ko-okurencijsku matricu s prozorom $2$, primijeni PPMI i SVD na $d=10$ dimenzija te provjeri daju li kosinusne sličnosti smislene susjede.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: korpus.</b> Pravi korpus bi tražio download; ovdje gradimo igračku s poznatom istinom, što omogućuje da provjerimo radi li metoda. Svaka rečenica opisuje jednu „ciljnu” riječ okruženu kontekstnim riječima koje ovise o njezinim svojstvima: osobe imaju rod (kontekst „on”/„ona”…) i ulogu (dvor, obitelj, škola), a ostale kategorije svoje kontekste. Frekvencije ciljnih riječi padaju po Zipfovu zakonu (prva riječ popisa najčešća), a u 15 % rečenica jedna je kontekstna riječ nasumična – „šum” kakvog u pravom tekstu ima napretek. Gramatika je namjerno zanemarena.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">OSOBE</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;kralj&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;dvor&quot;</span><span class="p">),</span> <span class="s2">&quot;kraljica&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;ž&quot;</span><span class="p">,</span> <span class="s2">&quot;dvor&quot;</span><span class="p">),</span> <span class="s2">&quot;princ&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;dvor&quot;</span><span class="p">),</span>
+         <span class="s2">&quot;princeza&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;ž&quot;</span><span class="p">,</span> <span class="s2">&quot;dvor&quot;</span><span class="p">),</span> <span class="s2">&quot;otac&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;obitelj&quot;</span><span class="p">),</span> <span class="s2">&quot;majka&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;ž&quot;</span><span class="p">,</span> <span class="s2">&quot;obitelj&quot;</span><span class="p">),</span>
+         <span class="s2">&quot;brat&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;obitelj&quot;</span><span class="p">),</span> <span class="s2">&quot;sestra&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;ž&quot;</span><span class="p">,</span> <span class="s2">&quot;obitelj&quot;</span><span class="p">),</span> <span class="s2">&quot;učitelj&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;škola&quot;</span><span class="p">),</span>
+         <span class="s2">&quot;učiteljica&quot;</span><span class="p">:</span> <span class="p">(</span><span class="s2">&quot;ž&quot;</span><span class="p">,</span> <span class="s2">&quot;škola&quot;</span><span class="p">)}</span>
+<span class="n">ROD</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;m&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;on&quot;</span><span class="p">,</span> <span class="s2">&quot;njegov&quot;</span><span class="p">,</span> <span class="s2">&quot;gospodin&quot;</span><span class="p">,</span> <span class="s2">&quot;muškarac&quot;</span><span class="p">],</span> <span class="s2">&quot;ž&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;ona&quot;</span><span class="p">,</span> <span class="s2">&quot;njezin&quot;</span><span class="p">,</span> <span class="s2">&quot;gospođa&quot;</span><span class="p">,</span> <span class="s2">&quot;žena&quot;</span><span class="p">]}</span>
+<span class="n">ULOGA</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dvor&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dvorac&quot;</span><span class="p">,</span> <span class="s2">&quot;kruna&quot;</span><span class="p">,</span> <span class="s2">&quot;prijestolje&quot;</span><span class="p">,</span> <span class="s2">&quot;kraljevstvo&quot;</span><span class="p">],</span>
+         <span class="s2">&quot;obitelj&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;dom&quot;</span><span class="p">,</span> <span class="s2">&quot;večera&quot;</span><span class="p">,</span> <span class="s2">&quot;obitelj&quot;</span><span class="p">,</span> <span class="s2">&quot;vrt&quot;</span><span class="p">],</span>
+         <span class="s2">&quot;škola&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;škola&quot;</span><span class="p">,</span> <span class="s2">&quot;razred&quot;</span><span class="p">,</span> <span class="s2">&quot;učenici&quot;</span><span class="p">,</span> <span class="s2">&quot;ploča&quot;</span><span class="p">]}</span>
+<span class="n">KATEGORIJE</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;životinja&quot;</span><span class="p">:</span> <span class="p">([</span><span class="s2">&quot;pas&quot;</span><span class="p">,</span> <span class="s2">&quot;mačka&quot;</span><span class="p">,</span> <span class="s2">&quot;konj&quot;</span><span class="p">,</span> <span class="s2">&quot;krava&quot;</span><span class="p">,</span> <span class="s2">&quot;ovca&quot;</span><span class="p">],</span>
+                  <span class="p">[</span><span class="s2">&quot;trči&quot;</span><span class="p">,</span> <span class="s2">&quot;spava&quot;</span><span class="p">,</span> <span class="s2">&quot;štala&quot;</span><span class="p">,</span> <span class="s2">&quot;dvorište&quot;</span><span class="p">,</span> <span class="s2">&quot;livada&quot;</span><span class="p">,</span> <span class="s2">&quot;dlaka&quot;</span><span class="p">]),</span>
+    <span class="s2">&quot;hrana&quot;</span><span class="p">:</span> <span class="p">([</span><span class="s2">&quot;kruh&quot;</span><span class="p">,</span> <span class="s2">&quot;sir&quot;</span><span class="p">,</span> <span class="s2">&quot;juha&quot;</span><span class="p">,</span> <span class="s2">&quot;jabuka&quot;</span><span class="p">,</span> <span class="s2">&quot;riža&quot;</span><span class="p">],</span>
+              <span class="p">[</span><span class="s2">&quot;jede&quot;</span><span class="p">,</span> <span class="s2">&quot;kuha&quot;</span><span class="p">,</span> <span class="s2">&quot;ručak&quot;</span><span class="p">,</span> <span class="s2">&quot;tanjur&quot;</span><span class="p">,</span> <span class="s2">&quot;ukusno&quot;</span><span class="p">,</span> <span class="s2">&quot;kuhinja&quot;</span><span class="p">]),</span>
+    <span class="s2">&quot;grad&quot;</span><span class="p">:</span> <span class="p">([</span><span class="s2">&quot;zagreb&quot;</span><span class="p">,</span> <span class="s2">&quot;split&quot;</span><span class="p">,</span> <span class="s2">&quot;osijek&quot;</span><span class="p">,</span> <span class="s2">&quot;zadar&quot;</span><span class="p">],</span>
+             <span class="p">[</span><span class="s2">&quot;vlak&quot;</span><span class="p">,</span> <span class="s2">&quot;ulica&quot;</span><span class="p">,</span> <span class="s2">&quot;putuje&quot;</span><span class="p">,</span> <span class="s2">&quot;trg&quot;</span><span class="p">,</span> <span class="s2">&quot;stanovnici&quot;</span><span class="p">,</span> <span class="s2">&quot;most&quot;</span><span class="p">]),</span>
+    <span class="s2">&quot;vrijeme&quot;</span><span class="p">:</span> <span class="p">([</span><span class="s2">&quot;kiša&quot;</span><span class="p">,</span> <span class="s2">&quot;snijeg&quot;</span><span class="p">,</span> <span class="s2">&quot;vjetar&quot;</span><span class="p">,</span> <span class="s2">&quot;magla&quot;</span><span class="p">],</span>
+                <span class="p">[</span><span class="s2">&quot;oluja&quot;</span><span class="p">,</span> <span class="s2">&quot;pada&quot;</span><span class="p">,</span> <span class="s2">&quot;oblak&quot;</span><span class="p">,</span> <span class="s2">&quot;hladno&quot;</span><span class="p">,</span> <span class="s2">&quot;prognoza&quot;</span><span class="p">,</span> <span class="s2">&quot;jutros&quot;</span><span class="p">]),</span>
+<span class="p">}</span>
+<span class="n">GLAGOLI</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;voli&quot;</span><span class="p">,</span> <span class="s2">&quot;gleda&quot;</span><span class="p">,</span> <span class="s2">&quot;traži&quot;</span><span class="p">,</span> <span class="s2">&quot;čuva&quot;</span><span class="p">,</span> <span class="s2">&quot;ima&quot;</span><span class="p">]</span>
+<span class="n">CILJNE</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">OSOBE</span><span class="p">)</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">([</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">KATEGORIJE</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> <span class="p">[])</span>
+<span class="n">KONTEKSTNE</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ROD</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="p">[])</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ULOGA</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span> <span class="p">[])</span> <span class="o">+</span> <span class="nb">sum</span><span class="p">([</span><span class="n">k</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">KATEGORIJE</span><span class="o">.</span><span class="n">values</span><span class="p">()],</span> <span class="p">[])</span>
+
+<span class="k">def</span> <span class="nf">zipf</span><span class="p">(</span><span class="n">lista</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Zipfov izbor: i-ta riječ popisa ima vjerojatnost razmjernu 1/i (kao u pravom jeziku).&quot;&quot;&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lista</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">lista</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">p</span> <span class="o">/</span> <span class="n">p</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+
+<span class="k">def</span> <span class="nf">recenica</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+        <span class="n">osoba</span> <span class="o">=</span> <span class="n">zipf</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">OSOBE</span><span class="p">))</span>
+        <span class="n">rod</span><span class="p">,</span> <span class="n">uloga</span> <span class="o">=</span> <span class="n">OSOBE</span><span class="p">[</span><span class="n">osoba</span><span class="p">]</span>
+        <span class="n">rijeci</span> <span class="o">=</span> <span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">ROD</span><span class="p">[</span><span class="n">rod</span><span class="p">]),</span> <span class="n">osoba</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">GLAGOLI</span><span class="p">),</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">ULOGA</span><span class="p">[</span><span class="n">uloga</span><span class="p">])]</span>
+        <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span>
+            <span class="n">rijeci</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rijeci</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">rijeci</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">rijeci</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">cilj</span><span class="p">,</span> <span class="n">kontekst</span> <span class="o">=</span> <span class="n">KATEGORIJE</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">KATEGORIJE</span><span class="p">))]</span>
+        <span class="n">rijeci</span> <span class="o">=</span> <span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">kontekst</span><span class="p">),</span> <span class="n">zipf</span><span class="p">(</span><span class="n">cilj</span><span class="p">),</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">GLAGOLI</span><span class="p">),</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">kontekst</span><span class="p">)]</span>
+    <span class="n">rijeci</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">rijeci</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.15</span><span class="p">:</span>                       <span class="c1"># šum: 15 % rečenica ima jednu nasumičnu riječ</span>
+        <span class="n">rijeci</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">])]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">KONTEKSTNE</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">rijeci</span>
+
+<span class="n">korpus</span> <span class="o">=</span> <span class="p">[</span><span class="n">recenica</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8000</span><span class="p">)]</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus</span><span class="p">[:</span><span class="mi">3</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">r</span><span class="p">))</span>
+<span class="n">rjecnik</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">t</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">r</span><span class="p">})</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">)}</span>
+<span class="n">V</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;rečenica:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">korpus</span><span class="p">),</span> <span class="s2">&quot; tokena:&quot;</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">len</span><span class="p">,</span> <span class="n">korpus</span><span class="p">)),</span> <span class="s2">&quot; rječnik:&quot;</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>ulica zagreb voli vlak
+trg osijek čuva trg
+vlak osijek traži vlak
+rečenica: 8000  tokena: 32000  rječnik: 77</code></pre>
+<p><b>Korak 2: ko-okurencijska matrica.</b> Za svaku poziciju gledamo $k=2$ mjesta lijevo i desno; matrica je simetrična.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">kookurencije</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">V</span><span class="p">,</span> <span class="n">V</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus</span><span class="p">:</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">r</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ind</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ind</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">i</span><span class="p">:</span>
+                    <span class="n">C</span><span class="p">[</span><span class="n">ci</span><span class="p">,</span> <span class="n">ind</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">C</span>
+
+<span class="n">C</span> <span class="o">=</span> <span class="n">kookurencije</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;simetrična:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">C</span><span class="o">.</span><span class="n">T</span><span class="p">),</span> <span class="s2">&quot; ukupno parova:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">C</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">):</span>
+    <span class="n">red</span> <span class="o">=</span> <span class="n">C</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]]</span>
+    <span class="n">vrh</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">red</span><span class="p">)[:</span><span class="mi">5</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-6s</span><span class="s2"> najčešći susjedi:&quot;</span> <span class="o">%</span> <span class="n">t</span><span class="p">,</span> <span class="p">[(</span><span class="n">rjecnik</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">red</span><span class="p">[</span><span class="n">j</span><span class="p">]))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">vrh</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>simetrična: True  ukupno parova: 80000
+kralj  najčešći susjedi: [('muškarac', 335), ('gospodin', 328), ('on', 291), ('njegov', 288), ('voli', 264)]
+pas    najčešći susjedi: [('dlaka', 143), ('štala', 137), ('trči', 134), ('dvorište', 132), ('spava', 126)]</code></pre>
+<p>Najčešći susjedi su upravo glagoli i kontekstne riječi koje su ušle u rečenice – ali glagoli („ima”, „voli”) stoje uz <em>sve</em> ciljne riječi i ne razlikuju ništa. To je razlog za PPMI.</p>
+<p><b>Korak 3: PPMI i SVD.</b> PPMI računamo vektorski; SVD daje $U\Sigma W^\top$, a embedding su prvih $d$ stupaca od $U\Sigma$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">ppmi</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">C</span> <span class="o">/</span> <span class="n">C</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">pi</span><span class="p">,</span> <span class="n">pj</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">P</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">):</span>
+        <span class="n">M</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">P</span> <span class="o">/</span> <span class="p">(</span><span class="n">pi</span> <span class="o">*</span> <span class="n">pj</span><span class="p">))</span>
+    <span class="n">M</span><span class="p">[</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">M</span><span class="p">)]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="n">M</span> <span class="o">=</span> <span class="n">ppmi</span><span class="p">(</span><span class="n">C</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;PPMI(kralj, kruna) = </span><span class="si">%.2f</span><span class="s2">   PPMI(kralj, ima) = </span><span class="si">%.2f</span><span class="s2">   PPMI(kralj, štala) = </span><span class="si">%.2f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">M</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="s2">&quot;kralj&quot;</span><span class="p">],</span> <span class="n">idx</span><span class="p">[</span><span class="s2">&quot;kruna&quot;</span><span class="p">]],</span> <span class="n">M</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="s2">&quot;kralj&quot;</span><span class="p">],</span> <span class="n">idx</span><span class="p">[</span><span class="s2">&quot;ima&quot;</span><span class="p">]],</span> <span class="n">M</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="s2">&quot;kralj&quot;</span><span class="p">],</span> <span class="n">idx</span><span class="p">[</span><span class="s2">&quot;štala&quot;</span><span class="p">]]))</span>
+
+<span class="n">U</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">Wt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+<span class="n">d</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="n">E_svd</span> <span class="o">=</span> <span class="n">U</span><span class="p">[:,</span> <span class="p">:</span><span class="n">d</span><span class="p">]</span> <span class="o">*</span> <span class="n">S</span><span class="p">[:</span><span class="n">d</span><span class="p">]</span>                       <span class="c1"># (V, d) embedding</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prvih 6 singularnih vrijednosti:&quot;</span><span class="p">,</span> <span class="n">S</span><span class="p">[:</span><span class="mi">6</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;udio „energije” u prvih </span><span class="si">%d</span><span class="s2">:&quot;</span> <span class="o">%</span> <span class="n">d</span><span class="p">,</span> <span class="nb">round</span><span class="p">((</span><span class="n">S</span><span class="p">[:</span><span class="n">d</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">S</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>PPMI(kralj, kruna) = 1.10   PPMI(kralj, ima) = 0.28   PPMI(kralj, štala) = 0.00
+prvih 6 singularnih vrijednosti: [16.5 14.2 13.8 13.6 13.6 12.8]
+udio „energije” u prvih 10: 0.816</code></pre>
+<p>PPMI je visok za par koji se pojavljuje mnogo češće nego slučajno („kralj”–„kruna”), oko nule za glagol koji ide uza sve i nula za riječi koje se nikad ne sreću. Deset dimenzija zadržava većinu informacije iz matrice veličine $V\times V$.</p>
+<p><b>Korak 4: kosinusna sličnost i susjedi.</b> Normiramo retke pa su sve sličnosti jedan matrični produkt.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">normiraj</span><span class="p">(</span><span class="n">E</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">E</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">susjedi</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">rijec</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+    <span class="n">En</span> <span class="o">=</span> <span class="n">normiraj</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
+    <span class="n">sl</span> <span class="o">=</span> <span class="n">En</span> <span class="o">@</span> <span class="n">En</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">rijec</span><span class="p">]]</span>
+    <span class="n">sl</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">rijec</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">rjecnik</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">sl</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span> <span class="mi">2</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">sl</span><span class="p">)[:</span><span class="n">n</span><span class="p">]]</span>
+
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">,</span> <span class="s2">&quot;zagreb&quot;</span><span class="p">,</span> <span class="s2">&quot;ona&quot;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-7s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">t</span><span class="p">,</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">E_svd</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>kralj   [('princ', 1.0), ('prijestolje', 0.99), ('dvorac', 0.99), ('kruna', 0.99)]
+pas     [('konj', 1.0), ('krava', 1.0), ('mačka', 1.0), ('ovca', 1.0)]
+zagreb  [('zadar', 1.0), ('split', 1.0), ('osijek', 1.0), ('čuva', 0.48)]
+ona     [('žena', 1.0), ('gospođa', 1.0), ('njezin', 1.0), ('obitelj', 0.99)]</code></pre>
+<p>Susjedi su točno ono što smo ugradili u korpus: „kralj” je najbliži „princu” (isti rod i uloga) i riječima dvora, „pas” ostalim životinjama, „zagreb” gradovima, a kontekstna riječ „ona” drugim ženskim kontekstnim riječima. Nitko modelu nije rekao što je životinja – strukturu je rekonstruirao samo iz susjedstava, što je distribucijska hipoteza na djelu.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Implementiraj skip-gram s negativnim uzorkovanjem u PyTorchu i istreniraj ga na korpusu iz Primjera 1 ($d=10$, prozor $2$, $K=5$ negativnih). Usporedi susjede s onima iz SVD-a.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: parovi za učenje.</b> Iz korpusa izvlačimo sve parove (središnja, kontekstna) unutar prozora; to je isti račun kao za matricu $C$, samo bez zbrajanja. Raspodjela za negativno uzorkovanje je $f^{3/4}$ normirana.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">parovi</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">c</span><span class="p">,</span> <span class="n">o</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus</span><span class="p">:</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">r</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ind</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ind</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">i</span><span class="p">:</span>
+                    <span class="n">c</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ci</span><span class="p">);</span> <span class="n">o</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ind</span><span class="p">[</span><span class="n">j</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>
+
+<span class="n">sred</span><span class="p">,</span> <span class="n">kont</span> <span class="o">=</span> <span class="n">parovi</span><span class="p">(</span><span class="n">korpus</span><span class="p">)</span>
+<span class="n">frek</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">sred</span><span class="p">,</span> <span class="n">minlength</span><span class="o">=</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+<span class="n">p_neg</span> <span class="o">=</span> <span class="n">frek</span> <span class="o">**</span> <span class="mf">0.75</span>
+<span class="n">p_neg</span> <span class="o">/=</span> <span class="n">p_neg</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;parova za učenje:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sred</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;P_neg najčešće : </span><span class="si">%.3f</span><span class="s2">   najrjeđe: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p_neg</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">p_neg</span><span class="o">.</span><span class="n">min</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>parova za učenje: 80000
+P_neg najčešće : 0.045   najrjeđe: 0.003</code></pre>
+<p><b>Korak 2: model i gubitak.</b> Dvije tablice <code>nn.Embedding</code>: za središnje ($v$) i kontekstne ($u$) vektore. Gubitak je formula iz teorije; <code>F.logsigmoid</code> je numerički stabilan $\ln\sigma$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span> <span class="nc">SkipGram</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>       <span class="c1"># središnji vektori</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>       <span class="c1"># kontekstni vektori</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">/</span> <span class="n">d</span><span class="p">)</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">zeros_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">o</span><span class="p">,</span> <span class="n">neg</span><span class="p">):</span>
+        <span class="n">vc</span><span class="p">,</span> <span class="n">uo</span><span class="p">,</span> <span class="n">un</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">(</span><span class="n">c</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">(</span><span class="n">o</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">(</span><span class="n">neg</span><span class="p">)</span>          <span class="c1"># (B,d), (B,d), (B,K,d)</span>
+        <span class="n">poz</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">logsigmoid</span><span class="p">((</span><span class="n">vc</span> <span class="o">*</span> <span class="n">uo</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>                     <span class="c1"># (B,)</span>
+        <span class="n">ng</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">logsigmoid</span><span class="p">(</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">un</span><span class="p">,</span> <span class="n">vc</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">poz</span> <span class="o">+</span> <span class="n">ng</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">treniraj_sgns</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">K</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">B</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">SkipGram</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sred</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+        <span class="n">ukupno</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">s</span> <span class="o">+</span> <span class="n">B</span><span class="p">]</span>
+            <span class="n">neg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span><span class="n">p_neg</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="n">K</span><span class="p">,</span> <span class="n">replacement</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">K</span><span class="p">)</span>
+            <span class="n">gubitak</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">sred</span><span class="p">[</span><span class="n">b</span><span class="p">],</span> <span class="n">kont</span><span class="p">[</span><span class="n">b</span><span class="p">],</span> <span class="n">neg</span><span class="p">)</span>
+            <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">();</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+            <span class="n">ukupno</span> <span class="o">+=</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;epoha </span><span class="si">%d</span><span class="s2">  gubitak = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ep</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">ukupno</span> <span class="o">/</span> <span class="n">n</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">v</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="n">E_sg</span> <span class="o">=</span> <span class="n">treniraj_sgns</span><span class="p">()</span></code></pre></div>
+<pre class="izlaz"><code>epoha 1  gubitak = 2.670
+epoha 2  gubitak = 2.059
+epoha 3  gubitak = 2.016
+epoha 4  gubitak = 2.005
+epoha 5  gubitak = 1.999</code></pre>
+<p>Gubitak pada i stabilizira se – ne može do nule, jer su konteksti slučajni (riječ „kralj” ne može sa sigurnošću predvidjeti hoće li iza nje stajati „kruna” ili „dvorac”). Pet epoha nad stotinjak tisuća parova traje nekoliko sekundi na procesoru.</p>
+<p><b>Korak 3: usporedba sa SVD-om.</b></p>
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">,</span> <span class="s2">&quot;zagreb&quot;</span><span class="p">,</span> <span class="s2">&quot;ona&quot;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-7s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">t</span><span class="p">,</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">E_sg</span><span class="p">,</span> <span class="n">t</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">preklapanje_susjeda</span><span class="p">(</span><span class="n">E1</span><span class="p">,</span> <span class="n">E2</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prosječni udio zajedničkih među n najbližih susjeda, po svim ciljnim riječima.&quot;&quot;&quot;</span>
+    <span class="n">uk</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">CILJNE</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="p">{</span><span class="n">w</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">E1</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">n</span><span class="p">)}</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="p">{</span><span class="n">w</span> <span class="k">for</span> <span class="n">w</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">E2</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">n</span><span class="p">)}</span>
+        <span class="n">uk</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span>
+    <span class="k">return</span> <span class="n">uk</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">CILJNE</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;preklapanje 3 najbliža susjeda, SVD vs SGNS: </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">preklapanje_susjeda</span><span class="p">(</span><span class="n">E_svd</span><span class="p">,</span> <span class="n">E_sg</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>kralj   [('princ', 0.97), ('otac', 0.69), ('brat', 0.67), ('učitelj', 0.67)]
+pas     [('konj', 0.99), ('mačka', 0.99), ('ovca', 0.99), ('krava', 0.97)]
+zagreb  [('split', 1.0), ('osijek', 1.0), ('zadar', 0.99), ('konj', 0.62)]
+ona     [('gospođa', 0.99), ('njezin', 0.99), ('žena', 0.99), ('muškarac', 0.56)]
+preklapanje 3 najbliža susjeda, SVD vs SGNS: 0.81</code></pre>
+<p>Obje metode uglavnom nalaze iste susjede – u skladu s rezultatom da SGNS implicitno faktorizira (pomaknutu) PMI matricu. Brojevi sličnosti razlikuju se (SVD gura sve riječi iste skupine na gotovo isti vektor, SGNS ih razmazuje jer je učenje stohastičko i kratko), a razlike u susjedima tiču se riječi na granici skupina. <em>Poredak</em> susjeda, ne apsolutna vrijednost kosinusa, ono je što embeddinge čini korisnima.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Pomoću embeddinga iz Primjera 1 i 2: (a) riješi analogije „kralj : kraljica = princ : ?” i „otac : majka = brat : ?”; (b) nacrtaj PCA projekciju svih riječi u ravninu; (c) pokaži da je <code>nn.Embedding</code> lookup jednak množenju one-hot vektora matricom i upotrijebi ga kao zamrznuti prvi sloj koji rečenicu pretvara u prosjek vektora.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: analogije (3CosAdd).</b> Tražimo riječ najbližu vektoru $b-a+c$, isključujući $a,b,c$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">analogija</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+    <span class="n">En</span> <span class="o">=</span> <span class="n">normiraj</span><span class="p">(</span><span class="n">E</span><span class="p">)</span>
+    <span class="n">cilj</span> <span class="o">=</span> <span class="n">En</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">b</span><span class="p">]]</span> <span class="o">-</span> <span class="n">En</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">a</span><span class="p">]]</span> <span class="o">+</span> <span class="n">En</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">c</span><span class="p">]]</span>
+    <span class="n">sl</span> <span class="o">=</span> <span class="n">En</span> <span class="o">@</span> <span class="p">(</span><span class="n">cilj</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">cilj</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+        <span class="n">sl</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]]</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">rjecnik</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">sl</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span> <span class="mi">2</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">sl</span><span class="p">)[:</span><span class="n">n</span><span class="p">]]</span>
+
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">E</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">&quot;SVD &quot;</span><span class="p">,</span> <span class="n">E_svd</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;SGNS&quot;</span><span class="p">,</span> <span class="n">E_sg</span><span class="p">)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="s2">&quot;kralj:kraljica = princ:?&quot;</span><span class="p">,</span> <span class="n">analogija</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;kraljica&quot;</span><span class="p">,</span> <span class="s2">&quot;princ&quot;</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="s2">&quot;otac:majka = brat:?    &quot;</span><span class="p">,</span> <span class="n">analogija</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="s2">&quot;otac&quot;</span><span class="p">,</span> <span class="s2">&quot;majka&quot;</span><span class="p">,</span> <span class="s2">&quot;brat&quot;</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="s2">&quot;kralj:dvorac = otac:?  &quot;</span><span class="p">,</span> <span class="n">analogija</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;dvorac&quot;</span><span class="p">,</span> <span class="s2">&quot;otac&quot;</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>SVD  kralj:kraljica = princ:? [('princeza', 1.0), ('majka', 1.0), ('sestra', 1.0)]
+SVD  otac:majka = brat:?     [('sestra', 1.0), ('kraljica', 1.0), ('princeza', 1.0)]
+SVD  kralj:dvorac = otac:?   [('princeza', 0.99), ('kraljica', 0.99), ('brat', 0.99)]
+SGNS kralj:kraljica = princ:? [('princeza', 0.97), ('učiteljica', 0.77), ('majka', 0.75)]
+SGNS otac:majka = brat:?     [('sestra', 0.96), ('učiteljica', 0.75), ('kraljica', 0.75)]
+SGNS kralj:dvorac = otac:?   [('obitelj', 0.8), ('dom', 0.79), ('večera', 0.77)]</code></pre>
+<p>Analogija radi jer je razlika „kraljica − kralj” u korpusu doslovno razlika konteksta „ona/njezin/gospođa/žena” prema „on/njegov/gospodin/muškarac”, a ista razlika vrijedi i za „princeza − princ” i za „majka − otac”. Treća analogija traži smjer „uloga” (od osobe prema njezinu mjestu): SGNS ga nalazi („obitelj”, „dom”, „večera”), a SVD ne – njegovi vektori osoba gotovo su identični (kosinus $1{,}0$), pa razlika „dvorac − kralj” ne nosi informaciju o ulozi nego uglavnom razliku između ciljnih i kontekstnih riječi. Analogije su osjetljiv test: rade samo kad je traženi smjer u prostoru dosljedan i dovoljno izražen.</p>
+<p><b>Korak 2: vizualizacija PCA-om.</b> Projiciramo normirane vektore na dvije glavne komponente i obojimo ih po kategoriji koju znamo iz generatora korpusa.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;Agg&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">sklearn.decomposition</span> <span class="kn">import</span> <span class="n">PCA</span>
+
+<span class="n">kategorija</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">for</span> <span class="n">o</span><span class="p">,</span> <span class="p">(</span><span class="n">rod</span><span class="p">,</span> <span class="n">uloga</span><span class="p">)</span> <span class="ow">in</span> <span class="n">OSOBE</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">kategorija</span><span class="p">[</span><span class="n">o</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;osoba (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="n">rod</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="p">(</span><span class="n">cilj</span><span class="p">,</span> <span class="n">kontekst</span><span class="p">)</span> <span class="ow">in</span> <span class="n">KATEGORIJE</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">cilj</span><span class="p">:</span>
+        <span class="n">kategorija</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">ime</span>
+<span class="n">ciljne</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">rjecnik</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">kategorija</span><span class="p">]</span>
+
+<span class="n">pca</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Z</span> <span class="o">=</span> <span class="n">pca</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">normiraj</span><span class="p">(</span><span class="n">E_sg</span><span class="p">)[[</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">ciljne</span><span class="p">]])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;objašnjena varijanca:&quot;</span><span class="p">,</span> <span class="n">pca</span><span class="o">.</span><span class="n">explained_variance_ratio_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">kat</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">kategorija</span><span class="o">.</span><span class="n">values</span><span class="p">())):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ciljne</span><span class="p">)</span> <span class="k">if</span> <span class="n">kategorija</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">==</span> <span class="n">kat</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">Z</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">Z</span><span class="p">[</span><span class="n">m</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="n">kat</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">40</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ciljne</span><span class="p">):</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">annotate</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">Z</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">xytext</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">textcoords</span><span class="o">=</span><span class="s2">&quot;offset points&quot;</span><span class="p">)</span>
+<span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">);</span> <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;embeddinzi_pca.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;spremljeno embeddinzi_pca.png&quot;</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>objašnjena varijanca: [0.284 0.228]
+spremljeno embeddinzi_pca.png</code></pre>
+<p>Na slici su četiri zbijene, jasno odvojene nakupine (gradovi, hrana, vrijeme, životinje) i raspršenija skupina osoba u donjem desnom dijelu. Rod se u prve dvije komponente <em>ne</em> vidi – muške i ženske osobe su izmiješane („kralj” je nacrtan uz „učiteljicu”) iako analogije pokazuju da je smjer roda u prostoru jasno prisutan: dvije komponente objašnjavaju tek polovicu varijance i troše je na razlike među kategorijama. PCA je za embeddinge alat za <em>pregled</em>, ne za mjerenje; udaljenosti na slici znaju varati.</p>
+<p><b>Korak 3: nn.Embedding kao sloj.</b> Učitavamo SVD vektore u zamrznuti sloj, provjeravamo jednakost s one-hot množenjem i rečenicu pretvaramo u prosjek vektora njezinih riječi – najjednostavniji „embedding rečenice”, koji se zatim predaje bilo kojem klasifikatoru.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">emb</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">E_svd</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">),</span> <span class="n">freeze</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">ind</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">idx</span><span class="p">[</span><span class="s2">&quot;kralj&quot;</span><span class="p">],</span> <span class="n">idx</span><span class="p">[</span><span class="s2">&quot;pas&quot;</span><span class="p">]])</span>
+<span class="n">one_hot</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">one_hot</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">num_classes</span><span class="o">=</span><span class="n">V</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>             <span class="c1"># (2, V)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lookup == one-hot @ E:&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">emb</span><span class="p">(</span><span class="n">ind</span><span class="p">),</span> <span class="n">one_hot</span> <span class="o">@</span> <span class="n">emb</span><span class="o">.</span><span class="n">weight</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;broj parametara: one-hot ulaz </span><span class="si">%d</span><span class="s2">, embedding </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">V</span> <span class="o">*</span> <span class="n">V</span><span class="p">,</span> <span class="n">emb</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">numel</span><span class="p">()))</span>
+
+<span class="k">def</span> <span class="nf">vektor_recenice</span><span class="p">(</span><span class="n">rijeci</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">emb</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">rijeci</span><span class="p">]))</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">r1</span> <span class="o">=</span> <span class="n">vektor_recenice</span><span class="p">(</span><span class="s2">&quot;kraljica gleda prijestolje&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+<span class="n">r2</span> <span class="o">=</span> <span class="n">vektor_recenice</span><span class="p">(</span><span class="s2">&quot;princ ima krunu&quot;</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;krunu&quot;</span><span class="p">,</span> <span class="s2">&quot;kruna&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+<span class="n">r3</span> <span class="o">=</span> <span class="n">vektor_recenice</span><span class="p">(</span><span class="s2">&quot;pas trči livada&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+<span class="n">cos</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">CosineSimilarity</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cos(dvor, dvor) = </span><span class="si">%.2f</span><span class="s2">   cos(dvor, životinja) = </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">cos</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span> <span class="n">r2</span><span class="p">),</span> <span class="n">cos</span><span class="p">(</span><span class="n">r1</span><span class="p">,</span> <span class="n">r3</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;zahtijeva gradijent:&quot;</span><span class="p">,</span> <span class="n">emb</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>lookup == one-hot @ E: True
+broj parametara: one-hot ulaz 5929, embedding 770
+cos(dvor, dvor) = 0.96   cos(dvor, životinja) = 0.21
+zahtijeva gradijent: False</code></pre>
+<p>Dvije rečenice o dvoru bliže su jedna drugoj nego rečenici o psu, iako ne dijele nijednu riječ – upravo ono što BoW iz V1 ne može. Prosjek embeddinga gubi redoslijed riječi (kao i BoW), ali prenosi znanje između sličnih riječi; u lekciji D6 prosjek zamjenjuje mehanizam pažnje koji riječi važe ovisno o kontekstu.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za rječnik od $|V|=50\,000$ riječi usporedi one-hot kodiranje i embedding dimenzije $d=300$: koliko brojeva treba za jednu riječ, a koliko za tablicu svih riječi? Provjeri u NumPy-ju da je kosinusna sličnost bilo kojih dviju različitih one-hot riječi $0$, a euklidska udaljenost $\sqrt2$.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>One-hot: $50\,000$ brojeva po riječi (od kojih jedan nije nula), tablica je identiteta $50\,000\times50\,000=2{,}5\cdot10^9$ brojeva, ali ne sadrži nikakvu informaciju. Embedding: $300$ brojeva po riječi, tablica $50\,000\times300=1{,}5\cdot10^7$ brojeva (60 MB u <code>float32</code>), i ti brojevi nose sličnost.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">50</span><span class="p">)</span>
+<span class="n">e_i</span><span class="p">,</span> <span class="n">e_j</span> <span class="o">=</span> <span class="n">I</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">I</span><span class="p">[</span><span class="mi">17</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cos =&quot;</span><span class="p">,</span> <span class="n">e_i</span> <span class="o">@</span> <span class="n">e_j</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">e_i</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">e_j</span><span class="p">)),</span> <span class="s2">&quot; udaljenost =&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">e_i</span> <span class="o">-</span> <span class="n">e_j</span><span class="p">),</span> <span class="mi">4</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;tablica embeddinga: </span><span class="si">%d</span><span class="s2"> brojeva&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="mi">50_000</span> <span class="o">*</span> <span class="mi">300</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>cos = 0.0  udaljenost = 1.4142
+tablica embeddinga: 15000000 brojeva</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Ručno izračunaj kosinusnu sličnost vektora $a=(1,2,2)$ i $b=(2,0,1)$. Zatim dokaži identitet $\lVert a-b\rVert^2=2-2\cos(a,b)$ za jedinične vektore i provjeri ga numerički na dva normirana retka iz <code>E_svd</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$a^\top b=2+0+2=4$, $\lVert a\rVert=\sqrt{1+4+4}=3$, $\lVert b\rVert=\sqrt5$, pa je $\cos=\frac{4}{3\sqrt5}\approx0{,}596$. Za jedinične $a,b$: $\lVert a-b\rVert^2=a^\top a-2a^\top b+b^\top b=1-2\cos(a,b)+1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">2.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">1.</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cos =&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">a</span> <span class="o">@</span> <span class="n">b</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="mi">4</span><span class="p">))</span>
+<span class="n">En</span> <span class="o">=</span> <span class="n">normiraj</span><span class="p">(</span><span class="n">E_svd</span><span class="p">)</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">En</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="s2">&quot;kralj&quot;</span><span class="p">]],</span> <span class="n">En</span><span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="s2">&quot;pas&quot;</span><span class="p">]]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">6</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">@</span> <span class="n">y</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>cos = 0.5963
+1.897433 1.897433</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za rečenicu „pas trči i pas spava” ručno napiši ko-okurencijsku matricu s prozorom $k=1$ (rječnik abecedno: i, pas, spava, trči). Provjeri kodom (napiši malu funkciju neovisnu o globalnom rječniku).</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Susjedni parovi su (pas, trči), (trči, i), (i, pas), (pas, spava), svaki brojimo u oba smjera. Redak „pas”: i $1$, spava $1$, trči $1$; redak „i”: pas $1$, trči $1$; redak „spava”: pas $1$; redak „trči”: i $1$, pas $1$. Dijagonala je nula.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">mala_kook</span><span class="p">(</span><span class="n">rijeci</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="n">rj</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">rijeci</span><span class="p">))</span>
+    <span class="n">ix</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rj</span><span class="p">)}</span>
+    <span class="n">Cm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">rj</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">rj</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rijeci</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">rijeci</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">i</span><span class="p">:</span>
+                <span class="n">Cm</span><span class="p">[</span><span class="n">ix</span><span class="p">[</span><span class="n">t</span><span class="p">],</span> <span class="n">ix</span><span class="p">[</span><span class="n">rijeci</span><span class="p">[</span><span class="n">j</span><span class="p">]]]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">return</span> <span class="n">rj</span><span class="p">,</span> <span class="n">Cm</span>
+
+<span class="n">rj</span><span class="p">,</span> <span class="n">Cm</span> <span class="o">=</span> <span class="n">mala_kook</span><span class="p">(</span><span class="s2">&quot;pas trči i pas spava&quot;</span><span class="o">.</span><span class="n">split</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">rj</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">Cm</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>['i', 'pas', 'spava', 'trči']
+[[0 1 0 1]
+ [1 0 1 1]
+ [0 1 0 0]
+ [1 1 0 0]]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Umjesto PPMI-ja primijeni SVD izravno na sirove brojače $C$. Usporedi susjede riječi „kralj” s onima iz Primjera 1, a zatim izračunaj korelaciju između prvog lijevog singularnog vektora i frekvencije riječi za $C$ i za PPMI matricu. Što prva (najvažnija) komponenta sirovih brojača zapravo opisuje?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">frekvencija</span> <span class="o">=</span> <span class="n">C</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">Mx</span> <span class="ow">in</span> <span class="p">((</span><span class="s2">&quot;sirovi C&quot;</span><span class="p">,</span> <span class="n">C</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;PPMI    &quot;</span><span class="p">,</span> <span class="n">M</span><span class="p">)):</span>
+    <span class="n">Ux</span><span class="p">,</span> <span class="n">Sx</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">Mx</span><span class="p">)</span>
+    <span class="n">Ex</span> <span class="o">=</span> <span class="n">Ux</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">10</span><span class="p">]</span> <span class="o">*</span> <span class="n">Sx</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
+    <span class="n">kor</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">Ux</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">frekvencija</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">  |korelacija(U[:,0], frekvencija)| = </span><span class="si">%.2f</span><span class="s2">   kralj: </span><span class="si">%s</span><span class="s2">&quot;</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">kor</span><span class="p">,</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">Ex</span><span class="p">,</span> <span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>sirovi C  |korelacija(U[:,0], frekvencija)| = 0.91   kralj: [('princ', 1.0), ('brat', 0.99), ('otac', 0.99), ('učitelj', 0.99)]
+PPMI      |korelacija(U[:,0], frekvencija)| = 0.33   kralj: [('princ', 1.0), ('prijestolje', 0.99), ('dvorac', 0.99), ('kruna', 0.99)]</code></pre>
+<p>Prvi singularni vektor sirove matrice jako je koreliran s frekvencijom riječi ($0{,}91$, prema $0{,}33$ za PPMI): najvažnija dimenzija embeddinga ne opisuje značenje, nego koliko je riječ česta, i tako troši kapacitet modela. Susjedi „kralja” ovdje su još uvijek razumni jer je korpus igračka s jakom strukturom – rod je u najbližem susjedstvu pa prevlada i daje muške osobe svih uloga – no PPMI uz to ističe i riječi dvora, jer uklanja očekivani broj pojavljivanja i ostavlja samo „iznenađenje”. U pravim korpusima, gdje frekvencije variraju tisuću puta, sirovi brojači daju gotovo neupotrebljive susjede (sve je slično riječima „je” i „i”).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Izgradi PPMI+SVD embeddinge s prozorom $k=1$ i $k=3$ i usporedi susjede riječi „kralj” i glagola „voli”. Kako širina prozora mijenja ono što embedding „zna”? (U pravim korpusima uski prozori daju sintaktičke, a široki tematske sličnosti.)</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+    <span class="n">Uk</span><span class="p">,</span> <span class="n">Sk</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">ppmi</span><span class="p">(</span><span class="n">kookurencije</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="n">k</span><span class="p">)))</span>
+    <span class="n">Ek</span> <span class="o">=</span> <span class="n">Uk</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">10</span><span class="p">]</span> <span class="o">*</span> <span class="n">Sk</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;k = </span><span class="si">%d</span><span class="s2">  kralj:&quot;</span> <span class="o">%</span> <span class="n">k</span><span class="p">,</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">Ek</span><span class="p">,</span> <span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="s2">&quot; voli:&quot;</span><span class="p">,</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">Ek</span><span class="p">,</span> <span class="s2">&quot;voli&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>k = 1  kralj: [('otac', 1.0), ('učitelj', 1.0), ('princ', 1.0)]  voli: [('gleda', 1.0), ('traži', 0.99), ('ima', 0.96)]
+k = 3  kralj: [('princ', 1.0), ('kruna', 0.98), ('kraljevstvo', 0.98)]  voli: [('gleda', 0.98), ('traži', 0.97), ('ima', 0.93)]</code></pre>
+<p>Uz $k=1$ „kralj” vidi samo neposredne susjede (riječ roda i glagol), pa su mu najbliže druge <em>muške</em> osobe bez obzira na ulogu – rod je „sintaktičko” svojstvo neposrednog susjedstva. Uz $k=3$ vidi i riječ uloge na kraju rečenice, pa se približavaju riječi dvora („kruna”, „kraljevstvo”) i „princ” kao jedina osoba istog roda <em>i</em> uloge. Glagoli su uz svaki prozor međusobno slični (svi stoje na istom mjestu uz iste riječi) i to je ispravno: embedding ne zna značenje glagola jer ga korpus ne razlikuje.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Sastavi skup od svih parova (muška osoba, ženska osoba) iste uloge iz <code>OSOBE</code> i izmjeri <b>točnost analogija</b>: za svaki uređeni par parova $(a,b),(c,d)$ s $(a,b)\ne(c,d)$ provjeri daje li 3CosAdd za $a:b=c:?$ upravo $d$. Usporedi SVD i SGNS te SGNS s $d=2$ i $d=30$ dimenzija (koristi <code>treniraj_sgns</code>; ispis epoha možeš ostaviti).</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Parova je pet, pa je upita $5\cdot4=20$. Točnost je udio upita u kojima je prva vraćena riječ jednaka $d$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">parovi_rod</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;kraljica&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;princ&quot;</span><span class="p">,</span> <span class="s2">&quot;princeza&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;otac&quot;</span><span class="p">,</span> <span class="s2">&quot;majka&quot;</span><span class="p">),</span>
+              <span class="p">(</span><span class="s2">&quot;brat&quot;</span><span class="p">,</span> <span class="s2">&quot;sestra&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;učitelj&quot;</span><span class="p">,</span> <span class="s2">&quot;učiteljica&quot;</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">tocnost_analogija</span><span class="p">(</span><span class="n">E</span><span class="p">):</span>
+    <span class="n">pogodaka</span><span class="p">,</span> <span class="n">upita</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">parovi_rod</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">c</span><span class="p">,</span> <span class="n">dd</span> <span class="ow">in</span> <span class="n">parovi_rod</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">dd</span><span class="p">):</span>
+                <span class="n">upita</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">pogodaka</span> <span class="o">+=</span> <span class="n">analogija</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">dd</span>
+    <span class="k">return</span> <span class="n">pogodaka</span> <span class="o">/</span> <span class="n">upita</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SVD d=10 : </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tocnost_analogija</span><span class="p">(</span><span class="n">E_svd</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SGNS d=10: </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tocnost_analogija</span><span class="p">(</span><span class="n">E_sg</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">d_</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">30</span><span class="p">):</span>
+    <span class="n">E_d</span> <span class="o">=</span> <span class="n">treniraj_sgns</span><span class="p">(</span><span class="n">d</span><span class="o">=</span><span class="n">d_</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SGNS d=</span><span class="si">%-2d</span><span class="s2">: </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">d_</span><span class="p">,</span> <span class="n">tocnost_analogija</span><span class="p">(</span><span class="n">E_d</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>SVD d=10 : 0.45
+SGNS d=10: 0.70
+epoha 1  gubitak = 2.907
+epoha 2  gubitak = 2.567
+epoha 3  gubitak = 2.491
+SGNS d=2 : 0.25
+epoha 1  gubitak = 2.441
+epoha 2  gubitak = 2.017
+epoha 3  gubitak = 2.004
+SGNS d=30: 0.75</code></pre>
+<p>Sa skip-gramom deset ili trideset dimenzija dovoljno je da rod i uloga budu zasebni smjerovi, pa analogije rade u oko tri četvrtine upita (griješe uglavnom tako da vrate ženu iste <em>uloge</em> umjesto ženu istog para, npr. „kraljica” umjesto „princeza”). S $d=2$ prostor je pretijesan: dvije dimenzije moraju istodobno kodirati kategoriju, rod i ulogu, pa se smjerovi miješaju. SVD je ovdje lošiji od SGNS-a iz istog razloga kao u Primjeru 3: osobe iste uloge sabija na gotovo isti vektor. U pravim korpusima isti zaključak vrijedi u većem mjerilu – ispod pedesetak dimenzija kvaliteta brzo pada.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Izvedi gradijent gubitka negativnog uzorkovanja $L=-\ln\sigma(u_o^\top v_c)-\sum_k\ln\sigma(-u_{n_k}^\top v_c)$ po $v_c$ i po $u_o$, a zatim ga provjeri PyTorchovim autogradom na slučajnim vektorima.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>$\frac{d}{dz}\ln\sigma(z)=1-\sigma(z)$ i $\frac{d}{dz}\ln\sigma(-z)=-\sigma(z)$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Uz $z_o=u_o^\top v_c$ i $z_k=u_{n_k}^\top v_c$: $\nabla_{v_c}L=-(1-\sigma(z_o))\,u_o+\sum_k\sigma(z_k)\,u_{n_k}$ i $\nabla_{u_o}L=-(1-\sigma(z_o))\,v_c$, a za negativnu riječ $\nabla_{u_{n_k}}L=\sigma(z_k)\,v_c$. Prvi član privlači $v_c$ prema $u_o$ razmjerno tome koliko model još „ne vjeruje” paru, drugi ga odguruje od negativnih razmjerno tome koliko ih pogrešno smatra kontekstom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">d_</span><span class="p">,</span> <span class="n">K_</span> <span class="o">=</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span>
+<span class="n">vc</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">uo</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">d_</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">un</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">K_</span><span class="p">,</span> <span class="n">d_</span><span class="p">,</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">L</span> <span class="o">=</span> <span class="o">-</span><span class="n">F</span><span class="o">.</span><span class="n">logsigmoid</span><span class="p">(</span><span class="n">uo</span> <span class="o">@</span> <span class="n">vc</span><span class="p">)</span> <span class="o">-</span> <span class="n">F</span><span class="o">.</span><span class="n">logsigmoid</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">un</span> <span class="o">@</span> <span class="n">vc</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="n">L</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+
+<span class="n">s_o</span><span class="p">,</span> <span class="n">s_k</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">uo</span> <span class="o">@</span> <span class="n">vc</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">un</span> <span class="o">@</span> <span class="n">vc</span><span class="p">)</span>
+<span class="n">grad_vc</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">s_o</span><span class="p">)</span> <span class="o">*</span> <span class="n">uo</span> <span class="o">+</span> <span class="p">(</span><span class="n">s_k</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">un</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">grad_uo</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">s_o</span><span class="p">)</span> <span class="o">*</span> <span class="n">vc</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;grad v_c isti:&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">vc</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">grad_vc</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;grad u_o isti:&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">uo</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">grad_uo</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;grad u_n isti:&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">un</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="p">(</span><span class="n">s_k</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">vc</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">(),</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>grad v_c isti: True
+grad u_o isti: True
+grad u_n isti: True</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Implementiraj varijantu <b>CBOW</b> s negativnim uzorkovanjem: iz <em>prosjeka</em> kontekstnih vektora riječi u prozoru ($k=2$) predviđa se središnja riječ. Treniraj je na istom korpusu i usporedi susjede za „kralj” i „pas” te točnost analogija sa skip-gramom. Koja je varijanta brža po epohi i zašto?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za svaku poziciju jedan primjer: (indeksi konteksta, središnja riječ). Rečenice imaju četiri riječi pa konteksti nemaju jednaku duljinu – za jednostavnost nadopuni ih na $2k$ indeksa posebnim tokenom <code>PAD</code> čiji vektor isključiš iz prosjeka (maskom) ili uzmi samo pozicije s punim prozorom.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">PAD</span> <span class="o">=</span> <span class="n">V</span>                                  <span class="c1"># dodatni indeks za nadopunu</span>
+<span class="k">def</span> <span class="nf">primjeri_cbow</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus</span><span class="p">:</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="p">[</span><span class="n">idx</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">r</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ind</span><span class="p">):</span>
+            <span class="n">okolina</span> <span class="o">=</span> <span class="p">[</span><span class="n">ind</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ind</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">X</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">okolina</span> <span class="o">+</span> <span class="p">[</span><span class="n">PAD</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">okolina</span><span class="p">)));</span> <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ci</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="n">Xc</span><span class="p">,</span> <span class="n">yc</span> <span class="o">=</span> <span class="n">primjeri_cbow</span><span class="p">(</span><span class="n">korpus</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">CBOW</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">v</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">V</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">,</span> <span class="n">padding_idx</span><span class="o">=</span><span class="n">PAD</span><span class="p">)</span>   <span class="c1"># kontekstni ulaz, PAD = nulvektor</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">u</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>                        <span class="c1"># izlazni (središnji) vektori</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">/</span> <span class="n">d</span><span class="p">)</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">zeros_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">okolina</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">neg</span><span class="p">):</span>
+        <span class="n">maska</span> <span class="o">=</span> <span class="p">(</span><span class="n">okolina</span> <span class="o">!=</span> <span class="n">PAD</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>                   <span class="c1"># (B, 2k, 1)</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">v</span><span class="p">(</span><span class="n">okolina</span><span class="p">)</span> <span class="o">*</span> <span class="n">maska</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">maska</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>             <span class="c1"># prosjek konteksta</span>
+        <span class="n">poz</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">logsigmoid</span><span class="p">((</span><span class="n">h</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">(</span><span class="n">c</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">ng</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">logsigmoid</span><span class="p">(</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">u</span><span class="p">(</span><span class="n">neg</span><span class="p">),</span> <span class="n">h</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="o">-</span><span class="p">(</span><span class="n">poz</span> <span class="o">+</span> <span class="n">ng</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cbow</span> <span class="o">=</span> <span class="n">CBOW</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">cbow</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">0.02</span><span class="p">)</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">K</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">yc</span><span class="p">),</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">5</span>
+<span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
+    <span class="n">perm</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randperm</span><span class="p">(</span><span class="n">n</span><span class="p">);</span> <span class="n">ukupno</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">s</span><span class="p">:</span><span class="n">s</span> <span class="o">+</span> <span class="n">B</span><span class="p">]</span>
+        <span class="n">neg</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span><span class="n">p_neg</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="n">K</span><span class="p">,</span> <span class="n">replacement</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">),</span> <span class="n">K</span><span class="p">)</span>
+        <span class="n">g</span> <span class="o">=</span> <span class="n">cbow</span><span class="p">(</span><span class="n">Xc</span><span class="p">[</span><span class="n">b</span><span class="p">],</span> <span class="n">yc</span><span class="p">[</span><span class="n">b</span><span class="p">],</span> <span class="n">neg</span><span class="p">)</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">();</span> <span class="n">g</span><span class="o">.</span><span class="n">backward</span><span class="p">();</span> <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">();</span> <span class="n">ukupno</span> <span class="o">+=</span> <span class="n">g</span><span class="o">.</span><span class="n">item</span><span class="p">()</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;CBOW gubitak nakon 5 epoha: </span><span class="si">%.3f</span><span class="s2">   (primjera: </span><span class="si">%d</span><span class="s2">, skip-gram parova: </span><span class="si">%d</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ukupno</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sred</span><span class="p">)))</span>
+
+<span class="n">E_cbow</span> <span class="o">=</span> <span class="n">cbow</span><span class="o">.</span><span class="n">u</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>          <span class="c1"># vektori središnjih riječi</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;kralj&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-6s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">t</span><span class="p">,</span> <span class="n">susjedi</span><span class="p">(</span><span class="n">E_cbow</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;točnost analogija CBOW: </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tocnost_analogija</span><span class="p">(</span><span class="n">E_cbow</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>CBOW gubitak nakon 5 epoha: 1.277   (primjera: 32000, skip-gram parova: 80000)
+kralj  [('princ', 0.99), ('učitelj', 0.97), ('otac', 0.96)]
+pas    [('mačka', 1.0), ('konj', 1.0), ('ovca', 1.0)]
+točnost analogija CBOW: 0.65</code></pre>
+<p>CBOW daje slične susjede i sličnu točnost analogija, a epoha mu je oko dva i pol puta brža: ima jedan primjer po <em>poziciji</em>, a skip-gram jedan po <em>paru</em> (ovdje $2{,}5$ para po poziciji). Cijena je što prosjek konteksta „razmazuje” rijetke riječi – zato se skip-gram smatra boljim za rijetke riječi i male korpuse, a CBOW za velike. Primijeti da smo kao embedding uzeli <em>izlaznu</em> tablicu <code>u</code>, jer se u CBOW-u u njoj nalaze vektori središnjih riječi; u praksi se često uzima i zbroj obiju tablica.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Dodaj u korpus višeznačnu riječ <b>„grad”</b>: u polovici njezinih rečenica ponaša se kao grad (konteksti kategorije „grad”), a u polovici kao tuča (konteksti kategorije „vrijeme”). Izgradi PPMI+SVD embedding i ispiši kosinusnu sličnost riječi „grad” prema „zagreb” i prema „kiša” te njezine susjede. Zatim simuliraj što radi kontekstualni model: označi dvije uporabe kao „grad₁” i „grad₂” prema kontekstu i ponovi račun. Što zaključuješ o statičnim embeddinzima?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Generator rečenica ne diraj – dodaj posebnu funkciju koja gradi rečenice za „grad” i nadopuni korpus, pa izgradi novi rječnik (funkcije iz Primjera 1 koriste globalne <code>idx</code>, <code>rjecnik</code>, <code>V</code>; napiši lokalnu inačicu ili ih privremeno zamijeni).</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">recenice_grad</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">razdvoji</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="n">kat</span> <span class="o">=</span> <span class="s2">&quot;grad&quot;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">&quot;vrijeme&quot;</span>
+        <span class="n">kontekst</span> <span class="o">=</span> <span class="n">KATEGORIJE</span><span class="p">[</span><span class="n">kat</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">rijec</span> <span class="o">=</span> <span class="s2">&quot;grad&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">razdvoji</span> <span class="k">else</span> <span class="p">(</span><span class="s2">&quot;grad₁&quot;</span> <span class="k">if</span> <span class="n">kat</span> <span class="o">==</span> <span class="s2">&quot;grad&quot;</span> <span class="k">else</span> <span class="s2">&quot;grad₂&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">kontekst</span><span class="p">),</span> <span class="n">rijec</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">GLAGOLI</span><span class="p">),</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">kontekst</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+<span class="k">def</span> <span class="nf">embedding_korpusa</span><span class="p">(</span><span class="n">korpus_x</span><span class="p">,</span> <span class="n">d</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">rj</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">t</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus_x</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">r</span><span class="p">})</span>
+    <span class="n">ix</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">:</span> <span class="n">j</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">rj</span><span class="p">)}</span>
+    <span class="n">Cx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">rj</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">rj</span><span class="p">)))</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">korpus_x</span><span class="p">:</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="p">[</span><span class="n">ix</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">r</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ci</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">ind</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">k</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">ind</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">i</span><span class="p">:</span>
+                    <span class="n">Cx</span><span class="p">[</span><span class="n">ci</span><span class="p">,</span> <span class="n">ind</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">Ux</span><span class="p">,</span> <span class="n">Sx</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">ppmi</span><span class="p">(</span><span class="n">Cx</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">rj</span><span class="p">,</span> <span class="n">ix</span><span class="p">,</span> <span class="n">normiraj</span><span class="p">(</span><span class="n">Ux</span><span class="p">[:,</span> <span class="p">:</span><span class="n">d</span><span class="p">]</span> <span class="o">*</span> <span class="n">Sx</span><span class="p">[:</span><span class="n">d</span><span class="p">])</span>
+
+<span class="k">for</span> <span class="n">razdvoji</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="n">rj</span><span class="p">,</span> <span class="n">ix</span><span class="p">,</span> <span class="n">En</span> <span class="o">=</span> <span class="n">embedding_korpusa</span><span class="p">(</span><span class="n">korpus</span> <span class="o">+</span> <span class="n">recenice_grad</span><span class="p">(</span><span class="mi">800</span><span class="p">,</span> <span class="n">razdvoji</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="p">([</span><span class="s2">&quot;grad&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">razdvoji</span> <span class="k">else</span> <span class="p">[</span><span class="s2">&quot;grad₁&quot;</span><span class="p">,</span> <span class="s2">&quot;grad₂&quot;</span><span class="p">]):</span>
+        <span class="n">sl</span> <span class="o">=</span> <span class="n">En</span> <span class="o">@</span> <span class="n">En</span><span class="p">[</span><span class="n">ix</span><span class="p">[</span><span class="n">w</span><span class="p">]]</span>
+        <span class="n">sl_sort</span> <span class="o">=</span> <span class="p">[(</span><span class="n">rj</span><span class="p">[</span><span class="n">j</span><span class="p">],</span> <span class="nb">round</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">sl</span><span class="p">[</span><span class="n">j</span><span class="p">]),</span> <span class="mi">2</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">sl</span><span class="p">)[</span><span class="mi">1</span><span class="p">:</span><span class="mi">4</span><span class="p">]]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-6s</span><span class="s2"> cos(zagreb) = </span><span class="si">%.2f</span><span class="s2">  cos(kiša) = </span><span class="si">%.2f</span><span class="s2">  susjedi: </span><span class="si">%s</span><span class="s2">&quot;</span>
+              <span class="o">%</span> <span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">sl</span><span class="p">[</span><span class="n">ix</span><span class="p">[</span><span class="s2">&quot;zagreb&quot;</span><span class="p">]],</span> <span class="n">sl</span><span class="p">[</span><span class="n">ix</span><span class="p">[</span><span class="s2">&quot;kiša&quot;</span><span class="p">]],</span> <span class="n">sl_sort</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>grad   cos(zagreb) = 0.70  cos(kiša) = 0.71  susjedi: [('magla', 0.72), ('vjetar', 0.71), ('kiša', 0.71)]
+grad₁  cos(zagreb) = 1.00  cos(kiša) = -0.00  susjedi: [('split', 1.0), ('zadar', 1.0), ('zagreb', 1.0)]
+grad₂  cos(zagreb) = -0.00  cos(kiša) = 1.00  susjedi: [('kiša', 1.0), ('snijeg', 1.0), ('vjetar', 1.0)]</code></pre>
+<p>Statični vektor riječi „grad” završi <em>između</em> dviju skupina: umjereno sličan i gradovima i vremenskim pojavama, a nijednoj onako blizak kao što su jednoznačne riječi svojoj kategoriji. Nijedna rečenica ne znači „pola Zagreb, pola tuča”, ali embedding to ne može izraziti – jedan vektor po riječi. Čim uporabe razdvojimo po kontekstu (što kontekstualni model radi automatski, za svaku rečenicu posebno), svaka dobije „čist” vektor u svojoj skupini. To je glavni razlog zašto su kontekstualni embeddinzi iz lekcije V3 potisnuli statične u gotovo svim zadacima razumijevanja teksta.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>One-hot vektori su međusobno okomiti i jednako udaljeni – ne nose sličnost; embedding je gusti vektor u $\mathbb R^d$ naučen iz konteksta (distribucijska hipoteza).</li>
+<li>Prvi embedding: ko-okurencijska matrica → PPMI (uklanja efekt frekvencije) → SVD na $d$ dimenzija. Bez PPMI-ja prva komponenta mjeri frekvenciju riječi, ne značenje.</li>
+<li>word2vec (skip-gram) uči vektore predviđanjem konteksta; negativno uzorkovanje zamjenjuje softmax nad rječnikom s $K$ binarnih odluka, gubitak $-\ln\sigma(u_o^\top v_c)-\sum_k\ln\sigma(-u_{n_k}^\top v_c)$. SGNS implicitno faktorizira PMI matricu.</li>
+<li>Sličnost mjerimo kosinusom; analogije rješava 3CosAdd ($b-a+c$) i rade kad je razlika kategorija (npr. rod) konzistentan smjer u prostoru. PCA je za pregled embeddinga, ne za mjerenje.</li>
+<li><code>nn.Embedding</code> je lookup tablica $E\in\mathbb R^{|V|\times d}$ ekvivalentna one-hot množenju; može se učiti, inicijalizirati prethodno naučenim vektorima i zamrznuti.</li>
+<li>Statični embeddinzi daju jedan vektor po riječi pa višeznačnice završe „između” značenja; kontekstualni modeli (V3) računaju vektor ovisno o rečenici.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>D. Jurafsky, J. H. Martin, <i>Speech and Language Processing</i>, 3. izd. (nacrt), poglavlje „Vector Semantics and Embeddings”.</li>
+<li>T. Mikolov i sur., <i>Distributed Representations of Words and Phrases and their Compositionality</i> (NeurIPS 2013) – skip-gram s negativnim uzorkovanjem.</li>
+<li>O. Levy, Y. Goldberg, <i>Neural Word Embedding as Implicit Matrix Factorization</i> (NeurIPS 2014).</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html">torch.nn.Embedding</a>; Stanford CS224N, predavanja 1–2 (Word Vectors).</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="01-obrada-teksta.html"><small>← Prethodna lekcija</small>V1 · Obrada teksta: od znakova do značajki</a>
+                <a class="sljedeca" href="03-transformeri-hugging-face.html"><small>Sljedeća lekcija →</small>V3 · Pretrenirani jezični modeli i Hugging Face</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

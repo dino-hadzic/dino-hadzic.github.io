@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Python i alati 2: Napredni Python za rješavanje zadataka</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#python">Python i alati</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Python i alati · lekcija 2 od 6</p>
+            <h1><span class="broj-lekcije">P2</span> Napredni Python za rješavanje zadataka</h1>
+            <p class="meta">Klase, generatori, funkcije višeg reda, dekoratori i standardna biblioteka – alati kojima se rješenje na natjecanju drži urednim i brzim</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.2" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>klase i dunder metode</li>
+                <li>generatori</li>
+                <li>lambda i sorted</li>
+                <li>dekoratori</li>
+                <li>collections i itertools</li>
+                <li>random</li>
+                <li>type hints</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Napisati vlastitu klasu s dunder metodama tako da se ponaša kao ugrađena zbirka (<code>len</code>, indeksiranje, iteracija, ispis) i znati kad se to isplati.</li>
+<li>Koristiti generatore za obradu podataka u komadima (batchevima) bez učitavanja svega u memoriju te funkcije višeg reda (<code>sorted</code> s <code>key</code>, <code>map</code>, <code>filter</code>, <code>lambda</code>).</li>
+<li>Napisati dekorator za mjerenje vremena, brojanje poziva i memoizaciju te mjeriti brzinu koda s <code>time.perf_counter</code>.</li>
+<li>Iskoristiti module <code>random</code>, <code>collections</code> i <code>itertools</code> za miješanje podataka, brojanje, grupiranje i pretraživanje kombinacija hiperparametara, uz type hints i organizaciju koda u funkcije.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Rješenje zadatka na natjecanju iz umjetne inteligencije rijetko stane u deset redaka: učitavanje podataka, predobrada, model, vrednovanje i ispis rezultata lako narastu na nekoliko stotina. Ova lekcija pokazuje dijelove Pythona koji takav kod drže čitljivim i brzim – i koje PyTorch i scikit-learn stalno koriste, pa ih moraš prepoznati u tuđem kodu (<code>__getitem__</code> u <code>Dataset</code>u, generatori u učitavanju podataka, dekoratori poput <code>@torch.no_grad()</code>).</p>
+
+<h3>Klase i objekti</h3>
+<div class="pojam">
+<h4>Klasa, objekt, metoda</h4>
+<p><b>Klasa</b> je nacrt koji povezuje podatke (<b>atribute</b>) i funkcije koje nad njima rade (<b>metode</b>); <b>objekt</b> (instanca) je jedan konkretan primjerak. Metoda prima objekt kao prvi argument, po dogovoru nazvan <code>self</code>. Posebna metoda <code>__init__</code> izvršava se pri stvaranju objekta i postavlja početne atribute.</p>
+</div>
+<p>Klasu pišeš kad više funkcija dijeli isto stanje (npr. vokabular tokenizatora koji koriste <code>encode</code> i <code>decode</code>) ili kad želiš da se tvoj objekt ponaša kao ugrađeni tip. Klasa smije <b>naslijediti</b> drugu (<code>class Moja(Osnovna):</code>) i preuzeti ili nadjačati njezine metode; tako se piše svaki PyTorch model (<code>class Mreza(nn.Module)</code>, lekcija D3). Za klase koje su „samo podaci” najkraći je zapis <code>@dataclass</code> iz modula <code>dataclasses</code>: navedeš atribute s tipovima, a <code>__init__</code>, <code>__repr__</code> i <code>__eq__</code> dobivaš besplatno.</p>
+
+<h3>Dunder metode</h3>
+<p>Metode s dvostrukim podvlakama (engl. <i>double underscore</i>, „dunder”) Python poziva sam kad nad objektom primijeniš ugrađenu operaciju: <code>len(x)</code> poziva <code>x.__len__()</code>, <code>x[i]</code> poziva <code>x.__getitem__(i)</code>, <code>for e in x</code> poziva <code>x.__iter__()</code>, <code>a + b</code> poziva <code>a.__add__(b)</code>, <code>a == b</code> poziva <code>a.__eq__(b)</code>, a <code>print(x)</code> i ispis u konzoli koriste <code>__str__</code> odnosno <code>__repr__</code>. Zbog toga tvoj objekt može „glumiti” listu: definiraš <code>__len__</code> i <code>__getitem__</code> i već radi indeksiranje, <code>for</code> petlja (Python sam poziva <code>__getitem__</code> od $0$ dok ne dobije <code>IndexError</code>), <code>list(x)</code> i <code>random.shuffle</code>. Upravo to zahtijeva PyTorchov <code>Dataset</code>.</p>
+<div class="trener-umetak">
+<p><code>__repr__</code> treba vratiti kratak, jednoznačan opis koji ćeš vidjeti pri ispitivanju grešaka; piši ga za <em>svaku</em> klasu koju napišeš. Bez njega ispis objekta je neupotrebljivo <code>&lt;__main__.Skup object at 0x7f…&gt;</code>.</p>
+</div>
+
+<h3>Iteratori i generatori</h3>
+<div class="pojam">
+<h4>Iterator i generator</h4>
+<p><b>Iterator</b> je objekt koji na poziv <code>next(it)</code> vraća sljedeći element, a kad ih više nema baca <code>StopIteration</code>; <code>for</code> petlja točno to radi. <b>Generator</b> je funkcija koja umjesto <code>return</code> koristi <code>yield</code>: pri svakom <code>yield</code> „zamrzne” se i preda vrijednost, a nastavlja od istog mjesta pri sljedećem <code>next</code>. Generator računa elemente <em>lijeno</em> (engl. <i>lazy</i>), jedan po jedan, pa ne zauzima memoriju za cijeli niz.</p>
+</div>
+<p><b>Generatorski izraz</b> <code>(x ** 2 for x in a)</code> izgleda kao list comprehension s običnim zagradama, ali ne stvara listu; <code>sum(x ** 2 for x in a)</code> zato radi i za milijardu elemenata. Generatori su prirodan način za učitavanje podataka u <b>batchevima</b>, čitanje goleme datoteke redak po redak ili beskonačno kruženje po epohama. Cijena: generator se može proći samo <em>jednom</em>; za drugi prolaz pozovi funkciju ponovno.</p>
+
+<h3>Funkcije kao vrijednosti</h3>
+<p>Funkcija je objekt kao i svaki drugi: smije se predati drugoj funkciji, vratiti iz nje ili spremiti u rječnik (<code>{"mse": mse, "mae": mae}</code> pa <code>metrike[ime](y, p)</code>). <b>Lambda</b> <code>lambda x: x[1]</code> je anonimna funkcija od jednog izraza, najčešće kao argument <code>key</code> u <code>sorted</code>, <code>min</code> i <code>max</code>. <code>map(f, a)</code> primjenjuje <code>f</code> na svaki element, <code>filter(p, a)</code> zadržava elemente za koje je <code>p</code> istinit; oba vraćaju lijene iteratore. U modernom Pythonu comprehension je obično čitljiviji od <code>map</code>/<code>filter</code> s lambdom, ali ih moraš razumjeti jer ih tuđi kod koristi. Za ključeve poput „po drugom polju” postoji i <code>operator.itemgetter(1)</code>.</p>
+
+<h3>Dekoratori</h3>
+<div class="pojam">
+<h4>Dekorator</h4>
+<p><b>Dekorator</b> je funkcija koja prima funkciju i vraća novu, obično „omotanu” funkciju. Zapis
+<code>@dek</code> iznad <code>def f(...)</code> znači točno <code>f = dek(f)</code>.</p>
+</div>
+<p>Omotač prima proizvoljne argumente kao <code>*args, **kwargs</code> i prosljeđuje ih izvornoj funkciji, a prije ili poslije poziva radi nešto korisno: mjeri vrijeme, broji pozive, pamti rezultate (<b>memoizacija</b>), isključuje računanje gradijenata. <code>@functools.wraps(f)</code> unutar dekoratora čuva ime i docstring izvorne funkcije. Ugrađeni <code>@functools.lru_cache</code> je gotov memoizacijski dekorator; <code>@staticmethod</code>, <code>@property</code> i <code>@dataclass</code> također su dekoratori.</p>
+
+<h3>Standardna biblioteka: random, collections, itertools, time</h3>
+<p><code>random</code>: <code>random.seed(0)</code> ili vlastiti generator <code>rng = random.Random(0)</code> (bolje – ne ovisi o tuđim pozivima), zatim <code>rng.random()</code> na $[0,1)$, <code>rng.randint(a, b)</code> (oba ruba uključena), <code>rng.choice(lista)</code>, <code>rng.sample(lista, k)</code> bez ponavljanja, <code>rng.shuffle(lista)</code> na mjestu, <code>rng.gauss(mu, sigma)</code>. Za polja brojeva koristi NumPy-jev generator (lekcija P3), ali za miješanje indeksa i izbor hiperparametara <code>random</code> je dovoljan.</p>
+<p><code>collections</code>: <code>Counter(iterable)</code> broji elemente i ima <code>most_common(k)</code>; <code>defaultdict(list)</code> je rječnik koji za nepostojeći ključ sam stvori zadanu vrijednost, idealan za grupiranje; <code>deque</code> je dvostrani red s $O(1)$ dodavanjem i uklanjanjem s oba kraja, a s <code>maxlen=k</code> postaje klizni prozor koji sam izbacuje najstariji element; <code>namedtuple</code> je lagana n-torka s imenovanim poljima.</p>
+<p><code>itertools</code>: <code>product(A, B)</code> je Kartezijev produkt (sve kombinacije hiperparametara), <code>combinations(a, 2)</code> svi parovi bez ponavljanja, <code>permutations</code>, <code>chain(a, b)</code> spaja iteratore, <code>islice(it, n)</code> uzima prvih $n$ elemenata (i iz beskonačnog generatora), <code>cycle</code> kruži beskonačno, <code>groupby</code> grupira <em>uzastopne</em> jednake elemente (prije toga sortiraj!).</p>
+<p><code>time.perf_counter()</code> vraća precizan monotoni sat u sekundama; razlika dvaju očitanja je trajanje. Mjeri uvijek više ponavljanja i gledaj <em>minimum</em> ili medijan (Primjer 2 u P1); za vrlo kratke komade koda postoji i modul <code>timeit</code>.</p>
+
+<h3>Tipizacija i organizacija koda</h3>
+<p><b>Type hints</b> (<code>def prosjek(a: list[float]) -&gt; float:</code>) dokumentiraju što funkcija očekuje i vraća; Python ih <em>ne provjerava</em> pri izvođenju (to rade alati poput <code>mypy</code> i urednici koda), ali čine kod daleko čitljivijim i hvataju greške dok tipkaš. Česti zapisi: <code>list[int]</code>, <code>dict[str, float]</code>, <code>tuple[int, int]</code>, <code>float | None</code> (vrijednost ili <code>None</code>), <code>Callable</code> i <code>Iterator</code> iz modula <code>typing</code> ili <code>collections.abc</code>.</p>
+<p>Organizacija: svaki logički korak (učitaj, predobradi, treniraj, ocijeni) neka bude funkcija s jasnim ulazom i izlazom, bez globalnog stanja; konstante (putanje, sjeme, hiperparametri) na vrh datoteke; glavni tijek u <code>main()</code> iza <code>if __name__ == "__main__":</code> da se modul može i uvesti i pokrenuti. Vanjske biblioteke instaliraj u <b>virtualno okruženje</b> da verzije ne kolidiraju između projekata:</p>
+<div class="highlight kod kod-bash"><pre><code>python3 -m venv .venv                 <span class="c1"># stvori okruženje u mapi .venv</span>
+<span class="nb">source</span> .venv/bin/activate             <span class="c1"># Windows: .venv\Scripts\activate</span>
+pip install numpy pandas scikit-learn matplotlib
+pip freeze &gt; requirements.txt         <span class="c1"># zabilježi točne verzije</span>
+pip install -r requirements.txt       <span class="c1"># … i vrati ih na drugom računalu</span></code></pre></div>
+<p>Na natjecanju okruženje obično dobiješ gotovo (Jupyter ili Colab), ali <code>pip install</code> unutar bilježnice (<code>!pip install ime</code>) i provjera verzije (<code>ime.__version__</code>) moraju ti biti refleks.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Napiši klasu <code>SkupPodataka</code> koja čuva uzorke (par: lista značajki, oznaka), ponaša se kao lista (duljina, indeksiranje, iteracija, čitljiv ispis) i ima metodu <code>podijeli(udio_test, sjeme)</code> koja vraća dva nova skupa – za učenje i za test – nakon reproducibilnog miješanja. Uzorak zapiši kao <code>dataclass</code>.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: dataclass za uzorak.</b> Tri retka daju konstruktor, ispis i usporedbu. Type hints opisuju što polja sadrže.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">import</span> <span class="nn">random</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">Uzorak</span><span class="p">:</span>
+    <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span>
+
+<span class="n">u</span> <span class="o">=</span> <span class="n">Uzorak</span><span class="p">([</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">u</span> <span class="o">==</span> <span class="n">Uzorak</span><span class="p">([</span><span class="mf">1.5</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>Uzorak(x=[1.5, 2.0], y=1)
+[1.5, 2.0] 1 True</code></pre>
+<p><b>Korak 2: klasa koja glumi listu.</b> <code>__len__</code> i <code>__getitem__</code> dovoljni su da rade <code>len</code>, indeksiranje (i negativno, i rezanje – prosljeđujemo ih listi), petlja <code>for</code> i <code>list(skup)</code>. Ipak dodajemo <code>__iter__</code> jer je eksplicitnije i brže.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span> <span class="nc">SkupPodataka</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">uzorci</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Uzorak</span><span class="p">],</span> <span class="n">ime</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;skup&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">uzorci</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ime</span> <span class="o">=</span> <span class="n">ime</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">klase</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">({</span><span class="n">u</span><span class="o">.</span><span class="n">y</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span><span class="p">})</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;SkupPodataka(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ime</span><span class="si">!r}</span><span class="s2">, n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">, klase=</span><span class="si">{</span><span class="n">klase</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">podijeli</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">udio_test</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">sjeme</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">sjeme</span><span class="p">)</span>
+        <span class="n">indeksi</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)))</span>
+        <span class="n">rng</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">indeksi</span><span class="p">)</span>
+        <span class="n">n_test</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">udio_test</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="n">test</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indeksi</span><span class="p">[:</span><span class="n">n_test</span><span class="p">]]</span>
+        <span class="n">trening</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">uzorci</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indeksi</span><span class="p">[</span><span class="n">n_test</span><span class="p">:]]</span>
+        <span class="k">return</span> <span class="n">SkupPodataka</span><span class="p">(</span><span class="n">trening</span><span class="p">,</span> <span class="s2">&quot;trening&quot;</span><span class="p">),</span> <span class="n">SkupPodataka</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">uzorci</span> <span class="o">=</span> <span class="p">[</span><span class="n">Uzorak</span><span class="p">([</span><span class="nb">round</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">gauss</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">2</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">gauss</span><span class="p">(</span><span class="o">-</span><span class="n">k</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="mi">2</span><span class="p">)],</span> <span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+<span class="n">skup</span> <span class="o">=</span> <span class="n">SkupPodataka</span><span class="p">(</span><span class="n">uzorci</span><span class="p">,</span> <span class="s2">&quot;sintetički&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">skup</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">skup</span><span class="p">),</span> <span class="n">skup</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">skup</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">([</span><span class="n">u</span><span class="o">.</span><span class="n">y</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">skup</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>SkupPodataka('sintetički', n=15, klase=[0, 1, 2])
+15 Uzorak(x=[-0.14, -0.17], y=0) 2
+[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2]</code></pre>
+<p><b>Korak 3: podjela.</b> Vlastiti <code>random.Random(sjeme)</code> jamči da će podjela biti ista pri svakom pokretanju, neovisno o tome tko je drugdje u programu zvao <code>random</code>. Provjeri da su skupovi disjunktni i da zajedno daju izvorni skup.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">trening</span><span class="p">,</span> <span class="n">test</span> <span class="o">=</span> <span class="n">skup</span><span class="o">.</span><span class="n">podijeli</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">sjeme</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">trening</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;oznake testa:&quot;</span><span class="p">,</span> <span class="p">[</span><span class="n">u</span><span class="o">.</span><span class="n">y</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">test</span><span class="p">])</span>
+<span class="n">zajedno</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">trening</span><span class="o">.</span><span class="n">uzorci</span> <span class="o">+</span> <span class="n">test</span><span class="o">.</span><span class="n">uzorci</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">u</span><span class="p">:</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">x</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ništa izgubljeno:&quot;</span><span class="p">,</span> <span class="n">zajedno</span> <span class="o">==</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">u</span><span class="p">:</span> <span class="p">(</span><span class="n">u</span><span class="o">.</span><span class="n">y</span><span class="p">,</span> <span class="n">u</span><span class="o">.</span><span class="n">x</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>SkupPodataka('trening', n=12, klase=[0, 1, 2])
+SkupPodataka('test', n=3, klase=[0, 1, 2])
+oznake testa: [0, 2, 1]
+ništa izgubljeno: True</code></pre>
+<p>Ovo je u malom <code>train_test_split</code> iz scikit-learna i <code>torch.utils.data.Dataset</code>: oboje žive od <code>__len__</code> i <code>__getitem__</code>. Kad u lekciji D3 napišeš <code>class MojSkup(Dataset)</code>, bit će to ista klasa s drugim imenom roditelja.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Napiši generator <code>batchevi(skup, velicina, sjeme)</code> koji skup podataka vraća u izmiješanim komadima zadane veličine (zadnji komad smije biti manji) i generator <code>epohe(skup, velicina)</code> koji beskonačno kruži po epohama s novim miješanjem u svakoj. Pokaži kako se iz beskonačnog generatora uzima točno zadani broj koraka.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: jedan prolaz.</b> <code>yield</code> predaje batch i zaustavlja funkciju do sljedećeg zahtjeva. Ništa se ne računa dok netko ne zatraži – <code>batchevi(...)</code> samo stvori generatorski objekt.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">batchevi</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="n">velicina</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">sjeme</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+    <span class="n">indeksi</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">skup</span><span class="p">)))</span>
+    <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">sjeme</span><span class="p">)</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">indeksi</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">pocetak</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">indeksi</span><span class="p">),</span> <span class="n">velicina</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="p">[</span><span class="n">skup</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indeksi</span><span class="p">[</span><span class="n">pocetak</span><span class="p">:</span><span class="n">pocetak</span> <span class="o">+</span> <span class="n">velicina</span><span class="p">]]</span>
+
+<span class="n">g</span> <span class="o">=</span> <span class="n">batchevi</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">g</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">prvi</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">prvi</span><span class="p">),</span> <span class="p">[</span><span class="n">u</span><span class="o">.</span><span class="n">y</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">prvi</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;preostali batchevi:&quot;</span><span class="p">,</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">g</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;drugi prolaz:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">g</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>generator
+4 [0, 2, 1, 1]
+preostali batchevi: [4, 4, 3]
+drugi prolaz: []</code></pre>
+<p>Petnaest uzoraka u batchevima po četiri daje $4,4,4,3$. Nakon što je generator iscrpljen, ponovni prolaz je prazan – to je najčešća greška s generatorima: spremiš ga u varijablu, jednom prođeš, a drugi put dobiješ ništa.</p>
+<p><b>Korak 2: beskonačne epohe.</b> Generator smije sadržavati beskonačnu petlju jer se izvršava samo onoliko koliko se traži. Svaka epoha dobiva novo sjeme pa je redoslijed drukčiji, ali reproducibilan.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">islice</span>
+
+<span class="k">def</span> <span class="nf">epohe</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="n">velicina</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">sjeme</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+    <span class="n">epoha</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">batchevi</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="n">velicina</span><span class="p">,</span> <span class="n">sjeme</span> <span class="o">+</span> <span class="n">epoha</span><span class="p">):</span>
+            <span class="k">yield</span> <span class="n">epoha</span><span class="p">,</span> <span class="n">b</span>
+        <span class="n">epoha</span> <span class="o">+=</span> <span class="mi">1</span>
+
+<span class="k">for</span> <span class="n">epoha</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">islice</span><span class="p">(</span><span class="n">epohe</span><span class="p">(</span><span class="n">skup</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="mi">7</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">epoha</span><span class="p">,</span> <span class="p">[</span><span class="n">u</span><span class="o">.</span><span class="n">y</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">b</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>0 [0, 2, 1, 1, 2, 0]
+0 [0, 1, 1, 0, 0, 2]
+0 [2, 1, 2]
+1 [2, 2, 0, 2, 1, 1]
+1 [0, 1, 1, 2, 0, 0]
+1 [2, 1, 0]
+2 [1, 0, 1, 2, 2, 1]</code></pre>
+<p><code>islice</code> uzima točno sedam koraka: tri batcha prve epohe ($6,6,3$), tri druge i prvi treće. Petlje za učenje neuronskih mreža (D4) rade upravo ovako – broj koraka, ne broj epoha, određuje kad stati.</p>
+<p><b>Korak 3: lijenost se isplati.</b> Generatorski izraz ne gradi listu; za zbroj kvadrata milijun brojeva lista zauzima oko $8$ MB, generator stotinjak bajtova. Modul <code>sys</code> pokazuje veličinu objekta u bajtovima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="n">n</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">**</span> <span class="mi">6</span>
+<span class="n">lista</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+<span class="n">gen</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">lista</span><span class="p">)</span> <span class="o">//</span> <span class="mi">1024</span><span class="p">,</span> <span class="s2">&quot;KB za listu;&quot;</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">gen</span><span class="p">),</span> <span class="s2">&quot;B za generator&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">lista</span><span class="p">)</span> <span class="o">==</span> <span class="nb">sum</span><span class="p">(</span><span class="n">gen</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>8250 KB za listu; 104 B za generator
+True</code></pre>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Napiši tri dekoratora: <code>broji_pozive</code> (pamti koliko je puta funkcija pozvana), <code>memoiziraj</code> (pamti rezultate za već viđene argumente) i <code>mjeri_vrijeme</code> (ispisuje trajanje poziva). Primijeni ih na rekurzivnu funkciju za Fibonaccijeve brojeve i objasni razliku u broju poziva.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: brojanje poziva.</b> Omotač povećava brojač koji čuvamo kao atribut same funkcije. <code>functools.wraps</code> prenosi ime izvorne funkcije na omotač.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">functools</span>
+
+<span class="k">def</span> <span class="nf">broji_pozive</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">omotac</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">omotac</span><span class="o">.</span><span class="n">pozivi</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">omotac</span><span class="o">.</span><span class="n">pozivi</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">omotac</span>
+
+<span class="nd">@broji_pozive</span>
+<span class="k">def</span> <span class="nf">fib</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;n-ti Fibonaccijev broj, naivna rekurzija.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">n</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">fib</span><span class="p">(</span><span class="mi">20</span><span class="p">),</span> <span class="s2">&quot;uz&quot;</span><span class="p">,</span> <span class="n">fib</span><span class="o">.</span><span class="n">pozivi</span><span class="p">,</span> <span class="s2">&quot;poziva;&quot;</span><span class="p">,</span> <span class="n">fib</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="n">fib</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>6765 uz 21891 poziva; fib - n-ti Fibonaccijev broj, naivna rekurzija.</code></pre>
+<p>Rekurzija bez pamćenja računa <code>fib(18)</code> dvaput, <code>fib(17)</code> triput … ukupno $21\,891$ poziva za $n=20$; broj poziva raste eksponencijalno, kao i sam Fibonaccijev niz.</p>
+<p><b>Korak 2: memoizacija.</b> Rječnik <code>args → rezultat</code> pretvara eksponencijalno vrijeme u linearno. Dekoratori se slažu: donji se primjenjuje prvi, pa <code>broji_pozive</code> ovdje broji samo pozive koji su <em>stvarno</em> računani.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">memoiziraj</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="n">memorija</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">omotac</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">args</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">memorija</span><span class="p">:</span>
+            <span class="n">memorija</span><span class="p">[</span><span class="n">args</span><span class="p">]</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">memorija</span><span class="p">[</span><span class="n">args</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">omotac</span>
+
+<span class="nd">@memoiziraj</span>
+<span class="nd">@broji_pozive</span>
+<span class="k">def</span> <span class="nf">fib_m</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">n</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">fib_m</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib_m</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">fib_m</span><span class="p">(</span><span class="mi">20</span><span class="p">),</span> <span class="s2">&quot;uz&quot;</span><span class="p">,</span> <span class="n">fib_m</span><span class="o">.</span><span class="n">__wrapped__</span><span class="o">.</span><span class="n">pozivi</span><span class="p">,</span> <span class="s2">&quot;stvarnih poziva&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">fib_m</span><span class="p">(</span><span class="mi">90</span><span class="p">),</span> <span class="s2">&quot;uz&quot;</span><span class="p">,</span> <span class="n">fib_m</span><span class="o">.</span><span class="n">__wrapped__</span><span class="o">.</span><span class="n">pozivi</span><span class="p">,</span> <span class="s2">&quot;stvarnih poziva&quot;</span><span class="p">)</span>
+
+<span class="nd">@functools</span><span class="o">.</span><span class="n">lru_cache</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">fib_c</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">n</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="k">else</span> <span class="n">fib_c</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">fib_c</span><span class="p">(</span><span class="n">n</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">fib_c</span><span class="p">(</span><span class="mi">90</span><span class="p">)</span> <span class="o">==</span> <span class="n">fib_m</span><span class="p">(</span><span class="mi">90</span><span class="p">),</span> <span class="n">fib_c</span><span class="o">.</span><span class="n">cache_info</span><span class="p">()</span><span class="o">.</span><span class="n">hits</span><span class="p">,</span> <span class="s2">&quot;pogodaka u predmemoriji&quot;</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>6765 uz 21 stvarnih poziva
+2880067194370816120 uz 91 stvarnih poziva
+True 88 pogodaka u predmemoriji</code></pre>
+<p>Za $n=20$ računa se točno $21$ vrijednost ($0,\dots,20$), a <code>fib_m(90)</code> dodaje samo $70$ novih – ukupno $91$. Brojač čitamo preko <code>fib_m.__wrapped__</code>: <code>functools.wraps</code> na omotač sprema izvornu (ovdje: brojanu) funkciju, dok bi <code>fib_m.pozivi</code> bio samo zastarjeli primjerak atributa kopiran u trenutku omatanja. Ugrađeni <code>lru_cache</code> radi isto i još broji pogotke; koristi ga kad god rekurzija ponavlja iste podprobleme (dinamičko programiranje, Zadatak 8).</p>
+<p><b>Korak 3: mjerenje vremena.</b> Dekorator s <code>perf_counter</code> prije i poslije poziva. Ispis ovisi o računalu pa se ne uspoređuje; bitan je omjer – naivna verzija za $n=27$ treba stotine tisuća poziva i reda desetinke sekunde, memoizirana je trenutačna.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">time</span>
+
+<span class="k">def</span> <span class="nf">mjeri_vrijeme</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">omotac</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+        <span class="n">rezultat</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">f</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}{</span><span class="n">args</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> s&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rezultat</span>
+    <span class="k">return</span> <span class="n">omotac</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">mjeri_vrijeme</span><span class="p">(</span><span class="n">fib</span><span class="p">)(</span><span class="mi">27</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">mjeri_vrijeme</span><span class="p">(</span><span class="n">fib_m</span><span class="p">)(</span><span class="mi">27</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>fib(27,): 0.1484 s
+196418
+fib_m(27,): 0.0000 s
+196418</code></pre>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Zadana je lista rezultata <code>[("Ana", 82, 3.1), ("Borna", 95, 2.4), ("Cvita", 82, 2.7), ("Dario", 70, 1.9)]</code> (ime, bodovi, vrijeme u satima). Sortiraj je po bodovima padajuće, a kod jednakih bodova po vremenu rastuće, pomoću <code>sorted</code> i lambde. Zatim isti popis imena onih s više od $75$ bodova napiši jednom s <code>filter</code> i <code>map</code>, a jednom comprehensionom.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">rezultati</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;Ana&quot;</span><span class="p">,</span> <span class="mi">82</span><span class="p">,</span> <span class="mf">3.1</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;Borna&quot;</span><span class="p">,</span> <span class="mi">95</span><span class="p">,</span> <span class="mf">2.4</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;Cvita&quot;</span><span class="p">,</span> <span class="mi">82</span><span class="p">,</span> <span class="mf">2.7</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;Dario&quot;</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mf">1.9</span><span class="p">)]</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rezultati</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">])):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">75</span><span class="p">,</span> <span class="n">rezultati</span><span class="p">)))</span>
+<span class="n">b</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rezultati</span> <span class="k">if</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">75</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span> <span class="o">==</span> <span class="n">b</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>('Borna', 95, 2.4)
+('Cvita', 82, 2.7)
+('Ana', 82, 3.1)
+('Dario', 70, 1.9)
+['Ana', 'Borna', 'Cvita'] True</code></pre>
+<p>Cvita je ispred Ane jer je uz iste bodove bila brža. Comprehension je čitljiviji od <code>map</code>+<code>filter</code>+lambda; isti rezultat, manje zagrada.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za listu predviđenih oznaka <code>["mačka", "pas", "mačka", "ptica", "pas", "mačka", "pas", "pas"]</code> pomoću <code>Counter</code> ispiši dvije najčešće klase s brojem pojavljivanja te udio najčešće klase. Zatim pomoću <code>defaultdict(list)</code> grupiraj riječi <code>["ananas", "banana", "avokado", "borovnica", "cikla"]</code> po prvom slovu.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">defaultdict</span>
+
+<span class="n">oznake</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;mačka&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">,</span> <span class="s2">&quot;mačka&quot;</span><span class="p">,</span> <span class="s2">&quot;ptica&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">,</span> <span class="s2">&quot;mačka&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">,</span> <span class="s2">&quot;pas&quot;</span><span class="p">]</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">oznake</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+<span class="n">najcesca</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">najcesca</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">k</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">oznake</span><span class="p">)</span><span class="si">:</span><span class="s2">.1%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">grupe</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ananas&quot;</span><span class="p">,</span> <span class="s2">&quot;banana&quot;</span><span class="p">,</span> <span class="s2">&quot;avokado&quot;</span><span class="p">,</span> <span class="s2">&quot;borovnica&quot;</span><span class="p">,</span> <span class="s2">&quot;cikla&quot;</span><span class="p">]:</span>
+    <span class="n">grupe</span><span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">grupe</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>[('pas', 4), ('mačka', 3)]
+pas: 50.0%
+{'a': ['ananas', 'avokado'], 'b': ['banana', 'borovnica'], 'c': ['cikla']}</code></pre>
+<p>Udio najčešće klase je točnost „modela” koji uvijek predviđa istu klasu – to je prva <em>osnovna linija</em> (engl. <i>baseline</i>) koju izračunaš u svakom klasifikacijskom zadatku (lekcija M3).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Napiši funkciju <code>tocnost(y: list[int], p: list[int]) -&gt; float</code> s type hintovima koja vraća udio jednakih elemenata, a za liste različitih duljina baca <code>ValueError</code>. Ispiši <code>tocnost.__annotations__</code>. Zatim pokaži da Python hintove ne provjerava: pozovi funkciju s n-torkama umjesto lista.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">tocnost</span><span class="p">(</span><span class="n">y</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">p</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;različite duljine: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="si">}</span><span class="s2"> i </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">a</span> <span class="o">==</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">tocnost</span><span class="o">.</span><span class="vm">__annotations__</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tocnost</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">tocnost</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>{'y': list[int], 'p': list[int], 'return': &lt;class 'float'&gt;}
+0.75
+0.75</code></pre>
+<p>Hintovi su dokumentacija koju razumiju urednik i <code>mypy</code>, ne ograda pri izvođenju. Zbrajanje <code>True</code> vrijednosti radi jer je <code>bool</code> podtip <code>int</code>-a.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napiši klasu <code>Vektor</code> koja čuva listu brojeva i podržava: <code>len</code>, indeksiranje, zbrajanje i oduzimanje dvaju vektora, množenje skalarom s obje strane (<code>2 * v</code> i <code>v * 2</code>), skalarni produkt <code>v @ w</code>, normu <code>abs(v)</code>, usporedbu <code>==</code> i čitljiv <code>repr</code>. Zbrajanje vektora različitih duljina neka baci <code>ValueError</code>.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za <code>2 * v</code> Python prvo pita <code>int</code>, koji ne zna množiti <code>Vektor</code>, pa zatim poziva <code>v.__rmul__(2)</code>. Skalarni produkt je <code>__matmul__</code>, norma <code>__abs__</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span> <span class="nc">Vektor</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">podaci</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">podaci</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">i</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Vektor(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_provjeri</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">w</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;duljine </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2"> i </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="si">}</span><span class="s2"> se ne slažu&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_provjeri</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Vektor</span><span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">p</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_provjeri</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Vektor</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">p</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Vektor</span><span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">)</span>
+
+    <span class="fm">__rmul__</span> <span class="o">=</span> <span class="fm">__mul__</span>
+
+    <span class="k">def</span> <span class="fm">__matmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_provjeri</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">p</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="fm">__abs__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span> <span class="o">@</span> <span class="bp">self</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">Vektor</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">p</span> <span class="o">==</span> <span class="n">w</span><span class="o">.</span><span class="n">p</span>
+
+<span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">Vektor</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]),</span> <span class="n">Vektor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span> <span class="o">+</span> <span class="n">w</span><span class="p">,</span> <span class="n">v</span> <span class="o">-</span> <span class="n">w</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="n">v</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">v</span> <span class="o">@</span> <span class="n">w</span><span class="p">,</span> <span class="nb">abs</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span> <span class="o">==</span> <span class="n">Vektor</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]),</span> <span class="n">v</span> <span class="o">==</span> <span class="n">w</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="n">v</span> <span class="o">+</span> <span class="n">Vektor</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>
+<span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;greška:&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>Vektor([4, 3]) Vektor([2, 5]) Vektor([6, 8]) Vektor([1.5, 2.0])
+-1 5.0 2 3 True False
+greška: duljine 2 i 3 se ne slažu</code></pre>
+<p>Ovo je, u sićušnom, ono što NumPy-jev <code>ndarray</code> radi u C-u: svaki operator je dunder metoda. Kad u lekciji P3 napišeš <code>X @ w</code>, Python zove <code>X.__matmul__(w)</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napiši generator <code>prozori(niz, k)</code> koji redom daje sve uzastopne podnizove duljine $k$ (kao n-torke) i pomoću njega izračunaj <b>pomični prosjek</b> (engl. <i>moving average</i>) širine $3$ za niz <code>[4, 8, 6, 2, 10, 12, 8]</code>. Zatim isti pomični prosjek izračunaj „na letu” s <code>deque(maxlen=3)</code>, kao da brojevi stižu jedan po jedan.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+
+<span class="k">def</span> <span class="nf">prozori</span><span class="p">(</span><span class="n">niz</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">niz</span><span class="p">)</span> <span class="o">-</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">niz</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">k</span><span class="p">])</span>
+
+<span class="n">niz</span> <span class="o">=</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">8</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">prozori</span><span class="p">(</span><span class="n">niz</span><span class="p">,</span> <span class="mi">3</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">([</span><span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">prozori</span><span class="p">(</span><span class="n">niz</span><span class="p">,</span> <span class="mi">3</span><span class="p">)])</span>
+
+<span class="n">prozor</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">na_letu</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">niz</span><span class="p">:</span>
+    <span class="n">prozor</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">prozor</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">na_letu</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">prozor</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">na_letu</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">prozor</span><span class="p">),</span> <span class="n">prozor</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>[(4, 8, 6), (8, 6, 2), (6, 2, 10), (2, 10, 12), (10, 12, 8)]
+[6.0, 5.33, 6.0, 8.0, 10.0]
+[6.0, 5.33, 6.0, 8.0, 10.0] 3 deque([10, 12, 8], maxlen=3)</code></pre>
+<p><code>deque(maxlen=3)</code> pri svakom <code>append</code> sam izbacuje najstariji element, pa je uvijek u njemu zadnja tri broja. Pomični prosjek izglađuje šumovite krivulje – npr. gubitak po koracima tijekom treniranja (D4).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>(a) Monte Carlo procjena broja $\pi$: generiraj $N$ slučajnih točaka u kvadratu $[0,1]^2$ generatorom <code>random.Random(0)</code> i izbroji koliko ih pada u četvrtinu jediničnog kruga; procjena je $4\cdot\dfrac{\text{broj u krugu}}{N}$. Ispiši procjenu za $N=10^3,10^4,10^5$. (b) Iz liste indeksa <code>range(20)</code> pomoću <code>rng.sample</code> izaberi $5$ za test, ostale za trening; provjeri da su skupovi disjunktni i da pokrivaju sve indekse.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">N</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">10</span> <span class="o">**</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">10</span> <span class="o">**</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">10</span> <span class="o">**</span> <span class="mi">5</span><span class="p">):</span>
+    <span class="n">u_krugu</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)</span> <span class="k">if</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;N = </span><span class="si">{</span><span class="n">N</span><span class="si">:</span><span class="s2">&gt;6</span><span class="si">}</span><span class="s2">: pi ≈ </span><span class="si">{</span><span class="mi">4</span> <span class="o">*</span> <span class="n">u_krugu</span> <span class="o">/</span> <span class="n">N</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">svi</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">))</span>
+<span class="n">test</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">svi</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span class="n">trening</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">svi</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">test</span><span class="p">)]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">trening</span><span class="p">),</span> <span class="nb">set</span><span class="p">(</span><span class="n">test</span><span class="p">)</span><span class="o">.</span><span class="n">isdisjoint</span><span class="p">(</span><span class="n">trening</span><span class="p">),</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">trening</span> <span class="o">+</span> <span class="n">test</span><span class="p">)</span> <span class="o">==</span> <span class="n">svi</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>N =   1000: pi ≈ 3.1280
+N =  10000: pi ≈ 3.1432
+N = 100000: pi ≈ 3.1484
+[2, 3, 4, 8, 18]
+15 True True</code></pre>
+<p>Greška Monte Carlo procjene pada kao $1/\sqrt N$: sto puta više točaka daje tek jednu decimalu više. U (b) <code>rng.sample</code> bira bez ponavljanja, što je upravo podjela na trening i test; <code>set(test)</code> čini provjeru <code>in</code> brzom.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Hiperparametri modela zadani su rječnikom <code>{"stopa": [0.1, 0.01, 0.001], "slojevi": [1, 2], "dropout": [0.0, 0.5]}</code>. Pomoću <code>itertools.product</code> prođi sve kombinacije (<b>pretraga po mreži</b>, engl. <i>grid search</i>), za svaku izračunaj „rezultat” zadanom funkcijom <code>rezultat(stopa, slojevi, dropout) = 1 - abs(log10(stopa) + 2) / 4 - 0.05 * abs(slojevi - 2) - 0.1 * dropout</code> i ispiši najbolju kombinaciju. Koliko kombinacija ima? Zatim s <code>combinations</code> ispiši sve parove hiperparametara.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>product(*vrijednosti)</code> raspakira listu listi; <code>zip(imena, kombinacija)</code> vraća parove ime–vrijednost iz kojih se gradi rječnik.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">product</span><span class="p">,</span> <span class="n">combinations</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">log10</span><span class="p">,</span> <span class="n">prod</span>
+
+<span class="n">mreza</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;stopa&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">],</span> <span class="s2">&quot;slojevi&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="s2">&quot;dropout&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">]}</span>
+
+<span class="k">def</span> <span class="nf">rezultat</span><span class="p">(</span><span class="n">stopa</span><span class="p">,</span> <span class="n">slojevi</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">1</span> <span class="o">-</span> <span class="nb">abs</span><span class="p">(</span><span class="n">log10</span><span class="p">(</span><span class="n">stopa</span><span class="p">)</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span> <span class="o">-</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">slojevi</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">dropout</span>
+
+<span class="n">imena</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">mreza</span><span class="p">)</span>
+<span class="n">kombinacije</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">imena</span><span class="p">,</span> <span class="n">vr</span><span class="p">))</span> <span class="k">for</span> <span class="n">vr</span> <span class="ow">in</span> <span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="n">mreza</span><span class="o">.</span><span class="n">values</span><span class="p">())]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">kombinacije</span><span class="p">),</span> <span class="s2">&quot;=&quot;</span><span class="p">,</span> <span class="n">prod</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mreza</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="s2">&quot;kombinacija&quot;</span><span class="p">)</span>
+<span class="n">najbolja</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">kombinacije</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">rezultat</span><span class="p">(</span><span class="o">**</span><span class="n">k</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">najbolja</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">rezultat</span><span class="p">(</span><span class="o">**</span><span class="n">najbolja</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">combinations</span><span class="p">(</span><span class="n">imena</span><span class="p">,</span> <span class="mi">2</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>12 = 12 kombinacija
+{'stopa': 0.01, 'slojevi': 2, 'dropout': 0.0} 1.0
+[('stopa', 'slojevi'), ('stopa', 'dropout'), ('slojevi', 'dropout')]</code></pre>
+<p>Broj kombinacija je umnožak veličina – s pet hiperparametara po pet vrijednosti to je već $3125$ treniranja, zato se u praksi koristi slučajna pretraga (<code>rng.choice</code> za svaki hiperparametar) ili pametnije metode (lekcija M5). <code>rezultat(**k)</code> raspakira rječnik u imenovane argumente.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><b>Levenshteinova udaljenost</b> dvaju nizova je najmanji broj umetanja, brisanja i zamjena znakova kojima se jedan pretvara u drugi. Rekurzivno: $d(i,j)$ je udaljenost prefiksa duljine $i$ i $j$; $d(i,0)=i$, $d(0,j)=j$, a inače $d(i,j)=\min\big(d(i-1,j)+1,\ d(i,j-1)+1,\ d(i-1,j-1)+[a_i\ne b_j]\big)$. Napiši rekurzivnu funkciju, dekoriraj je s <code>broji_pozive</code> iz Primjera 3 bez i s memoizacijom i usporedi broj poziva za riječi <code>"inteligencija"</code> i <code>"inteligentan"</code>. Zatim napiši funkciju <code>ispravi(rijec, rjecnik)</code> koja vraća najbližu riječ iz rječnika.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Memoiziraj po paru <code>(i, j)</code>; nizove <code>a</code> i <code>b</code> drži izvan rekurzivne funkcije (ugniježđena funkcija ih vidi).</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">levenshtein</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">memo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Vraća (udaljenost, broj stvarno izračunanih podproblema).&quot;&quot;&quot;</span>
+    <span class="nd">@broji_pozive</span>
+    <span class="k">def</span> <span class="nf">d</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">j</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">i</span>
+        <span class="n">zamjena</span> <span class="o">=</span> <span class="n">d</span><span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">a</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">b</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">d</span><span class="p">(</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">d</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">zamjena</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">memo</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">memoiziraj</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="n">udaljenost</span> <span class="o">=</span> <span class="n">d</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">udaljenost</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">__wrapped__</span><span class="o">.</span><span class="n">pozivi</span> <span class="k">if</span> <span class="n">memo</span> <span class="k">else</span> <span class="n">d</span><span class="o">.</span><span class="n">pozivi</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;memoizirano: &quot;</span><span class="p">,</span> <span class="n">levenshtein</span><span class="p">(</span><span class="s2">&quot;inteligencija&quot;</span><span class="p">,</span> <span class="s2">&quot;inteligentan&quot;</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;naivno:      &quot;</span><span class="p">,</span> <span class="n">levenshtein</span><span class="p">(</span><span class="s2">&quot;kuća&quot;</span><span class="p">,</span> <span class="s2">&quot;kuhar&quot;</span><span class="p">,</span> <span class="n">memo</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;naivno:      &quot;</span><span class="p">,</span> <span class="n">levenshtein</span><span class="p">(</span><span class="s2">&quot;podaci&quot;</span><span class="p">,</span> <span class="s2">&quot;podatak&quot;</span><span class="p">,</span> <span class="n">memo</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">ispravi</span><span class="p">(</span><span class="n">rijec</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rjecnik</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">rjecnik</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="p">(</span><span class="n">levenshtein</span><span class="p">(</span><span class="n">rijec</span><span class="p">,</span> <span class="n">r</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">r</span><span class="p">))</span>
+
+<span class="n">rjecnik</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">,</span> <span class="s2">&quot;podaci&quot;</span><span class="p">,</span> <span class="s2">&quot;gubitak&quot;</span><span class="p">,</span> <span class="s2">&quot;gradijent&quot;</span><span class="p">,</span> <span class="s2">&quot;epoha&quot;</span><span class="p">,</span> <span class="s2">&quot;mreža&quot;</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;gradjent&quot;</span><span class="p">,</span> <span class="s2">&quot;epoja&quot;</span><span class="p">,</span> <span class="s2">&quot;modle&quot;</span><span class="p">,</span> <span class="s2">&quot;mreza&quot;</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="n">ispravi</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">rjecnik</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>memoizirano:  (4, 182)
+naivno:       (2, 1021)
+naivno:       (3, 29737)
+gradjent -&gt; gradijent
+epoja -&gt; epoha
+modle -&gt; model
+mreza -&gt; mreža</code></pre>
+<p>Memoizirana verzija računa svaki par $(i,j)$ jednom – najviše $(|a|+1)(|b|+1)$ podproblema – dok naivna rekurzija grana u tri smjera i broj poziva eksplodira već za riječi od desetak slova (zato naivnu verziju pozivamo na kraćim riječima). Brojač opet čitamo preko <code>__wrapped__</code> kao u Primjeru 3. Ispravljanje riječi najbližom iz rječnika osnovni je oblik <em>provjere pravopisa</em>; isti princip (udaljenost do najbližeg poznatog primjera) srest ćeš kao $k$-NN u lekciji M3.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Napiši klasu <code>Tokenizator</code> s metodama <code>fit(tekstovi, min_pojava=1)</code> (gradi vokabular od riječi koje se pojavljuju barem <code>min_pojava</code> puta, s posebnim tokenima <code>&lt;pad&gt;</code> na indeksu $0$ i <code>&lt;unk&gt;</code> na indeksu $1$, ostale riječi po padajućoj učestalosti pa abecedno), <code>encode(tekst) -&gt; list[int]</code>, <code>decode(indeksi) -&gt; str</code> i <code>__len__</code> (veličina vokabulara). Nepoznate riječi kodiraj kao <code>&lt;unk&gt;</code>. Dodaj metodu <code>encode_batch(tekstovi)</code> koja sve nizove dopuni tokenom <code>&lt;pad&gt;</code> do duljine najduljeg.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>Counter</code> daje učestalosti; sortiraj ključem <code>(-broj, riječ)</code>. Za dopunjavanje: <code>niz + [0] * (najdulji - len(niz))</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">class</span> <span class="nc">Tokenizator</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rijec_u_id</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id_u_rijec</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">tokeni</span><span class="p">(</span><span class="n">tekst</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">tekst</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tekstovi</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">min_pojava</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;Tokenizator&quot;</span><span class="p">:</span>
+        <span class="n">brojac</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">t</span> <span class="k">for</span> <span class="n">tekst</span> <span class="ow">in</span> <span class="n">tekstovi</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokeni</span><span class="p">(</span><span class="n">tekst</span><span class="p">))</span>
+        <span class="n">rijeci</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">brojac</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="n">min_pojava</span><span class="p">),</span>
+                        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">r</span><span class="p">:</span> <span class="p">(</span><span class="o">-</span><span class="n">brojac</span><span class="p">[</span><span class="n">r</span><span class="p">],</span> <span class="n">r</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">id_u_rijec</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;pad&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;&lt;unk&gt;&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">rijeci</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rijec_u_id</span> <span class="o">=</span> <span class="p">{</span><span class="n">r</span><span class="p">:</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id_u_rijec</span><span class="p">)}</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id_u_rijec</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">encode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tekst</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rijec_u_id</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokeni</span><span class="p">(</span><span class="n">tekst</span><span class="p">)]</span>
+
+    <span class="k">def</span> <span class="nf">decode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indeksi</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id_u_rijec</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indeksi</span> <span class="k">if</span> <span class="n">i</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">encode_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tekstovi</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]:</span>
+        <span class="n">nizovi</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tekstovi</span><span class="p">]</span>
+        <span class="n">najdulji</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nizovi</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">n</span> <span class="o">+</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">najdulji</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">n</span><span class="p">))</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nizovi</span><span class="p">]</span>
+
+<span class="n">korpus</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Model uči iz podataka.&quot;</span><span class="p">,</span> <span class="s2">&quot;Podataka nikad nije previše, ali loših podataka je uvijek previše.&quot;</span><span class="p">,</span>
+          <span class="s2">&quot;Model, podaci, model.&quot;</span><span class="p">]</span>
+<span class="n">tok</span> <span class="o">=</span> <span class="n">Tokenizator</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">korpus</span><span class="p">,</span> <span class="n">min_pojava</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tok</span><span class="p">),</span> <span class="n">tok</span><span class="o">.</span><span class="n">id_u_rijec</span><span class="p">)</span>
+<span class="n">kod</span> <span class="o">=</span> <span class="n">tok</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;Model uči iz loših podataka&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">kod</span><span class="p">,</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="n">tok</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">kod</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">tok</span><span class="o">.</span><span class="n">encode_batch</span><span class="p">([</span><span class="s2">&quot;model podataka&quot;</span><span class="p">,</span> <span class="s2">&quot;previše loših podataka nije model&quot;</span><span class="p">]):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>5 ['&lt;pad&gt;', '&lt;unk&gt;', 'model', 'podataka', 'previše']
+[2, 1, 1, 1, 3] -&gt; model &lt;unk&gt; &lt;unk&gt; &lt;unk&gt; podataka
+[2, 3, 0, 0, 0]
+[4, 1, 3, 1, 2]</code></pre>
+<p>Riječi koje se pojavljuju samo jednom (<code>uči</code>, <code>iz</code>, <code>nikad</code>, …) ispale su iz vokabulara i kodiraju se kao $1$ (<code>&lt;unk&gt;</code>), a <code>&lt;pad&gt;</code> izjednačava duljine da se batch može složiti u matricu. To je točno sučelje tokenizatora iz biblioteke Hugging Face (lekcija V3): <code>encode</code>, <code>decode</code>, <code>pad</code>, posebni tokeni – samo što tamo tokeni nisu riječi nego dijelovi riječi.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Klasa veže podatke i metode; dunder metode (<code>__len__</code>, <code>__getitem__</code>, <code>__iter__</code>, <code>__add__</code>, <code>__repr__</code>) čine da se objekt ponaša kao ugrađeni tip – tako rade <code>Dataset</code> i <code>ndarray</code>. Za „samo podatke” koristi <code>@dataclass</code>.</li>
+<li>Generator (<code>yield</code>) daje elemente lijeno i jednokratno: batchevi, čitanje velikih datoteka, beskonačne epohe uz <code>islice</code>.</li>
+<li><code>sorted</code>/<code>min</code>/<code>max</code> s <code>key</code> i lambdom rješavaju gotovo svako sortiranje; comprehension je obično čitljiviji od <code>map</code>/<code>filter</code>.</li>
+<li>Dekorator je <code>f = dek(f)</code>; s <code>*args, **kwargs</code> i <code>functools.wraps</code> pišeš mjerenje vremena, brojanje poziva i memoizaciju (<code>lru_cache</code>).</li>
+<li><code>random.Random(sjeme)</code> za reproducibilno miješanje i uzorkovanje; <code>Counter</code>, <code>defaultdict</code>, <code>deque(maxlen)</code>; <code>product</code> za pretragu po mreži; <code>perf_counter</code> za mjerenje.</li>
+<li>Type hints dokumentiraju, ne provjeravaju; kod dijeli u funkcije s jasnim ulazom i izlazom, ovisnosti drži u virtualnom okruženju.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>Službena dokumentacija Pythona: <a href="https://docs.python.org/3/reference/datamodel.html">Data model</a> (dunder metode), <a href="https://docs.python.org/3/library/collections.html">collections</a>, <a href="https://docs.python.org/3/library/itertools.html">itertools</a>, <a href="https://docs.python.org/3/library/functools.html">functools</a>.</li>
+<li>L. Ramalho, <i>Fluent Python</i>, 2. izd. (O'Reilly), poglavlja o modelu podataka, dekoratorima i generatorima.</li>
+<li>PyTorch dokumentacija: <a href="https://pytorch.org/docs/stable/data.html">torch.utils.data</a> – <code>Dataset</code> i <code>DataLoader</code> kao primjena <code>__getitem__</code> i iteratora iz ove lekcije.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="01-python-osnove.html"><small>← Prethodna lekcija</small>P1 · Python za AI: osnove jezika</a>
+                <a class="sljedeca" href="03-numpy.html"><small>Sljedeća lekcija →</small>P3 · NumPy: vektori, matrice i vektorizacija</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

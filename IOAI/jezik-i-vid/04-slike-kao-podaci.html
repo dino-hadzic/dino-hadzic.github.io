@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Jezik i vid 4: Slike kao podaci: obrada i augmentacija</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#jezik-i-vid">Jezik i vid</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Jezik i vid · lekcija 4 od 6</p>
+            <h1><span class="broj-lekcije">V4</span> Slike kao podaci: obrada i augmentacija</h1>
+            <p class="meta">Slika je tenzor brojeva: kanali, normalizacija, rezanje i okretanje, konvolucijski filtri, histogrami i augmentacija podataka</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.6" title="razina nacionalnog izbora i kvalifikacija">Razina: Srednje</li>
+                <li>tenzor $H\times W\times C$</li>
+                <li>uint8 i float</li>
+                <li>normalizacija</li>
+                <li>sivi tonovi</li>
+                <li>konvolucija</li>
+                <li>histogram</li>
+                <li>augmentacija</li>
+                <li>torchvision.transforms</li>
+                <li>Pillow</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Opisati sliku kao tenzor oblika $H\times W\times C$, razlikovati <code>uint8</code> od <code>float</code> zapisa i znati zašto se ulazi normaliziraju.</li>
+<li>U NumPy-ju izrezati, okrenuti i zarotirati sliku, promijeniti joj svjetlinu i pretvoriti je u sive tonove.</li>
+<li>Napisati 2D konvoluciju i primijeniti filtre za zamućenje i rubove; pročitati histogram slike.</li>
+<li>Objasniti zašto augmentacija pomaže, odabrati augmentacije koje ne mijenjaju oznaku i složiti cjevovod u <code>torchvision.transforms</code>.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>Za računalo slika nije „slika” nego pravokutna tablica brojeva. Sve što model računalnog vida radi – od konvolucijske mreže (lekcija D5) do CLIP-a (lekcija V6) – počinje tim brojevima, pa prije bilo kakvog modela moraš znati kako su složeni, koji im je raspon i što im smiješ raditi, a da se oznaka slike ne promijeni.</p>
+
+<h3>Slika kao tenzor</h3>
+<div class="pojam">
+<h4>Slika kao tenzor</h4>
+<p>Slika visine $H$ i širine $W$ piksela s $C$ <b>kanala</b> (engl. <i>channels</i>) je tenzor $I\in\mathbb R^{H\times W\times C}$; vrijednost $I_{y,x,c}$ je intenzitet kanala $c$ u retku $y$ i stupcu $x$. Siva slika ima $C=1$ (ili uopće nema osi kanala), RGB slika $C=3$. Poredak osi $H\times W\times C$ zove se <b>HWC</b> (NumPy, Pillow, Matplotlib); PyTorch koristi <b>CHW</b>, a uz dimenziju serije (engl. <i>batch</i>) $N\times C\times H\times W$.</p>
+</div>
+<p>Dva su zapisa vrijednosti. U datotekama i u Pillowu pikseli su <b>cijeli brojevi</b> <code>uint8</code> od $0$ do $255$: jedan bajt po kanalu, slika $1920\times1080$ RGB zauzima $1920\cdot1080\cdot3\approx6{,}2$ MB. Za račun se slika pretvara u <b>realne brojeve</b> (<code>float32</code>) u rasponu $[0,1]$ dijeljenjem s $255$. S <code>uint8</code> nikad ne računaj izravno: $200+100$ u jednom bajtu nije $300$ nego $44$ (prelijevanje), a $50-100$ nije $-50$ nego $206$.</p>
+<div class="pojam">
+<h4>Normalizacija</h4>
+<p>Za svaki kanal $c$ odrede se srednja vrijednost $\mu_c$ i standardna devijacija $\sigma_c$ na <em>skupu za učenje</em>, pa se svaki piksel transformira
+$$I'_{y,x,c}=\frac{I_{y,x,c}/255-\mu_c}{\sigma_c}.$$
+Nakon toga svaki kanal ima približno srednju vrijednost $0$ i raspršenje $1$. Pretrenirane mreže na ImageNetu očekuju svoje konstante $\mu=(0{,}485,\,0{,}456,\,0{,}406)$ i $\sigma=(0{,}229,\,0{,}224,\,0{,}225)$ – ako ih zaboraviš, model i dalje radi, ali lošije (lekcija V5).</p>
+</div>
+<p>Zašto normalizirati? Gradijentni spust (lekcija M2) najbolje radi kad su sve ulazne veličine sličnog reda; ulazi oko nule drže aktivacije i gradijente u „zdravom” rasponu i omogućuju veću stopu učenja. Isti razlog zbog kojeg se u tabularnim zadacima standardiziraju stupci.</p>
+
+<h3>Kanali boja i sivi tonovi</h3>
+<p>RGB zapis slaže boju iz tri intenziteta: crvenog, zelenog i plavog. Pretvorba u <b>sive tonove</b> (engl. <i>grayscale</i>) nije običan prosjek jer oko nije jednako osjetljivo na sve boje; standardna formula (ITU-R BT.601, koju koristi i Pillow) daje <b>luminanciju</b>
+$$Y=0{,}299\,R+0{,}587\,G+0{,}114\,B.$$
+Siva slika ima tri puta manje brojeva, pa je prvi izbor kad boja nije bitna (rukopis, dokumenti, rendgen). Kad jest bitna (voće, semafor, koža), odbacivanjem boje bacaš informaciju – odluku donosi zadatak, ne navika.</p>
+
+<h3>Osnovne operacije su indeksiranje</h3>
+<p>Većina geometrijskih operacija u NumPy-ju su samo rezovi i permutacije osi, bez petlji:</p>
+<ul>
+<li><b>rez</b> (engl. <i>crop</i>): <code>I[y0:y1, x0:x1]</code> – prvo retci (visina), pa stupci (širina);</li>
+<li><b>vodoravno okretanje</b> (engl. <i>horizontal flip</i>): <code>I[:, ::-1]</code>; okomito: <code>I[::-1]</code>;</li>
+<li><b>rotacija za 90°</b>: transponiranje prostornih osi pa okretanje, <code>I.transpose(1, 0, 2)[::-1]</code> (ulijevo), ili gotovo <code>np.rot90(I)</code>;</li>
+<li><b>svjetlina</b>: <code>np.clip(I.astype(int) + 40, 0, 255)</code> – zbroj u <code>int</code>, pa odsijecanje, pa natrag u <code>uint8</code>; <b>kontrast</b>: množenje odstupanja od srednje vrijednosti faktorom $\alpha$, $I'=\mu+\alpha(I-\mu)$.</li>
+</ul>
+<div class="trener-umetak">
+<p>Najčešća pogreška: zamjena osi. Pillow vraća <code>img.size == (W, H)</code>, NumPy <code>arr.shape == (H, W, C)</code>, a Matplotlib <code>imshow</code> očekuje HWC. Kad slika izgleda „izduženo” ili boje „pobjegnu”, prvo provjeri oblik i poredak osi, pa tek onda model.</p>
+</div>
+
+<h3>Konvolucijski filtri</h3>
+<div class="pojam">
+<h4>2D konvolucija</h4>
+<p>Za sivu sliku $I$ i <b>jezgru</b> (engl. <i>kernel</i>) $K\in\mathbb R^{k\times k}$ konvolucija je slika
+$$(I*K)_{y,x}=\sum_{u=0}^{k-1}\sum_{v=0}^{k-1} K_{u,v}\,I_{y+u,\,x+v},$$
+dakle svaki izlazni piksel je težinski zbroj okoline $k\times k$ oko njega s težinama iz $K$. Bez dopune (engl. <i>padding</i>) izlaz ima $(H-k+1)\times(W-k+1)$ piksela; s dopunom od $p$ nula sa svake strane $(H+2p-k+1)\times(W+2p-k+1)$, pa za $p=(k-1)/2$ veličina ostaje ista.</p>
+</div>
+<p>(Strogo matematički, ovo je <i>križna korelacija</i>; prava konvolucija jezgru još zrcali. Biblioteke za duboko učenje računaju upravo gornji izraz i zovu ga konvolucijom; za simetrične jezgre razlike ionako nema.)</p>
+<p>Jezgra određuje što filtar radi. <b>Zamućenje</b> (engl. <i>blur</i>): sve težine jednake, $K=\frac19\mathbf 1_{3\times3}$ (box filtar) ili Gaussove težine koje padaju s udaljenošću od sredine – zbroj težina je $1$, pa se ukupna svjetlina čuva. <b>Rubovi</b>: Sobelove jezgre
+$$S_x=\begin{pmatrix}-1&0&1\\-2&0&2\\-1&0&1\end{pmatrix},\qquad S_y=S_x^\top$$
+aproksimiraju derivaciju po $x$ odnosno $y$; zbroj težina je $0$, pa na jednoličnoj površini daju $0$, a na prijelazu tamno–svijetlo velik odziv. Jačina ruba je $\sqrt{G_x^2+G_y^2}$. Konvolucijska mreža (D5) ne koristi ručno zadane jezgre nego ih <em>uči</em> – ali prvi slojevi naučenih mreža redovito nalikuju upravo na detektore rubova i zamućenja.</p>
+
+<h3>Histogram</h3>
+<p><b>Histogram</b> slike broji koliko piksela ima koju vrijednost (ili pada u koji od $B$ razreda). Ne govori ništa o rasporedu piksela, ali puno o ekspoziciji i kontrastu: histogram stisnut u uski raspon znači slabu iskorištenost raspona $[0,255]$, gomila na $0$ ili $255$ znači podeksponirane ili „izgorjele” dijelove. <b>Izjednačavanje histograma</b> (engl. <i>histogram equalization</i>) preslikava vrijednosti kroz kumulativnu razdiobu tako da histogram postane približno ravan (Zadatak 7). Prije bilo kakvog treniranja isplati se pogledati histogram cijelog skupa: skup u kojem su rukopisi bijeli na crnom, a tvoje testne slike crne na bijelom, nijedan model neće spasiti.</p>
+
+<h3>Augmentacija podataka</h3>
+<div class="pojam">
+<h4>Augmentacija</h4>
+<p><b>Augmentacija podataka</b> (engl. <i>data augmentation</i>) je stvaranje novih primjera za učenje slučajnim transformacijama postojećih koje <em>ne mijenjaju oznaku</em>: $(T(x),y)$ za slučajnu transformaciju $T$. Primjenjuje se samo na skup za učenje, u svakoj epohi iznova; testne slike se ne augmentiraju.</p>
+</div>
+<p>Zašto pomaže? Model vidi više različitih slika iste klase, pa teže zapamti pojedine piksele (regularizacija protiv prenaučenosti, lekcija M2), a istodobno uči <b>invarijantnost</b>: mačka ostaje mačka i pomaknuta, zrcaljena, u sjeni. Standardni izbor za fotografije:</p>
+<ul>
+<li><b>vodoravno okretanje</b> (<code>RandomHorizontalFlip</code>) – prirodno za većinu objekata, ali <em>ne</em> za tekst, znamenke ($6$ nije $9$, okomito) ni za prometne znakove „lijevo/desno”;</li>
+<li><b>slučajni rez i promjena veličine</b> (<code>RandomResizedCrop</code>) – objekt nije uvijek u sredini ni iste veličine;</li>
+<li><b>podrhtavanje boje</b> (engl. <i>color jitter</i>, <code>ColorJitter</code>) – slučajna svjetlina, kontrast, zasićenje; simulira različito osvjetljenje;</li>
+<li>male rotacije i pomaci, slučajno brisanje dijela slike (engl. <i>cutout</i>).</li>
+</ul>
+<p>Pravilo: augmentacija mora biti vjerojatna u testnim podacima. Prejake augmentacije (rotacija za 180°, ekstremne boje) stvaraju slike kakvih na testu nema i trošenje kapaciteta modela na njih škodi. U <code>torchvision.transforms</code> augmentacije se slažu u <code>Compose</code> i obično završavaju s <code>ToTensor()</code> (HWC <code>uint8</code> → CHW <code>float</code> u $[0,1]$) i <code>Normalize(mean, std)</code>.</p>
+
+<h3>Skupovi podataka za vježbu</h3>
+<p>Tri standardna skupa, od najmanjeg: <code>sklearn.datasets.load_digits</code> – $1797$ sivih slika znamenki $8\times8$ s vrijednostima $0$–$16$, ugrađen u scikit-learn (bez downloada; koristimo ga u svim primjerima). <b>MNIST</b> – $70\,000$ sivih slika rukom pisanih znamenki $28\times28$ ($60\,000$ za učenje, $10\,000$ za test), <code>torchvision.datasets.MNIST</code>. <b>CIFAR-10</b> – $60\,000$ RGB slika $32\times32$ u $10$ klasa (avion, auto, ptica, mačka, …), <code>torchvision.datasets.CIFAR10</code>; prvi skup na kojem su konvolucijske mreže nužne, a augmentacija presudna. Na natjecanju podatke dobivaš u datotekama, pa je ključno znati ih učitati i pregledati – za to služi <b>Pillow</b>: <code>Image.open(put)</code>, <code>img.size</code>, <code>img.mode</code> (<code>"RGB"</code>, <code>"L"</code>, <code>"RGBA"</code>), <code>img.convert("RGB")</code>, <code>img.resize((W, H))</code>, a <code>np.asarray(img)</code> daje tenzor HWC <code>uint8</code> i <code>Image.fromarray(arr)</code> obrnuto.</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Napravi sintetičku RGB sliku $48\times64$: crveni kanal raste slijeva nadesno, zeleni odozgo prema dolje, a desno je plavi krug. Ispiši oblik, tip i veličinu u bajtovima, pretvori je u <code>float</code>, normaliziraj po kanalima, pretvori u sive tonove i provjeri da Pillow sliku zapiše i pročita bez gubitka.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: slika kao polje.</b> Koordinatne mreže <code>np.mgrid</code> daju $y$ i $x$ svakog piksela, pa boje zadajemo formulama. Krug je Booleova maska – indeksiranje maskom postavlja sve piksele unutar kruga odjednom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="mi">48</span><span class="p">,</span> <span class="mi">64</span>
+<span class="n">yy</span><span class="p">,</span> <span class="n">xx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mgrid</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">H</span><span class="p">,</span> <span class="mi">0</span><span class="p">:</span><span class="n">W</span><span class="p">]</span>                      <span class="c1"># yy[y, x] = y, xx[y, x] = x</span>
+<span class="n">slika</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="n">slika</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span> <span class="o">*</span> <span class="n">xx</span> <span class="o">//</span> <span class="p">(</span><span class="n">W</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>              <span class="c1"># crveni kanal raste slijeva nadesno</span>
+<span class="n">slika</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">255</span> <span class="o">*</span> <span class="n">yy</span> <span class="o">//</span> <span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>              <span class="c1"># zeleni raste odozgo prema dolje</span>
+<span class="n">krug</span> <span class="o">=</span> <span class="p">(</span><span class="n">xx</span> <span class="o">-</span> <span class="mi">44</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">yy</span> <span class="o">-</span> <span class="mi">24</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">&lt;</span> <span class="mi">12</span> <span class="o">**</span> <span class="mi">2</span>
+<span class="n">slika</span><span class="p">[</span><span class="n">krug</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">220</span><span class="p">)</span>                      <span class="c1"># plavi krug</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">slika</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">slika</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">slika</span><span class="o">.</span><span class="n">nbytes</span><span class="p">,</span> <span class="s2">&quot;bajtova&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;piksel (0, 0):&quot;</span><span class="p">,</span> <span class="n">slika</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="s2">&quot; piksel (47, 63):&quot;</span><span class="p">,</span> <span class="n">slika</span><span class="p">[</span><span class="mi">47</span><span class="p">,</span> <span class="mi">63</span><span class="p">],</span> <span class="s2">&quot; u krugu:&quot;</span><span class="p">,</span> <span class="n">slika</span><span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">44</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;udio piksela u krugu: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">krug</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>(48, 64, 3) uint8 9216 bajtova
+piksel (0, 0): [0 0 0]  piksel (47, 63): [255 255   0]  u krugu: [ 30  60 220]
+udio piksela u krugu: 0.142</code></pre>
+<p><b>Korak 2: float i normalizacija.</b> Dijeljenje s $255$ daje raspon $[0,1]$; srednja vrijednost i devijacija računaju se po kanalu, dakle preko osi $0$ i $1$. Usput pokazujemo zamku s <code>uint8</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">f</span> <span class="o">=</span> <span class="n">slika</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">/</span> <span class="mf">255.0</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;raspon [</span><span class="si">%.2f</span><span class="s2">, </span><span class="si">%.2f</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">f</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">f</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;mu    =&quot;</span><span class="p">,</span> <span class="n">mu</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;sigma =&quot;</span><span class="p">,</span> <span class="n">sigma</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="n">norm</span> <span class="o">=</span> <span class="p">(</span><span class="n">f</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nakon normalizacije: mu =&quot;</span><span class="p">,</span> <span class="n">norm</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">&quot; sigma =&quot;</span><span class="p">,</span> <span class="n">norm</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+
+<span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">200</span><span class="p">,</span> <span class="mi">50</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;uint8: 200 + 100 =&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">(</span><span class="mi">100</span><span class="p">))[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;  50 - 100 =&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">(</span><span class="mi">100</span><span class="p">))[</span><span class="mi">1</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ispravno:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span> <span class="o">+</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>float32 raspon [0.00, 1.00]
+mu    = [0.416 0.459 0.123]
+sigma = [0.305 0.305 0.301]
+nakon normalizacije: mu = [-0. -0.  0.]  sigma = [1. 1. 1.]
+uint8: 200 + 100 = 44   50 - 100 = 206
+ispravno: [255 150]</code></pre>
+<p>Plavi kanal ima malu srednju vrijednost ($0{,}123$) jer je plav samo krug; nakon normalizacije sva tri kanala imaju $\mu=0$ i $\sigma=1$ (ispisana $-0$ je nula zaokružena s negativne strane). Zbroj u <code>uint8</code> daje $44$ umjesto $300$ – zato svjetlinu uvijek mijenjaj u <code>int</code> ili <code>float</code> pa odsijeci.</p>
+<p><b>Korak 3: sivi tonovi i Pillow.</b> Luminancija je skalarni produkt svakog piksela s težinama $(0{,}299,\,0{,}587,\,0{,}114)$ – <code>@</code> po zadnjoj osi. PNG je zapis bez gubitaka, pa se nakon spremanja i čitanja mora dobiti točno isto polje. Pillowova pretvorba u <code>"L"</code> koristi iste težine, uz zaokruživanje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+
+<span class="n">tezine</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.299</span><span class="p">,</span> <span class="mf">0.587</span><span class="p">,</span> <span class="mf">0.114</span><span class="p">])</span>
+<span class="n">siva</span> <span class="o">=</span> <span class="p">(</span><span class="n">slika</span> <span class="o">@</span> <span class="n">tezine</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;siva:&quot;</span><span class="p">,</span> <span class="n">siva</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">siva</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot; u krugu:&quot;</span><span class="p">,</span> <span class="n">siva</span><span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">44</span><span class="p">])</span>
+
+<span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">slika</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pillow: size =&quot;</span><span class="p">,</span> <span class="n">img</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="s2">&quot;(W, H)  mode =&quot;</span><span class="p">,</span> <span class="n">img</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>
+<span class="n">img</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;gradijent.png&quot;</span><span class="p">)</span>
+<span class="n">natrag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;gradijent.png&quot;</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isto nakon PNG-a:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">natrag</span><span class="p">,</span> <span class="n">slika</span><span class="p">))</span>
+<span class="n">siva_pil</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">&quot;L&quot;</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Pillow &#39;L&#39; vs ručno, najveća razlika:&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">siva_pil</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span> <span class="o">-</span> <span class="n">siva</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<span class="n">mala</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">resize</span><span class="p">((</span><span class="mi">32</span><span class="p">,</span> <span class="mi">24</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;resize((32, 24)) -&gt; shape&quot;</span><span class="p">,</span> <span class="n">mala</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;  HWC -&gt; CHW:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>siva: (48, 64) uint8  u krugu: 69
+Pillow: size = (64, 48) (W, H)  mode = RGB
+isto nakon PNG-a: True
+Pillow 'L' vs ručno, najveća razlika: 0
+resize((32, 24)) -&gt; shape (24, 32, 3)   HWC -&gt; CHW: (3, 48, 64)</code></pre>
+<p>Krug $(30,60,220)$ u sivom postaje $0{,}299\cdot30+0{,}587\cdot60+0{,}114\cdot220\approx69$: tamnoplava je tamna i u sivom. Primijeti <code>size=(64, 48)</code>, a <code>shape=(48, 64, 3)</code>; <code>resize</code> također prima $(W,H)$.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Napiši funkciju za 2D konvoluciju bez dopune i primijeni box zamućenje $3\times3$ i Sobelove filtre na sivu sliku $40\times40$ sa svijetlim kvadratom u sredini. Zatim na skupu <code>load_digits</code> izračunaj histogram vrijednosti piksela.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: konvolucija.</b> Umjesto dvostruke petlje po pikselima (sporo u Pythonu) petlja ide po $k^2$ elemenata jezgre, a svaki pribraja pomaknuti isječak cijele slike – vektorizacija umjesto petlje po pikselima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">konvolucija</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">K</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Križna korelacija slike I (H, W) i jezgre K (k, k) bez dopune.&quot;&quot;&quot;</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">k</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">izlaz</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+            <span class="n">izlaz</span> <span class="o">+=</span> <span class="n">K</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">]</span> <span class="o">*</span> <span class="n">I</span><span class="p">[</span><span class="n">u</span><span class="p">:</span><span class="n">u</span> <span class="o">+</span> <span class="n">h</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span><span class="n">v</span> <span class="o">+</span> <span class="n">w</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">izlaz</span>
+
+<span class="n">kvadrat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">))</span>
+<span class="n">kvadrat</span><span class="p">[</span><span class="mi">12</span><span class="p">:</span><span class="mi">28</span><span class="p">,</span> <span class="mi">12</span><span class="p">:</span><span class="mi">28</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">box</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span> <span class="o">/</span> <span class="mi">9</span>
+<span class="n">Sx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+<span class="n">Sy</span> <span class="o">=</span> <span class="n">Sx</span><span class="o">.</span><span class="n">T</span>
+
+<span class="n">zamucen</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ulaz&quot;</span><span class="p">,</span> <span class="n">kvadrat</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;-&gt; izlaz&quot;</span><span class="p">,</span> <span class="n">zamucen</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;redak 20, stupci 9..15 nakon zamućenja:&quot;</span><span class="p">,</span> <span class="n">zamucen</span><span class="p">[</span><span class="mi">19</span><span class="p">,</span> <span class="mi">9</span><span class="p">:</span><span class="mi">16</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;zbroj svih vrijednosti prije </span><span class="si">%.1f</span><span class="s2">, poslije </span><span class="si">%.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">kvadrat</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">zamucen</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>ulaz (40, 40) -&gt; izlaz (38, 38)
+redak 20, stupci 9..15 nakon zamućenja: [0.    0.333 0.667 1.    1.    1.    1.   ]
+zbroj svih vrijednosti prije 256.0, poslije 256.0</code></pre>
+<p>Izlaz je manji za $k-1=2$ u svakoj dimenziji (izlazni piksel $(i,j)$ odgovara ulaznom $(i+1,j+1)$). Oštar prijelaz $0\to1$ na rubu kvadrata zamućenje razvuče na tri piksela $\frac13,\frac23,1$; ukupna svjetlina (zbroj svih vrijednosti, $16\cdot16=256$) ostaje ista jer je zbroj težina $1$ – zamućenje samo preraspodjeljuje svjetlinu među susjedima.</p>
+<p><b>Korak 2: rubovi.</b> Sobel $S_x$ reagira na okomite rubove (promjena duž $x$), $S_y$ na vodoravne. Na jednoličnim dijelovima odziv je $0$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Gx</span><span class="p">,</span> <span class="n">Gy</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">Sx</span><span class="p">),</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">Sy</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Gx, redak 20, stupci 9..15:&quot;</span><span class="p">,</span> <span class="n">Gx</span><span class="p">[</span><span class="mi">19</span><span class="p">,</span> <span class="mi">9</span><span class="p">:</span><span class="mi">16</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Gy, redak 20, stupci 9..15:&quot;</span><span class="p">,</span> <span class="n">Gy</span><span class="p">[</span><span class="mi">19</span><span class="p">,</span> <span class="mi">9</span><span class="p">:</span><span class="mi">16</span><span class="p">])</span>
+<span class="n">jacina</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">Gx</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">Gy</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;piksela s rubom (jačina &gt; 0):&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">((</span><span class="n">jacina</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()),</span> <span class="s2">&quot; najveća jačina: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">jacina</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;odziv Sobela na jednoličnoj površini:&quot;</span><span class="p">,</span> <span class="n">Gx</span><span class="p">[</span><span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">],</span> <span class="n">Gy</span><span class="p">[</span><span class="mi">19</span><span class="p">,</span> <span class="mi">19</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>Gx, redak 20, stupci 9..15: [0. 4. 4. 0. 0. 0. 0.]
+Gy, redak 20, stupci 9..15: [0. 0. 0. 0. 0. 0. 0.]
+piksela s rubom (jačina &gt; 0): 128  najveća jačina: 4.243
+odziv Sobela na jednoličnoj površini: 0.0 0.0</code></pre>
+<p>Lijevi rub kvadrata daje $G_x=+4$ (tamno→svijetlo) u dva susjedna stupca, desni $-4$; jačina je najveća u kutovima, gdje djeluju oba filtra ($G_x=G_y=3$, jačina $3\sqrt2\approx4{,}243$). Prebroji: svaki od četiri ruba daje pojas širine $2$ piksela duž $18$ redaka ($16$ redaka kvadrata plus po jedan iznad i ispod), $4\cdot36=144$, minus $16$ kutnih piksela koji su u dva pojasa – točno $128$.</p>
+<p><b>Korak 3: histogram.</b> <code>np.histogram</code> vraća brojeve po razredima i granice razreda. Vrijednosti u <code>load_digits</code> su cjelobrojne od $0$ do $16$, pa uzimamo $17$ razreda širine $1$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_digits</span>
+
+<span class="n">digits</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">()</span>
+<span class="n">slike</span> <span class="o">=</span> <span class="n">digits</span><span class="o">.</span><span class="n">images</span>                            <span class="c1"># oblik (1797, 8, 8), vrijednosti 0..16</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">slike</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">slike</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">slike</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">slike</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+<span class="n">brojevi</span><span class="p">,</span> <span class="n">granice</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">slike</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">17</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">17</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;histogram:&quot;</span><span class="p">,</span> <span class="n">brojevi</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;udio nula: </span><span class="si">%.3f</span><span class="s2">   udio &gt;= 14: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">brojevi</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">slike</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">brojevi</span><span class="p">[</span><span class="mi">14</span><span class="p">:]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">slike</span><span class="o">.</span><span class="n">size</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prosječna slika znamenke 0 (zaokruženo):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="n">digits</span><span class="o">.</span><span class="n">target</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>(1797, 8, 8) float64 0.0 16.0
+histogram: [56272  4095  3296  2944  3261  2803  2559  2627  3464  2585  2711  2845
+  3668  3509  3609  4304 10456]
+udio nula: 0.489   udio &gt;= 14: 0.160
+prosječna slika znamenke 0 (zaokruženo):
+[[ 0  0  4 13 11  3  0  0]
+ [ 0  1 13 13 11 11  1  0]
+ [ 0  4 14  5  2 12  4  0]
+ [ 0  5 13  2  0  9  6  0]
+ [ 0  6 12  1  0  9  7  0]
+ [ 0  3 13  2  2 11  6  0]
+ [ 0  1 13 10 10 13  2  0]
+ [ 0  0  4 14 13  5  0  0]]</code></pre>
+<p>Histogram je dvogrb: skoro polovica piksela je $0$ (pozadina), drugi vrh je kod $16$ (zasićeni potezi), a između su rubovi poteza. Prosječna slika nule doista izgleda kao nula – prazna sredina, svijetli prsten. Takav pogled na podatke traje minutu i otkriva pogreške (obrnute boje, pogrešno skaliranje) koje bi inače tražio satima u modelu.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Na skupu <code>load_digits</code> istreniraj logističku regresiju na samo $100$ slika za učenje, bez i s augmentacijom pomacima za jedan piksel. Ocijeni oba modela na izvornom (centriranom) testu i na testu u kojem je svaka znamenka slučajno pomaknuta za najviše jedan piksel – simulacija skenera koji ne centrira savršeno. Zatim složi cjevovod augmentacija u <code>torchvision.transforms</code> i primijeni ga na sliku iz Primjera 1.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci i pomak.</b> Mali skup za učenje odabiremo stratificirano (po $10$ slika svake znamenke), test je sve ostalo. Pomak slike za $(dy,dx)$ piksela radi se dopunom nulama i rezom – pikseli koji „ispadnu” nestaju, upražnjeni rub je crn. Za znamenke je pomak sigurna augmentacija, a okretanje nije ($6\leftrightarrow9$, $2\leftrightarrow5$ zrcaljeno).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span> <span class="o">=</span> <span class="n">digits</span><span class="o">.</span><span class="n">images</span><span class="p">,</span> <span class="n">digits</span><span class="o">.</span><span class="n">target</span>
+<span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">yd_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">,</span> <span class="n">train_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yd</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">pomakni</span><span class="p">(</span><span class="n">slike</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Pomakne sve slike (N, 8, 8) za dy redaka i dx stupaca; upražnjeni rub je 0.&quot;&quot;&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pad</span><span class="p">(</span><span class="n">slike</span><span class="p">,</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">p</span><span class="p">[:,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">dy</span><span class="p">:</span><span class="mi">9</span> <span class="o">-</span> <span class="n">dy</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">dx</span><span class="p">:</span><span class="mi">9</span> <span class="o">-</span> <span class="n">dx</span><span class="p">]</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;original, redak 3:&quot;</span><span class="p">,</span> <span class="n">Xd_tr</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dx=+1,    redak 3:&quot;</span><span class="p">,</span> <span class="n">pomakni</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dy=-1,    redak 3:&quot;</span><span class="p">,</span> <span class="n">pomakni</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">),</span> <span class="s2">&quot;(= originalni redak 4)&quot;</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>original, redak 3: [ 0  0  1  9 15 16 10  0]
+dx=+1,    redak 3: [ 0  0  0  1  9 15 16 10]
+dy=-1,    redak 3: [ 0  0 13 15 16  8  2  0] (= originalni redak 4)</code></pre>
+<p><b>Korak 2: učenje bez i s augmentacijom.</b> Augmentirani skup je original plus četiri pomaka ($\pm1$ po svakoj osi), pet puta više slika iste oznake. Slike spljoštimo u vektore od $64$ značajke i skaliramo na $[0,1]$. Pomaknuti test nastaje tako da svakoj testnoj slici slučajno dodijelimo jedan od pet pomaka (uključujući „bez pomaka”).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">pomaci</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)]</span>
+
+<span class="k">def</span> <span class="nf">slucajni_pomak</span><span class="p">(</span><span class="n">slike</span><span class="p">,</span> <span class="n">rng</span><span class="p">):</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">slike</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">slike</span><span class="p">))</span>          <span class="c1"># 0 = bez pomaka, 1..4 = jedan od pomaka</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pomaci</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">k</span> <span class="o">==</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">pomakni</span><span class="p">(</span><span class="n">slike</span><span class="p">[</span><span class="n">k</span> <span class="o">==</span> <span class="n">i</span><span class="p">],</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+<span class="n">Xd_te_pom</span> <span class="o">=</span> <span class="n">slucajni_pomak</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">nauci</span><span class="p">(</span><span class="n">slike_tr</span><span class="p">,</span> <span class="n">oznake_tr</span><span class="p">):</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">3000</span><span class="p">,</span> <span class="n">C</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">slike_tr</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slike_tr</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">,</span> <span class="n">oznake_tr</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">slike</span><span class="p">,</span> <span class="n">oznake</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">slike</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slike</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">,</span> <span class="n">oznake</span><span class="p">)</span>
+
+<span class="n">aug</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">Xd_tr</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">pomakni</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span> <span class="k">for</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span> <span class="ow">in</span> <span class="n">pomaci</span><span class="p">])</span>
+<span class="n">y_aug</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">yd_tr</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">okrenuto</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_tr</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;skup za učenje            slika  centrirani test  pomaknuti test&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;bez augmentacije&quot;</span><span class="p">,</span> <span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;+ pomaci&quot;</span><span class="p">,</span> <span class="n">aug</span><span class="p">,</span> <span class="n">y_aug</span><span class="p">),</span>
+                  <span class="p">(</span><span class="s2">&quot;+ vodoravno okretanje&quot;</span><span class="p">,</span> <span class="n">okrenuto</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">yd_tr</span><span class="p">,</span> <span class="mi">2</span><span class="p">))]:</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">nauci</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-24s</span><span class="s2"> </span><span class="si">%5d</span><span class="s2">      </span><span class="si">%.3f</span><span class="s2">            </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">S</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">Xd_te_pom</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>skup za učenje            slika  centrirani test  pomaknuti test
+bez augmentacije           100      0.899            0.497
++ pomaci                   500      0.871            0.710
++ vodoravno okretanje      200      0.853            0.445</code></pre>
+<p>Dvije pouke. Prvo: na pomaknutom testu model bez augmentacije pada na polovicu, a augmentirani zadržava oko $70\,\%$ – naučio je da položaj poteza smije varirati za piksel, iako nije vidio nijednu novu znamenku. Drugo: na <em>centriranom</em> testu ista augmentacija malo <em>škodi</em>. Slike u <code>load_digits</code> su već centrirane, pa pomaci unose varijaciju kakve na tom testu nema, a model troši kapacitet na nju. Zrcaljenje, koje mijenja izgled znamenki, škodi na oba testa. Augmentacija vrijedi točno onoliko koliko je vjerna stvarnoj varijaciji u podacima na kojima će se model primjenjivati.</p>
+<p><b>Korak 3: cjevovod u torchvisionu.</b> Transformacije primaju Pillow sliku i slažu se u <code>Compose</code>. Svaki poziv daje <em>drugačiju</em> slučajnu varijantu; <code>ToTensor</code> prebacuje u CHW <code>float</code> na $[0,1]$, a <code>Normalize</code> primjenjuje ImageNet konstante.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">transforms</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">cjevovod</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">RandomHorizontalFlip</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">RandomResizedCrop</span><span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)),</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">ColorJitter</span><span class="p">(</span><span class="n">brightness</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">contrast</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">saturation</span><span class="o">=</span><span class="mf">0.3</span><span class="p">),</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="p">[</span><span class="mf">0.485</span><span class="p">,</span> <span class="mf">0.456</span><span class="p">,</span> <span class="mf">0.406</span><span class="p">],</span> <span class="n">std</span><span class="o">=</span><span class="p">[</span><span class="mf">0.229</span><span class="p">,</span> <span class="mf">0.224</span><span class="p">,</span> <span class="mf">0.225</span><span class="p">]),</span>
+<span class="p">])</span>
+<span class="n">t1</span><span class="p">,</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">img</span><span class="p">),</span> <span class="n">cjevovod</span><span class="p">(</span><span class="n">img</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">t1</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">t1</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">t1</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;raspon nakon Normalize: [</span><span class="si">%.2f</span><span class="s2">, </span><span class="si">%.2f</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t1</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">t1</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;dva poziva daju različite slike:&quot;</span><span class="p">,</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">equal</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">))</span>
+<span class="n">samo_tenzor</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">()(</span><span class="n">img</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ToTensor:&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">samo_tenzor</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="s2">&quot;raspon [</span><span class="si">%.3f</span><span class="s2">, </span><span class="si">%.3f</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">samo_tenzor</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">samo_tenzor</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ToTensor = HWC/255 u CHW:&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">samo_tenzor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>Tensor (3, 32, 32) torch.float32
+raspon nakon Normalize: [-2.03, 1.59]
+dva poziva daju različite slike: True
+ToTensor: (3, 48, 64) raspon [0.000, 1.000]
+ToTensor = HWC/255 u CHW: True</code></pre>
+<p>Isti cjevovod u lekciji V5 stoji ispred pretrenirane mreže; za testne slike koristi se deterministička inačica bez slučajnih koraka (<code>Resize</code>, <code>CenterCrop</code>, <code>ToTensor</code>, <code>Normalize</code>). Standardni skupovi učitavaju se jednim pozivom koji skine podatke s interneta – zato ga ovdje ne pokrećemo, ali ovako izgleda:</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">datasets</span>
+
+<span class="n">mnist</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">MNIST</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;podaci&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">())</span>
+<span class="n">cifar</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">CIFAR10</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="s2">&quot;podaci&quot;</span><span class="p">,</span> <span class="n">train</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">download</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">cjevovod</span><span class="p">)</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">mnist</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mnist</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span>        <span class="c1"># 60000 torch.Size([1, 28, 28]) 5</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">cifar</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">cifar</span><span class="p">),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">cifar</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="n">y</span><span class="p">])</span>   <span class="c1"># 50000 (3, 32, 32) frog</span></code></pre></div>
+<p>Očekivani ispis: <code>60000 (1, 28, 28) 5</code> za MNIST (prva slika za učenje je znamenka $5$) i $50\,000$ slika oblika $(3,32,32)$ za CIFAR-10 s imenom klase. Podatke iz <code>DataLoader</code>-a model dobiva u serijama oblika $N\times C\times H\times W$.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Koliko bajtova zauzima RGB slika $1920\times1080$ u <code>uint8</code>, a koliko ista slika u <code>float32</code>? Koliko slika <code>float32</code> stane u $8$ GB radne memorije? Što iz toga zaključuješ o učitavanju cijelog skupa od $100\,000$ fotografija u memoriju odjednom?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$1920\cdot1080\cdot3=6\,220\,800$ bajtova $\approx6{,}2$ MB u <code>uint8</code>; <code>float32</code> ima $4$ bajta po broju, dakle $24\,883\,200$ bajtova $\approx24{,}9$ MB. U $8$ GB stane $8\cdot10^9/24{,}9\cdot10^6\approx321$ takvih slika. Zato se skupovi fotografija nikad ne drže u memoriji kao <code>float</code>: na disku ostaju komprimirani (JPEG/PNG), učitavaju se u serijama kroz <code>DataLoader</code>, a smanjuju se na radnu veličinu ($224\times224$ je uobičajeno: $224\cdot224\cdot3\cdot4\approx0{,}6$ MB po slici) prije pretvorbe u <code>float</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za svaki zadatak navedi koje su od augmentacija vodoravno okretanje, okomito okretanje, rotacija za 90° i podrhtavanje boje <em>sigurne</em> (čuvaju oznaku), a koje nisu: (a) razlikovanje mačaka i pasa; (b) prepoznavanje rukom pisanih slova; (c) klasifikacija prometnih znakova; (d) razlikovanje zrelih i nezrelih rajčica; (e) satelitske snimke: šuma, polje, grad.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) od geometrijskih je sigurno samo vodoravno okretanje (mačka naglavačke je rijetka na testu), okomito okretanje i rotacija nisu; podrhtavanje boje sigurno. (b) nijedno okretanje ni rotacija: <code>b</code>↔<code>d</code>, <code>p</code>↔<code>q</code>, <code>n</code>↔<code>u</code>; male rotacije i pomaci jesu sigurni, boja nebitna. (c) vodoravno okretanje mijenja znakove „obavezno lijevo/desno”, pa je nesigurno; boja je ključna informacija pa i jitter treba biti blag. (d) sve geometrijske sigurne (rajčica nema „gore”), ali podrhtavanje boje <em>nije</em> – zrelost se vidi upravo po boji. (e) sve geometrijske sigurne (snimka odozgo nema orijentaciju), umjereni jitter u redu. Zaključak: popis augmentacija ovisi o zadatku, a ne o modelu.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Pillow javlja <code>img.size == (300, 200)</code>. Koji je oblik polja <code>np.asarray(img)</code> ako je <code>img.mode == "RGB"</code>, a koji za <code>"L"</code>? Koji oblik očekuje PyTorch za seriju od $16$ takvih RGB slika i kojom NumPy naredbom iz jedne HWC slike dobivaš CHW?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Pillow vraća $(W,H)$, pa je visina $200$ i širina $300$: za <code>"RGB"</code> oblik je <code>(200, 300, 3)</code>, za <code>"L"</code> <code>(200, 300)</code> (bez osi kanala). PyTorch očekuje <code>(16, 3, 200, 300)</code>, tj. $N\times C\times H\times W$. Iz HWC u CHW: <code>arr.transpose(2, 0, 1)</code> (ili <code>np.moveaxis(arr, -1, 0)</code>); u PyTorchu <code>t.permute(2, 0, 1)</code>. Sivoj slici os kanala dodaj s <code>arr[None]</code> ili <code>arr[np.newaxis]</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Rotaciju slike za 90° u smjeru suprotnom od kazaljke na satu ostvari samo transponiranjem prostornih osi i okretanjem. Provjeri na slici iz Primjera 1 da se rezultat podudara s <code>np.rot90(slika)</code>, da četiri uzastopne rotacije vraćaju original te da se oblik promijenio u $(W,H,3)$. Kamo odlazi gornji desni piksel?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Transponiranje osi $0$ i $1$ zrcali sliku preko glavne dijagonale. Koja os se nakon toga mora okrenuti da zrcaljenje postane rotacija?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">rot90</span><span class="p">(</span><span class="n">I</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">I</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>           <span class="c1"># dijagonalno zrcaljenje pa okomito okretanje</span>
+
+<span class="n">r</span> <span class="o">=</span> <span class="n">rot90</span><span class="p">(</span><span class="n">slika</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;oblik:&quot;</span><span class="p">,</span> <span class="n">slika</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;-&gt;&quot;</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isto kao np.rot90:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">rot90</span><span class="p">(</span><span class="n">slika</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;4 rotacije = original:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">rot90</span><span class="p">(</span><span class="n">rot90</span><span class="p">(</span><span class="n">rot90</span><span class="p">(</span><span class="n">rot90</span><span class="p">(</span><span class="n">slika</span><span class="p">)))),</span> <span class="n">slika</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;gornji desni piksel&quot;</span><span class="p">,</span> <span class="n">slika</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">W</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;-&gt; gornji lijevi&quot;</span><span class="p">,</span> <span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>oblik: (48, 64, 3) -&gt; (64, 48, 3)
+isto kao np.rot90: True
+4 rotacije = original: True
+gornji desni piksel [255   0   0] -&gt; gornji lijevi [255   0   0]</code></pre>
+<p>Transponiranje preslikava piksel $(y,x)$ u $(x,y)$; okomito okretanje zatim $(x,y)$ u $(W-1-x,\,y)$. Gornji desni piksel $(0,W-1)$ odlazi u $(0,0)$ – pri rotaciji ulijevo gornji desni kut postaje gornji lijevi. Za rotaciju udesno okreni drugu os: <code>I.transpose(1, 0, 2)[:, ::-1]</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napiši funkciju koja za zadani $k$ (neparan) i $\sigma$ vraća Gaussovu jezgru $K_{u,v}\propto\exp\!\left(-\frac{(u-c)^2+(v-c)^2}{2\sigma^2}\right)$, $c=(k-1)/2$, normiranu tako da je zbroj $1$. Za $k=5$, $\sigma=1$ ispiši jezgru, zamuti kvadrat iz Primjera 2 i usporedi: koliko je piksela s vrijednošću strogo između $0$ i $1$ nakon box zamućenja $3\times3$, a koliko nakon Gaussova $5\times5$?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Jezgra je vanjski produkt jednodimenzionalnog Gaussova profila sa samim sobom; normiraj dijeljenjem zbrojem.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">gauss_jezgra</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">sigma</span><span class="p">):</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">k</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">profil</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">-</span> <span class="n">c</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">sigma</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">K</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">profil</span><span class="p">,</span> <span class="n">profil</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">K</span> <span class="o">/</span> <span class="n">K</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+<span class="n">G5</span> <span class="o">=</span> <span class="n">gauss_jezgra</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">G5</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;zbroj:&quot;</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">G5</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="mi">6</span><span class="p">),</span> <span class="s2">&quot; sredina / kut: </span><span class="si">%.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">G5</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="n">G5</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]))</span>
+<span class="n">zam_box</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">box</span><span class="p">)</span>
+<span class="n">zam_gauss</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">G5</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">z</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;box 3x3&quot;</span><span class="p">,</span> <span class="n">zam_box</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;gauss 5x5&quot;</span><span class="p">,</span> <span class="n">zam_gauss</span><span class="p">)]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-9s</span><span class="s2"> izlaz </span><span class="si">%s</span><span class="s2">, prijelaznih piksela (0 &lt; v &lt; 1): </span><span class="si">%d</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="p">((</span><span class="n">z</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">z</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>[[0.003 0.013 0.022 0.013 0.003]
+ [0.013 0.06  0.098 0.06  0.013]
+ [0.022 0.098 0.162 0.098 0.022]
+ [0.013 0.06  0.098 0.06  0.013]
+ [0.003 0.013 0.022 0.013 0.003]]
+zbroj: 1.0  sredina / kut: 54.6
+box 3x3   izlaz (38, 38), prijelaznih piksela (0 &lt; v &lt; 1): 128
+gauss 5x5 izlaz (36, 36), prijelaznih piksela (0 &lt; v &lt; 1): 400</code></pre>
+<p>Gaussova jezgra daje sredini oko $55$ puta veću težinu nego kutovima, pa zamućenje blijedi glatko umjesto u „stepenicama”. Širi filtar razmaže rub na više piksela: broj prijelaznih piksela je veći, a izlaz je manji za $4$ umjesto za $2$. Zamućenje se u obradi slika koristi za uklanjanje šuma prije detekcije rubova – Sobel na šumovitoj slici bez zamućenja daje rubove posvuda.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Primijeni Sobelove filtre na sve slike znamenki iz <code>load_digits</code> i izračunaj za svaku sliku prosječnu jačinu ruba $\overline{\sqrt{G_x^2+G_y^2}}$. Koja znamenka u prosjeku ima najjače rubove, a koja najslabije? Zatim upotrijebi jačinu rubova kao jedinu značajku (uz prosječnu svjetlinu) u logističkoj regresiji i usporedi točnost s modelom na svih $64$ piksela iz Primjera 3. Što zaključuješ o ručno izrađenim značajkama?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Konvolucija bez dopune na slici $8\times8$ daje $6\times6$. Značajke po slici složi u matricu oblika <code>(1797, 2)</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">jacina_rubova</span><span class="p">(</span><span class="n">slike</span><span class="p">):</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">slike</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">slike</span><span class="p">):</span>
+        <span class="n">gx</span><span class="p">,</span> <span class="n">gy</span> <span class="o">=</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">Sx</span><span class="p">),</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">Sy</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gx</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">gy</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+<span class="n">jr</span> <span class="o">=</span> <span class="n">jacina_rubova</span><span class="p">(</span><span class="n">Xd</span><span class="p">)</span>
+<span class="n">po_znamenci</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">jr</span><span class="p">[</span><span class="n">yd</span> <span class="o">==</span> <span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prosječna jačina ruba po znamenci:&quot;</span><span class="p">,</span> <span class="n">po_znamenci</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najjači rubovi:&quot;</span><span class="p">,</span> <span class="n">po_znamenci</span><span class="o">.</span><span class="n">argmax</span><span class="p">(),</span> <span class="s2">&quot; najslabiji:&quot;</span><span class="p">,</span> <span class="n">po_znamenci</span><span class="o">.</span><span class="n">argmin</span><span class="p">())</span>
+
+<span class="n">Z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">jr</span><span class="p">,</span> <span class="n">Xd</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Xd</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)])</span>
+<span class="n">Z_tr</span><span class="p">,</span> <span class="n">Z_te</span><span class="p">,</span> <span class="n">yz_tr</span><span class="p">,</span> <span class="n">yz_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">yd</span><span class="p">,</span> <span class="n">train_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yd</span><span class="p">)</span>
+<span class="n">m2</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">3000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Z_tr</span><span class="p">,</span> <span class="n">yz_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;2 ručne značajke: točnost </span><span class="si">%.3f</span><span class="s2">  (64 piksela: </span><span class="si">%.3f</span><span class="s2">, slučajno pogađanje: 0.100)&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">m2</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Z_te</span><span class="p">,</span> <span class="n">yz_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">nauci</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">),</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>prosječna jačina ruba po znamenci: [37.5 40.2 35.4 35.1 38.3 36.7 36.  37.1 35.1 35.3]
+najjači rubovi: 1  najslabiji: 8
+2 ručne značajke: točnost 0.191  (64 piksela: 0.899, slučajno pogađanje: 0.100)</code></pre>
+<p>Suprotno naivnom očekivanju, najjače rubove ima $1$: jedan debeo potez punog intenziteta uz praznu pozadinu daje oštre prijelaze, dok se potezi osmice na $8\times8$ piksela gusto prepliću i rubovi se „razmažu” u srednje vrijednosti. Razlike među znamenkama su ionako male (oko $35$–$40$), pa dvije ručne značajke sažimaju sliku prejako – točnost je tek nešto bolja od pogađanja, dok sirovi pikseli daju gotovo $90\,\%$. Za slike ručne značajke rijetko pobjeđuju; zato su konvolucijske mreže, koje značajke <em>uče</em>, u računalnom vidu standard (D5), a sljedeća lekcija pokazuje kako posuditi značajke koje je netko već naučio.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Napravi sivu sliku slabog kontrasta: vrijednosti sive slike iz Primjera 1 stisni u raspon $[100,140]$. Provedi <b>izjednačavanje histograma</b>: za svaku vrijednost $v$ nova je vrijednost $255\cdot F(v)$, gdje je $F$ kumulativna razdioba (udio piksela s vrijednošću $\le v$). Usporedi standardnu devijaciju i raspon prije i poslije te provjeri da je poredak piksela po svjetlini očuvan.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>np.bincount(v.ravel(), minlength=256)</code> daje histogram, <code>np.cumsum</code> kumulativnu razdiobu; nova slika je <code>tablica[v]</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">slab</span> <span class="o">=</span> <span class="p">(</span><span class="mi">100</span> <span class="o">+</span> <span class="n">siva</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="mi">40</span> <span class="o">/</span> <span class="mi">255</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="n">hist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">slab</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">minlength</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+<span class="n">F</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">hist</span><span class="p">)</span> <span class="o">/</span> <span class="n">slab</span><span class="o">.</span><span class="n">size</span>                  <span class="c1"># F[v] = udio piksela &lt;= v</span>
+<span class="n">tablica</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span> <span class="o">*</span> <span class="n">F</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="n">izj</span> <span class="o">=</span> <span class="n">tablica</span><span class="p">[</span><span class="n">slab</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;slab kontrast&quot;</span><span class="p">,</span> <span class="n">slab</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;izjednačeno&quot;</span><span class="p">,</span> <span class="n">izj</span><span class="p">)]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-14s</span><span class="s2"> raspon [</span><span class="si">%3d</span><span class="s2">, </span><span class="si">%3d</span><span class="s2">]  std </span><span class="si">%.1f</span><span class="s2">  razreda u uporabi: </span><span class="si">%d</span><span class="s2">&quot;</span>
+          <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">s</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">s</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">s</span><span class="p">))))</span>
+<span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">([</span><span class="mi">100</span><span class="p">,</span> <span class="mi">2000</span><span class="p">],</span> <span class="n">slab</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;poredak očuvan:&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">((</span><span class="n">slab</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">slab</span><span class="p">[</span><span class="n">j</span><span class="p">])</span> <span class="o">==</span> <span class="p">(</span><span class="n">izj</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">izj</span><span class="p">[</span><span class="n">j</span><span class="p">]))))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;monotono:&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">tablica</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>slab kontrast  raspon [100, 135]  std 7.9  razreda u uporabi: 36
+izjednačeno    raspon [  0, 255]  std 71.0  razreda u uporabi: 36
+poredak očuvan: True
+monotono: True</code></pre>
+<p>Izjednačavanje razvuče $36$ upotrijebljenih razreda (najsvjetliji sivi piksel, žuti kut, ima vrijednost $226$, pa stisnuta slika seže samo do $135$) na cijeli raspon $[0,255]$ i poveća raspršenje nekoliko puta, a broj različitih vrijednosti ostaje isti – nova informacija ne nastaje, samo se postojeća raširi. Preslikavanje je monotono (kumulativna razdioba ne pada), pa svjetliji piksel ostaje svjetliji. Za model to je jeftina normalizacija kontrasta koja čini slike snimljene u različitim uvjetima usporedivima; <code>PIL.ImageOps.equalize</code> radi isto.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Konvoluciju iz Primjera 2 zapiši kao <em>jedno</em> matrično množenje postupkom <b>im2col</b>: od slike složi matricu u kojoj je svaki redak jedna okolina $k\times k$ spljoštena u vektor duljine $k^2$, pa je konvolucija umnožak te matrice i spljoštene jezgre. Uopći na $m$ jezgri odjednom (matrica $k^2\times m$). Provjeri jednakost s funkcijom <code>konvolucija</code> na slici kvadrata za box, $S_x$ i $S_y$ te izmjeri koliko je im2col brži za $100$ nasumičnih jezgri $3\times3$ na slici $64\times64$.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>np.lib.stride_tricks.sliding_window_view(I, (k, k))</code> daje pogled oblika $(H-k+1,\,W-k+1,\,k,\,k)$ bez kopiranja; preoblikuj ga u $(\,(H-k+1)(W-k+1),\,k^2)$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Upravo ovako konvolucijske mreže računaju konvoluciju: jedan veliki matrični umnožak umjesto petlji, što na GPU-u savršeno sjeda.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">numpy.lib.stride_tricks</span> <span class="kn">import</span> <span class="n">sliding_window_view</span>
+
+<span class="k">def</span> <span class="nf">im2col_konv</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">jezgre</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;I: (H, W); jezgre: (k, k, m). Vraća (H-k+1, W-k+1, m).&quot;&quot;&quot;</span>
+    <span class="n">k</span><span class="p">,</span> <span class="n">m</span> <span class="o">=</span> <span class="n">jezgre</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">jezgre</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">prozori</span> <span class="o">=</span> <span class="n">sliding_window_view</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>          <span class="c1"># (h, w, k, k)</span>
+    <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">prozori</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">stupci</span> <span class="o">=</span> <span class="n">prozori</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">h</span> <span class="o">*</span> <span class="n">w</span><span class="p">,</span> <span class="n">k</span> <span class="o">*</span> <span class="n">k</span><span class="p">)</span>            <span class="c1"># im2col: redak = jedna okolina</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">stupci</span> <span class="o">@</span> <span class="n">jezgre</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">k</span> <span class="o">*</span> <span class="n">k</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">m</span><span class="p">)</span>
+
+<span class="n">tri</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">box</span><span class="p">,</span> <span class="n">Sx</span><span class="p">,</span> <span class="n">Sy</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>              <span class="c1"># (3, 3, 3)</span>
+<span class="n">R</span> <span class="o">=</span> <span class="n">im2col_konv</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">tri</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;oblik:&quot;</span><span class="p">,</span> <span class="n">R</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot; jednako petlji:&quot;</span><span class="p">,</span>
+      <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">R</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span> <span class="n">konvolucija</span><span class="p">(</span><span class="n">kvadrat</span><span class="p">,</span> <span class="n">tri</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)))</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">velika</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="mi">64</span><span class="p">,</span> <span class="mi">64</span><span class="p">))</span>
+<span class="n">jezgre</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">standard_normal</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
+<span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">();</span> <span class="n">A</span> <span class="o">=</span> <span class="n">im2col_konv</span><span class="p">(</span><span class="n">velika</span><span class="p">,</span> <span class="n">jezgre</span><span class="p">);</span> <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">konvolucija</span><span class="p">(</span><span class="n">velika</span><span class="p">,</span> <span class="n">jezgre</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">);</span> <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isti rezultat:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">),</span> <span class="s2">&quot; im2col je brži otprilike </span><span class="si">%d</span><span class="s2">x&quot;</span> <span class="o">%</span> <span class="nb">round</span><span class="p">((</span><span class="n">t2</span> <span class="o">-</span> <span class="n">t1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">t1</span> <span class="o">-</span> <span class="n">t0</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>oblik: (38, 38, 3)  jednako petlji: True
+isti rezultat: True  im2col je brži otprilike 5x</code></pre>
+<p>Omjer brzina ovisi o računalu (zato se taj redak ne provjerava), ali im2col s jednim <code>@</code> redovito pobjeđuje petlju po jezgrama, a prednost raste s brojem jezgri – u mreži ih je u jednom sloju i po nekoliko stotina. Cijena je memorija: matrica im2col ima $k^2$ puta više brojeva od slike.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Istraži koliko augmentacija vrijedi ovisno o količini podataka. Za veličine skupa za učenje $50$, $100$, $200$, $400$ i $800$ slika iz <code>load_digits</code> usporedi točnost logističke regresije bez augmentacije i s pomacima za jedan piksel kao u Primjeru 3, na centriranom i na pomaknutom testu od $797$ slika koje nisu ni u jednom skupu za učenje. Kako se dobit odnosno šteta od augmentacije mijenja s $n$ i zašto?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Prvo odvoji fiksni test (i njegovu pomaknutu inačicu); iz ostatka uzimaj prvih $n$ slika (nakon miješanja). Dobit je razlika dviju točnosti.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">Xo</span><span class="p">,</span> <span class="n">Xt</span><span class="p">,</span> <span class="n">yo</span><span class="p">,</span> <span class="n">yt</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mi">797</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yd</span><span class="p">)</span>
+<span class="n">Xt_pom</span> <span class="o">=</span> <span class="n">slucajni_pomak</span><span class="p">(</span><span class="n">Xt</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   n   centrirani: bez   s aug.  razlika   pomaknuti: bez   s aug.  razlika&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">800</span><span class="p">):</span>
+    <span class="n">Xn</span><span class="p">,</span> <span class="n">yn</span> <span class="o">=</span> <span class="n">Xo</span><span class="p">[:</span><span class="n">n</span><span class="p">],</span> <span class="n">yo</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+    <span class="n">m_bez</span> <span class="o">=</span> <span class="n">nauci</span><span class="p">(</span><span class="n">Xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">)</span>
+    <span class="n">m_aug</span> <span class="o">=</span> <span class="n">nauci</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">Xn</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">pomakni</span><span class="p">(</span><span class="n">Xn</span><span class="p">,</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span><span class="p">)</span> <span class="k">for</span> <span class="n">dy</span><span class="p">,</span> <span class="n">dx</span> <span class="ow">in</span> <span class="n">pomaci</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">yn</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+    <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span> <span class="o">=</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m_bez</span><span class="p">,</span> <span class="n">Xt</span><span class="p">,</span> <span class="n">yt</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m_aug</span><span class="p">,</span> <span class="n">Xt</span><span class="p">,</span> <span class="n">yt</span><span class="p">)</span>
+    <span class="n">p0</span><span class="p">,</span> <span class="n">p1</span> <span class="o">=</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m_bez</span><span class="p">,</span> <span class="n">Xt_pom</span><span class="p">,</span> <span class="n">yt</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m_aug</span><span class="p">,</span> <span class="n">Xt_pom</span><span class="p">,</span> <span class="n">yt</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%4d</span><span class="s2">              </span><span class="si">%.3f</span><span class="s2">   </span><span class="si">%.3f</span><span class="s2">   </span><span class="si">%+.3f</span><span class="s2">             </span><span class="si">%.3f</span><span class="s2">   </span><span class="si">%.3f</span><span class="s2">   </span><span class="si">%+.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">c0</span><span class="p">,</span> <span class="n">c1</span><span class="p">,</span> <span class="n">c1</span> <span class="o">-</span> <span class="n">c0</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="n">p1</span><span class="p">,</span> <span class="n">p1</span> <span class="o">-</span> <span class="n">p0</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>   n   centrirani: bez   s aug.  razlika   pomaknuti: bez   s aug.  razlika
+  50              0.847   0.847   +0.000             0.433   0.631   +0.198
+ 100              0.896   0.877   -0.019             0.454   0.691   +0.237
+ 200              0.927   0.896   -0.031             0.492   0.759   +0.267
+ 400              0.954   0.903   -0.050             0.506   0.768   +0.262
+ 800              0.962   0.897   -0.065             0.507   0.779   +0.272</code></pre>
+<p>Na pomaknutom testu dobit je velika za svaki $n$ i s podacima čak <em>raste</em>: model bez augmentacije ne može naučiti invarijantnost na pomak koju u centriranim podacima nikad ne vidi, koliko god ih bilo, pa ostaje na $45$–$50\,\%$, dok augmentirani s više podataka postaje sve bolji. Na centriranom testu šteta raste s $n$: što model ima više stvarnih podataka, to mu umjetna varijacija koje na testu nema više smeta. Augmentacija, dakle, ne stvara informaciju o novim znamenkama – ugrađuje <em>naše znanje</em> o tome kakve varijacije očekujemo na testu. Ako je to znanje točno, vrijedi više od stotina novih slika; ako nije, škodi. Na natjecanju: pogledaj testne slike (smiješ gledati ulaze, ne oznake) i augmentiraj upravo onako kako one variraju.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Slika je tenzor $H\times W\times C$ (NumPy/Pillow: HWC; PyTorch: $N\times C\times H\times W$). Pohrana je <code>uint8</code> $[0,255]$, račun u <code>float32</code> $[0,1]$ pa normalizacija po kanalu $(x-\mu_c)/\sigma_c$ s konstantama skupa za učenje.</li>
+<li>Rez, okretanje i rotacija za 90° su indeksiranje (<code>I[y0:y1, x0:x1]</code>, <code>I[:, ::-1]</code>, <code>np.rot90</code>); svjetlinu i kontrast mijenjaj u <code>int</code>/<code>float</code> uz <code>np.clip</code>, nikad u <code>uint8</code>.</li>
+<li>Konvolucija = težinski zbroj okoline $k\times k$; zbroj težina $1$ zamućuje (box, Gauss), zbroj $0$ ističe rubove (Sobel). Izlaz bez dopune je manji za $k-1$; im2col je pretvara u matrično množenje.</li>
+<li>Histogram otkriva kontrast, ekspoziciju i obrnute boje prije nego što izgubiš sat na modelu; izjednačavanje histograma je monotono preslikavanje kroz kumulativnu razdiobu.</li>
+<li>Augmentacija = slučajne transformacije koje čuvaju oznaku, samo na skupu za učenje; koje su sigurne ovisi o zadatku (okretanje ne za znamenke i znakove, jitter boje ne kad je boja oznaka). Pomaže točno onoliko koliko oponaša varijaciju koja postoji u testnim podacima – inače škodi.</li>
+<li><code>torchvision.transforms.Compose([...RandomHorizontalFlip, RandomResizedCrop, ColorJitter, ToTensor, Normalize])</code>; Pillow: <code>Image.open</code>, <code>size=(W, H)</code>, <code>convert</code>, <code>resize</code>, <code>np.asarray</code>.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>R. Szeliski, <i>Computer Vision: Algorithms and Applications</i>, 2. izd., poglavlje 3 (Image processing) – besplatno na <a href="https://szeliski.org/Book/">szeliski.org/Book</a>.</li>
+<li>Pillow dokumentacija: <a href="https://pillow.readthedocs.io/en/stable/handbook/tutorial.html">Tutorial</a>; NumPy: <a href="https://numpy.org/doc/stable/user/basics.indexing.html">Indexing on ndarrays</a>.</li>
+<li>Torchvision dokumentacija: <a href="https://pytorch.org/vision/stable/transforms.html">Transforming and augmenting images</a> i <a href="https://pytorch.org/vision/stable/datasets.html">Datasets</a>.</li>
+<li>C. Shorten, T. M. Khoshgoftaar, „A survey on Image Data Augmentation for Deep Learning”, <i>Journal of Big Data</i> 6, 60 (2019).</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="03-transformeri-hugging-face.html"><small>← Prethodna lekcija</small>V3 · Pretrenirani jezični modeli i Hugging Face</a>
+                <a class="sljedeca" href="05-transfer-learning-vid.html"><small>Sljedeća lekcija →</small>V5 · Transfer learning u računalnom vidu</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

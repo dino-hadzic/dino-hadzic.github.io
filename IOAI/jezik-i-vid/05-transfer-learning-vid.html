@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Jezik i vid 5: Transfer learning u računalnom vidu</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#jezik-i-vid">Jezik i vid</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Jezik i vid · lekcija 5 od 6</p>
+            <h1><span class="broj-lekcije">V5</span> Transfer learning u računalnom vidu</h1>
+            <p class="meta">Zašto pretrenirana mreža vrijedi više od tvojih podataka: ResNet i skip veze, zamrzavanje i fino ugađanje, zamjena glave, ekstrakcija značajki i poštena evaluacija</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.8" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>transfer learning</li>
+                <li>ImageNet</li>
+                <li>ResNet</li>
+                <li>skip veze</li>
+                <li>fine-tuning</li>
+                <li>zamrzavanje slojeva</li>
+                <li>zamjena glave</li>
+                <li>stopa učenja</li>
+                <li>ekstrakcija značajki</li>
+                <li>torchvision.models</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Objasniti zašto mreža pretrenirana na ImageNetu rješava tuđi zadatak s malo podataka i što znače pojmovi <em>trup</em> (backbone), <em>glava</em> (head) i <em>značajke</em>.</li>
+<li>Opisati ResNet i ulogu skip veza; prepoznati EfficientNet i ViT kao druge obitelji pretreniranih trupova.</li>
+<li>Odabrati i izvesti jedan od tri recepta: ekstrakcija značajki + logistička regresija, zamrznuti trup + nova glava, fino ugađanje (fine-tuning) cijele mreže s malom stopom učenja.</li>
+<li>Napisati cjelovit <code>torchvision.models.resnet18</code> recept i pošteno ga evaluirati na odvojenom testnom skupu.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U prethodnoj lekciji (V4) sliku si pretvorio u tenzor i naučio ga rezati, okretati i filtrirati. Sljedeći je korak klasifikator. Problem: konvolucijska mreža koja išta vrijedi ima milijune parametara, a na natjecanju tipično dobiješ nekoliko stotina označenih slika i procesor bez GPU-a. Učenje od nule u takvim uvjetima gotovo uvijek gubi od jednostavnog trika – uzmi mrežu koju je netko već naučio na ogromnom skupu i <em>prenesi</em> njezino znanje. To je <em>transfer learning</em> (prijenosno učenje) i to je recept broj jedan za računalni vid s malo podataka.</p>
+
+<h3>Zašto pretrenirane mreže</h3>
+<p>ImageNet (ILSVRC) skup je od oko $1{,}2$ milijuna fotografija označenih u $1000$ razreda – od pasmina pasa do vrsta brodova. Mreža naučena na njemu nije naučila samo „koji je ovo pas”: njezini prvi slojevi reagiraju na rubove, boje i teksture, srednji na dijelove (oči, kotače, perje), a zadnji na cijele objekte. Rubovi i teksture isti su na rendgenskoj snimci, satelitskoj slici i fotografiji s mobitela, pa se ti slojevi mogu <em>ponovno upotrijebiti</em>. Što je sloj dublji, to je specifičniji za izvorni zadatak; zadnji, <em>glava</em> (head, u torchvisionu sloj <code>fc</code>), računa upravo $1000$ ImageNetovih razreda i za tvoj zadatak je beskorisna.</p>
+<div class="pojam">
+<h4>Definicija</h4>
+<p>Neka je pretrenirana mreža $f=g\circ\phi$, gdje je $\phi:\mathbb{R}^{3\times H\times W}\to\mathbb{R}^d$ <em>trup</em> (backbone, ekstraktor značajki), a $g:\mathbb{R}^d\to\mathbb{R}^{1000}$ <em>glava</em>. <em>Transfer learning</em> znači zadržati $\phi$ (ili njegov početak), zamijeniti $g$ novom glavom $g'$ s $k$ izlaza za tvojih $k$ razreda i naučiti $g'$ te eventualno dio $\phi$ na vlastitim podacima.</p>
+</div>
+<p>Vektor $\phi(x)\in\mathbb{R}^d$ zove se <em>značajka</em> (feature, embedding) slike. Za ResNet-18 $d=512$, za ResNet-50 $d=2048$. Ključna je činjenica da su značajke dobrog trupa gotovo linearno odvojive za većinu „prirodnih” razreda, pa je i običan linearni klasifikator na njima jak.</p>
+
+<h3>Arhitekture ukratko: ResNet, EfficientNet, ViT</h3>
+<p>Prije 2015. dublje mreže često su bile <em>lošije</em> i na skupu za učenje – ne zbog pretreniranosti, nego zato što gradijent kroz desetke slojeva teško prolazi, a sloj koji bi trebao naučiti identitet to teško nauči. <em>ResNet</em> (residual network, He i sur., 2016.) rješava to <em>skip vezom</em> (preskočnom vezom): blok od dva konvolucijska sloja ne uči izlaz $H(x)$ nego ostatak $F(x)=H(x)-x$, a izlaz bloka je</p>
+$$y=F(x)+x .$$
+<p>Ako blok ne treba ništa promijeniti, dovoljno je $F\approx0$, što je lako. Gradijent se kroz zbroj prenosi neokrnjen, pa se bez problema uče mreže sa $18$, $50$ ili $152$ sloja. ResNet-18 sastoji se od početne konvolucije $7\times7$ s korakom $2$, sažimanja, četiri faze (<code>layer1</code>–<code>layer4</code>) s po dva rezidualna bloka, pri čemu svaka faza upola smanjuje visinu i širinu i udvostručuje broj kanala ($64\to128\to256\to512$), zatim globalnog usrednjavanja (<code>avgpool</code>) u vektor od $512$ brojeva i glave <code>fc</code>. Ima oko $11{,}7$ milijuna parametara i na ImageNetu postiže oko $70\,\%$ top-1 točnosti; ResNet-50 oko $76\,\%$ (podaci iz torchvision dokumentacije).</p>
+<p><em>EfficientNet</em> (Tan i Le, 2019.) istodobno skalira dubinu, širinu i razlučivost pa za istu točnost treba višestruko manje računanja; <em>ViT</em> (Vision Transformer, Dosovitskiy i sur., 2021.) sliku reže na pločice $16\times16$, svaku pretvara u vektor kao „riječ” i pušta kroz transformer iz lekcija o jeziku. Za nas su sve tri obitelji isto: trup koji daje vektor značajki, a torchvision ih nudi istim sučeljem (<code>models.efficientnet_b0</code>, <code>models.vit_b_16</code>). Na CPU-u s malo podataka ResNet-18 ostaje najbolji omjer brzine i točnosti.</p>
+
+<h3>Tri recepta: značajke, zamrznuti trup, fino ugađanje</h3>
+<p>Koliko mreže smiješ dirati ovisi o tome koliko imaš podataka i koliko su slični ImageNetu.</p>
+<ol>
+<li><b>Ekstrakcija značajki + linearni model.</b> Trup se niti ne stavlja u PyTorchovu petlju učenja: jednom prođeš sve slike, spremiš $\phi(x)$ u NumPy matricu $n\times d$ i na njoj naučiš <code>LogisticRegression</code> ili SVM iz scikit-learna. Nema hiperparametara mreže, traje minute na CPU-u, teško se pokvari. Prvi izbor kad imaš manje od oko tisuću slika.</li>
+<li><b>Zamrznuti trup + nova glava.</b> Isto što i 1., ali glava je PyTorchov sloj i uči se gradijentom, što dopušta augmentaciju u petlji (svaka epoha vidi drugačije izrezane slike). Parametri trupa imaju <code>requires_grad=False</code>, pa optimizator uči samo glavu.</li>
+<li><b>Fino ugađanje (fine-tuning).</b> Uče se svi slojevi (ili zadnja faza i glava), ali s <em>malom</em> stopom učenja. Najbolje rezultate daje kad imaš više podataka ili kad se domena razlikuje od ImageNeta (mikroskopija, crteži, radar), jer tada i rani slojevi moraju nešto promijeniti.</li>
+</ol>
+<div class="trener-umetak">
+<p>Zamrznuti trup ne znači samo <code>requires_grad=False</code>. Slojevi <em>normalizacije serije</em> (BatchNorm) u načinu <code>model.train()</code> i dalje ažuriraju tekuće statistike, što na maloj seriji drugačijih slika kvari pretrenirane vrijednosti. Zato trup drži u <code>model.eval()</code> dok ga ne ugađaš, a u evaluaciji <em>uvijek</em> pozovi <code>model.eval()</code> i računaj pod <code>torch.no_grad()</code>.</p>
+</div>
+
+<h3>Zamjena glave i stopa učenja</h3>
+<p>Zamjena glave je jedan redak: <code>model.fc = nn.Linear(model.fc.in_features, k)</code>. Novi sloj počinje od slučajnih težina, dok trup počinje od dobrih; to je razlog zašto se za fino ugađanje uzima stopa učenja $10$ do $100$ puta manja nego za učenje od nule. Prevelika stopa u prvim koracima, dok glava još daje besmislene gradijente, „pregazi” pretrenirane težine i mreža zaboravi što zna – ostane ti mreža od nule s lošom inicijalizacijom. Uobičajeni je recept Adam s $10^{-3}$ za glavu i $10^{-4}$ (ili manje) za trup, ostvaren <em>grupama parametara</em> u optimizatoru; ili prvo nekoliko epoha samo glave pa tek onda odmrzavanje trupa. Ulaz se normalizira ImageNetovim konstantama, srednjim vrijednostima $(0{,}485;\,0{,}456;\,0{,}406)$ i devijacijama $(0{,}229;\,0{,}224;\,0{,}225)$ po kanalu, jer je mreža takve ulaze vidjela u učenju; ista pravila daju i <code>weights.transforms()</code>.</p>
+<div class="tvrdnja">
+<p><strong>Teorem 1.</strong> Yosinski i sur. (2014.) mjerili su prenosivost slojeva: značajke ranih slojeva prenose se gotovo bez gubitka i između nepovezanih zadataka, dok kasni slojevi postaju specifični za izvorni zadatak; fino ugađanje prenesenih slojeva uz malu stopu učenja bilo je bolje od učenja od nule <em>čak i kad je ciljni skup bio velik</em>. To je empirijska činjenica, ne teorem, ali je pouzdan vodič: što je ciljni zadatak dalje od izvornog, to ranije odreži trup.</p>
+</div>
+
+<h3>Evaluacija</h3>
+<p>Pretrenirani trup tako je jak da je lako prevariti sebe. Pravila su ista kao uvijek, ali ih vrijedi ponoviti: (1) podijeli podatke <em>prije</em> bilo kakvog učenja, stratificirano po razredu; (2) sve odluke – koji recept, koja stopa, koliko epoha – donosi na validacijskom dijelu; testni skup otvori jednom, na kraju; (3) uz točnost pogledaj matricu zabune, jer s neuravnoteženim razredima točnost laže; (4) ako su slike istog objekta snimljene više puta, sve snimke istog objekta moraju biti na istoj strani podjele. Augmentacija vrijedi samo za skup za učenje; test se prolazi s determinističkom pretvorbom (promjena veličine, središnji izrez, normalizacija).</p>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1</h3>
+<div class="zadatak">
+<p>Pogledaj ResNet-18 iznutra: ispiši njegove dijelove, broj parametara i kako se oblik tenzora mijenja kroz mrežu, pa mu zamijeni glavu za $5$ razreda. Zatim napiši cjelovit recept: učitavanje pretreniranih težina, priprema slika iz mapa, učenje samo glave, pa fino ugađanje zadnje faze, te recept za ekstrakciju značajki + logističku regresiju.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: arhitektura bez preuzimanja težina.</b> <code>resnet18(weights=None)</code> stvara istu mrežu sa slučajnim težinama – dovoljno da vidimo oblike. Provlačimo seriju od dvije slike $224\times224$ kroz dijelove redom (<code>named_children</code>) i ispisujemo oblik nakon svakog.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">torchvision.models</span> <span class="kn">import</span> <span class="n">resnet18</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">resnet18</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>            <span class="c1"># ista arhitektura, slučajne težine, bez preuzimanja</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;parametara: </span><span class="si">%.2f</span><span class="s2"> milijuna&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span> <span class="o">/</span> <span class="mf">1e6</span><span class="p">))</span>
+<span class="n">h</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">)</span>                  <span class="c1"># serija od 2 slike, N x C x H x W</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">sloj</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_children</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">ime</span> <span class="o">==</span> <span class="s2">&quot;fc&quot;</span><span class="p">:</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">sloj</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-8s</span><span class="s2"> -&gt; </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">shape</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;glava:&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">fc</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>    <span class="c1"># zamjena glave: 1000 razreda -&gt; 5</span>
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nakon zamjene glave:&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">))</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>parametara: 11.69 milijuna
+conv1    -&gt; (2, 64, 112, 112)
+bn1      -&gt; (2, 64, 112, 112)
+relu     -&gt; (2, 64, 112, 112)
+maxpool  -&gt; (2, 64, 56, 56)
+layer1   -&gt; (2, 64, 56, 56)
+layer2   -&gt; (2, 128, 28, 28)
+layer3   -&gt; (2, 256, 14, 14)
+layer4   -&gt; (2, 512, 7, 7)
+avgpool  -&gt; (2, 512, 1, 1)
+fc       -&gt; (2, 1000)
+glava: Linear(in_features=512, out_features=1000, bias=True)
+nakon zamjene glave: (2, 5)</code></pre>
+<p>Trup gotovo cijelu sliku sažme u $512$ brojeva po slici (<code>avgpool</code>); glava je linearni sloj $512\to1000$ s $513\,000$ parametara, dakle manje od $5\,\%$ mreže. Zato je učenje same glave jeftino: gradijent se računa samo za nju, a trup se može proći jednom unaprijed.</p>
+<p><b>Korak 2: cjelovit recept s pretreniranim težinama.</b> Ovaj blok traži preuzimanje težina ($\approx45$ MB) i mapu <code>podaci/</code> sa strukturom <code>train/razred/slika.jpg</code> i <code>val/razred/slika.jpg</code>, pa se u lekciji ne pokreće; na natjecateljskom računalu radi doslovno ovako.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">DataLoader</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">datasets</span><span class="p">,</span> <span class="n">transforms</span>
+<span class="kn">from</span> <span class="nn">torchvision.models</span> <span class="kn">import</span> <span class="n">resnet18</span><span class="p">,</span> <span class="n">ResNet18_Weights</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">tezine</span> <span class="o">=</span> <span class="n">ResNet18_Weights</span><span class="o">.</span><span class="n">DEFAULT</span>                       <span class="c1"># preuzima se pri prvom pozivu</span>
+<span class="n">norm</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">mean</span><span class="o">=</span><span class="p">[</span><span class="mf">0.485</span><span class="p">,</span> <span class="mf">0.456</span><span class="p">,</span> <span class="mf">0.406</span><span class="p">],</span> <span class="n">std</span><span class="o">=</span><span class="p">[</span><span class="mf">0.229</span><span class="p">,</span> <span class="mf">0.224</span><span class="p">,</span> <span class="mf">0.225</span><span class="p">])</span>
+<span class="n">pretvorba_ucenje</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">RandomResizedCrop</span><span class="p">(</span><span class="mi">224</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="p">(</span><span class="mf">0.6</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)),</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">RandomHorizontalFlip</span><span class="p">(),</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span> <span class="n">norm</span><span class="p">])</span>
+<span class="n">pretvorba_test</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Compose</span><span class="p">([</span>
+    <span class="n">transforms</span><span class="o">.</span><span class="n">Resize</span><span class="p">(</span><span class="mi">256</span><span class="p">),</span> <span class="n">transforms</span><span class="o">.</span><span class="n">CenterCrop</span><span class="p">(</span><span class="mi">224</span><span class="p">),</span> <span class="n">transforms</span><span class="o">.</span><span class="n">ToTensor</span><span class="p">(),</span> <span class="n">norm</span><span class="p">])</span>
+<span class="n">ucenje</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">ImageFolder</span><span class="p">(</span><span class="s2">&quot;podaci/train&quot;</span><span class="p">,</span> <span class="n">pretvorba_ucenje</span><span class="p">)</span>
+<span class="n">test</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">ImageFolder</span><span class="p">(</span><span class="s2">&quot;podaci/val&quot;</span><span class="p">,</span> <span class="n">pretvorba_test</span><span class="p">)</span>
+<span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ucenje</span><span class="o">.</span><span class="n">classes</span><span class="p">)</span>
+<span class="n">ul</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">ucenje</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">tl</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span><span class="n">test</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">num_workers</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">resnet18</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="n">tezine</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>                              <span class="c1"># zamrzni trup</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>            <span class="c1"># nova glava, requires_grad=True</span>
+
+<span class="k">def</span> <span class="nf">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+    <span class="n">pogodaka</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">tl</span><span class="p">:</span>
+            <span class="n">pogodaka</span> <span class="o">+=</span> <span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">pogodaka</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">epoha</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">opt</span><span class="p">):</span>
+    <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">ul</span><span class="p">:</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>   <span class="c1"># faza 1: samo glava</span>
+<span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+    <span class="n">epoha</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">opt</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;glava, epoha </span><span class="si">%d</span><span class="s2">: točnost </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">)))</span>
+
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">layer4</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>                               <span class="c1"># faza 2: odmrzni zadnju fazu</span>
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">([{</span><span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">layer4</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">},</span>
+                        <span class="p">{</span><span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">1e-3</span><span class="p">}])</span>
+<span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+    <span class="n">epoha</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">opt</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;fino ugađanje, epoha </span><span class="si">%d</span><span class="s2">: točnost </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">e</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">)))</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="s2">&quot;resnet18_moj.pt&quot;</span><span class="p">)</span></code></pre></div>
+<p>Tri su detalja važna. Augmentacija je samo u <code>pretvorba_ucenje</code>; <code>model.train()</code> uključuje se samo dok se uči (u fazi 1 trup je zamrznut, ali BatchNorm bi se ipak pomicao – za najstrože zamrzavanje drži <code>model.eval()</code> i u učenju glave, vidi Zadatak 3); odmrznuti dio dobiva $10$ puta manju stopu učenja od glave.</p>
+<p><b>Korak 3: jeftin recept – značajke + logistička regresija.</b> Trup se prođe jednom, bez gradijenata, značajke se spreme kao NumPy matrica, a sve ostalo radi scikit-learn. Na CPU-u s nekoliko stotina slika to traje minutu-dvije.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">classification_report</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">resnet18</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="n">tezine</span><span class="p">)</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>                                 <span class="c1"># mreža sada vraća 512 značajki</span>
+<span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">znacajke</span><span class="p">(</span><span class="n">loader</span><span class="p">):</span>
+    <span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">xb</span><span class="p">,</span> <span class="n">yb</span> <span class="ow">in</span> <span class="n">loader</span><span class="p">:</span>
+            <span class="n">X</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">xb</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+            <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yb</span><span class="o">.</span><span class="n">numpy</span><span class="p">())</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="n">ucenje</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">pretvorba_test</span>                        <span class="c1"># bez augmentacije: deterministične značajke</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span> <span class="o">=</span> <span class="n">znacajke</span><span class="p">(</span><span class="n">DataLoader</span><span class="p">(</span><span class="n">ucenje</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">))</span>
+<span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">znacajke</span><span class="p">(</span><span class="n">tl</span><span class="p">)</span>
+<span class="n">np</span><span class="o">.</span><span class="n">savez</span><span class="p">(</span><span class="s2">&quot;znacajke.npz&quot;</span><span class="p">,</span> <span class="n">X_tr</span><span class="o">=</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="o">=</span><span class="n">y_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="o">=</span><span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="o">=</span><span class="n">y_te</span><span class="p">)</span>   <span class="c1"># spremi: trup više ne treba</span>
+<span class="n">klf</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">classification_report</span><span class="p">(</span><span class="n">y_te</span><span class="p">,</span> <span class="n">klf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_te</span><span class="p">),</span> <span class="n">target_names</span><span class="o">=</span><span class="n">ucenje</span><span class="o">.</span><span class="n">classes</span><span class="p">))</span></code></pre></div>
+<p>Značajke spremi na disk: nakon toga svaki pokušaj (drugi $C$, SVM, k-NN, drugačija podjela) traje sekunde, a trup ne moraš više ni učitati. To je i razlog zašto je ovaj recept idealan kad je vrijeme ograničeno.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Simuliraj transfer learning bez preuzimanja ičega, na skupu <code>load_digits</code>. <em>Izvorni</em> zadatak: klasifikacija $10$ znamenki na $1000$ slika. <em>Ciljni</em> zadatak, na <em>drugim</em> slikama: ima li znamenka zatvorenu petlju ($0,6,8,9$ – da; ostale – ne), ali s označenih samo $20$ slika. Usporedi logističku regresiju na pikselima i na značajkama izvorne mreže te tri neuronske varijante: MLP od nule, zamrznuti trup + nova glava, fino ugađanje svega.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: izvorna mreža.</b> MLP $64\to128\to64\to10$ igra ulogu „ImageNet trupa”: zadnji sloj je glava, sve ispred njega je trup $\phi$ koji daje $64$ značajke. Pomoćne funkcije <code>treniraj</code> i <code>tocnost</code> koristit ćemo cijelu lekciju.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_digits</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">podaci</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">()</span>
+<span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">podaci</span><span class="o">.</span><span class="n">data</span> <span class="o">/</span> <span class="mf">16.0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>              <span class="c1"># 1797 x 64, pikseli u [0, 1]</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">podaci</span><span class="o">.</span><span class="n">target</span>
+<span class="n">X_izvor</span><span class="p">,</span> <span class="n">X_cilj</span><span class="p">,</span> <span class="n">y_izvor</span><span class="p">,</span> <span class="n">y_cilj</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">train_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mlp</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">128</span><span class="p">,</span> <span class="mi">64</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">treniraj</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">epohe</span><span class="p">,</span> <span class="n">lr</span><span class="p">,</span> <span class="n">parametri</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">parametri</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">parametri</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">Xt</span><span class="p">,</span> <span class="n">yt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>                               <span class="c1"># puna serija: 1000 slika stane odjednom</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">gubitak</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">Xt</span><span class="p">),</span> <span class="n">yt</span><span class="p">)</span>
+        <span class="n">gubitak</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">gubitak</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">tocnost</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">model</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="o">==</span> <span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+<span class="n">izvor</span> <span class="o">=</span> <span class="n">mlp</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">g</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">izvor</span><span class="p">,</span> <span class="n">X_izvor</span><span class="p">,</span> <span class="n">y_izvor</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;izvorni zadatak: gubitak </span><span class="si">%.4f</span><span class="s2">, točnost na </span><span class="si">%d</span><span class="s2"> neviđenih slika </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_cilj</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">izvor</span><span class="p">,</span> <span class="n">X_cilj</span><span class="p">,</span> <span class="n">y_cilj</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;trup:&quot;</span><span class="p">,</span> <span class="n">izvor</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span></code></pre></div>
+<pre class="izlaz"><code>izvorni zadatak: gubitak 0.0005, točnost na 797 neviđenih slika 0.965
+trup: Sequential(
+  (0): Linear(in_features=64, out_features=128, bias=True)
+  (1): ReLU()
+  (2): Linear(in_features=128, out_features=64, bias=True)
+  (3): ReLU()
+)</code></pre>
+<p><b>Korak 2: ekstrakcija značajki.</b> Ciljni skup ($797$ slika koje izvor nije vidio) dobiva novu, binarnu oznaku; za učenje uzimamo samo $20$ slika, ostalo je test. Trup <code>izvor[:-1]</code> prolazi se bez gradijenata i na njegovih $64$ brojeva po slici učimo logističku regresiju – isto kao na $64$ piksela.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+
+<span class="n">petlja</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">y_cilj</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>      <span class="c1"># 1 = znamenka ima zatvorenu petlju</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X_cilj</span><span class="p">,</span> <span class="n">petlja</span><span class="p">,</span> <span class="n">train_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">petlja</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ciljni zadatak: </span><span class="si">%d</span><span class="s2"> slika za učenje, </span><span class="si">%d</span><span class="s2"> za test, udio petlji </span><span class="si">%.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_te</span><span class="p">),</span> <span class="n">petlja</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+
+<span class="n">trup</span> <span class="o">=</span> <span class="n">izvor</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>                                        <span class="c1"># sve osim glave</span>
+
+<span class="k">def</span> <span class="nf">znacajke</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">trup</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;oblik značajki:&quot;</span><span class="p">,</span> <span class="n">znacajke</span><span class="p">(</span><span class="n">X_tr</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="n">na_pikselima</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="n">na_znacajkama</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">znacajke</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;logistička regresija na pikselima:  </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">na_pikselima</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;logistička regresija na značajkama: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">na_znacajkama</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">znacajke</span><span class="p">(</span><span class="n">X_te</span><span class="p">),</span> <span class="n">y_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>ciljni zadatak: 20 slika za učenje, 777 za test, udio petlji 0.40
+oblik značajki: (20, 64)
+logistička regresija na pikselima:  0.835
+logistička regresija na značajkama: 0.842</code></pre>
+<p><b>Korak 3: tri neuronske varijante.</b> <code>nova_glava()</code> kopira izvornu mrežu i zamjenjuje joj zadnji sloj slojem $64\to2$ – točno ono što <code>model.fc = nn.Linear(...)</code> radi ResNetu. Zamrzavanje je <code>requires_grad=False</code> na parametrima trupa, uz optimizator koji dobiva <em>samo</em> parametre glave. Fino ugađanje uči sve, ali s $10$ puta manjom stopom.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="k">def</span> <span class="nf">nova_glava</span><span class="p">(</span><span class="n">k</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">izvor</span><span class="p">)</span>
+    <span class="n">model</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>                         <span class="c1"># zamjena glave: 10 razreda -&gt; 2</span>
+    <span class="k">return</span> <span class="n">model</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">od_nule</span> <span class="o">=</span> <span class="n">mlp</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">treniraj</span><span class="p">(</span><span class="n">od_nule</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">)</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">zamrznuto</span> <span class="o">=</span> <span class="n">nova_glava</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">zamrznuto</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>                              <span class="c1"># zamrzni trup</span>
+<span class="n">treniraj</span><span class="p">(</span><span class="n">zamrznuto</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span> <span class="n">parametri</span><span class="o">=</span><span class="n">zamrznuto</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">fino</span> <span class="o">=</span> <span class="n">nova_glava</span><span class="p">()</span>
+<span class="n">treniraj</span><span class="p">(</span><span class="n">fino</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>           <span class="c1"># fine-tuning svega, 10x manja stopa</span>
+
+<span class="n">varijante</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;MLP od nule&quot;</span><span class="p">,</span> <span class="n">od_nule</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;zamrznuti trup + nova glava&quot;</span><span class="p">,</span> <span class="n">zamrznuto</span><span class="p">),</span>
+             <span class="p">(</span><span class="s2">&quot;fino ugađanje svih slojeva&quot;</span><span class="p">,</span> <span class="n">fino</span><span class="p">)]</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">varijante</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-30s</span><span class="s2"> točnost na testu </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>MLP od nule                    točnost na testu 0.825
+zamrznuti trup + nova glava    točnost na testu 0.847
+fino ugađanje svih slojeva     točnost na testu 0.878</code></pre>
+<p>Poredak je onaj koji ćeš vidjeti i s pravim ResNetom: s $20$ primjera učenje od nule ($0{,}825$) i logistička regresija na sirovim pikselima ($0{,}835$) zaostaju, prenesene značajke pomažu ($0{,}842$ s logističkom regresijom, $0{,}847$ s naučenom glavom), a najviše daje fino ugađanje ($0{,}878$) – trup već zna što je „krug u znamenki”, samo to treba povezati s novom oznakom. Razlike su ovdje male jer su slike $8\times8$ same po sebi pristojne značajke; kod fotografija $224\times224$ razlika između piksela i značajki iznosi desetke postotnih bodova.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Na istom ciljnom zadatku istraži stopu učenja za fino ugađanje: za $\eta\in\{10^{-1},10^{-2},10^{-3},10^{-4}\}$ ispiši gubitak na skupu za učenje, točnost na testu i koliko su se težine trupa pomaknule od pretreniranih. Zatim upotrijebi različite stope za trup i glavu (grupe parametara) i najbolji model evaluiraj matricom zabune.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: pretraga stope učenja.</b> Relativni pomak težina $\lVert W-W_0\rVert/\lVert W_0\rVert$ mjeri koliko je fino ugađanje „pregazilo” pretrenirani trup.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">tezine_trupa</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">p</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">()])</span>
+
+<span class="n">W0</span> <span class="o">=</span> <span class="n">tezine_trupa</span><span class="p">(</span><span class="n">izvor</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stopa     gubitak(učenje)  točnost(test)  pomak trupa&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">lr</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">1e-1</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">]:</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">nova_glava</span><span class="p">()</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">treniraj</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">pomak</span> <span class="o">=</span> <span class="p">((</span><span class="n">tezine_trupa</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">-</span> <span class="n">W0</span><span class="p">)</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">W0</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-9g</span><span class="s2"> </span><span class="si">%-16.4f</span><span class="s2"> </span><span class="si">%-14.3f</span><span class="s2"> </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lr</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">pomak</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>stopa     gubitak(učenje)  točnost(test)  pomak trupa
+0.1       0.6730           0.604          3.034
+0.01      0.0003           0.879          0.398
+0.001     0.0051           0.878          0.148
+0.0001    0.2214           0.857          0.050</code></pre>
+<p>Stopa $0{,}1$ je katastrofa: trup se pomakne za tri norme pretreniranih težina, model ne nauči ni $20$ primjera (gubitak $0{,}67$) i točnost padne na $0{,}604$ – pretrenirano znanje je pregaženo već u prvim koracima, dok je glava još slučajna. Stope $10^{-2}$ i $10^{-3}$ daju istu točnost ($0{,}879$ i $0{,}878$), ali prva pomakne trup gotovo tri puta više ($0{,}398$ prema $0{,}148$) – ista korist uz više zaboravljanja izvornog znanja (Zadatak 9). Stopa $10^{-4}$ u $200$ epoha ne stigne ni skup za učenje dovesti do kraja (gubitak $0{,}22$) i ostane na $0{,}857$. Gubitak na skupu za učenje ne govori koja je stopa dobra; to odlučuje validacija.</p>
+<p><b>Korak 2: grupe parametara.</b> Optimizator prima popis rječnika; svaka grupa ima svoju stopu. Glava, koja počinje od slučajnih težina, dobiva veliku stopu, trup malu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">grupe</span> <span class="o">=</span> <span class="n">nova_glava</span><span class="p">()</span>
+<span class="n">opt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">([{</span><span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">grupe</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">1e-4</span><span class="p">},</span>
+                        <span class="p">{</span><span class="s2">&quot;params&quot;</span><span class="p">:</span> <span class="n">grupe</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="s2">&quot;lr&quot;</span><span class="p">:</span> <span class="mf">1e-2</span><span class="p">}])</span>
+<span class="n">Xt</span><span class="p">,</span> <span class="n">yt</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X_tr</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+    <span class="n">nn</span><span class="o">.</span><span class="n">functional</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">grupe</span><span class="p">(</span><span class="n">Xt</span><span class="p">),</span> <span class="n">yt</span><span class="p">)</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+    <span class="n">opt</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+<span class="n">pomak</span> <span class="o">=</span> <span class="p">((</span><span class="n">tezine_trupa</span><span class="p">(</span><span class="n">grupe</span><span class="p">)</span> <span class="o">-</span> <span class="n">W0</span><span class="p">)</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">W0</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;trup 1e-4 + glava 1e-2: točnost </span><span class="si">%.3f</span><span class="s2">, pomak trupa </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">tocnost</span><span class="p">(</span><span class="n">grupe</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">pomak</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>trup 1e-4 + glava 1e-2: točnost 0.852, pomak trupa 0.010</code></pre>
+<p>S tako malom stopom za trup pomak je tek simboličan ($1\,\%$), pa je rezultat ($0{,}852$) između zamrznutog trupa ($0{,}847$) i punog ugađanja ($0{,}878$): u $200$ epoha trup se jedva prilagodio. Grupe parametara isplate se kad trup treba <em>zaštititi</em> – kod pravih mreža slučajna glava u prvim koracima šalje velike i besmislene gradijente u trup, a i kad isti trup mora služiti više zadataka (Zadatak 9). Omjer stopa i broj epoha i ovdje bira validacija.</p>
+<p><b>Korak 3: matrica zabune.</b> Točnost je jedan broj; matrica zabune pokazuje <em>koje</em> pogreške model radi. Redci su prave oznake, stupci predviđene.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">confusion_matrix</span>
+
+<span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">grupe</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X_te</span><span class="p">))</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+<span class="n">M</span> <span class="o">=</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">y_te</span><span class="p">,</span> <span class="n">pred</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;matrica zabune (redak = prava oznaka, stupac = predviđena):&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;osjetljivost za petlju: </span><span class="si">%.3f</span><span class="s2">, za ne-petlju: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">M</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">M</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">M</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">M</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>matrica zabune (redak = prava oznaka, stupac = predviđena):
+[[388  81]
+ [ 34 274]]
+osjetljivost za petlju: 0.890, za ne-petlju: 0.827</code></pre>
+<p>Udio petlji je $0{,}40$, pa bi model koji uvijek kaže „nema petlje” imao točnost $0{,}60$ – prema tome se mjeri $0{,}852$. Matrica otkriva asimetriju: od $469$ znamenki bez petlje $81$ je proglašeno petljom, a od $308$ s petljom promašene su $34$; model je, dakle, skloniji lažnoj petlji. Kad bi jedna vrsta pogreške bila skuplja, prag odluke (ili težine razreda u gubitku) bio bi sljedeća stvar za ugađanje – na validaciji, ne na ovom testu.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Glava ResNet-18 je linearni sloj $512\to1000$. Koliko parametara ima (težine + pristranosti)? Koliko nakon zamjene glavom za $k=5$ razreda? Koliki je to postotak od ukupnih $11{,}7$ milijuna parametara? Što iz toga slijedi za brzinu recepta „zamrznuti trup + nova glava”?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$512\cdot1000+1000=513\,000$ parametara; za $k=5$: $512\cdot5+5=2565$, što je oko $0{,}02\,\%$ mreže. Kod zamrznutog trupa gradijent se računa samo za tih $2565$ brojeva, a prolaz unaprijed kroz trup može se napraviti jednom i spremiti (ekstrakcija značajki), pa jedna epoha nad spremljenim značajkama traje milisekunde umjesto minuta.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za svaki slučaj odaberi recept (A: značajke + logistička regresija; B: zamrznuti trup + glava s augmentacijom; C: fino ugađanje) i obrazloži: (a) $300$ fotografija $5$ vrsta ptica, CPU, sat vremena; (b) $20\,000$ rendgenskih snimki, dva razreda, GPU; (c) $800$ crteža olovkom u $10$ razreda, GPU, pola dana; (d) $150$ fotografija, a razredi se razlikuju samo po finoj teksturi.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) A: malo podataka, slično ImageNetu, malo vremena – značajke + logistička regresija daju gotovo sve što se može izvući. (b) C: puno podataka i domena daleko od fotografija, pa se isplati ugađati i rane slojeve (uz malu stopu). (c) C ili B pa C: crteži su daleko od fotografija, $800$ je dovoljno za fino ugađanje zadnje faze; prvo nauči glavu, pa odmrzni <code>layer4</code>. (d) A ili B uz izrezivanje na veću razlučivost; sa $150$ slika fino ugađanje bi se pretreniralo, a teksture dobro hvataju srednji slojevi – vrijedi isprobati i značajke iz <code>layer3</code> (usporedi Zadatak 6).</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Natjecatelj je zamrznuo sve parametre ResNeta (<code>requires_grad=False</code>), naučio novu glavu i dobio odličnu točnost na skupu za učenje, ali lošu na validaciji. Učio je s <code>model.train()</code>, s <code>batch_size=4</code>, a slike je normalizirao srednjom vrijednošću i devijacijom <em>svoga</em> skupa. Navedi tri stvari koje je mogao pokvariti i kako ih popraviti.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(1) BatchNorm u načinu <code>train()</code> i dalje mijenja tekuće statistike iako su težine zamrznute; sa serijom od $4$ slike te su statistike šum, pa se trup u evaluaciji ponaša drugačije nego u učenju – drži trup u <code>eval()</code> ili povećaj seriju. (2) Normalizacija vlastitim konstantama pomiče ulaze u raspon koji mreža nije vidjela; koristi ImageNetove konstante ($0{,}485/0{,}456/0{,}406$ i $0{,}229/0{,}224/0{,}225$) ili <code>weights.transforms()</code>. (3) Mogući je i klasičan uzrok: nema augmentacije ili premalo podataka za broj epoha – glava od $2565$ parametara ipak se može pretrenirati na $50$ slika; dodaj augmentaciju, regularizaciju (weight decay) ili prijeđi na logističku regresiju s $C$ odabranim unakrsnom validacijom.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Kako prednost prenesenih značajki ovisi o broju označenih slika? Na ciljnom zadatku iz Primjera 2 usporedi logističku regresiju na pikselima i na značajkama za $n\in\{10,20,40,80,160,320\}$ slika za učenje (ostatak je test, <code>random_state=0</code>). Kako se prednost mijenja s $n$ i zašto?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Ponovi Korak 2 iz Primjera 2 u petlji; <code>znacajke</code> je već definirana.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   n   pikseli  značajke&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">160</span><span class="p">,</span> <span class="mi">320</span><span class="p">]:</span>
+    <span class="n">A_tr</span><span class="p">,</span> <span class="n">A_te</span><span class="p">,</span> <span class="n">b_tr</span><span class="p">,</span> <span class="n">b_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X_cilj</span><span class="p">,</span> <span class="n">petlja</span><span class="p">,</span> <span class="n">train_size</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">petlja</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">b_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">A_te</span><span class="p">,</span> <span class="n">b_te</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">znacajke</span><span class="p">(</span><span class="n">A_tr</span><span class="p">),</span> <span class="n">b_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">znacajke</span><span class="p">(</span><span class="n">A_te</span><span class="p">),</span> <span class="n">b_te</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%4d</span><span class="s2">   </span><span class="si">%.3f</span><span class="s2">    </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">z</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>   n   pikseli  značajke
+  10   0.720    0.755
+  20   0.835    0.842
+  40   0.841    0.884
+  80   0.886    0.919
+ 160   0.882    0.925
+ 320   0.904    0.925</code></pre>
+<p>Značajke su bolje od piksela u cijelom rasponu, i to za $2$ do $4$ postotna boda ($0{,}884$ prema $0{,}841$ pri $n=40$), a sa $320$ slika razlika se počinje topiti ($0{,}925$ prema $0{,}904$): s dovoljno podataka linearni model i iz piksela nauči što treba. Značajke ovdje ne smetaju ni s puno podataka jer izvorni zadatak (koja je znamenka) sadrži svu informaciju potrebnu cilju; kad to ne vrijedi, prednost s rastom $n$ može prijeći i u zaostatak (Zadatak 8). Opći obrazac ostaje: transfer learning najviše vrijedi točno tamo gdje podataka nema.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Za <code>resnet18(weights=None)</code> s glavom za $5$ razreda prebroji parametre koji se uče u tri postavke: (a) sve zamrznuto osim glave; (b) odmrznuta i faza <code>layer4</code>; (c) sve se uči. Ispiši i udio u postocima. Provjeri da se (a) slaže sa Zadatkom 1.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">torchvision.models</span> <span class="kn">import</span> <span class="n">resnet18</span>
+
+<span class="k">def</span> <span class="nf">broj_ucenih</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+
+<span class="n">m</span> <span class="o">=</span> <span class="n">resnet18</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="n">m</span><span class="o">.</span><span class="n">fc</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">ukupno</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="n">ime</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;fc.&quot;</span><span class="p">)</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">broj_ucenih</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">layer4</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">broj_ucenih</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">broj_ucenih</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;samo glava&quot;</span><span class="p">,</span> <span class="n">a</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;layer4 + glava&quot;</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;sve&quot;</span><span class="p">,</span> <span class="n">c</span><span class="p">)]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-15s</span><span class="s2"> </span><span class="si">%10d</span><span class="s2"> parametara  (</span><span class="si">%6.2f</span><span class="s2"> </span><span class="si">%%</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">n</span> <span class="o">/</span> <span class="n">ukupno</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>samo glava            2565 parametara  (  0.02 %)
+layer4 + glava     8396293 parametara  ( 75.11 %)
+sve               11179077 parametara  (100.00 %)</code></pre>
+<p>Glava je $2565$ parametara, $0{,}02\,\%$ mreže, kao u Zadatku 1. Zadnja faza nosi gotovo tri četvrtine parametara mreže – kanali se udvostručuju svakom fazom, a broj parametara konvolucije raste s kvadratom broja kanala. Zato je „odmrzni samo <code>layer4</code>” i dalje velik model koji s malo podataka traži malu stopu učenja i augmentaciju.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Značajke se mogu uzeti iz bilo kojeg sloja. Na ciljnom zadatku iz Primjera 2 ($20$ slika) usporedi logističku regresiju na: pikselima, izlazu prvog skrivenog sloja (<code>izvor[:2]</code>, $128$ brojeva), izlazu drugog (<code>izvor[:4]</code>, $64$ broja), na $10$ logita izvorne mreže (<code>izvor</code>) i na $10$ softmax vjerojatnosti. Dodaj i pravilo bez učenja: „petlja ako izvorna mreža predvidi $0,6,8$ ili $9$”. Objasni poredak.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Oznaka „petlja” je funkcija identiteta znamenke, a to je upravo ono što izvorna mreža računa. U kojem je obliku ta informacija linearno dostupna: u logitima ili u vjerojatnostima?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">iz_sloja</span><span class="p">(</span><span class="n">podmreza</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">podmreza</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">X</span><span class="p">))</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+<span class="n">razine</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;pikseli (64)&quot;</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()),</span> <span class="p">(</span><span class="s2">&quot;1. skriveni sloj (128)&quot;</span><span class="p">,</span> <span class="n">izvor</span><span class="p">[:</span><span class="mi">2</span><span class="p">]),</span>
+          <span class="p">(</span><span class="s2">&quot;2. skriveni sloj (64)&quot;</span><span class="p">,</span> <span class="n">izvor</span><span class="p">[:</span><span class="mi">4</span><span class="p">]),</span> <span class="p">(</span><span class="s2">&quot;logiti (10)&quot;</span><span class="p">,</span> <span class="n">izvor</span><span class="p">),</span>
+          <span class="p">(</span><span class="s2">&quot;softmax (10)&quot;</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="n">izvor</span><span class="p">,</span> <span class="n">nn</span><span class="o">.</span><span class="n">Softmax</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)))]</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">podmreza</span> <span class="ow">in</span> <span class="n">razine</span><span class="p">:</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">iz_sloja</span><span class="p">(</span><span class="n">podmreza</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">),</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">iz_sloja</span><span class="p">(</span><span class="n">podmreza</span><span class="p">,</span> <span class="n">X_te</span><span class="p">),</span> <span class="n">y_te</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-26s</span><span class="s2"> </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">s</span><span class="p">))</span>
+<span class="n">pravilo</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">iz_sloja</span><span class="p">(</span><span class="n">izvor</span><span class="p">,</span> <span class="n">X_te</span><span class="p">)</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-26s</span><span class="s2"> </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="s2">&quot;pravilo argmax, bez učenja&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">pravilo</span> <span class="o">==</span> <span class="n">y_te</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>pikseli (64)               0.835
+1. skriveni sloj (128)     0.852
+2. skriveni sloj (64)      0.842
+logiti (10)                0.833
+softmax (10)               0.976
+pravilo argmax, bez učenja 0.977</code></pre>
+<p>Skriveni slojevi malo pomažu ($0{,}852$ i $0{,}842$ prema $0{,}835$ na pikselima), a sirovi logiti ništa ($0{,}833$) – iako sadrže gotovo sav odgovor, jer pravilo argmax bez ijednog ciljnog primjera postiže $0{,}977$! Razlika je u <em>obliku</em>: u vjerojatnostima je „petlja” doslovno zbroj četiriju koordinata, pa logistička regresija na softmaxu dosegne $0{,}976$, dok u logitima (velike vrijednosti različitih skala, $20$ točaka u $10$ dimenzija) regularizirani model s tako malo primjera nađe neki drugi razdvajač. Pouke: kad je ciljni zadatak funkcija izvornih razreda, najbolje prenosi sam izlaz izvorne mreže, ali u obliku vjerojatnosti; kad bi cilj bio drukčiji (npr. „je li znamenka pomaknuta ulijevo”), ta bi informacija u izlazu bila izbrisana i bolje bi prošli raniji slojevi – što je cilj dalje od izvora, ranije reži trup.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Djelomično zamrzavanje: na ciljnom zadatku ($20$ slika, stopa $10^{-3}$, $200$ epoha) usporedi fino ugađanje (a) samo glave, (b) glave i drugog skrivenog sloja, (c) svega. Za svaku varijantu ispiši broj parametara koji se uče, točnost na testu i pomak težina trupa. Nije li čudno da (a) sa stopom $10^{-3}$ daje drugačiji rezultat od zamrznute varijante u Primjeru 2?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;varijanta            učenih   točnost  pomak trupa&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">odmrznuto</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;samo glava&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">4</span><span class="p">]),</span> <span class="p">(</span><span class="s2">&quot;glava + 2. sloj&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]),</span> <span class="p">(</span><span class="s2">&quot;sve&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">])]:</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">nova_glava</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">ucenje</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">odmrznuto</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">m</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">ucenje</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">treniraj</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">,</span> <span class="n">parametri</span><span class="o">=</span><span class="n">ucenje</span><span class="p">)</span>
+    <span class="n">pomak</span> <span class="o">=</span> <span class="p">((</span><span class="n">tezine_trupa</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">-</span> <span class="n">W0</span><span class="p">)</span><span class="o">.</span><span class="n">norm</span><span class="p">()</span> <span class="o">/</span> <span class="n">W0</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-20s</span><span class="s2"> </span><span class="si">%6d</span><span class="s2">   </span><span class="si">%.3f</span><span class="s2">    </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ucenje</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">pomak</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>varijanta            učenih   točnost  pomak trupa
+samo glava              130   0.852    0.000
+glava + 2. sloj        8386   0.853    0.110
+sve                   16706   0.878    0.148</code></pre>
+<p>Nije čudno: varijanta (a) je isti model kao „zamrznuti trup + nova glava” u Primjeru 2, samo s drugom stopom učenja ($10^{-3}$ umjesto $10^{-2}$) – glava od $130$ parametara na $20$ primjera osjetljiva je na to koliko se daleko stigne u $200$ epoha. Pomak trupa u (a) je nula jer se trup nije ni mogao mijenjati; u (b) se mijenja samo drugi sloj, pa je pomak mali. Odmrzavanje s kraja prema početku standardan je način da se s malo podataka doda upravo onoliko slobode koliko treba.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><em>Negativan transfer.</em> Nauči izvornu mrežu samo na znamenkama $0$–$4$ (svih njihovih slika), a kao ciljni zadatak uzmi klasifikaciju znamenki $5$–$9$ (oznake $0$–$4$) s $25$ označenih slika. Usporedi logističku regresiju na pikselima i na značajkama <code>trup2 = izvor2[:-1]</code> te fino ugađanje sa stopom $10^{-3}$. Objasni zašto ovdje transfer ne pomaže, iako su i izvor i cilj „znamenke”.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Trup $64\to128\to64$ s $10$ izlaza na kraju nauči upravo ono što razlikuje $0$–$4$; informacija koja razlikuje $5$ od $6$ smije mu biti nebitna.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">maska</span> <span class="o">=</span> <span class="n">y</span> <span class="o">&lt;</span> <span class="mi">5</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">izvor2</span> <span class="o">=</span> <span class="n">mlp</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">treniraj</span><span class="p">(</span><span class="n">izvor2</span><span class="p">,</span> <span class="n">X</span><span class="p">[</span><span class="n">maska</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">maska</span><span class="p">],</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">)</span>
+<span class="n">X2</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="o">~</span><span class="n">maska</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="o">~</span><span class="n">maska</span><span class="p">]</span> <span class="o">-</span> <span class="mi">5</span>                        <span class="c1"># znamenke 5-9 -&gt; oznake 0-4</span>
+<span class="n">A_tr</span><span class="p">,</span> <span class="n">A_te</span><span class="p">,</span> <span class="n">b_tr</span><span class="p">,</span> <span class="n">b_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">train_size</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">y2</span><span class="p">)</span>
+<span class="n">trup2</span> <span class="o">=</span> <span class="n">izvor2</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">z</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">A</span><span class="p">:</span> <span class="n">iz_sloja</span><span class="p">(</span><span class="n">trup2</span><span class="p">,</span> <span class="n">A</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;pikseli + logistička regresija:  </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">b_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">A_te</span><span class="p">,</span> <span class="n">b_te</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;značajke + logistička regresija: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">z</span><span class="p">(</span><span class="n">A_tr</span><span class="p">),</span> <span class="n">b_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">z</span><span class="p">(</span><span class="n">A_te</span><span class="p">),</span> <span class="n">b_te</span><span class="p">))</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">izvor2</span><span class="p">)</span>
+<span class="n">m</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">treniraj</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">A_tr</span><span class="p">,</span> <span class="n">b_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;fino ugađanje:                   </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">A_te</span><span class="p">,</span> <span class="n">b_te</span><span class="p">))</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">m0</span> <span class="o">=</span> <span class="n">mlp</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">treniraj</span><span class="p">(</span><span class="n">m0</span><span class="p">,</span> <span class="n">A_tr</span><span class="p">,</span> <span class="n">b_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MLP od nule:                     </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m0</span><span class="p">,</span> <span class="n">A_te</span><span class="p">,</span> <span class="n">b_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>pikseli + logistička regresija:  0.923
+značajke + logistička regresija: 0.550
+fino ugađanje:                   0.873
+MLP od nule:                     0.916</code></pre>
+<p>Izvorna mreža na kraju trupa ima samo $64$ broja i naučila ih je tako da razdvajaju $0$–$4$; sve što za to nije bilo potrebno smjela je odbaciti, pa se $5$–$9$ u tom prostoru djelomično stapaju – značajke daju $0{,}550$ prema $0{,}923$ na sirovim pikselima. Fino ugađanje popravi značajke ($0{,}873$), ali ni ono ne stigne mrežu od nule ($0{,}916$). To je <em>negativan transfer</em>: izvorni zadatak preuzak i prespecifičan, a ciljni razredi nisu bili u njemu zastupljeni. ImageNet trupovi rijetko tako podbace jer je $1000$ raznolikih razreda prisililo mrežu da zadrži opće značajke; s uskim izvorom bolje prođe raniji sloj (Zadatak 6) ili fino ugađanje koje značajke popravi.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><em>Katastrofalno zaboravljanje.</em> Fino ugodi trup iz Primjera 2 na ciljni zadatak sa stopama $10^{-2}$, $10^{-3}$ i $10^{-4}$, a zatim ugođeni trup spoji s <em>izvornom</em> glavom i izmjeri koliko dobro još klasificira $10$ znamenki na skupu <code>X_izvor</code>. Kako gubitak znanja o izvornom zadatku ovisi o stopi? Što iz toga slijedi za sustave koji jedan trup dijele među više zadataka?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prije ugađanja: točnost izvora </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">izvor</span><span class="p">,</span> <span class="n">X_izvor</span><span class="p">,</span> <span class="n">y_izvor</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">lr</span> <span class="ow">in</span> <span class="p">[</span><span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">]:</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">nova_glava</span><span class="p">()</span>
+    <span class="n">treniraj</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">epohe</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">spojeno</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">m</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">izvor</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>          <span class="c1"># ugođeni trup + stara glava</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stopa </span><span class="si">%-6g</span><span class="s2"> ciljni zadatak </span><span class="si">%.3f</span><span class="s2">   izvorni zadatak sa starom glavom </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span>
+          <span class="p">(</span><span class="n">lr</span><span class="p">,</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">),</span> <span class="n">tocnost</span><span class="p">(</span><span class="n">spojeno</span><span class="p">,</span> <span class="n">X_izvor</span><span class="p">,</span> <span class="n">y_izvor</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>prije ugađanja: točnost izvora 1.000
+stopa 0.01   ciljni zadatak 0.879   izvorni zadatak sa starom glavom 0.830
+stopa 0.001  ciljni zadatak 0.878   izvorni zadatak sa starom glavom 0.953
+stopa 0.0001 ciljni zadatak 0.857   izvorni zadatak sa starom glavom 0.993</code></pre>
+<p>Što je stopa veća, to trup više zaboravi: točnost na izvornom zadatku padne s $1{,}000$ na $0{,}830$ nakon ugađanja s $10^{-2}$, na $0{,}953$ s $10^{-3}$, a s $10^{-4}$ ostane $0{,}993$ – pri čemu ciljni zadatak s $10^{-2}$ i $10^{-3}$ prođe jednako ($0{,}879$ i $0{,}878$). Nova zadaća se nauči i uz malu stopu jer glava radi većinu posla. Kad jedan trup treba služiti više zadataka, ili ga ne ugađaj (recept A/B – svaki zadatak dobije svoju glavu), ili ugađaj tako malo da izvorni zadatak preživi; to je i razlog zašto se u praksi čuvaju <em>odvojene kopije</em> ugođenih težina po zadatku.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Pretrenirana mreža $f=g\circ\phi$: trup $\phi$ daje značajke ($512$ za ResNet-18), glava $g$ računa ImageNetove razrede. Rani slojevi (rubovi, teksture) prenose se gotovo univerzalno, kasni su specifični za izvorni zadatak – što je cilj dalje od izvora, ranije reži trup.</li>
+<li>ResNet: blok uči ostatak, $y=F(x)+x$; skip veza propušta gradijent pa duboke mreže uče. ResNet-18: četiri faze ($64\to512$ kanala), <code>avgpool</code>, <code>fc</code>; $\approx11{,}7$ M parametara. EfficientNet i ViT su drugi trupovi s istim sučeljem.</li>
+<li>Tri recepta: (A) značajke + <code>LogisticRegression</code> – prvi izbor s malo podataka i bez GPU-a; (B) zamrznuti trup (<code>requires_grad=False</code>, trup u <code>eval()</code>) + nova glava; (C) fino ugađanje s $10$–$100$ puta manjom stopom, po potrebi grupama parametara (trup $10^{-4}$, glava $10^{-3}$).</li>
+<li>Zamjena glave: <code>model.fc = nn.Linear(model.fc.in_features, k)</code>; ulaz normaliziraj ImageNetovim konstantama ili <code>weights.transforms()</code>; <code>model.eval()</code> i <code>torch.no_grad()</code> u evaluaciji.</li>
+<li>Prevelika stopa „pregazi” trup (velik pomak težina, pad točnosti, katastrofalno zaboravljanje); premala ništa ne prilagodi. Biraj je validacijom, ne gubitkom na skupu za učenje.</li>
+<li>Transfer nije besplatan: preuzak izvorni zadatak daje negativan transfer, a s puno ciljnih podataka prednost značajki se smanjuje. Evaluiraj stratificiranom podjelom napravljenom prije učenja, odluke donosi na validaciji, test otvori jednom i pogledaj matricu zabune.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>K. He, X. Zhang, S. Ren, J. Sun, „Deep Residual Learning for Image Recognition”, <i>CVPR</i> 2016 – <a href="https://arxiv.org/abs/1512.03385">arXiv:1512.03385</a>.</li>
+<li>J. Yosinski, J. Clune, Y. Bengio, H. Lipson, „How transferable are features in deep neural networks?”, <i>NeurIPS</i> 2014 – <a href="https://arxiv.org/abs/1411.1792">arXiv:1411.1792</a>.</li>
+<li>PyTorch: <a href="https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html">Transfer Learning for Computer Vision Tutorial</a>; torchvision: <a href="https://pytorch.org/vision/stable/models.html">Models and pre-trained weights</a>.</li>
+<li>M. Tan, Q. V. Le, „EfficientNet: Rethinking Model Scaling for CNNs”, <i>ICML</i> 2019; A. Dosovitskiy i sur., „An Image is Worth 16x16 Words”, <i>ICLR</i> 2021.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="04-slike-kao-podaci.html"><small>← Prethodna lekcija</small>V4 · Slike kao podaci: obrada i augmentacija</a>
+                <a class="sljedeca" href="06-generativni-multimodalni-modeli.html"><small>Sljedeća lekcija →</small>V6 · Generativni i multimodalni modeli</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Strojno učenje 5: Vrednovanje modela i odabir hiperparametara</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#strojno-ucenje">Strojno učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Strojno učenje · lekcija 5 od 6</p>
+            <h1><span class="broj-lekcije">M5</span> Vrednovanje modela i odabir hiperparametara</h1>
+            <p class="meta">Kako pošteno izmjeriti koliko je model dobar i kako izabrati hiperparametre, a da se pritom ne prevariš</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.8" title="razina zadataka na samoj olimpijadi">Razina: IOAI</li>
+                <li>train/validation/test</li>
+                <li>unakrsna validacija</li>
+                <li>curenje podataka</li>
+                <li>Pipeline</li>
+                <li>GridSearchCV</li>
+                <li>krivulje učenja</li>
+                <li>pristranost–varijanca</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Objasniti zašto su potrebna tri skupa (učenje, validacija, test) i zašto jedna slučajna podjela daje nepouzdanu procjenu.</li>
+<li>Provesti $k$-struku unakrsnu validaciju (<code>KFold</code>, <code>StratifiedKFold</code>) i prepoznati te ukloniti curenje podataka pomoću <code>Pipeline</code>.</li>
+<li>Odabrati hiperparametre s <code>GridSearchCV</code> i <code>RandomizedSearchCV</code> te pročitati krivulje učenja i validacije kroz razlaganje pristranost–varijanca.</li>
+<li>Izabrati metriku prema zadatku, učiniti eksperiment ponovljivim i ne nasjesti javnom leaderboardu.</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji M1 podijelili smo podatke na skup za učenje i testni skup. To rješava jedan problem (model koji je zapamtio podatke za učenje izgleda savršeno), ali otvara drugi: čim testni skup upotrijebimo da bismo <em>izabrali</em> model ili hiperparametar, on prestaje biti pošten. Svaki pogled na testni skup je mala količina informacije koja curi u naše odluke – nakon stotinu pogleda testni rezultat više ne mjeri generalizaciju, nego koliko smo se uspjeli prilagoditi upravo tim podacima. Ova lekcija bavi se disciplinom koja to sprječava; na natjecanju ona vrijedi više od bilo kojeg pojedinog algoritma.</p>
+
+<h3>Tri skupa: učenje, validacija, test</h3>
+<div class="pojam">
+<h4>Podjela podataka</h4>
+<p><b>Skup za učenje</b> (engl. <i>train</i>) služi za prilagodbu parametara modela ($w$ u regresiji, težine mreže). <b>Validacijski skup</b> (engl. <i>validation</i>) služi za <em>odluke</em>: izbor modela, hiperparametara, značajki, trenutka zaustavljanja. <b>Testni skup</b> (engl. <i>test</i>) koristi se <em>jednom</em>, na kraju, samo da bi se izmjerila konačna greška. <b>Hiperparametar</b> je svaka postavka koju algoritam učenja ne uči sam iz podataka (stupanj polinoma, $\lambda$ u ridgeu, dubina stabla, stopa učenja).</p>
+</div>
+<p>Tipične podjele su $60/20/20$ ili $80/10/10$, ali omjer je manje važan od pravila: <em>sve što utječe na model mora se odlučiti bez testnog skupa</em>. Na natjecanju je testni skup obično skriven i nazvan upravo tako – vidiš samo njegove ulaze, a organizator drži oznake. Tvoj validacijski skup tada mora biti vjerna simulacija tog skrivenog testa: ista raspodjela, ista vremenska struktura, iste grupe.</p>
+
+<h3>Unakrsna validacija</h3>
+<p>Jedna podjela ima dvije mane: procjena greške ovisi o slučaju (koji su primjeri završili u validaciji) i trošimo 20 % podataka koje bismo radije koristili za učenje. Oboje popravlja ideja da svaki primjer bude jednom u validaciji.</p>
+<div class="pojam">
+<h4>$k$-struka unakrsna validacija</h4>
+<p>Skup se slučajno podijeli na $k$ približno jednakih dijelova (engl. <i>folds</i>). Za $i=1,\dots,k$ model se uči na svih $k-1$ dijelova osim $i$-tog i ocijeni na $i$-tom; dobivamo $k$ ocjena $s_1,\dots,s_k$. Procjena kvalitete modela je $\bar s=\frac1k\sum_i s_i$, a njihova standardna devijacija govori koliko je ta procjena pouzdana. Uobičajeno je $k=5$ ili $k=10$; $k=n$ je <b>leave-one-out</b>.</p>
+</div>
+<p>U scikit-learnu podjelu zadaje objekt <code>KFold(n_splits=k, shuffle=True, random_state=…)</code>, a <code>cross_val_score(model, X, y, cv=…)</code> provodi cijeli postupak. <b>Stratificirana</b> inačica <code>StratifiedKFold</code> čuva omjer klasa u svakom dijelu i obavezna je kod klasifikacije s neuravnoteženim klasama (inače neki dio može ostati bez rijetke klase). Kad primjeri dolaze u grupama (više slika istog pacijenta, više rečenica istog autora), koristi <code>GroupKFold</code> da cijela grupa bude na istoj strani; za vremenske nizove <code>TimeSeriesSplit</code>, u kojem se uvijek uči na prošlosti i ocjenjuje na budućnosti.</p>
+<div class="trener-umetak">
+<p>Cijena unakrsne validacije je $k$ puta više učenja. Za male i srednje tabularne skupove to je zanemarivo; za duboke mreže često se vraćamo na jednu dobro odabranu validacijsku podjelu, ali tada barem provjeri rezultat s dva-tri različita <code>random_state</code>.</p>
+</div>
+
+<h3>Curenje podataka i <code>Pipeline</code></h3>
+<div class="pojam">
+<h4>Curenje podataka</h4>
+<p><b>Curenje podataka</b> (engl. <i>data leakage</i>) nastaje kad u učenje ili u odluke o modelu uđe informacija koja u trenutku predikcije ne bi bila dostupna – najčešće informacija iz validacijskog ili testnog skupa. Posljedica je procjena greške koja je <em>previše optimistična</em>, a model na novim podacima podbaci.</p>
+</div>
+<p>Najčešći izvor curenja nije zlonamjeran: <em>pretprocesiranje na cijelom skupu prije podjele</em>. Standardizacija (<code>StandardScaler</code>) računa srednju vrijednost i standardnu devijaciju – ako ih izračunamo na svim podacima, statistike validacijskog dijela ušle su u učenje. Isto vrijedi za popunjavanje nedostajućih vrijednosti, odabir značajki prema korelaciji s ciljem, PCA, kodiranje kategorija prema cilju (engl. <i>target encoding</i>). Pravilo: <b>svaka transformacija koja se nečemu „uči” iz podataka mora se naučiti samo na dijelu za učenje</b>, a na validaciju i test samo <em>primijeniti</em>.</p>
+<p>Ručno je to zamorno i lako se pogriješi, pa scikit-learn nudi <code>Pipeline</code>: niz transformacija završen modelom koji se prema van ponaša kao jedan model. Poziv <code>cjevovod.fit(X_tr, y_tr)</code> redom uči svaku transformaciju na podacima za učenje, a <code>cjevovod.predict(X_te)</code> ih samo primjenjuje. Unutar <code>cross_val_score</code> i <code>GridSearchCV</code> to znači da se skaliranje ponovno uči u svakom dijelu – točno kako treba.</p>
+<div class="trener-umetak">
+<p>Drugi izvori curenja koje treba tražiti u svakom natjecateljskom skupu: duplikati koji završe i u učenju i u testu, značajke koje su <em>izvedene iz cilja</em> (npr. „broj dana do otkaza” u zadatku predviđanja otkaza), identifikatori koji koreliraju s ciljem jer su podaci bili sortirani, i vremenski nizovi podijeljeni slučajno umjesto po vremenu. Sumnjivo dobar rezultat je gotovo uvijek curenje, a ne genijalnost.</p>
+</div>
+
+<h3>Pretraživanje hiperparametara</h3>
+<p><code>GridSearchCV(model, mreza, cv=…)</code> za svaku kombinaciju vrijednosti iz rječnika <code>mreza</code> provede unakrsnu validaciju i zapamti najbolju kombinaciju (<code>best_params_</code>, <code>best_score_</code>), a zatim model s tim postavkama ponovno nauči na cijelom skupu (<code>best_estimator_</code>). Uz mrežu od $m_1\times m_2\times\dots$ kombinacija i $k$ dijelova to je $k\cdot\prod m_j$ učenja plus jedno završno. Hiperparametre koraka unutar cjevovoda zadaješ imenom koraka i dvostrukom podvlakom: <code>"svc__C"</code>.</p>
+<p><code>RandomizedSearchCV</code> umjesto mreže uzorkuje <code>n_iter</code> slučajnih kombinacija iz zadanih <em>razdioba</em> (npr. <code>loguniform(1e-3, 1e3)</code>). Kad hiperparametara ima više od dva, slučajno pretraživanje je u pravilu bolje za isti broj učenja: mreža troši većinu pokušaja na nevažne osi, a slučajni uzorak za svaki važan hiperparametar isprobava onoliko različitih vrijednosti koliko ima pokušaja. Hiperparametre koji se po prirodi mijenjaju za red veličine ($C$, $\gamma$, $\lambda$, stopa učenja) pretražuj na <em>logaritamskoj</em> skali.</p>
+
+<h3>Krivulje učenja i validacije</h3>
+<p><b>Krivulja validacije</b> (<code>validation_curve</code>) prikazuje rezultat na učenju i na validaciji u ovisnosti o <em>jednom hiperparametru</em>. Lijevo (jednostavan model) obje su krivulje loše i blizu – <b>podnaučenost</b>; desno (složen model) rezultat na učenju raste, a na validaciji pada – <b>prenaučenost</b>; optimum je između. <b>Krivulja učenja</b> (<code>learning_curve</code>) prikazuje iste dvije veličine u ovisnosti o <em>broju primjera za učenje</em>. Ako se krivulje s porastom podataka približavaju i obje su visoko, model je dobar; ako su obje nisko i blizu, više podataka neće pomoći – treba složeniji model ili bolje značajke; ako je jaz među njima velik, pomogli bi još podaci ili regularizacija.</p>
+
+<h3>Pristranost i varijanca</h3>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (razlaganje pristranost–varijanca).</strong> Neka je $y=f(x)+\varepsilon$ sa šumom $\mathbb E[\varepsilon]=0$, $\operatorname{Var}\varepsilon=\sigma^2$, a $\hat f_D$ model naučen na slučajnom skupu za učenje $D$. Očekivana kvadratna greška u fiksnoj točki $x$ je
+$$\mathbb E_{D,\varepsilon}\big[(y-\hat f_D(x))^2\big]=\underbrace{\big(f(x)-\mathbb E_D[\hat f_D(x)]\big)^2}_{\text{pristranost}^2}+\underbrace{\mathbb E_D\big[(\hat f_D(x)-\mathbb E_D[\hat f_D(x)])^2\big]}_{\text{varijanca}}+\sigma^2 .$$</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Označimo $\bar f(x)=\mathbb E_D[\hat f_D(x)]$ i raspišimo $y-\hat f_D=(f-\bar f)+(\bar f-\hat f_D)+\varepsilon$. Kvadriranjem i uzimanjem očekivanja svi mješoviti članovi nestaju: $\varepsilon$ je nezavisan od $D$ i ima očekivanje nula, a $\mathbb E_D[\bar f-\hat f_D]=0$ po definiciji $\bar f$. Ostaju tri kvadrata iz tvrdnje. <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<p><b>Pristranost</b> (engl. <i>bias</i>) je sustavna greška: model je prejednostavan da bi opisao $f$ (pravac kroz sinusoidu). <b>Varijanca</b> je osjetljivost na slučajan izbor podataka: polinom visokog stupnja na drugih 30 točaka dao bi sasvim drugu krivulju. Složeniji model ima manju pristranost, a veću varijancu; optimalna složenost minimizira zbroj. Regularizacija, više podataka i usrednjavanje modela (ansambli iz lekcije M4) smanjuju varijancu; bogatiji model i bolje značajke smanjuju pristranost. Član $\sigma^2$ ne može smanjiti nitko.</p>
+
+<h3>Koja metrika?</h3>
+<p>Metrika je definicija uspjeha i mora odgovarati zadatku, a na natjecanju – <em>tekstu zadatka</em>; model treba birati i ugađati prema <em>toj</em> metrici (<code>scoring=</code> u <code>cross_val_score</code> i <code>GridSearchCV</code>). Grubi vodič: regresija – RMSE kažnjava velike greške, MAE je otporan na odstupanja, RMSLE kad su ciljevi raspona više redova veličine; klasifikacija – točnost samo uz uravnotežene klase, inače F1, uravnotežena točnost ili ROC-AUC (lekcija M3); kad se ocjenjuju vjerojatnosti, log-gubitak. Ako je metrika zadana, nema rasprave; ako nije, izaberi je prije prvog eksperimenta i ne mijenjaj je naknadno jer „bolje izgleda”.</p>
+
+<h3>Ponovljivost</h3>
+<p>Eksperiment koji ne možeš ponoviti ne možeš ni usporediti. Fiksiraj sjeme svugdje gdje postoji slučajnost: <code>random_state</code> u podjeli, u modelu i u pretraživanju; <code>np.random.default_rng(0)</code> za vlastiti kod. Dva eksperimenta uspoređuj na <em>istim</em> podjelama (isti <code>KFold</code> objekt) – razlika od pola postotka između dva modela na različitim podjelama ne znači ništa. Ipak, sjeme je i sredstvo ocjene pouzdanosti: na kraju ponovi najbolji postupak s nekoliko sjemena i gledaj raspon, ne samo prosjek.</p>
+
+<div class="trener-umetak">
+<p><b>Zamka natjecanja: javni leaderboard.</b> Na natjecanjima tipa Kaggle testni skup je podijeljen na <em>javni</em> dio (rezultat vidiš odmah) i <em>privatni</em> dio (odlučuje o poretku, otkriva se na kraju). Javni dio je mali testni skup koji „gledaš” pri svakom slanju – točno ono što smo gore zabranili. Tko bira model prema javnom leaderboardu, prilagođava se šumu tog malog uzorka i na privatnom dijelu redovito pada (Zadatak 8). Pravilo iskusnih natjecatelja: <em>vjeruj svojoj unakrsnoj validaciji</em>; javni rezultat je samo jedan dodatni dio, i to onaj koji si gledao previše puta. Na IOAI-ju, gdje je broj slanja ograničen, ista logika znači: svaki pokušaj mora prije slanja biti provjeren lokalno.</p>
+</div>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1 <span class="izvor-oznaka">skup podataka breast_cancer</span></h3>
+<div class="zadatak">
+<p>Na skupu <code>load_breast_cancer</code> ($569$ primjera, $30$ značajki, binarna klasifikacija) istreniraj logističku regresiju i procijeni njezinu točnost (a) jednom podjelom, (b) ponovljenom za 20 različitih <code>random_state</code>, (c) peterostrukom unakrsnom validacijom. Zatim pokaži zašto je kod klasifikacije potreban <code>StratifiedKFold</code>.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: koliko jedna podjela ovisi o slučaju.</b> Model je cjevovod skaliranje + logistička regresija (zašto cjevovod, vidi Primjer 2). Istu procjenu ponavljamo za 20 različitih sjemena podjele.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_breast_cancer</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LogisticRegression</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span><span class="p">,</span> <span class="n">KFold</span><span class="p">,</span> <span class="n">StratifiedKFold</span><span class="p">,</span> <span class="n">cross_val_score</span>
+<span class="kn">from</span> <span class="nn">sklearn.pipeline</span> <span class="kn">import</span> <span class="n">make_pipeline</span>
+<span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">StandardScaler</span>
+
+<span class="n">podaci</span> <span class="o">=</span> <span class="n">load_breast_cancer</span><span class="p">()</span>
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">podaci</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">podaci</span><span class="o">.</span><span class="n">target</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot;udio klase 1: </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">y</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">LogisticRegression</span><span class="p">(</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">1000</span><span class="p">))</span>
+<span class="n">tocnosti</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">sjeme</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+    <span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="n">sjeme</span><span class="p">)</span>
+    <span class="n">tocnosti</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">))</span>
+<span class="n">tocnosti</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">tocnosti</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;20 podjela: min </span><span class="si">%.3f</span><span class="s2">  max </span><span class="si">%.3f</span><span class="s2">  prosjek </span><span class="si">%.3f</span><span class="s2">  std </span><span class="si">%.3f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">tocnosti</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">tocnosti</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">tocnosti</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">tocnosti</span><span class="o">.</span><span class="n">std</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>(569, 30) udio klase 1: 0.627
+20 podjela: min 0.947  max 0.991  prosjek 0.975  std 0.011</code></pre>
+<p>Isti model, isti podaci, a izmjerena točnost varira za nekoliko postotaka samo zato što su u test završili drugi primjeri. Da si imao sreće sa sjemenom, prijavio bi rezultat koji model ne zaslužuje.</p>
+<p><b>Korak 2: unakrsna validacija.</b> Pet dijelova, svaki primjer jednom u validaciji; <code>shuffle=True</code> je nužan jer su podaci u mnogim skupovima sortirani.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">kf</span> <span class="o">=</span> <span class="n">KFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">rez</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">kf</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;po dijelovima:&quot;</span><span class="p">,</span> <span class="n">rez</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;procjena: </span><span class="si">%.3f</span><span class="s2"> ± </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">rez</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">rez</span><span class="o">.</span><span class="n">std</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>po dijelovima: [0.965 0.982 0.956 0.956 1.   ]
+procjena: 0.972 ± 0.017</code></pre>
+<p>Prosjek pet dijelova je stabilnija procjena od bilo koje pojedinačne podjele, a raspršenje među dijelovima odmah pokazuje koliko se procjeni može vjerovati – svaki rezultat prijavljuj kao „prosjek ± std”.</p>
+<p><b>Korak 3: stratifikacija.</b> Da bismo vidjeli problem, simuliramo česti slučaj: podaci sortirani po klasi i <code>KFold</code> bez miješanja. Ispisujemo udio klase 1 u svakom validacijskom dijelu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">poredak</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;stable&quot;</span><span class="p">)</span>           <span class="c1"># podaci sortirani po klasi</span>
+<span class="n">X_s</span><span class="p">,</span> <span class="n">y_s</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">poredak</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">poredak</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">ime</span><span class="p">,</span> <span class="n">cv</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;KFold bez miješanja&quot;</span><span class="p">,</span> <span class="n">KFold</span><span class="p">(</span><span class="mi">5</span><span class="p">)),</span>
+                <span class="p">(</span><span class="s2">&quot;StratifiedKFold    &quot;</span><span class="p">,</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="mi">5</span><span class="p">))]:</span>
+    <span class="n">udjeli</span> <span class="o">=</span> <span class="p">[</span><span class="n">y_s</span><span class="p">[</span><span class="n">te</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">te</span> <span class="ow">in</span> <span class="n">cv</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">X_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">)]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">ime</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">udjeli</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;StratifiedKFold:&quot;</span><span class="p">,</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X_s</span><span class="p">,</span> <span class="n">y_s</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">StratifiedKFold</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>KFold bez miješanja [0.   0.14 1.   1.   1.  ]
+StratifiedKFold     [0.62 0.62 0.63 0.63 0.63]
+StratifiedKFold: 0.981</code></pre>
+<p>Bez miješanja prva dva dijela sadrže samo klasu 0, a zadnja tri samo klasu 1 – model se u svakom krugu ocjenjuje na klasi koja mu u učenju gotovo nedostaje. <code>StratifiedKFold</code> u svakom dijelu drži udio klasa jednak ukupnom. Kad u <code>cross_val_score</code> napišeš samo <code>cv=5</code>, scikit-learn za klasifikatore automatski koristi stratificiranu podjelu (bez miješanja!), a za regresiju običan <code>KFold</code>.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2 <span class="izvor-oznaka">skup podataka digits</span></h3>
+<div class="zadatak">
+<p>(a) Pokaži na sintetičkom skupu kako odabir značajki prije unakrsne validacije stvara curenje podataka i kako ga <code>Pipeline</code> uklanja. (b) Na skupu <code>load_digits</code> ($1797$ slika znamenki $8\times8$) pronađi s <code>GridSearchCV</code> hiperparametre $C$ i $\gamma$ SVM-a s RBF jezgrom, pa isti posao obavi s <code>RandomizedSearchCV</code>.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: curenje odabirom značajki.</b> Generiramo $100$ primjera s $2000$ značajki čistog šuma i <em>slučajne</em> oznake – nikakav model ne može biti bolji od 50 %. Zatim prvo odaberemo 20 značajki najkoreliranijih s oznakama na <em>cijelom</em> skupu i tek onda radimo unakrsnu validaciju.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.feature_selection</span> <span class="kn">import</span> <span class="n">SelectKBest</span><span class="p">,</span> <span class="n">f_classif</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">X_sum</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">2000</span><span class="p">))</span>
+<span class="n">y_sum</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+
+<span class="n">odabir</span> <span class="o">=</span> <span class="n">SelectKBest</span><span class="p">(</span><span class="n">f_classif</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_sum</span><span class="p">,</span> <span class="n">y_sum</span><span class="p">)</span>      <span class="c1"># vidi SVE oznake</span>
+<span class="n">X_odab</span> <span class="o">=</span> <span class="n">odabir</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_sum</span><span class="p">)</span>
+<span class="n">cv5</span> <span class="o">=</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;odabir prije CV (curenje): </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">LogisticRegression</span><span class="p">(),</span> <span class="n">X_odab</span><span class="p">,</span> <span class="n">y_sum</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+
+<span class="n">cjevovod</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">SelectKBest</span><span class="p">(</span><span class="n">f_classif</span><span class="p">,</span> <span class="n">k</span><span class="o">=</span><span class="mi">20</span><span class="p">),</span> <span class="n">LogisticRegression</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;odabir unutar Pipeline:    </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">cjevovod</span><span class="p">,</span> <span class="n">X_sum</span><span class="p">,</span> <span class="n">y_sum</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span></code></pre></div>
+<pre class="izlaz"><code>odabir prije CV (curenje): 0.810
+odabir unutar Pipeline:    0.520</code></pre>
+<p>S curenjem dobivamo točnost koja uvjerljivo „dokazuje” da u čistom šumu ima signala: od 2000 slučajnih stupaca uvijek se nađe 20 koji slučajno koreliraju s oznakama, uključujući i oznake validacijskog dijela. Unutar cjevovoda odabir se u svakom krugu ponavlja samo na dijelu za učenje i rezultat pada na očekivanih oko 50 %. Ista priča vrijedi za skaliranje, PCA i svako drugo pretprocesiranje.</p>
+<p><b>Korak 2: GridSearchCV.</b> Odvojimo pravi testni skup koji ćemo pogledati jednom, na kraju. SVM s RBF jezgrom ima dva ključna hiperparametra: $C$ (koliko kažnjavamo pogreške na učenju) i $\gamma$ (širina jezgre); oba pretražujemo logaritamski. Mreža $3\times3$ uz $5$ dijelova znači $45$ učenja.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_digits</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">GridSearchCV</span>
+<span class="kn">from</span> <span class="nn">sklearn.svm</span> <span class="kn">import</span> <span class="n">SVC</span>
+
+<span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span> <span class="o">=</span> <span class="n">load_digits</span><span class="p">(</span><span class="n">return_X_y</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">Xd_tr</span><span class="p">,</span> <span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">yd_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">Xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">yd</span><span class="p">)</span>
+
+<span class="n">svm</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">SVC</span><span class="p">())</span>
+<span class="n">mreza</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;svc__C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="s2">&quot;svc__gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">]}</span>
+<span class="n">pretraga</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span><span class="n">svm</span><span class="p">,</span> <span class="n">mreza</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">&quot;accuracy&quot;</span><span class="p">)</span>
+<span class="n">pretraga</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najbolji:&quot;</span><span class="p">,</span> <span class="n">pretraga</span><span class="o">.</span><span class="n">best_params_</span><span class="p">,</span> <span class="s2">&quot; CV točnost </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">pretraga</span><span class="o">.</span><span class="n">best_score_</span><span class="p">)</span>
+
+<span class="n">rezultati</span> <span class="o">=</span> <span class="n">pretraga</span><span class="o">.</span><span class="n">cv_results_</span>
+<span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">rezultati</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">],</span> <span class="n">rezultati</span><span class="p">[</span><span class="s2">&quot;mean_test_score&quot;</span><span class="p">],</span> <span class="n">rezultati</span><span class="p">[</span><span class="s2">&quot;std_test_score&quot;</span><span class="p">]):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;C=</span><span class="si">%5g</span><span class="s2"> gamma=</span><span class="si">%5g</span><span class="s2">   </span><span class="si">%.4f</span><span class="s2"> ± </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;svc__C&quot;</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="s2">&quot;svc__gamma&quot;</span><span class="p">],</span> <span class="n">m</span><span class="p">,</span> <span class="n">s</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;test: </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">pretraga</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>najbolji: {'svc__C': 10, 'svc__gamma': 0.01}  CV točnost 0.9798
+C=  0.1 gamma=0.001   0.5121 ± 0.0528
+C=  0.1 gamma= 0.01   0.9325 ± 0.0126
+C=  0.1 gamma=  0.1   0.3528 ± 0.0468
+C=    1 gamma=0.001   0.9443 ± 0.0085
+C=    1 gamma= 0.01   0.9763 ± 0.0060
+C=    1 gamma=  0.1   0.9380 ± 0.0197
+C=   10 gamma=0.001   0.9791 ± 0.0110
+C=   10 gamma= 0.01   0.9798 ± 0.0060
+C=   10 gamma=  0.1   0.9394 ± 0.0197
+test: 0.9861</code></pre>
+<p>Tablica je važnija od samog pobjednika: pokazuje da je $\gamma=0{,}1$ loš izbor za svaki $C$ (preuska jezgra – model pamti pojedine primjere), da je uz $\gamma=0{,}001$ potreban veći $C$, i da je razlika između nekoliko najboljih kombinacija manja od njihove standardne devijacije – njih ne možemo pouzdano razlikovati. Rezultat na odvojenom testu blizu je validacijskom, kako i treba.</p>
+<p><b>Korak 3: RandomizedSearchCV.</b> Umjesto mreže zadajemo razdiobe; <code>loguniform</code> uzorkuje jednoliko po logaritmu. S $12$ pokušaja pokrivamo šire područje nego mreža s $9$ točaka.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">loguniform</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">RandomizedSearchCV</span>
+
+<span class="n">razdiobe</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;svc__C&quot;</span><span class="p">:</span> <span class="n">loguniform</span><span class="p">(</span><span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e3</span><span class="p">),</span> <span class="s2">&quot;svc__gamma&quot;</span><span class="p">:</span> <span class="n">loguniform</span><span class="p">(</span><span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e0</span><span class="p">)}</span>
+<span class="n">slucajna</span> <span class="o">=</span> <span class="n">RandomizedSearchCV</span><span class="p">(</span><span class="n">svm</span><span class="p">,</span> <span class="n">razdiobe</span><span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">slucajna</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najbolji: C=</span><span class="si">%.3g</span><span class="s2"> gamma=</span><span class="si">%.3g</span><span class="s2">   CV točnost </span><span class="si">%.4f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">slucajna</span><span class="o">.</span><span class="n">best_params_</span><span class="p">[</span><span class="s2">&quot;svc__C&quot;</span><span class="p">],</span> <span class="n">slucajna</span><span class="o">.</span><span class="n">best_params_</span><span class="p">[</span><span class="s2">&quot;svc__gamma&quot;</span><span class="p">],</span> <span class="n">slucajna</span><span class="o">.</span><span class="n">best_score_</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;test: </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">slucajna</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">Xd_te</span><span class="p">,</span> <span class="n">yd_te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>najbolji: C=658 gamma=0.00342   CV točnost 0.9791
+test: 0.9833</code></pre>
+<p>Slučajno pretraživanje našlo je kombinaciju jednako dobru kao mreža, a da smo imali još tri-četiri hiperparametra (stupanj jezgre, odabir značajki, …), prednost bi bila očita. Dobra praksa je dvofazno: grubo slučajno pretraživanje na širokom području, zatim fina mreža oko najboljeg.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3 <span class="izvor-oznaka">skup podataka digits</span></h3>
+<div class="zadatak">
+<p>Za SVM iz Primjera 2 nacrtaj krivulju validacije po $\gamma$ i krivulju učenja za najbolji model. Pročitaj iz njih područja podnaučenosti i prenaučenosti te procijeni bi li više podataka pomoglo.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: krivulja validacije.</b> <code>validation_curve</code> vraća matrice oblika (broj vrijednosti, broj dijelova) za učenje i validaciju.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">validation_curve</span><span class="p">,</span> <span class="n">learning_curve</span>
+
+<span class="n">game</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">)</span>
+<span class="n">uc</span><span class="p">,</span> <span class="n">va</span> <span class="o">=</span> <span class="n">validation_curve</span><span class="p">(</span><span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">SVC</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mi">10</span><span class="p">)),</span> <span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span>
+                          <span class="n">param_name</span><span class="o">=</span><span class="s2">&quot;svc__gamma&quot;</span><span class="p">,</span> <span class="n">param_range</span><span class="o">=</span><span class="n">game</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   gamma   učenje  validacija&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">g</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="n">uc</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">va</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%8.4f</span><span class="s2">   </span><span class="si">%.3f</span><span class="s2">    </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>   gamma   učenje  validacija
+  0.0001   0.953    0.944
+  0.0005   0.986    0.969
+  0.0022   0.995    0.981
+  0.0100   1.000    0.980
+  0.0464   1.000    0.974
+  0.2154   1.000    0.767
+  1.0000   1.000    0.158</code></pre>
+<p>Za male $\gamma$ obje su točnosti slične i niže – model je preglatka (podnaučen). Oko $\gamma\approx0{,}002$–$0{,}01$ validacija je najviša. Za $\gamma\ge0{,}2$ točnost na učenju je $1{,}000$, a validacijska se strmoglavljuje – klasična prenaučenost: svaka točka za učenje dobila je vlastiti „brežuljak” jezgre koji ne pokriva nijednog susjeda.</p>
+<p><b>Korak 2: krivulja učenja.</b> Isti model s najboljim $\gamma$, a mijenjamo udio podataka za učenje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">najbolji</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">SVC</span><span class="p">(</span><span class="n">C</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.001</span><span class="p">))</span>
+<span class="n">velicine</span><span class="p">,</span> <span class="n">uc2</span><span class="p">,</span> <span class="n">va2</span> <span class="o">=</span> <span class="n">learning_curve</span><span class="p">(</span><span class="n">najbolji</span><span class="p">,</span> <span class="n">Xd_tr</span><span class="p">,</span> <span class="n">yd_tr</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">cv5</span><span class="p">,</span>
+                                    <span class="n">train_sizes</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.1</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  n   učenje  validacija&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">n_</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">velicine</span><span class="p">,</span> <span class="n">uc2</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">va2</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%4d</span><span class="s2">   </span><span class="si">%.3f</span><span class="s2">    </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">n_</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>  n   učenje  validacija
+ 114   0.989    0.881
+ 321   0.983    0.952
+ 528   0.988    0.962
+ 735   0.989    0.974
+ 942   0.991    0.975
+1149   0.991    0.979</code></pre>
+<p>Točnost na učenju je oko $0{,}99$ bez obzira na $n$ (SVM s ovim $\gamma$ ima dovoljno kapaciteta da gotovo savršeno nauči bilo koji od ovih skupova), a validacijska s količinom podataka raste – od $0{,}88$ sa $114$ primjera do $0{,}98$ sa svima – i još nije zasićena – jaz se zatvara, pa bi <em>više podataka</em> ovom modelu još pomoglo. Da su obje krivulje bile na, recimo, $0{,}90$ i spojene, podaci ne bi pomogli; trebalo bi mijenjati model.</p>
+<p><b>Korak 3: slika.</b> Na natjecanju ove dvije slike nacrtaj za svaki ozbiljan model – iz njih se u pet sekundi vidi što dalje: više podataka, više regularizacije ili drugi model.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;Agg&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">a1</span><span class="p">,</span> <span class="n">a2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mf">3.4</span><span class="p">))</span>
+<span class="n">a1</span><span class="o">.</span><span class="n">semilogx</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="n">uc</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;učenje&quot;</span><span class="p">)</span>
+<span class="n">a1</span><span class="o">.</span><span class="n">semilogx</span><span class="p">(</span><span class="n">game</span><span class="p">,</span> <span class="n">va</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;s-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;validacija&quot;</span><span class="p">)</span>
+<span class="n">a1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;gamma&quot;</span><span class="p">);</span> <span class="n">a1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;točnost&quot;</span><span class="p">);</span> <span class="n">a1</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;krivulja validacije&quot;</span><span class="p">);</span> <span class="n">a1</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">a2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">velicine</span><span class="p">,</span> <span class="n">uc2</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;učenje&quot;</span><span class="p">)</span>
+<span class="n">a2</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">velicine</span><span class="p">,</span> <span class="n">va2</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="s2">&quot;s-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;validacija&quot;</span><span class="p">)</span>
+<span class="n">a2</span><span class="o">.</span><span class="n">fill_between</span><span class="p">(</span><span class="n">velicine</span><span class="p">,</span> <span class="n">va2</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">va2</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">va2</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">+</span> <span class="n">va2</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="n">a2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;broj primjera za učenje&quot;</span><span class="p">);</span> <span class="n">a2</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;krivulja učenja&quot;</span><span class="p">);</span> <span class="n">a2</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;krivulje.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;spremljeno krivulje.png&quot;</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>spremljeno krivulje.png</code></pre>
+<p>Na lijevoj slici vidi se karakteristični „šator” validacijske krivulje s vrhom oko $10^{-3}$ i krivulja učenja koja desno od vrha ostaje na jedinici. Na desnoj je krivulja učenja gotovo ravna crta pri vrhu, a validacijska raste prema njoj; osjenčana vrpca je $\pm$ jedna standardna devijacija po dijelovima.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p><code>GridSearchCV</code> dobije mrežu <code>{"C": [0.01, 0.1, 1, 10], "gamma": [1e-4, 1e-3, 1e-2, 1e-1, 1]}</code> i <code>cv=5</code>. Koliko će puta model biti istreniran? Koliko kod <code>RandomizedSearchCV</code> s <code>n_iter=15</code> i istim <code>cv</code>? Provjeri na malom primjeru brojeći redove u <code>cv_results_</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Mreža ima $4\cdot5=20$ kombinacija, svaka se ocjenjuje na $5$ dijelova: $100$ učenja, plus jedno završno učenje najboljeg modela na cijelom skupu (<code>refit=True</code>), ukupno $101$. Slučajno pretraživanje: $15\cdot5+1=76$. U <code>cv_results_</code> jedan je redak po kombinaciji, dakle $20$ odnosno $15$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">mala</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span><span class="n">SVC</span><span class="p">(),</span> <span class="p">{</span><span class="s2">&quot;C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="s2">&quot;gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]},</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+<span class="n">mala</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">[:</span><span class="mi">200</span><span class="p">],</span> <span class="n">y</span><span class="p">[:</span><span class="mi">200</span><span class="p">])</span>
+<span class="n">k</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">mala</span><span class="o">.</span><span class="n">cv_results_</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;kombinacija:&quot;</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="s2">&quot; učenja:&quot;</span><span class="p">,</span> <span class="n">k</span> <span class="o">*</span> <span class="mi">5</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>kombinacija: 20  učenja: 101</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>U kojim od sljedećih postupaka curi informacija i kako bi ih popravio? (a) <code>StandardScaler().fit(X)</code> na cijelom skupu, pa <code>train_test_split</code>. (b) Nedostajuće vrijednosti popunjene medijanom stupca izračunatim na cijelom skupu. (c) U zadatku predviđanja hoće li pacijent biti ponovno primljen u bolnicu, jedna značajka je „broj dana do sljedećeg prijema”. (d) Vremenski niz prodaje podijeljen s <code>KFold(shuffle=True)</code>. (e) Skup slika u kojem se ista fotografija pojavljuje u različitim rezolucijama, podijeljen slučajno po slikama.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Sve curi. (a) i (b): statistike validacijskih/testnih primjera ušle su u transformaciju – staviti <code>StandardScaler</code>/<code>SimpleImputer</code> u <code>Pipeline</code>. (c) Značajka je izvedena iz cilja (poznata je tek <em>nakon</em> događaja koji predviđamo) – izbaciti je; takve značajke daju nerealno savršene rezultate. (d) Model uči na budućnosti i predviđa prošlost; interpolacija između susjednih dana je lagana, a stvarni zadatak je ekstrapolacija – koristiti <code>TimeSeriesSplit</code>. (e) Gotovo iste slike na obje strane podjele; model „prepoznaje” sliku, ne pojam – grupirati inačice iste slike i koristiti <code>GroupKFold</code>.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za svaki zadatak predloži metriku i objasni zašto točnost (engl. <i>accuracy</i>) nije dobar izbor gdje nije: (a) otkrivanje prijevara s kreditnim karticama, $0{,}2$ % prijevara; (b) predviđanje cijene nekretnina od 50 tisuća do 20 milijuna; (c) rangiranje e-mailova po vjerojatnosti da su važni; (d) klasifikacija 10 vrsta ptica s podjednako primjera; (e) model čije izlazne vjerojatnosti ulaze u daljnji proračun rizika.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>(a) Točnost $99{,}8$ % postiže model koji nikad ne prijavi prijevaru; koristi preciznost/odziv, F1 ili površinu ispod krivulje preciznost–odziv (PR-AUC). (b) Kvadratna greška bila bi dominirana vilama; RMSLE ili MAE na $\log$ cijene mjeri <em>relativnu</em> grešku. (c) Zanima nas poredak, ne prag – ROC-AUC (vjerojatnost da je slučajan važan e-mail rangiran iznad nevažnoga). (d) Uravnotežene klase – točnost je u redu, makro-F1 ako želimo paziti na svaku klasu. (e) Potrebne su kalibrirane vjerojatnosti – log-gubitak (engl. <i>log loss</i>) ili Brierov rezultat, jer točnost ignorira koliko je model siguran.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Napiši vlastitu funkciju <code>moja_cv(model, X, y, k, sjeme)</code> koja provodi $k$-struku unakrsnu validaciju bez <code>cross_val_score</code>: promiješaj indekse, podijeli ih s <code>np.array_split</code>, u svakom krugu kloniraj model (<code>sklearn.base.clone</code>) i vrati niz točnosti. Usporedi s <code>cross_val_score</code> na skupu <code>breast_cancer</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.base</span> <span class="kn">import</span> <span class="n">clone</span>
+
+<span class="k">def</span> <span class="nf">moja_cv</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">sjeme</span><span class="p">):</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">sjeme</span><span class="p">)</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+    <span class="n">dijelovi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array_split</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+    <span class="n">rez</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">k</span><span class="p">):</span>
+        <span class="n">te</span> <span class="o">=</span> <span class="n">dijelovi</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">d</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dijelovi</span><span class="p">)</span> <span class="k">if</span> <span class="n">j</span> <span class="o">!=</span> <span class="n">i</span><span class="p">])</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">clone</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">tr</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">tr</span><span class="p">])</span>
+        <span class="n">rez</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">score</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">te</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">te</span><span class="p">]))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">rez</span><span class="p">)</span>
+
+<span class="n">r1</span> <span class="o">=</span> <span class="n">moja_cv</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">r2</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">KFold</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;moja_cv:         </span><span class="si">%.4f</span><span class="s2"> ± </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">r1</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">r1</span><span class="o">.</span><span class="n">std</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cross_val_score: </span><span class="si">%.4f</span><span class="s2"> ± </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">r2</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">r2</span><span class="o">.</span><span class="n">std</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>moja_cv:         0.9789 ± 0.0071
+cross_val_score: 0.9719 ± 0.0170</code></pre>
+<p>Procjene se razlikuju za manje od jednog postotka iako podjele nisu iste (dva različita generatora slučajnih brojeva). Kloniranje je bitno: <code>fit</code> na istom objektu prepisao bi prethodni model, a kod cjevovoda bi i skaler „pamtio” prethodni dio.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Usporedi logističku regresiju i $k$-najbližih susjeda (<code>KNeighborsClassifier(5)</code>) na skupu <code>breast_cancer</code> pomoću <code>RepeatedStratifiedKFold(n_splits=5, n_repeats=10)</code>. Oba modela ocijeni na <em>istim</em> podjelama, izračunaj razliku točnosti po dijelu te prosjek i standardnu devijaciju tih razlika. Je li razlika stvarna ili šum?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">RepeatedStratifiedKFold</span>
+<span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">KNeighborsClassifier</span>
+
+<span class="n">rskf</span> <span class="o">=</span> <span class="n">RepeatedStratifiedKFold</span><span class="p">(</span><span class="n">n_splits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">n_repeats</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">knn</span> <span class="o">=</span> <span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">KNeighborsClassifier</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">rskf</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">knn</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">rskf</span><span class="p">)</span>
+<span class="n">d</span> <span class="o">=</span> <span class="n">a</span> <span class="o">-</span> <span class="n">b</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;logistička </span><span class="si">%.4f</span><span class="s2">   kNN </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;razlika po dijelu: </span><span class="si">%.4f</span><span class="s2"> ± </span><span class="si">%.4f</span><span class="s2">  (pozitivna u </span><span class="si">%d</span><span class="s2"> od </span><span class="si">%d</span><span class="s2"> dijelova)&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">d</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span> <span class="p">(</span><span class="n">d</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>logistička 0.9772   kNN 0.9666
+razlika po dijelu: 0.0106 ± 0.0178  (pozitivna u 33 od 50 dijelova)</code></pre>
+<p>Isti objekt <code>rskf</code> daje identične podjele za oba modela (sjeme je fiksirano), pa su razlike <em>uparene</em>: šum zbog izbora dijela poništava se. Prosjek razlike reda jednog postotka uz standardnu devijaciju sličnog reda te većina dijelova u korist logističke regresije kažu da razlika postoji, ali je mala; $50$ ocjena nije mnogo pa ne treba pretjerivati s pouzdanošću (dijelovi istog ponavljanja nisu nezavisni). Da si modele ocijenio na različitim podjelama, u razliku bi ušao i šum podjele i zaključak bi bio nepouzdaniji.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Eksperimentalno provjeri razlaganje pristranost–varijanca. Za $f(x)=\sin(2\pi x)$ na $[0,1]$ generiraj $300$ nezavisnih skupova za učenje od po $30$ točaka sa šumom $\sigma=0{,}3$. Za polinome stupnja $1$, $3$, $6$ i $9$ izračunaj na mreži od $100$ testnih točaka u $[0{,}05,\,0{,}95]$ prosječnu kvadratnu pristranost, prosječnu varijancu te očekivanu testnu grešku (sa šumom $\sigma^2$). Provjeri da je greška jednaka zbroju triju članova.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Spremi predikcije svih $300$ modela u matricu oblika $(300,100)$; pristranost je kvadrat razlike njezina prosjeka po stupcima i $f$, varijanca je varijanca po stupcima.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">PolynomialFeatures</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">mreza_x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.95</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">f_ist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">mreza_x</span><span class="p">)</span>
+<span class="n">sigma</span> <span class="o">=</span> <span class="mf">0.3</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stupanj  bias^2   varijanca  sigma^2  zbroj   test MSE&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">st</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">9</span><span class="p">):</span>
+    <span class="n">pf</span> <span class="o">=</span> <span class="n">PolynomialFeatures</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+    <span class="n">A_te</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">mreza_x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">300</span><span class="p">,</span> <span class="mi">100</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">300</span><span class="p">):</span>
+        <span class="n">xs</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+        <span class="n">ys</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">xs</span><span class="p">)</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+        <span class="n">w</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">pf</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">xs</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]),</span> <span class="n">ys</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">pred</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="n">A_te</span> <span class="o">@</span> <span class="n">w</span>
+    <span class="n">bias2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">pred</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">-</span> <span class="n">f_ist</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">y_te</span> <span class="o">=</span> <span class="n">f_ist</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">pred</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># svježi šum za svaki model</span>
+    <span class="n">mse</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">pred</span> <span class="o">-</span> <span class="n">y_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%6d</span><span class="s2">  </span><span class="si">%7.4f</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">  </span><span class="si">%7.4f</span><span class="s2">  </span><span class="si">%6.4f</span><span class="s2">  </span><span class="si">%8.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">st</span><span class="p">,</span> <span class="n">bias2</span><span class="p">,</span> <span class="n">var</span><span class="p">,</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">bias2</span> <span class="o">+</span> <span class="n">var</span> <span class="o">+</span> <span class="n">sigma</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">mse</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>stupanj  bias^2   varijanca  sigma^2  zbroj   test MSE
+     1   0.1543     0.0212   0.0900  0.2654    0.2648
+     3   0.0030     0.0127   0.0900  0.1057    0.1067
+     6   0.0002     0.0315   0.0900  0.1217    0.1220
+     9   0.0221     6.5913   0.0900  6.7033    6.6896</code></pre>
+<p>Pravac ima veliku pristranost i malu varijancu; sa stupnjem pristranost pada prema nuli, a varijanca raste – za stupanj $9$ ($10$ parametara iz $30$ šumovitih točaka) eksplodira jer polinom između točaka i uz rubove divlja, pa i prosjek predikcija postaje nepouzdan. Stupanj $3$ ima najmanji zbroj. Zbroj triju članova poklapa se s izravno izmjerenom testnom greškom do na slučajnu grešku uzorka, što je upravo tvrdnja teorema. Primijeti da je član $\sigma^2=0{,}09$ donja granica koju nijedan model ne može probiti.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Rezultat <code>best_score_</code> iz <code>GridSearchCV</code> optimistična je procjena jer je izabran kao najbolji među mnogima. Pokaži to <b>ugniježđenom unakrsnom validacijom</b> na skupu <code>breast_cancer</code> sa SVM-om: vanjska petlja (5 dijelova) ocjenjuje cijeli postupak „pretraži hiperparametre pa predvidi”, unutarnja (3 dijela) bira hiperparametre. Usporedi s <code>best_score_</code> dobivenim pretraživanjem na cijelom skupu.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p><code>GridSearchCV</code> je i sam estimator – može se predati u <code>cross_val_score</code>.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">mreza2</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;svc__C&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">],</span> <span class="s2">&quot;svc__gamma&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">]}</span>
+<span class="n">unutarnja</span> <span class="o">=</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">vanjska</span> <span class="o">=</span> <span class="n">StratifiedKFold</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">gs</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span><span class="n">make_pipeline</span><span class="p">(</span><span class="n">StandardScaler</span><span class="p">(),</span> <span class="n">SVC</span><span class="p">()),</span> <span class="n">mreza2</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">unutarnja</span><span class="p">)</span>
+
+<span class="n">gs</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;neugniježđeno (best_score_): </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">gs</span><span class="o">.</span><span class="n">best_score_</span><span class="p">)</span>
+<span class="n">ugn</span> <span class="o">=</span> <span class="n">cross_val_score</span><span class="p">(</span><span class="n">gs</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="n">vanjska</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ugniježđeno:                 </span><span class="si">%.4f</span><span class="s2"> ± </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">ugn</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">ugn</span><span class="o">.</span><span class="n">std</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>neugniježđeno (best_score_): 0.9771
+ugniježđeno:                 0.9737 ± 0.0229</code></pre>
+<p>Ugniježđena procjena niža je od <code>best_score_</code>: maksimum od 12 šumovitih procjena pristran je prema gore, kao što je i najbolji od 12 bacanja kocke veći od prosjeka. Razlika je ovdje mala jer su kombinacije u mreži slične i skup je relativno lak; s velikim mrežama i malim skupovima zna biti nekoliko postotaka. Pouka: broj koji prijavljuješ ne smije biti onaj po kojem si birao – zato i postoji odvojeni testni skup.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><b>Simulacija javnog leaderboarda.</b> Testni skup ima $2000$ binarnih oznaka; organizator $400$ nasumično odabranih stavlja u javni dio, ostalih $1600$ u privatni. Natjecatelj pošalje $200$ rješenja koja su <em>sva jednako dobra</em>: svako pogađa svaku oznaku nezavisno s vjerojatnošću $0{,}7$. Odabere ono s najboljim javnim rezultatom. Koliki je njegov javni, a koliki privatni rezultat? Što bi dobio da je umjesto najboljeg uzeo većinsko glasanje (engl. <i>majority vote</i>) svih 200 rješenja? Objasni oba učinka.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Očekivana točnost svakog rješenja je $0{,}7$ na oba dijela; javni rezultat najboljeg među 200 je <em>maksimum</em> 200 slučajnih varijabli.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">n_jav</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">400</span>
+<span class="n">istina</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">javni</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="nb">bool</span><span class="p">);</span> <span class="n">javni</span><span class="p">[</span><span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n_jav</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="n">pogodak</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="mi">200</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mf">0.7</span>                 <span class="c1"># 200 rješenja, svako pogađa 70 % oznaka</span>
+<span class="n">rjesenja</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">pogodak</span><span class="p">,</span> <span class="n">istina</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">istina</span><span class="p">)</span>
+<span class="n">toc_jav</span> <span class="o">=</span> <span class="p">(</span><span class="n">rjesenja</span><span class="p">[:,</span> <span class="n">javni</span><span class="p">]</span> <span class="o">==</span> <span class="n">istina</span><span class="p">[</span><span class="n">javni</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">toc_priv</span> <span class="o">=</span> <span class="p">(</span><span class="n">rjesenja</span><span class="p">[:,</span> <span class="o">~</span><span class="n">javni</span><span class="p">]</span> <span class="o">==</span> <span class="n">istina</span><span class="p">[</span><span class="o">~</span><span class="n">javni</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="n">naj</span> <span class="o">=</span> <span class="n">toc_jav</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najbolje po javnom:  javni </span><span class="si">%.3f</span><span class="s2">   privatni </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">toc_jav</span><span class="p">[</span><span class="n">naj</span><span class="p">],</span> <span class="n">toc_priv</span><span class="p">[</span><span class="n">naj</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prosjek svih 200:    javni </span><span class="si">%.3f</span><span class="s2">   privatni </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">toc_jav</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">toc_priv</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span>
+<span class="n">glasanje</span> <span class="o">=</span> <span class="p">(</span><span class="n">rjesenja</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;većinsko glasanje:   javni </span><span class="si">%.3f</span><span class="s2">   privatni </span><span class="si">%.3f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">((</span><span class="n">glasanje</span><span class="p">[</span><span class="n">javni</span><span class="p">]</span> <span class="o">==</span> <span class="n">istina</span><span class="p">[</span><span class="n">javni</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="p">(</span><span class="n">glasanje</span><span class="p">[</span><span class="o">~</span><span class="n">javni</span><span class="p">]</span> <span class="o">==</span> <span class="n">istina</span><span class="p">[</span><span class="o">~</span><span class="n">javni</span><span class="p">])</span><span class="o">.</span><span class="n">mean</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>najbolje po javnom:  javni 0.755   privatni 0.700
+prosjek svih 200:    javni 0.701   privatni 0.699
+većinsko glasanje:   javni 1.000   privatni 1.000</code></pre>
+<p>Dva učinka. <em>Prvi:</em> javni rezultat pobjednika je za nekoliko postotaka iznad njegove stvarne kvalitete – to je maksimum od 200 šumovitih mjerenja na uzorku od 400 (standardna devijacija jednog mjerenja je $\sqrt{0{,}7\cdot0{,}3/400}\approx0{,}023$), a na privatnom dijelu pada natrag na oko $0{,}70$. Natjecatelj koji je rangiran po javnom rezultatu bit će na privatnom „iznenađen”. <em>Drugi:</em> većinsko glasanje 200 nezavisnih rješenja točnih $70$ % vremena točno je gotovo uvijek – greške se poništavaju (to je ideja ansambala iz M4 i razlog zašto se na kraju natjecanja usrednjavaju najbolja rješenja). U stvarnosti rješenja nisu nezavisna, pa je dobitak manji, ali smjer je isti: ne biraj po javnom rezultatu, kombiniraj po vlastitoj validaciji.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Testna točnost je slučajna varijabla: ovisi o tome kojih je $114$ primjera završilo u testu. Procijeni njezinu nesigurnost <b>bootstrapom</b>: iz testnih predikcija modela uzorkuj s vraćanjem $2000$ puta po $114$ indeksa, izračunaj točnost svakog uzorka i navedi 95 %-tni interval (2,5. i 97,5. percentil). Napravi to za logističku regresiju i kNN na istoj podjeli skupa <code>breast_cancer</code> te za <em>razliku</em> njihovih točnosti. Može li se iz ovog testa zaključiti koji je model bolji?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Za razliku uzorkuj iste indekse za oba modela (upareno).</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">stratify</span><span class="o">=</span><span class="n">y</span><span class="p">)</span>
+<span class="n">p_log</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_te</span><span class="p">)</span>
+<span class="n">p_knn</span> <span class="o">=</span> <span class="n">knn</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_te</span><span class="p">)</span>
+<span class="n">tocni_log</span><span class="p">,</span> <span class="n">tocni_knn</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_log</span> <span class="o">==</span> <span class="n">y_te</span><span class="p">),</span> <span class="p">(</span><span class="n">p_knn</span> <span class="o">==</span> <span class="n">y_te</span><span class="p">)</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">integers</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_te</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">2000</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_te</span><span class="p">)))</span>
+<span class="n">boot_log</span> <span class="o">=</span> <span class="n">tocni_log</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">boot_knn</span> <span class="o">=</span> <span class="n">tocni_knn</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">interval</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%.3f</span><span class="s2">  [</span><span class="si">%.3f</span><span class="s2">, </span><span class="si">%.3f</span><span class="s2">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">[</span><span class="mf">2.5</span><span class="p">,</span> <span class="mf">97.5</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;logistička:&quot;</span><span class="p">,</span> <span class="n">interval</span><span class="p">(</span><span class="n">boot_log</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;kNN:       &quot;</span><span class="p">,</span> <span class="n">interval</span><span class="p">(</span><span class="n">boot_knn</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;razlika:   &quot;</span><span class="p">,</span> <span class="n">interval</span><span class="p">(</span><span class="n">boot_log</span> <span class="o">-</span> <span class="n">boot_knn</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>logistička: 0.973  [0.939, 1.000]
+kNN:        0.974  [0.939, 1.000]
+razlika:    -0.001  [-0.035, 0.035]</code></pre>
+<p>Interval širok oko $\pm3$ postotna boda na $114$ primjera: razlike između modela od jednog ili dva postotka na ovakvom testu naprosto se ne mogu razlučiti od šuma, a interval za razliku sadrži nulu. To je ključna lekcija za natjecanja s malim testnim skupovima: ne mijenjaj model zbog razlike koja je unutar intervala, i prije no što prijaviš „poboljšanje” pogledaj koliko je testni skup velik. Veći testni skup (ili unakrsna validacija na svim podacima) sužava interval s $\sqrt{n}$.</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Tri skupa: na učenju se uče parametri, na validaciji se donose <em>sve</em> odluke, test se gleda jednom. Sve što utječe na model mora se odlučiti bez testa.</li>
+<li>Unakrsna validacija (<code>KFold</code>, <code>StratifiedKFold</code>, <code>GroupKFold</code>, <code>TimeSeriesSplit</code>) daje stabilniju procjenu i njezino raspršenje; rezultat prijavljuj kao prosjek ± std i uspoređuj modele na istim podjelama.</li>
+<li>Svako pretprocesiranje koje se uči iz podataka ide u <code>Pipeline</code>, inače curi informacija iz validacije; sumnjivo dobar rezultat gotovo uvijek znači curenje.</li>
+<li><code>GridSearchCV</code> za malo hiperparametara, <code>RandomizedSearchCV</code> za više; logaritamska skala za $C$, $\gamma$, $\lambda$; <code>best_score_</code> je optimističan, ugniježđena validacija ili odvojeni test daju pošten broj.</li>
+<li>Krivulja validacije pokazuje podnaučenost/prenaučenost po hiperparametru, krivulja učenja kaže bi li pomogli još podaci; iza toga stoji razlaganje greške na pristranost², varijancu i šum.</li>
+<li>Metriku diktira zadatak; eksperimente fiksiraj sjemenom; vjeruj svojoj validaciji, ne javnom leaderboardu.</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/cross_validation.html">Cross-validation</a>, <a href="https://scikit-learn.org/stable/modules/grid_search.html">Tuning the hyper-parameters of an estimator</a> i <a href="https://scikit-learn.org/stable/common_pitfalls.html">Common pitfalls and recommended practices</a> (curenje podataka).</li>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 2 (cjelovit projekt s validacijom i pretraživanjem hiperparametara).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlje 7 (Model Assessment and Selection) – pristranost–varijanca i unakrsna validacija s dokazima.</li>
+<li>J. Bergstra, Y. Bengio, <i>Random Search for Hyper-Parameter Optimization</i>, JMLR 13 (2012) – zašto je slučajno pretraživanje bolje od mreže.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="04-stabla-sume-boosting.html"><small>← Prethodna lekcija</small>M4 · Stabla odluke, slučajne šume i boosting</a>
+                <a class="sljedeca" href="06-nenadzirano-ucenje.html"><small>Sljedeća lekcija →</small>M6 · Nenadzirano učenje: grupiranje i smanjenje dimenzije</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>

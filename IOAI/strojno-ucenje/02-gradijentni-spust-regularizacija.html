@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IOAI — Strojno učenje 2: Gradijentni spust i regularizacija</title>
+    <script src="../../assets/js/asset-errors.js"></script>
+    <script src="../../assets/js/mathjax-config.js"></script>
+    <script src="../../assets/js/matematika.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../assets/css/pozadina.css">
+    <script defer src="../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../assets/css/matematika.css">
+    <link rel="stylesheet" href="../../assets/css/oiwiki-pygments.css">
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="../index.html">← Natrag na IOAI</a> · <a href="../index.html#strojno-ucenje">Strojno učenje</a> · <a href="../../index.html">Početna</a></p>
+    <article class="analiza lekcija">
+        <header>
+            <p class="nadnaslov">IOAI · Strojno učenje · lekcija 2 od 6</p>
+            <h1><span class="broj-lekcije">M2</span> Gradijentni spust i regularizacija</h1>
+            <p class="meta">Kako se model uči kad formule nema: koraci niz gradijent, stopa učenja, skaliranje značajki i kazna za prevelike težine</p>
+            <ul class="joisc-oznake">
+                <li class="tezina" style="--tezina: 0.2" title="temelji koje mora znati svaki natjecatelj">Razina: Osnove</li>
+                <li>gradijentni spust</li>
+                <li>SGD</li>
+                <li>mini-batch</li>
+                <li>stopa učenja</li>
+                <li>standardizacija</li>
+                <li>ridge ($L_2$)</li>
+                <li>lasso ($L_1$)</li>
+                <li>prenaučenost</li>
+            </ul>
+        </header>
+        <div class="uvodnik">
+            <h3>U ovoj lekciji</h3>
+            <ul>
+<li>Objasniti zašto se većina modela uči gradijentnim spustom, a ne zatvorenom formulom, i razlikovati puni, mini-batch i stohastički gradijentni spust.</li>
+<li>Odabrati stopu učenja: prepoznati divergenciju i presporu konvergenciju na krivulji gubitka te razumjeti kako standardizacija značajki ubrzava učenje.</li>
+<li>Dodati gubitku $L_2$ (ridge) ili $L_1$ (lasso) kaznu, izvesti pripadne korake učenja i objasniti zašto lasso daje rijetke težine.</li>
+<li>Pomoću regularizacije kontrolirati prenaučenost: ručno u NumPy-ju, a zatim istim rezultatom u scikit-learnu (<code>Ridge</code>, <code>Lasso</code>, <code>SGDRegressor</code>).</li>
+            </ul>
+        </div>
+        <nav class="lekcija-sadrzaj" aria-label="Dijelovi lekcije">
+            <a href="#teorija">Teorija</a><a href="#primjeri">Praksa: riješeni primjeri</a><a href="#zadaci">Zadaci za vježbu</a>
+        </nav>
+        <h2 id="teorija">Teorija</h2>
+<p>U lekciji M1 linearnu smo regresiju riješili normalnom jednadžbom $w^*=(X^\top X)^{-1}X^\top y$. Ta je formula iznimka, ne pravilo. Postoji samo zato što je MSE kvadratna funkcija parametara linearnog modela; čim zamijenimo gubitak (unakrsna entropija u M3) ili model (neuronska mreža u D1), minimum se više ne može „izračunati”, nego se do njega mora <em>hodati</em>. Čak i kad formula postoji, rješavanje sustava s $d$ nepoznanica košta $O(nd^2+d^3)$ operacija, što za $d$ od nekoliko stotina tisuća značajki (tekst, slike) nije izvedivo. Univerzalni alat koji radi u svim tim slučajevima zove se <b>gradijentni spust</b> i on je, u raznim oblicima, način na koji se uči gotovo svaki model u ovom kurikulumu.</p>
+
+<h3>Gubitak kao krajolik</h3>
+<p>Funkcija gubitka $L(w)=\frac1n\sum_{i=1}^n \ell(f_w(x_i),y_i)$ svakom izboru parametara $w\in\mathbb R^p$ pridružuje broj: koliko model s tim parametrima u prosjeku griješi. Zamisli $L$ kao krajolik nad $p$-dimenzionalnom ravninom parametara; učenje je traženje najniže točke. <b>Gradijent</b> $\nabla L(w)=\left(\frac{\partial L}{\partial w_1},\dots,\frac{\partial L}{\partial w_p}\right)$ (lekcija P6) pokazuje smjer najstrmijeg <em>uspona</em> u točki $w$, pa je $-\nabla L(w)$ smjer najstrmijeg spusta. Za MSE linearnog modela, uz matricu dizajna $X$ sa stupcem jedinica, u M1 smo izveli $\nabla L(w)=\frac2n X^\top(Xw-y)$.</p>
+
+<h3>Gradijentni spust i njegove inačice</h3>
+<div class="pojam">
+<h4>Gradijentni spust</h4>
+<p>Krenuvši od početne točke $w_0$ (obično nule ili mali slučajni brojevi), ponavljaj
+$$w_{t+1}=w_t-\eta\,\nabla L(w_t),$$
+gdje je $\eta\gt0$ <b>stopa učenja</b> (engl. <i>learning rate</i>). Postupak staje nakon zadanog broja koraka, kad gradijent postane malen ili kad se gubitak na validacijskom skupu prestane smanjivati.</p>
+</div>
+<p>Gubitak je prosjek po primjerima, pa je i gradijent prosjek gradijenata pojedinih primjera, $\nabla L=\frac1n\sum_i\nabla\ell_i$. Prema tome koliko primjera uđe u taj prosjek u jednom koraku razlikujemo tri inačice.</p>
+<ul>
+<li><b>Puni (batch) gradijentni spust</b> koristi svih $n$ primjera: gradijent je točan, ali jedan korak košta $O(np)$ i za milijune primjera traje predugo.</li>
+<li><b>Stohastički gradijentni spust</b> (engl. <i>stochastic gradient descent</i>, SGD) u svakom koraku uzme <em>jedan</em> slučajno odabran primjer $i$ i napravi korak $w\leftarrow w-\eta\nabla\ell_i(w)$. Takav gradijent je šumovita, ali <em>nepristrana</em> procjena pravoga: $\mathbb E_i[\nabla\ell_i]=\nabla L$. Koraci su jeftini, putanja cik-cak.</li>
+<li><b>Mini-batch gradijentni spust</b> uzima $B$ primjera (tipično $32$ do $256$): manje šuma nego SGD, a $B$ primjera obrađuje se vektorizirano jednako brzo kao jedan. To je standard u dubokom učenju; kad se danas kaže „SGD”, gotovo uvijek se misli na mini-batch.</li>
+</ul>
+<p>Jedan prolaz kroz cijeli skup zove se <b>epoha</b>; prije svake epohe podaci se izmiješaju. U praksi se učenje prati crtanjem <b>krivulje gubitka</b> (gubitak u ovisnosti o koraku ili epohi), i to je prva slika koju treba pogledati kad god nešto ne radi.</p>
+
+<h3>Stopa učenja i konvergencija</h3>
+<p>Stopa učenja najvažniji je hiperparametar gradijentnog spusta. Premalena $\eta$ znači tisuće koraka za sitni pomak; prevelika znači da korak „preskoči” dolinu i gubitak <em>raste</em> umjesto da pada. Za kvadratni gubitak to se može točno opisati.</p>
+<div class="tvrdnja">
+<p><strong>Teorem 1 (konvergencija gradijentnog spusta za MSE).</strong> Neka je $L(w)=\frac1n\lVert Xw-y\rVert^2$ i neka Hesseova matrica $H=\frac2nX^\top X$ ima svojstvene vrijednosti $0\lt\lambda_{\min}\le\dots\le\lambda_{\max}$. Gradijentni spust s konstantnom stopom $\eta$ konvergira prema $w^*$ iz svake početne točke ako i samo ako je $0\lt\eta\lt 2/\lambda_{\max}$. Uz $\eta=1/\lambda_{\max}$ vrijedi
+$$\lVert w_{t}-w^*\rVert\le\left(1-\tfrac1\kappa\right)^t\lVert w_0-w^*\rVert,\qquad \kappa=\frac{\lambda_{\max}}{\lambda_{\min}}.$$</p>
+</div>
+<div class="dokaz">
+<p><em>Dokaz.</em> Za kvadratnu funkciju gradijent je linearan: $\nabla L(w)=H(w-w^*)$, jer je $\nabla L(w^*)=0$. Zato je $w_{t+1}-w^*=(I-\eta H)(w_t-w^*)$, pa je $w_t-w^*=(I-\eta H)^t(w_0-w^*)$. Matrica $I-\eta H$ simetrična je sa svojstvenim vrijednostima $1-\eta\lambda_j$; potencije $(I-\eta H)^t$ teže nuli točno onda kad je $|1-\eta\lambda_j|\lt1$ za sve $j$, tj. $0\lt\eta\lt2/\lambda_j$, a najstroži je uvjet za $\lambda_{\max}$. Uz $\eta=1/\lambda_{\max}$ svojstvene vrijednosti $1-\lambda_j/\lambda_{\max}$ leže u $[0,\,1-1/\kappa]$, pa se u svakom koraku udaljenost do minimuma smanji barem za faktor $1-1/\kappa$. <span class="qed" aria-hidden="true">∎</span></p>
+</div>
+<p>Broj $\kappa$ zove se <b>kondicijski broj</b>; za preciznost $\varepsilon$ treba otprilike $\kappa\ln(1/\varepsilon)$ koraka. Geometrijski: $\kappa\gg1$ znači da je dolina gubitka uska i dugačka, gradijent pokazuje prema strmim stijenkama umjesto niz dolinu, a spust cik-cakira. Kod SGD-a šum ne nestaje ni blizu minimuma, pa konstantna stopa završava „lebdenjem” oko minimuma na udaljenosti razmjernoj $\eta$; zato se stopa tijekom učenja <em>smanjuje</em> (npr. $\eta_t=\eta_0/(1+t/t_0)$ ili stepenasto), što ćemo vidjeti u Primjeru 2 i detaljnije u D4.</p>
+<div class="trener-umetak">
+<p>Praktičan recept: isprobaj $\eta\in\{10^{-3},10^{-2},10^{-1},1\}$ i nacrtaj krivulje gubitka. Ako gubitak raste ili postane <code>nan</code>, stopa je prevelika; ako nakon stotinu koraka jedva pada, premalena je. Prava vrijednost obično je najveća koja još ne divergira, podijeljena s dva ili tri.</p>
+</div>
+
+<h3>Standardizacija značajki</h3>
+<p>Kondicijski broj ovisi o skali značajki. Ako je jedna značajka dob u godinama (raspon desetaka), a druga prihod u eurima (raspon desetaka tisuća), stupci matrice $X^\top X$ razlikuju se za faktor $10^6$ i $\kappa$ je golem: za prihod bi trebala sićušna stopa učenja, za dob velika, a konstantna $\eta$ ne može zadovoljiti oboje. Lijek je trivijalan.</p>
+<div class="pojam">
+<h4>Standardizacija</h4>
+<p>Za svaku značajku $j$ izračunaj na <em>skupu za učenje</em> prosjek $\mu_j$ i standardnu devijaciju $\sigma_j$ te zamijeni
+$$z_j=\frac{x_j-\mu_j}{\sigma_j}.$$
+Iste vrijednosti $\mu_j,\sigma_j$ primjenjuju se zatim i na testne podatke (u scikit-learnu: <code>StandardScaler().fit(X_tr)</code>, pa <code>transform</code> na oba skupa).</p>
+</div>
+<p>Nakon standardizacije sve značajke imaju prosjek $0$ i raspršenje $1$, pa je $\frac1nX^\top X$ korelacijska matrica značajki; $\kappa$ je tada velik samo ako su značajke međusobno jako korelirane. U M1 smo pokazali da skaliranje ne mijenja predikcije OLS-a; za gradijentni spust ono mijenja <em>brzinu</em>, a za regularizaciju, kako slijedi, mijenja i samo <em>rješenje</em>. Zato je standardizacija obvezan prvi korak uvijek kad se koristi bilo što od ovoga dvoga. Statistike se računaju samo na treningu: ako bi se u $\mu_j$ i $\sigma_j$ uračunali i testni primjeri, informacija o testu bi „procurila” u model (engl. <i>data leakage</i>, lekcija M5).</p>
+
+<h3>Regularizacija</h3>
+<p>Primjer 3 u M1 pokazao je polinom stupnja $15$ koji između točaka divlja s koeficijentima reda milijuna, a Zadatak 8 dao je lijek: već sićušna kazna za velike težine vraća ga u red. To je opća ideja: umjesto samog gubitka minimiziraj gubitak <em>plus</em> kaznu za složenost.</p>
+<div class="pojam">
+<h4>Regularizirani gubitak</h4>
+<p>$$L_\lambda(w)=L(w)+\lambda\,\Omega(w),\qquad \lambda\ge0,$$
+gdje je $\Omega$ <b>regularizator</b>, a $\lambda$ <b>jačina regularizacije</b>. Dva standardna izbora su
+$$\Omega_{L_2}(w)=\lVert w\rVert_2^2=\sum_j w_j^2\quad(\text{grebena ili ridge regresija}),\qquad
+\Omega_{L_1}(w)=\lVert w\rVert_1=\sum_j |w_j|\quad(\text{lasso}).$$
+Pomak $b$ se ne kažnjava: on samo pomiče predikcije i ne pridonosi složenosti.</p>
+</div>
+<p><b>Ridge.</b> Gradijent kazne je $2\lambda w$, pa gradijentni korak glasi $w\leftarrow w-\eta\nabla L(w)-2\eta\lambda w=(1-2\eta\lambda)\,w-\eta\nabla L(w)$: u svakom koraku težine se najprije <em>skupe</em> za faktor $1-2\eta\lambda$, pa tek onda naprave običan korak. Zato se $L_2$ regularizacija u dubokom učenju zove i <b>weight decay</b>. Za MSE postoji i zatvoreni oblik $w^*_\lambda=(X^\top X+n\lambda I)^{-1}X^\top y$ (M1, Zadatak 8, uz $L=\frac1n\lVert Xw-y\rVert^2$), koji postoji i kad je $X^\top X$ singularna.</p>
+<p><b>Lasso.</b> Funkcija $|w_j|$ nije derivabilna u nuli, pa se ne može izravno primijeniti gradijentni spust. Umjesto toga korak se razdvoji: najprije običan gradijentni korak po $L$, a zatim se kazna primijeni <em>točno</em> operatorom <b>mekog odsijecanja</b> (engl. <i>soft thresholding</i>)
+$$S_\tau(z)=\operatorname{sign}(z)\,\max(|z|-\tau,0),\qquad w\leftarrow S_{\eta\lambda}\!\left(w-\eta\nabla L(w)\right).$$
+Taj postupak zove se <b>proksimalni gradijentni spust</b> (za lasso: ISTA). Ključno svojstvo: $S_\tau$ svaku komponentu manju od $\tau$ po apsolutnoj vrijednosti postavi <em>točno</em> na nulu. Zato lasso daje <b>rijetke</b> (engl. <i>sparse</i>) težine i ujedno radi <b>odabir značajki</b>, dok ridge sve težine samo smanji, ali ih nikad ne poništi. Geometrijski: kugla $\lVert w\rVert_1\le c$ ima „šiljke” na koordinatnim osima, i elipse konstantnog gubitka najčešće je dotaknu baš u šiljku, gdje su neke koordinate nula.</p>
+<p><b>Prenaučenost i podnaučenost kroz $\lambda$.</b> Za $\lambda\to0$ dobivamo OLS: model slijedi podatke, uključujući šum (velika varijanca, prenaučenost). Za $\lambda\to\infty$ sve težine idu u nulu i model predviđa prosjek (velika pristranost, podnaučenost). Između je optimum, i greška na testu kao funkcija $\lambda$ ima oblik slova U. Vrijednost $\lambda$ je hiperparametar: bira se na validacijskom skupu ili unakrsnom validacijom (M5), nikad na testu.</p>
+<div class="trener-umetak">
+<p>Svaka biblioteka ima vlastitu konvenciju za jačinu kazne. Scikit-learn: <code>Ridge(alpha)</code> minimizira $\lVert y-Xw\rVert^2+\alpha\lVert w\rVert^2$ (dakle $\alpha=n\lambda$ u odnosu na našu definiciju s MSE), a <code>Lasso(alpha)</code> minimizira $\frac1{2n}\lVert y-Xw\rVert^2+\alpha\lVert w\rVert_1$. Kad uspoređuješ rezultate ili prenosiš $\lambda$ iz članka u kod, prvo pročitaj koji se gubitak zapravo minimizira.</p>
+</div>
+        <h2 id="primjeri">Praksa: riješeni primjeri</h2>
+<section class="primjer">
+<h3>Primjer 1 <span class="izvor-oznaka">skup podataka diabetes</span></h3>
+<div class="zadatak">
+<p>Na skupu <code>load_diabetes</code> iz M1 istreniraj linearnu regresiju punim gradijentnim spustom na standardiziranim značajkama. Isprobaj nekoliko stopa učenja, usporedi s rješenjem najmanjih kvadrata, izračunaj kondicijski broj i pokaži što se događa bez standardizacije.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podjela i standardizacija.</b> Prosjek i standardnu devijaciju računamo samo na skupu za učenje. Stupac jedinica za pomak dodajemo <em>nakon</em> standardizacije (standardizirati konstantu nema smisla).</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">sklearn.datasets</span> <span class="kn">import</span> <span class="n">load_diabetes</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="n">podaci</span> <span class="o">=</span> <span class="n">load_diabetes</span><span class="p">()</span>
+<span class="n">X_tr</span><span class="p">,</span> <span class="n">X_te</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">y_te</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">podaci</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">podaci</span><span class="o">.</span><span class="n">target</span><span class="p">,</span>
+                                          <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">X_tr</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">Z_tr</span> <span class="o">=</span> <span class="p">(</span><span class="n">X_tr</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma</span>
+<span class="n">Z_te</span> <span class="o">=</span> <span class="p">(</span><span class="n">X_te</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma</span>           <span class="c1"># iste mu i sigma, izračunate na treningu!</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">Z_tr</span><span class="o">.</span><span class="n">shape</span>
+<span class="n">A_tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">Z_tr</span><span class="p">])</span>
+<span class="n">A_te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">Z_te</span><span class="p">)),</span> <span class="n">Z_te</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;std stupaca prije:&quot;</span><span class="p">,</span> <span class="n">sigma</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="s2">&quot; poslije:&quot;</span><span class="p">,</span> <span class="n">Z_tr</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>std stupaca prije: [0.0463 0.0476 0.0472]  poslije: [1. 1. 1.]</code></pre>
+<p><b>Korak 2: gradijentni spust s raznim stopama učenja.</b> Gubitak i gradijent pišemo kao funkcije; krećemo iz nule i bilježimo MSE nakon svakog koraka. Za usporedbu izračunamo OLS rješenje s <code>lstsq</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">mse</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">A</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">gradijent</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">):</span>
+    <span class="k">return</span> <span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">A</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">A</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">gradijentni_spust</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">koraka</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">povijest</span> <span class="o">=</span> <span class="p">[</span><span class="n">mse</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">koraka</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+        <span class="n">povijest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mse</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">w</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">povijest</span><span class="p">)</span>
+
+<span class="n">w_ols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OLS: MSE trening = </span><span class="si">%.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">mse</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w_ols</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  eta    MSE nakon 10   nakon 100   nakon 1000 koraka&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">eta</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">):</span>
+    <span class="n">w</span><span class="p">,</span> <span class="n">pov</span> <span class="o">=</span> <span class="n">gradijentni_spust</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+    <span class="n">red</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;</span><span class="si">%.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">v</span> <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="mf">1e6</span> <span class="k">else</span> <span class="s2">&quot;divergira&quot;</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">pov</span><span class="p">[</span><span class="mi">10</span><span class="p">],</span> <span class="n">pov</span><span class="p">[</span><span class="mi">100</span><span class="p">],</span> <span class="n">pov</span><span class="p">[</span><span class="mi">1000</span><span class="p">])]</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5g</span><span class="s2">  </span><span class="si">%13s</span><span class="s2">  </span><span class="si">%10s</span><span class="s2">  </span><span class="si">%11s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="o">*</span><span class="n">red</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>OLS: MSE trening = 2868.5
+  eta    MSE nakon 10   nakon 100   nakon 1000 koraka
+0.001        28453.3     19964.5       3354.7
+ 0.01        19880.9      3338.5       2890.3
+  0.1         3188.8      2890.3       2869.3
+  0.3      divergira   divergira    divergira</code></pre>
+<p>Uz $\eta=0{,}001$ nakon tisuću koraka još smo daleko od minimuma, uz $0{,}01$ blizu, uz $0{,}1$ praktički u njemu, a uz $0{,}3$ gubitak eksplodira već u prvih deset koraka. Deset puta veća stopa znači otprilike deset puta manje koraka, sve dok ne prijeđemo granicu.</p>
+<p><b>Korak 3: kondicijski broj objašnjava tablicu.</b> Teorem kaže da je granica divergencije $2/\lambda_{\max}$, a brzina konvergencije ovisi o $\kappa$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">H</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="n">A_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">A_tr</span>
+<span class="n">lam</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lambda_min = </span><span class="si">%.4f</span><span class="s2">  lambda_max = </span><span class="si">%.4f</span><span class="s2">  kappa = </span><span class="si">%.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lam</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">lam</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">lam</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">lam</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;granica divergencije 2/lambda_max = </span><span class="si">%.3f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">lam</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+<span class="n">w</span><span class="p">,</span> <span class="n">pov</span> <span class="o">=</span> <span class="n">gradijentni_spust</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">lam</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">2000</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eta = 1/lambda_max, 2000 koraka: ||w - w_ols|| = </span><span class="si">%.2e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">w_ols</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MSE test (GD) = </span><span class="si">%.1f</span><span class="s2">   MSE test (OLS) = </span><span class="si">%.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">mse</span><span class="p">(</span><span class="n">A_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">,</span> <span class="n">w</span><span class="p">),</span> <span class="n">mse</span><span class="p">(</span><span class="n">A_te</span><span class="p">,</span> <span class="n">y_te</span><span class="p">,</span> <span class="n">w_ols</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>lambda_min = 0.0185  lambda_max = 7.9376  kappa = 429.9
+granica divergencije 2/lambda_max = 0.252
+eta = 1/lambda_max, 2000 koraka: ||w - w_ols|| = 5.54e-01
+MSE test (GD) = 2899.9   MSE test (OLS) = 2900.2</code></pre>
+<p>Granica $2/\lambda_{\max}\approx0{,}25$ točno objašnjava zašto $\eta=0{,}3$ divergira, a $\eta=0{,}1$ ne. Uz $\kappa\approx430$ gradijentni spust nakon $2000$ koraka još nije stigao u sam minimum (udaljenost do $w^*$ pala je sa $170$ na pola jedinice), ali je testna greška jednaka OLS-ovoj na jednu decimalu: u praksi nas zanimaju predikcije, a ne zadnja znamenka težina.</p>
+<p><b>Korak 4: bez standardizacije.</b> Značajke u <code>diabetes</code> već su skalirane tako da svaki stupac ima jediničnu normu, dakle standardnu devijaciju oko $0{,}05$; stupac jedinica za pomak ima raspršenje reda $1$. Taj nerazmjer dovoljan je da $\kappa$ naraste za dva reda veličine.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">R_tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">X_tr</span><span class="p">])</span>
+<span class="n">lam_r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="n">R_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">R_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;bez standardizacije: kappa = </span><span class="si">%.0f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lam_r</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">lam_r</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="n">w_r</span><span class="p">,</span> <span class="n">pov_r</span> <span class="o">=</span> <span class="n">gradijentni_spust</span><span class="p">(</span><span class="n">R_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">lam_r</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="mi">2000</span><span class="p">)</span>
+<span class="n">w_r_ols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">R_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MSE trening nakon 2000 koraka: </span><span class="si">%.1f</span><span class="s2">   (OLS: </span><span class="si">%.1f</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">pov_r</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">mse</span><span class="p">(</span><span class="n">R_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w_r_ols</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>bez standardizacije: kappa = 47808
+MSE trening nakon 2000 koraka: 2898.0   (OLS: 2868.5)</code></pre>
+<p>Kondicijski broj skočio je sa $430$ na gotovo $50\,000$, a isti broj koraka s optimalnom konstantnom stopom ostavlja grešku na treningu primjetno iznad OLS-a: smjer pomaka uči se brzo, smjerovi sitnih značajki tisuću puta sporije. Standardizacija je besplatna i uklanja problem.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 2</h3>
+<div class="zadatak">
+<p>Generiraj $20\,000$ primjera s $20$ značajki, $y=w^\top x+3+\varepsilon$, $\varepsilon\sim\mathcal N(0,\,0{,}5^2)$. Usporedi SGD ($B=1$), mini-batch ($B=32$, $B=256$) i puni gradijentni spust po epohama. Zatim pokaži učinak smanjivanja stope učenja i usporedi sa <code>SGDRegressor</code>.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: podaci i mini-batch petlja.</b> U svakoj epohi izmiješamo indekse i prolazimo kroz njih u komadima duljine $B$; za $B=n$ dobivamo puni gradijentni spust, za $B=1$ čisti SGD. Stopa učenja prilagođena je veličini batcha: šumovitiji gradijent traži manji korak.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">n2</span><span class="p">,</span> <span class="n">d2</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="mi">20</span>
+<span class="n">X2</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n2</span><span class="p">,</span> <span class="n">d2</span><span class="p">))</span>
+<span class="n">w_pravi</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">d2</span><span class="p">)</span>
+<span class="n">y2</span> <span class="o">=</span> <span class="n">X2</span> <span class="o">@</span> <span class="n">w_pravi</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n2</span><span class="p">)</span>
+<span class="n">A2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n2</span><span class="p">),</span> <span class="n">X2</span><span class="p">])</span>
+<span class="n">w2_ols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MSE OLS = </span><span class="si">%.4f</span><span class="s2">  (varijanca šuma je 0.25)&quot;</span> <span class="o">%</span> <span class="n">mse</span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">w2_ols</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">minibatch_gd</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">epohe</span><span class="p">,</span> <span class="n">raspored</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">gubici</span><span class="p">,</span> <span class="n">t</span> <span class="o">=</span> <span class="p">[],</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">epohe</span><span class="p">):</span>
+        <span class="n">perm</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">B</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">perm</span><span class="p">[</span><span class="n">k</span><span class="p">:</span><span class="n">k</span> <span class="o">+</span> <span class="n">B</span><span class="p">]</span>
+            <span class="n">eta_t</span> <span class="o">=</span> <span class="n">eta</span> <span class="k">if</span> <span class="n">raspored</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">raspored</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+            <span class="n">w</span> <span class="o">-=</span> <span class="n">eta_t</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">w</span><span class="p">)</span>
+            <span class="n">t</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">gubici</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mse</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">w</span><span class="p">,</span> <span class="n">gubici</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    B    eta   koraka/epohi   MSE ep.1   MSE ep.2   MSE ep.5&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">B</span><span class="p">,</span> <span class="n">eta</span> <span class="ow">in</span> <span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.005</span><span class="p">),</span> <span class="p">(</span><span class="mi">32</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">),</span> <span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">),</span> <span class="p">(</span><span class="n">n2</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)):</span>
+    <span class="n">w</span><span class="p">,</span> <span class="n">g</span> <span class="o">=</span> <span class="n">minibatch_gd</span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">  </span><span class="si">%5g</span><span class="s2">  </span><span class="si">%12d</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="o">-</span><span class="p">(</span><span class="o">-</span><span class="n">n2</span> <span class="o">//</span> <span class="n">B</span><span class="p">),</span> <span class="n">g</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="mi">4</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>MSE OLS = 0.2467  (varijanca šuma je 0.25)
+    B    eta   koraka/epohi   MSE ep.1   MSE ep.2   MSE ep.5
+    1  0.005         20000     0.3097     0.2784     0.2779
+   32   0.05           625     0.2612     0.2576     0.2550
+  256    0.1            79     0.2707     0.2511     0.2558
+20000    0.3             1     4.6305     0.9272     0.2494</code></pre>
+<p>Puni gradijentni spust napravi jedan korak po epohi i nakon pet koraka tek se približi OLS-u; mini-batch inačice već nakon <em>jedne</em> epohe imaju MSE unutar nekoliko postotaka od optimuma jer su u istom prolazu napravile stotine ili tisuće koraka. Čisti SGD je najbrži na početku, ali s konstantnom stopom učenja zapne na oko $0{,}278$: šum gradijenta ga neprestano izbacuje iz minimuma.</p>
+<p><b>Korak 2: smanjivanje stope učenja.</b> Čisti SGD s konstantnom stopom zapne iznad optimuma jer šum gradijenta ne nestaje. Raspored $\eta_t=\eta_0/(1+t/t_0)$ u početku dopušta velike korake, a kasnije ih smanjuje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">opadajuca</span><span class="p">(</span><span class="n">eta0</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">t0</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">eta0</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">t</span> <span class="o">/</span> <span class="n">t0</span><span class="p">)</span>
+
+<span class="n">w_konst</span><span class="p">,</span> <span class="n">g_konst</span> <span class="o">=</span> <span class="n">minibatch_gd</span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="mf">0.005</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="n">w_opad</span><span class="p">,</span> <span class="n">g_opad</span> <span class="o">=</span> <span class="n">minibatch_gd</span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">raspored</span><span class="o">=</span><span class="n">opadajuca</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SGD, 5 epoha:  konstantna eta  MSE = </span><span class="si">%.4f</span><span class="s2">   opadajuća eta  MSE = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">g_konst</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">g_opad</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;max |w - w_ols|:  </span><span class="si">%.4f</span><span class="s2">  odnosno  </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w_konst</span> <span class="o">-</span> <span class="n">w2_ols</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w_opad</span> <span class="o">-</span> <span class="n">w2_ols</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>SGD, 5 epoha:  konstantna eta  MSE = 0.2779   opadajuća eta  MSE = 0.2508
+max |w - w_ols|:  0.0795  odnosno  0.0316</code></pre>
+<p>S opadajućom stopom početni je korak četiri puta veći (brži start), a završni manji (manje šuma), pa isti broj obrađenih primjera daje MSE blizu optimalne i težine dvostruko bliže OLS-u.</p>
+<p><b>Korak 3: isto u scikit-learnu.</b> <code>SGDRegressor</code> radi upravo to: SGD po jednom primjeru s opadajućom stopom (zadano <code>learning_rate="invscaling"</code>, $\eta_t=\eta_0/t^{0{,}25}$). Zadano uključuje i malu $L_2$ kaznu; isključujemo je da bismo mogli usporediti s OLS-om. Scikit-learn sam vodi računa o pomaku, pa mu dajemo <code>X2</code> bez stupca jedinica.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">SGDRegressor</span>
+
+<span class="n">sgd</span> <span class="o">=</span> <span class="n">SGDRegressor</span><span class="p">(</span><span class="n">penalty</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta0</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">sgd</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X2</span><span class="p">,</span> <span class="n">y2</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;SGDRegressor, 5 epoha: MSE = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">sgd</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X2</span><span class="p">)</span> <span class="o">-</span> <span class="n">y2</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;intercept_ = </span><span class="si">%.3f</span><span class="s2">  (OLS </span><span class="si">%.3f</span><span class="s2">),  max |coef_ - w_ols| = </span><span class="si">%.4f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">sgd</span><span class="o">.</span><span class="n">intercept_</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">w2_ols</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">sgd</span><span class="o">.</span><span class="n">coef_</span> <span class="o">-</span> <span class="n">w2_ols</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>SGDRegressor, 5 epoha: MSE = 0.2484
+intercept_ = 3.003  (OLS 3.002),  max |coef_ - w_ols| = 0.0162</code></pre>
+<p>Pet epoha SGD-a iz biblioteke daje rezultat na dvije decimale jednak OLS-u, s istim mehanizmom koji smo upravo napisali ručno. Na velikim skupovima (<code>SGDRegressor</code> podržava i učenje po dijelovima s <code>partial_fit</code>) to je često jedini izvediv način treniranja linearnog modela.</p>
+</div>
+</section>
+
+<section class="primjer">
+<h3>Primjer 3</h3>
+<div class="zadatak">
+<p>Na polinomu stupnja $15$ iz M1 (Primjer 3) ručno izračunaj ridge rješenje za niz vrijednosti $\lambda$ i nacrtaj U-krivulju testne greške; provjeri da se ručno rješenje podudara sa <code>sklearn.linear_model.Ridge</code>. Zatim na skupu <code>diabetes</code> implementiraj lasso proksimalnim gradijentnim spustom, usporedi ga s <code>Lasso</code> i pogledaj koje značajke preživljavaju.</p>
+</div>
+<div class="rjesenje">
+<h4>Rješenje</h4>
+<p><b>Korak 1: značajke i standardizacija.</b> Polinomijalne značajke $x,\dots,x^{15}$ na $[0,1]$ imaju drastično različite skale ($x^{15}$ je gotovo uvijek blizu nule), a kazna $\lVert w\rVert^2$ tretira sve težine jednako, pa bez standardizacije ridge ne bi imao smisla. Centriramo i $y$: tada je pomak jednak prosjeku $\bar y$ i ne ulazi u kaznu.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">PolynomialFeatures</span>
+
+<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">uzorak</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+
+<span class="n">xp_tr</span><span class="p">,</span> <span class="n">yp_tr</span> <span class="o">=</span> <span class="n">uzorak</span><span class="p">(</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">xp_te</span><span class="p">,</span> <span class="n">yp_te</span> <span class="o">=</span> <span class="n">uzorak</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+<span class="n">pf</span> <span class="o">=</span> <span class="n">PolynomialFeatures</span><span class="p">(</span><span class="n">degree</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span> <span class="n">include_bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">P_tr</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">xp_tr</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+<span class="n">P_te</span> <span class="o">=</span> <span class="n">pf</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">xp_te</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])</span>
+<span class="n">mu_p</span><span class="p">,</span> <span class="n">sd_p</span> <span class="o">=</span> <span class="n">P_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">P_tr</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="n">P_tr</span> <span class="o">=</span> <span class="p">(</span><span class="n">P_tr</span> <span class="o">-</span> <span class="n">mu_p</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd_p</span>
+<span class="n">P_te</span> <span class="o">=</span> <span class="p">(</span><span class="n">P_te</span> <span class="o">-</span> <span class="n">mu_p</span><span class="p">)</span> <span class="o">/</span> <span class="n">sd_p</span>
+<span class="n">b0</span> <span class="o">=</span> <span class="n">yp_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="n">yc</span> <span class="o">=</span> <span class="n">yp_tr</span> <span class="o">-</span> <span class="n">b0</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;oblik P_tr:&quot;</span><span class="p">,</span> <span class="n">P_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="s2">&quot; pomak b0 = </span><span class="si">%.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">b0</span><span class="p">)</span></code></pre></div>
+<pre class="izlaz"><code>oblik P_tr: (30, 15)  pomak b0 = 0.1380</code></pre>
+<p><b>Korak 2: ridge za niz $\lambda$.</b> Rješavamo $(\frac1nX^\top X+\lambda I)w=\frac1nX^\top y$. Za $\lambda=0$ to je OLS na gotovo singularnoj matrici, pa <code>solve</code> daje numerički nestabilan rezultat, baš kao u M1.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">ridge</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">lam</span><span class="p">):</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">P</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">P</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">P</span> <span class="o">/</span> <span class="n">n</span> <span class="o">+</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">d</span><span class="p">),</span> <span class="n">P</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">yc</span> <span class="o">/</span> <span class="n">n</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   lambda   MSE trening   MSE test   max|w|&quot;</span><span class="p">)</span>
+<span class="n">lambde</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mf">1e-8</span><span class="p">,</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="mf">1e-4</span><span class="p">,</span> <span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+<span class="n">rez</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">lam</span> <span class="ow">in</span> <span class="n">lambde</span><span class="p">:</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">ridge</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+    <span class="n">tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">P_tr</span> <span class="o">@</span> <span class="n">w</span> <span class="o">+</span> <span class="n">b0</span> <span class="o">-</span> <span class="n">yp_tr</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">P_te</span> <span class="o">@</span> <span class="n">w</span> <span class="o">+</span> <span class="n">b0</span> <span class="o">-</span> <span class="n">yp_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">rez</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">tr</span><span class="p">,</span> <span class="n">te</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%9g</span><span class="s2">  </span><span class="si">%12.4f</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">  </span><span class="si">%8.2f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">te</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span></code></pre></div>
+<pre class="izlaz"><code>   lambda   MSE trening   MSE test   max|w|
+        0        0.0202     1.0045  2357210.35
+    1e-08        0.0249     0.0448     66.82
+    1e-06        0.0254     0.0425      9.62
+   0.0001        0.0295     0.0391      5.57
+    0.001        0.0404     0.0576      2.60
+     0.01        0.0709     0.1154      0.86
+      0.1        0.0963     0.1534      0.34
+        1        0.1963     0.2531      0.18
+      100        0.4629     0.5390      0.01</code></pre>
+<p>Greška na treningu monotono raste s $\lambda$ (kazna sve više ograničava model), a testna najprije pada (do $\lambda=10^{-4}$, gdje je gotovo jednaka grešci kubnog polinoma iz M1), pa raste: za $\lambda=100$ sve su težine praktički nula i model predviđa prosjek. Najveći koeficijent pritom pada s milijuna na jedinice već za $\lambda=10^{-6}$.</p>
+<p><b>Korak 3: slika i usporedba sa scikit-learnom.</b> Krivulja testne greške po $\lambda$ (logaritamska os) ima U-oblik: lijevo prenaučenost, desno podnaučenost. <code>Ridge(alpha)</code> kažnjava zbroj, a ne prosjek kvadrata, pa je <code>alpha = n * lam</code>.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">import</span> <span class="nn">matplotlib</span>
+<span class="n">matplotlib</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&quot;Agg&quot;</span><span class="p">)</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">Ridge</span>
+
+<span class="n">tr_mse</span><span class="p">,</span> <span class="n">te_mse</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">rez</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">os_</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mf">3.4</span><span class="p">))</span>
+<span class="n">os_</span><span class="o">.</span><span class="n">semilogx</span><span class="p">(</span><span class="n">lambde</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">tr_mse</span><span class="p">,</span> <span class="s2">&quot;o-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;trening&quot;</span><span class="p">)</span>
+<span class="n">os_</span><span class="o">.</span><span class="n">semilogx</span><span class="p">(</span><span class="n">lambde</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">te_mse</span><span class="p">,</span> <span class="s2">&quot;s-&quot;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+<span class="n">os_</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">&quot;lambda&quot;</span><span class="p">);</span> <span class="n">os_</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">&quot;MSE&quot;</span><span class="p">);</span> <span class="n">os_</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">();</span> <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;ridge_u_krivulja.png&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+
+<span class="n">lam</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">w_rucno</span> <span class="o">=</span> <span class="n">ridge</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+<span class="n">sk</span> <span class="o">=</span> <span class="n">Ridge</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">yc</span><span class="p">)</span> <span class="o">*</span> <span class="n">lam</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yp_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isti koeficijenti:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">w_rucno</span><span class="p">,</span> <span class="n">sk</span><span class="o">.</span><span class="n">coef_</span><span class="p">),</span> <span class="s2">&quot; isti pomak:&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">b0</span><span class="p">,</span> <span class="n">sk</span><span class="o">.</span><span class="n">intercept_</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;prva tri koeficijenta:&quot;</span><span class="p">,</span> <span class="n">w_rucno</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">sk</span><span class="o">.</span><span class="n">coef_</span><span class="p">[:</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>isti koeficijenti: True  isti pomak: True
+prva tri koeficijenta: [ 1.05  -2.603 -1.167] [ 1.05  -2.603 -1.167]</code></pre>
+<p><b>Korak 4: lasso proksimalnim gradijentnim spustom.</b> Vraćamo se na standardizirani <code>diabetes</code> iz Primjera 1 (bez stupca jedinica, s centriranim $y$) i minimiziramo isti cilj kao <code>Lasso</code>: $\frac1{2n}\lVert Xw-y\rVert^2+\alpha\lVert w\rVert_1$. Gradijent prvog člana je $\frac1nX^\top(Xw-y)$, stopa učenja $\eta=1/\lambda_{\max}(\frac1nX^\top X)$, a nakon svakog koraka primjenjujemo meko odsijecanje s pragom $\eta\alpha$.</p>
+<div class="highlight kod kod-python"><pre><code><span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">Lasso</span>
+
+<span class="k">def</span> <span class="nf">meko_odsijecanje</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">-</span> <span class="n">tau</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">lasso_ista</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">koraka</span><span class="o">=</span><span class="mi">5000</span><span class="p">):</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">d</span> <span class="o">=</span> <span class="n">Z</span><span class="o">.</span><span class="n">shape</span>
+    <span class="n">eta</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">Z</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">Z</span> <span class="o">/</span> <span class="n">n</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">koraka</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">meko_odsijecanje</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">Z</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">Z</span> <span class="o">@</span> <span class="n">w</span> <span class="o">-</span> <span class="n">yc</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span><span class="p">,</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">w</span>
+
+<span class="n">yc_d</span> <span class="o">=</span> <span class="n">y_tr</span> <span class="o">-</span> <span class="n">y_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;alpha   ne-nula   max|w_ista - w_sklearn|   MSE test&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">):</span>
+    <span class="n">w_l</span> <span class="o">=</span> <span class="n">lasso_ista</span><span class="p">(</span><span class="n">Z_tr</span><span class="p">,</span> <span class="n">yc_d</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
+    <span class="n">sk</span> <span class="o">=</span> <span class="n">Lasso</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Z_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">)</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">Z_te</span> <span class="o">@</span> <span class="n">w_l</span> <span class="o">+</span> <span class="n">y_tr</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">-</span> <span class="n">y_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5g</span><span class="s2">  </span><span class="si">%8d</span><span class="s2">  </span><span class="si">%24.2e</span><span class="s2">  </span><span class="si">%9.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">w_l</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w_l</span> <span class="o">-</span> <span class="n">sk</span><span class="o">.</span><span class="n">coef_</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">te</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>alpha   ne-nula   max|w_ista - w_sklearn|   MSE test
+  0.5         9                  1.98e-10     2857.6
+    5         5                  6.16e-12     2837.0
+   20         3                  4.96e-12     3354.5
+   40         1                  8.88e-16     4855.6</code></pre>
+<p>Ručni ISTA i koordinatni spust iz scikit-learna slažu se na deset decimala. S porastom $\alpha$ broj značajki različitih od nule pada s devet na jednu; testna greška najmanja je za $\alpha=5$, gdje model koristi samo pet značajki, a predviđa čak malo bolje od OLS-a sa svih deset ($2900{,}2$ u M1).</p>
+<p><b>Korak 5: koje značajke preživljavaju?</b> Lasso s umjerenim $\alpha$ zadržava samo dio značajki; preostale su, prema ovom modelu, za predikciju suvišne ili zamjenjive drugima.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">w_l</span> <span class="o">=</span> <span class="n">lasso_ista</span><span class="p">(</span><span class="n">Z_tr</span><span class="p">,</span> <span class="n">yc_d</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">naziv</span><span class="p">,</span> <span class="n">wj</span><span class="p">,</span> <span class="n">wo</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">podaci</span><span class="o">.</span><span class="n">feature_names</span><span class="p">,</span> <span class="n">w_l</span><span class="p">,</span> <span class="n">w_ols</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%-4s</span><span class="s2">  lasso </span><span class="si">%7.1f</span><span class="s2">   OLS </span><span class="si">%7.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">naziv</span><span class="p">,</span> <span class="n">wj</span><span class="p">,</span> <span class="n">wo</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>age   lasso     0.0   OLS     1.8
+sex   lasso    -2.5   OLS   -11.5
+bmi   lasso    25.8   OLS    25.6
+bp    lasso    11.9   OLS    16.8
+s1    lasso    -0.0   OLS   -44.4
+s2    lasso    -0.0   OLS    24.6
+s3    lasso    -8.3   OLS     7.7
+s4    lasso     0.0   OLS    13.1
+s5    lasso    18.7   OLS    35.2
+s6    lasso     0.0   OLS     2.4</code></pre>
+<p>Ostaju BMI, krvni tlak, <code>s3</code>, <code>s5</code> i spol. Zanimljiv je par <code>s1</code>/<code>s2</code>: OLS im daje velike koeficijente suprotnih predznaka ($-44$ i $+25$), što je tipičan simptom jako koreliranih značajki, a lasso ih obje izbaci jer njihov zajednički doprinos preuzima <code>s5</code>. Rijetki model lakše je tumačiti i stabilniji je, a to je često ono što se na natjecanju traži u pisanom obrazloženju rješenja.</p>
+</div>
+</section>
+        <h2 id="zadaci">Zadaci za vježbu</h2>
+        <p class="zadaci-napomena">Prvo pokušaj sam (najbolje u Jupyteru ili Colabu); rješenje otvori tek nakon ozbiljnog pokušaja. Oznaka težine je relativna unutar lekcije; zadaci za zagrijavanje izravno vježbaju pojmove iz teorije.</p>
+<section class="vjezba">
+<h3>Zagrijavanje 1 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Za $L(w_1,w_2)=w_1^2+10w_2^2$ i početnu točku $w_0=(10,1)$ ručno napravi dva koraka gradijentnog spusta sa stopom $\eta=0{,}1$. Što se događa s $w_2$? Za koje $\eta$ postupak konvergira? Provjeri u NumPy-ju.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$\nabla L=(2w_1,\,20w_2)$. Korak je $w_1\leftarrow w_1-0{,}2w_1=0{,}8w_1$ i $w_2\leftarrow w_2-2w_2=-w_2$. Dakle $w_1$ pada $10\to8\to6{,}4$, a $w_2$ samo mijenja predznak, $1\to-1\to1$, i nikad se ne približi nuli: za drugu koordinatu $\eta=0{,}1$ je točno na granici $2/\lambda_{\max}=2/20$. Postupak konvergira za $0\lt\eta\lt0{,}1$; Hesseova matrica je $\operatorname{diag}(2,20)$, $\kappa=10$, pa je najbrže uz $\eta$ tek malo manji od $0{,}1$, ali onda $w_1$ napreduje sporo. To je u malom slika svake loše uvjetovane doline.</p>
+<div class="highlight kod kod-python"><pre><code><span class="k">for</span> <span class="n">eta</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.11</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">10.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">50</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">w</span> <span class="o">-</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;eta = </span><span class="si">%.2f</span><span class="s2">  nakon 50 koraka w = </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">w</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>eta = 0.05  nakon 50 koraka w = [0.052 0.   ]
+eta = 0.10  nakon 50 koraka w = [0. 1.]
+eta = 0.11  nakon 50 koraka w = [   0.    9100.438]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 2 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Kolega standardizira podatke ovako: <code>scaler.fit(X)</code> na cijelom skupu, pa tek onda <code>train_test_split</code>. Drugi kolega standardizira trening i test svaki vlastitim prosjekom i devijacijom. Objasni što je kod svakoga pogrešno i što bi se dogodilo s predikcijom za <em>jedan</em> novi primjer u drugom slučaju.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Prvi je u $\mu_j$ i $\sigma_j$ uračunao testne primjere: model je, makar malo, vidio test prije ocjenjivanja (curenje podataka). Učinak je ovdje sitan, ali isti obrazac s drugim pretprocesiranjem (npr. odabir značajki po korelaciji s $y$ na cijelom skupu) daje lažno dobre rezultate. Drugi je test transformirao drukčije nego trening, pa težine naučene na jednoj skali primjenjuje na drugoj; isti pacijent dobiva različite predikcije ovisno o tome tko je još u testnom skupu. Za jedan novi primjer standardna devijacija je nula i dijeljenje ne radi, što jasno pokazuje da transformacija mora biti fiksirana na treningu. Pravilo: sve što se „uči” iz podataka (uključujući skaliranje) uči se samo na skupu za učenje.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zagrijavanje 3 <span class="tezina-zadatka tezina-0" title="Procijenjena težina unutar lekcije">uvodni</span></h3>
+<div class="zadatak">
+<p>Dva su modela naučena na istim standardiziranim podacima, s koeficijentima $(2{,}1,\;0{,}0,\;-1{,}4,\;0{,}0,\;0{,}3)$ i $(1{,}9,\;0{,}2,\;-1{,}2,\;0{,}1,\;0{,}4)$. Koji je ridge, a koji lasso? Zašto ridge „nikad” ne daje točne nule?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Prvi je lasso (dvije točne nule), drugi ridge. Uvjet minimuma ridgea glasi $\nabla L(w)+2\lambda w=0$, tj. $w_j=-\frac{\partial L/\partial w_j}{2\lambda}$: koeficijent je nula samo ako je parcijalna derivacija gubitka u toj točki točno nula, što se u podacima sa šumom ne događa. Kod lassa je u nuli „kut” funkcije $|w_j|$ i subgradijent kazne pokriva cijeli interval $[-\lambda,\lambda]$, pa je $w_j=0$ optimalno čim je $|\partial L/\partial w_j|\le\lambda$; to vrijedi za svaku dovoljno slabu značajku. Isto govori i meko odsijecanje: sve ispod praga postaje nula.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 1 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Neka su stupci matrice $X$ ortonormirani nakon skaliranja, $\frac1nX^\top X=I$. Dokaži da je tada ridge rješenje (za $L=\frac1n\lVert Xw-y\rVert^2+\lambda\lVert w\rVert^2$) jednako $w^{\text{ridge}}_j=\dfrac{w^{\text{OLS}}_j}{1+\lambda}$, a lasso rješenje (za $\frac1{2n}\lVert Xw-y\rVert^2+\alpha\lVert w\rVert_1$) jednako $w^{\text{lasso}}_j=S_\alpha\!\left(w^{\text{OLS}}_j\right)$. Provjeri numerički.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Uz $\frac1nX^\top X=I$ gubitak se raspada na zbroj po koordinatama; rješavaj svaku zasebno. Za lasso razmotri slučajeve $w_j\gt0$, $w_j\lt0$ i $w_j=0$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Uz $\frac1nX^\top X=I$ je $w^{\text{OLS}}=\frac1nX^\top y$ i $\frac1n\lVert Xw-y\rVert^2=\lVert w\rVert^2-2w^\top w^{\text{OLS}}+\text{konst.}=\sum_j\left[(w_j-w^{\text{OLS}}_j)^2\right]+\text{konst.}$ Ridge: minimiziraj $(w_j-w^{\text{OLS}}_j)^2+\lambda w_j^2$ po $w_j$; derivacija $2(w_j-w^{\text{OLS}}_j)+2\lambda w_j=0$ daje $w_j=w^{\text{OLS}}_j/(1+\lambda)$. Lasso: minimiziraj $\frac12(w_j-w^{\text{OLS}}_j)^2+\alpha|w_j|$. Ako je $w_j\gt0$, derivacija je $w_j-w^{\text{OLS}}_j+\alpha=0$, pa $w_j=w^{\text{OLS}}_j-\alpha$, što je dopušteno samo ako je $w^{\text{OLS}}_j\gt\alpha$; simetrično za $w_j\lt0$. Ako je $|w^{\text{OLS}}_j|\le\alpha$, nijedan od tih slučajeva nije moguć i minimum je u $w_j=0$. Ukupno: $w_j=S_\alpha(w^{\text{OLS}}_j)$. Ridge skuplja sve koeficijente <em>proporcionalno</em>, lasso sve <em>pomiče</em> prema nuli za isti iznos i male poništi.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">Q</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">qr</span><span class="p">(</span><span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">5</span><span class="p">)))</span>
+<span class="n">Xo</span> <span class="o">=</span> <span class="n">Q</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span>                     <span class="c1"># (1/n) Xo^T Xo = I</span>
+<span class="n">yo</span> <span class="o">=</span> <span class="n">Xo</span> <span class="o">@</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">3</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.05</span><span class="p">])</span> <span class="o">+</span> <span class="n">rng</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">w_o</span> <span class="o">=</span> <span class="n">Xo</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">yo</span> <span class="o">/</span> <span class="mi">100</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OLS:  &quot;</span><span class="p">,</span> <span class="n">w_o</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ridge:&quot;</span><span class="p">,</span> <span class="n">Ridge</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mi">100</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">fit_intercept</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xo</span><span class="p">,</span> <span class="n">yo</span><span class="p">)</span><span class="o">.</span><span class="n">coef_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">&quot; formula:&quot;</span><span class="p">,</span> <span class="p">(</span><span class="n">w_o</span> <span class="o">/</span> <span class="mf">1.5</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;lasso:&quot;</span><span class="p">,</span> <span class="n">Lasso</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">fit_intercept</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xo</span><span class="p">,</span> <span class="n">yo</span><span class="p">)</span><span class="o">.</span><span class="n">coef_</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="s2">&quot; formula:&quot;</span><span class="p">,</span> <span class="n">meko_odsijecanje</span><span class="p">(</span><span class="n">w_o</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>OLS:   [ 2.976 -1.987  0.564  0.062 -0.103]
+ridge: [ 1.984 -1.325  0.376  0.042 -0.069]  formula: [ 1.984 -1.325  0.376  0.042 -0.069]
+lasso: [ 2.676 -1.687  0.264  0.    -0.   ]  formula: [ 2.676 -1.687  0.264  0.    -0.   ]</code></pre>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 2 <span class="tezina-zadatka tezina-1" title="Procijenjena težina unutar lekcije">lakši</span></h3>
+<div class="zadatak">
+<p>Dokaži da se za ridge gradijentni spust svodi na „weight decay”: $w_{t+1}=(1-2\eta\lambda)w_t-\eta\nabla L(w_t)$. Implementiraj ga na standardiziranim polinomijalnim značajkama iz Primjera 3 (uz $\lambda=10^{-3}$) i provjeri da konvergira prema zatvorenom rješenju <code>ridge(P_tr, yc, 1e-3)</code>. Koliko koraka treba?</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>$\nabla(L+\lambda\lVert w\rVert^2)=\nabla L+2\lambda w$, pa je $w_{t+1}=w_t-\eta(\nabla L(w_t)+2\lambda w_t)=(1-2\eta\lambda)w_t-\eta\nabla L(w_t)$. Hesseova matrica reguliranog gubitka je $H+2\lambda I$: regularizacija podiže najmanju svojstvenu vrijednost na barem $2\lambda$ i time <em>smanjuje</em> kondicijski broj, pa gradijentni spust konvergira brže nego za OLS (još jedna korist od ridgea).</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">lam</span> <span class="o">=</span> <span class="mf">1e-3</span>
+<span class="n">w_cilj</span> <span class="o">=</span> <span class="n">ridge</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">lam</span><span class="p">)</span>
+<span class="n">Hp</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">yc</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">P_tr</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">lam</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">P_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">eta</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">Hp</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">P_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">200001</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">lam</span><span class="p">)</span> <span class="o">*</span> <span class="n">w</span> <span class="o">-</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">w_cilj</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-3</span><span class="p">:</span>
+        <span class="k">break</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;koraka do ||w - w_ridge|| &lt; 1e-3:&quot;</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+<span class="n">lam_p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">yc</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">P_tr</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;kappa bez regularizacije: </span><span class="si">%.0e</span><span class="s2">   s regularizacijom: </span><span class="si">%.0f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="n">lam_p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">lam_p</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">Hp</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigvalsh</span><span class="p">(</span><span class="n">Hp</span><span class="p">)[</span><span class="mi">0</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>koraka do ||w - w_ridge|| &lt; 1e-3: 81430
+kappa bez regularizacije: 1e+17   s regularizacijom: 14229</code></pre>
+<p>Bez regularizacije matrica $\frac2nX^\top X$ polinomijalnih značajki ima svojstvene vrijednosti na razini strojne preciznosti, pa je $\kappa$ praktički beskonačan i gradijentni spust prema OLS-u ne bi konvergirao u razumnom vremenu. Već $\lambda=10^{-3}$ spušta $\kappa$ na red $10^4$, no i to znači desetke tisuća koraka: za male probleme zatvoreni oblik je nenadmašan, a gradijentni spust vrijedi kad formule nema ili je $d$ prevelik.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 3 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Fiksiraj proračun od $20\,000$ obrađenih primjera na podacima iz Primjera 2 (dakle $20\,000/B$ koraka) i za $B\in\{1,8,64,512,4096\}$ izmjeri konačnu MSE, uprosječenu preko tri sjemena, uz dva pravila za stopu učenja: $\eta=0{,}001\,B$ i $\eta=0{,}004\,B$ (u oba slučaja najviše $0{,}3$). Objasni dva različita razloga zbog kojih najmanje i najveće serije gube.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>U <code>minibatch_gd</code> epoha je prolaz kroz cijeli skup; za fiksni broj koraka napiši kratku vlastitu petlju koja uzorkuje indekse s <code>rng.choice</code>. Šum SGD koraka raste s $\eta$ i pada s $B$; napredak po koraku raste s $\eta$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="k">def</span> <span class="nf">gd_proracun</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">primjera</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">A</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">primjera</span> <span class="o">//</span> <span class="n">B</span><span class="p">):</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="n">B</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">w</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">w</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mse</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;    B   koraka   MSE (eta = 0.001 B)   MSE (eta = 0.004 B)&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">B</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="mi">4096</span><span class="p">):</span>
+    <span class="n">red</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.001</span><span class="p">,</span> <span class="mf">0.004</span><span class="p">):</span>
+        <span class="n">eta</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="n">B</span><span class="p">,</span> <span class="mf">0.3</span><span class="p">)</span>
+        <span class="n">red</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">([</span><span class="n">gd_proracun</span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="n">y2</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">  </span><span class="si">%7d</span><span class="s2">  </span><span class="si">%19.4f</span><span class="s2">  </span><span class="si">%19.4f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="mi">20000</span> <span class="o">//</span> <span class="n">B</span><span class="p">,</span> <span class="n">red</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">red</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span></code></pre></div>
+<pre class="izlaz"><code>    B   koraka   MSE (eta = 0.001 B)   MSE (eta = 0.004 B)
+    1    20000               0.2519               0.2658
+    8     2500               0.2509               0.2688
+   64      312               0.2539               0.2923
+  512       39               0.2507               0.2507
+ 4096        4               0.2654               0.2654</code></pre>
+<p>Dva su načina da se izgubi. Najveća serija ($B=4096$) ima samo četiri koraka, premalo da bi se stiglo do dna bez obzira na stopu: gubi zbog <em>premalog napretka</em>. Male serije ($B\le64$) s malom stopom prolaze dobro, ali čim stopu učetverostručimo, njihova MSE osjetno raste, dok $B=512$ (čija je stopa u oba slučaja ograničena na $0{,}3$) ostaje netaknut: gube zbog <em>šuma</em>, čija je varijanca razmjerna $\eta/B$. Srednje serije su kompromis koji podnosi veću stopu, a ipak napravi dovoljno koraka. U praksi ih dodatno favorizira vektorizacija (korak s $B=64$ na stvarnom hardveru traje gotovo koliko i s $B=1$), zato su tipične vrijednosti $32$ do $256$, uz opadajuću stopu koja na kraju ukloni preostali šum.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 4 <span class="tezina-zadatka tezina-2" title="Procijenjena težina unutar lekcije">srednji</span></h3>
+<div class="zadatak">
+<p>Na standardiziranim polinomijalnim značajkama iz Primjera 3 istreniraj <code>Lasso</code> za $\alpha\in\{10^{-3},10^{-2},10^{-1}\}$. Koliko koeficijenata je različito od nule i koje potencije preživljavaju? Usporedi testnu MSE s najboljim ridgeom iz Primjera 3 i objasni zašto se za polinome lasso ponaša drukčije nego za <code>diabetes</code>.</p>
+</div>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="nb">print</span><span class="p">(</span><span class="s2">&quot; alpha  ne-nula  MSE test  potencije s w != 0&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">alpha</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1e-3</span><span class="p">,</span> <span class="mf">1e-2</span><span class="p">,</span> <span class="mf">1e-1</span><span class="p">):</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">Lasso</span><span class="p">(</span><span class="n">alpha</span><span class="o">=</span><span class="n">alpha</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">200000</span><span class="p">,</span> <span class="n">tol</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yp_tr</span><span class="p">)</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">P_te</span><span class="p">)</span> <span class="o">-</span> <span class="n">yp_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%6g</span><span class="s2">  </span><span class="si">%7d</span><span class="s2">  </span><span class="si">%8.4f</span><span class="s2">  </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">coef_</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">),</span> <span class="n">te</span><span class="p">,</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">coef_</span><span class="p">)]))</span></code></pre></div>
+<pre class="izlaz"><code> alpha  ne-nula  MSE test  potencije s w != 0
+ 0.001        4    0.0447  [1, 2, 5, 15]
+  0.01        2    0.1275  [2, 9]
+   0.1        2    0.2637  [1, 15]</code></pre>
+<p>Standardizirane potencije $x^k$ na $[0,1]$ međusobno su gotovo savršeno korelirane (korelacija $x^{14}$ i $x^{15}$ premašuje $0{,}99$). Kad je skupina značajki tako zamjenjiva, lasso proizvoljno odabere nekoliko predstavnika i ostale poništi, pa je skup preživjelih potencija nestabilan i teško ga je tumačiti; ridge u istoj situaciji težinu rasporedi po svima. Za generalizaciju lasso s $\alpha=10^{-3}$ i četiri značajke daje testnu grešku nešto lošiju od najboljeg ridgea, a veći $\alpha$ brzo vodi u podnaučenost (dvije potencije ne mogu opisati sinus). Kod <code>diabetes</code> značajke su manje korelirane, pa odabir lassa ima stvarno značenje. Kombinacija obiju kazni zove se <em>elastic net</em> (<code>ElasticNet</code> u scikit-learnu) i u takvim slučajevima često je najbolja.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 5 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p>Numerički provjeri ocjenu iz teorema o konvergenciji na standardiziranom skupu <code>diabetes</code>: za $\eta=1/\lambda_{\max}$ nacrtaj (ili ispiši) $\lVert w_t-w^*\rVert$ i usporedi s $(1-1/\kappa)^t\lVert w_0-w^*\rVert$. Zatim pokaži da je ocjena <em>pesimistična</em>: koliko koraka stvarno treba za $\lVert w_t-w^*\rVert\lt10^{-6}\lVert w_0-w^*\rVert$, a koliko predviđa $\kappa\ln(10^6)$? Objasni razliku pomoću rastava $w_0-w^*$ po svojstvenim vektorima.</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Komponenta pogreške duž svojstvenog vektora $v_j$ množi se u svakom koraku s $1-\lambda_j/\lambda_{\max}$. Koja komponenta vlada na kraju, a koja na početku?</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<div class="highlight kod kod-python"><pre><code><span class="n">lam</span><span class="p">,</span> <span class="n">V</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">H</span><span class="p">)</span>
+<span class="n">eta</span><span class="p">,</span> <span class="n">kappa</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">lam</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">lam</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">lam</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">A_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="n">e0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">w_ols</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;   t      ||w_t - w*||    ocjena (1-1/kappa)^t&quot;</span><span class="p">)</span>
+<span class="n">t</span><span class="p">,</span> <span class="n">koraka</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span>
+<span class="k">while</span> <span class="n">t</span> <span class="o">&lt;</span> <span class="mi">100000</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%5d</span><span class="s2">  </span><span class="si">%14.4e</span><span class="s2">  </span><span class="si">%14.4e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">w_ols</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">kappa</span><span class="p">)</span> <span class="o">**</span> <span class="n">t</span> <span class="o">*</span> <span class="n">e0</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">koraka</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">w_ols</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span> <span class="o">*</span> <span class="n">e0</span><span class="p">:</span>
+        <span class="n">koraka</span> <span class="o">=</span> <span class="n">t</span>
+        <span class="k">break</span>
+    <span class="n">w</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">A_tr</span><span class="p">,</span> <span class="n">y_tr</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+    <span class="n">t</span> <span class="o">+=</span> <span class="mi">1</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;stvarno koraka: </span><span class="si">%d</span><span class="s2">   predviđeno kappa*ln(1e6) = </span><span class="si">%.0f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">koraka</span><span class="p">,</span> <span class="n">kappa</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mf">1e6</span><span class="p">)))</span>
+<span class="n">komp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">V</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">w_ols</span><span class="p">)</span> <span class="o">-</span> <span class="n">w_ols</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;komponente w_0 - w* po svojstvenim vektorima (od lambda_min):&quot;</span><span class="p">,</span> <span class="n">komp</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span></code></pre></div>
+<pre class="izlaz"><code>   t      ||w_t - w*||    ocjena (1-1/kappa)^t
+    0      1.6960e+02      1.6960e+02
+   10      5.7758e+01      1.6570e+02
+  100      4.6258e+01      1.3437e+02
+ 1000      5.6869e+00      1.6519e+01
+stvarno koraka: 5475   predviđeno kappa*ln(1e6) = 5939
+komponente w_0 - w* po svojstvenim vektorima (od lambda_min): [ 58.4   1.1   1.5   6.1  11.9   1.2 153.7  24.9  17.9  11.6  21.6]</code></pre>
+<p>Pogreška $w_t-w^*=\sum_j c_j(1-\lambda_j/\lambda_{\max})^t v_j$. Na početku dominiraju komponente s velikim $c_j$, koje gradijentni spust brzo ukloni ako im je $\lambda_j$ velik; zato stvarna greška u prvih stotinjak koraka pada mnogo brže od ocjene. Pri kraju preživi samo komponenta uz $\lambda_{\min}$, koja se smanjuje točno faktorom $1-1/\kappa$ po koraku, pa je ocjena asimptotski točna, ali s manjom konstantom $|c_{\min}|$ umjesto $\lVert w_0-w^*\rVert$. Broj koraka je zato manji od $\kappa\ln(10^6)$, ali istog reda veličine: kondicijski broj doista određuje cijenu učenja.</p>
+</div>
+</div>
+</details>
+</section>
+
+<section class="vjezba">
+<h3>Zadatak 6 <span class="tezina-zadatka tezina-3" title="Procijenjena težina unutar lekcije">teži</span></h3>
+<div class="zadatak">
+<p><b>Rano zaustavljanje kao regularizacija.</b> Na standardiziranim polinomijalnim značajkama iz Primjera 3 promatraj <em>neregularizirani</em> gradijentni spust iz $w_0=0$ sa stopom $\eta=1/\lambda_{\max}$. Pokaži da je $w_t=\sum_j\left[1-(1-\eta\lambda_j)^t\right](v_j^\top w^*)\,v_j$, gdje su $(\lambda_j,v_j)$ svojstveni parovi Hesseove matrice, provjeri formulu usporedbom s petljom i pomoću nje izračunaj testnu MSE za $t=10,10^2,\dots,10^{12}$. U kojem je trenutku testna greška najmanja i kako se uspoređuje s najboljim ridgeom? Zašto broj koraka djeluje kao $1/\lambda$?</p>
+</div>
+<details class="spoiler naputak">
+<summary>Naputak<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<p>Iz dokaza teorema: $w_t-w^*=(I-\eta H)^t(w_0-w^*)$. Rastavi $-w^*$ po svojstvenim vektorima. Ridge komponentu $j$ množi faktorom $\dfrac{\lambda_j}{\lambda_j+2\lambda}$.</p>
+</div>
+</details>
+<details class="spoiler rjesenje-spoiler">
+<summary>Rješenje<span class="spoiler-napomena">klikni za prikaz</span></summary>
+<div class="spoiler-sadrzaj">
+<div class="rjesenje">
+<p>Uz $w_0=0$ je $w_t=w^*-(I-\eta H)^tw^*$. Ako je $w^*=\sum_j c_jv_j$ s $c_j=v_j^\top w^*$, onda $(I-\eta H)^tv_j=(1-\eta\lambda_j)^tv_j$ daje $w_t=\sum_j\left[1-(1-\eta\lambda_j)^t\right]c_jv_j$. Formula omogućuje „skok” na bilo koji $t$ bez petlje.</p>
+<div class="highlight kod kod-python"><pre><code><span class="n">Hp</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">yc</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_tr</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">P_tr</span>
+<span class="n">lam_p</span><span class="p">,</span> <span class="n">V_p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">eigh</span><span class="p">(</span><span class="n">Hp</span><span class="p">)</span>
+<span class="n">eta</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">lam_p</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">w_zvj</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">lstsq</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">rcond</span><span class="o">=</span><span class="kc">None</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">V_p</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">w_zvj</span>
+
+<span class="k">def</span> <span class="nf">w_nakon</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">V_p</span> <span class="o">@</span> <span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">lam_p</span><span class="p">)</span> <span class="o">**</span> <span class="nb">float</span><span class="p">(</span><span class="n">t</span><span class="p">))</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span>
+
+<span class="n">w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">P_tr</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">-=</span> <span class="n">eta</span> <span class="o">*</span> <span class="n">gradijent</span><span class="p">(</span><span class="n">P_tr</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;petlja vs. formula (t = 1000): max razlika = </span><span class="si">%.1e</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span> <span class="o">-</span> <span class="n">w_nakon</span><span class="p">(</span><span class="mi">1000</span><span class="p">))</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;       t   MSE trening   MSE test   max|w|&quot;</span><span class="p">)</span>
+<span class="n">krivulja</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">13</span><span class="p">):</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="n">w_nakon</span><span class="p">(</span><span class="mi">10</span> <span class="o">**</span> <span class="n">k</span><span class="p">)</span>
+    <span class="n">tr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">P_tr</span> <span class="o">@</span> <span class="n">w</span> <span class="o">+</span> <span class="n">b0</span> <span class="o">-</span> <span class="n">yp_tr</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">P_te</span> <span class="o">@</span> <span class="n">w</span> <span class="o">+</span> <span class="n">b0</span> <span class="o">-</span> <span class="n">yp_te</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">krivulja</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">te</span><span class="p">,</span> <span class="mi">10</span> <span class="o">**</span> <span class="n">k</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%8.0e</span><span class="s2">  </span><span class="si">%12.4f</span><span class="s2">  </span><span class="si">%9.4f</span><span class="s2">  </span><span class="si">%8.1f</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="mi">10</span> <span class="o">**</span> <span class="n">k</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">te</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;najmanja testna MSE </span><span class="si">%.4f</span><span class="s2"> za t = </span><span class="si">%.0e</span><span class="s2">;  najbolji ridge iz Primjera 3: </span><span class="si">%.4f</span><span class="s2">&quot;</span>
+      <span class="o">%</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">krivulja</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">min</span><span class="p">(</span><span class="n">krivulja</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">min</span><span class="p">(</span><span class="n">te</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">te</span> <span class="ow">in</span> <span class="n">rez</span><span class="p">)))</span></code></pre></div>
+<pre class="izlaz"><code>petlja vs. formula (t = 1000): max razlika = 4.9e-04
+       t   MSE trening   MSE test   max|w|
+   1e+01        0.2009     0.2593       0.2
+   1e+02        0.0928     0.1593       0.4
+   1e+03        0.0742     0.1225       0.8
+   1e+04        0.0395     0.0552       2.6
+   1e+05        0.0290     0.0375       5.9
+   1e+06        0.0262     0.0385       9.6
+   1e+07        0.0253     0.0432      11.0
+   1e+08        0.0250     0.0453      39.9
+   1e+09        0.0247     0.0458     252.0
+   1e+10        0.0243     0.0565    1555.1
+   1e+11        0.0536     0.5736    9982.9
+   1e+12        0.1160     1.5200   37294.1
+najmanja testna MSE 0.0375 za t = 1e+05;  najbolji ridge iz Primjera 3: 0.0391</code></pre>
+<p>Krivulja testne greške po $t$ ima isti U-oblik kao po $\lambda$ (samo zrcalno: velik $t$ odgovara malom $\lambda$), a minimum oko $t=10^5$ čak je malo bolji od najboljeg ridgea. Objašnjenje je u formuli: komponente uz velike $\lambda_j$ (glatki dio polinoma) nauče se u nekoliko koraka, dok komponente uz sićušne $\lambda_j$, upravo one koje kod OLS-a poprimaju divovske vrijednosti, rastu brzinom $1-(1-\eta\lambda_j)^t\approx\eta\lambda_jt$ i praktički miruju dok $t$ nije reda $1/(\eta\lambda_j)$. Ridge iste komponente množi s $\lambda_j/(\lambda_j+2\lambda)$: blizu $1$ za velike, blizu $0$ za male $\lambda_j$. Oba postupka propuštaju „velike” smjerove i guše „male”, s pragom $2\lambda$ odnosno približno $1/(\eta t)$, pa mali broj koraka odgovara jakoj regularizaciji. Zaustavljanje u pravom trenutku, prema validacijskom skupu, zove se rano zaustavljanje (engl. <i>early stopping</i>) i u dubokom učenju jedan je od najčešćih oblika regularizacije (D4). (Razlika petlje i formule reda $10^{-4}$ dolazi od gotovo singularnih smjerova u kojima je $w^*$ iz <code>lstsq</code> numerički nepouzdan.)</p>
+</div>
+</div>
+</details>
+</section>
+        <div class="rezime">
+            <h2>Sažetak</h2>
+<ul>
+<li>Gradijentni spust $w\leftarrow w-\eta\nabla L(w)$ univerzalan je algoritam učenja; puni GD koristi sve primjere, SGD jedan, mini-batch $B$ (tipično $32$–$256$) i to je standard.</li>
+<li>Stopa učenja: konvergencija za MSE zahtijeva $\eta\lt2/\lambda_{\max}$, broj koraka raste s kondicijskim brojem $\kappa=\lambda_{\max}/\lambda_{\min}$. Uvijek pogledaj krivulju gubitka; za SGD smanjuj $\eta$ tijekom učenja.</li>
+<li>Standardiziraj značajke (statistike samo s treninga!) prije gradijentnog spusta i prije regularizacije: smanjuje $\kappa$ i čini kaznu pravednom prema svim težinama.</li>
+<li>Ridge ($\lambda\lVert w\rVert_2^2$) skuplja težine (weight decay, zatvoreni oblik $(X^\top X+n\lambda I)^{-1}X^\top y$); lasso ($\lambda\lVert w\rVert_1$) mekim odsijecanjem postavlja slabe težine točno na nulu i tako odabire značajke.</li>
+<li>Jačina regularizacije upravlja kompromisom prenaučenost–podnaučenost: testna greška po $\lambda$ ima U-oblik, a $\lambda$ se bira validacijom, nikad na testu. Rano zaustavljanje djeluje slično ridgeu.</li>
+<li>Scikit-learn: <code>StandardScaler</code>, <code>Ridge(alpha)</code>, <code>Lasso(alpha)</code>, <code>ElasticNet</code>, <code>SGDRegressor</code>; provjeri konvenciju kazne (<code>alpha</code> nije uvijek isto što i $\lambda$).</li>
+</ul>
+        </div>
+        <section class="literatura">
+            <h3>Za daljnje čitanje</h3>
+            <ul>
+<li>A. Géron, <i>Hands-On Machine Learning with Scikit-Learn, Keras &amp; TensorFlow</i>, 3. izd., poglavlje 4 (Training Models: gradient descent, regularized linear models).</li>
+<li>T. Hastie, R. Tibshirani, J. Friedman, <i>The Elements of Statistical Learning</i>, 2. izd., poglavlje 3.4 (Shrinkage Methods); besplatno dostupno na stranicama autora.</li>
+<li>Scikit-learn dokumentacija: <a href="https://scikit-learn.org/stable/modules/linear_model.html">Linear Models</a> (Ridge, Lasso, SGD) i <a href="https://scikit-learn.org/stable/modules/preprocessing.html">Preprocessing data</a> (StandardScaler).</li>
+<li>S. Ruder, <i>An overview of gradient descent optimization algorithms</i>, arXiv:1609.04747 – pregled inačica SGD-a i rasporeda stope učenja.</li>
+            </ul>
+        </section>
+        <footer>
+            <nav class="lekcija-nav" aria-label="Susjedne lekcije">
+                <a class="prethodna" href="01-linearna-regresija.html"><small>← Prethodna lekcija</small>M1 · Uvod u strojno učenje i linearna regresija</a>
+                <a class="sljedeca" href="03-logisticka-regresija-metrike.html"><small>Sljedeća lekcija →</small>M3 · Klasifikacija: logistička regresija i metrike</a>
+            </nav>
+        </footer>
+    </article>
+</body>
+</html>
