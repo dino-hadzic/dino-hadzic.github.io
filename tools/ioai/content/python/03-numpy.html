@@ -1,0 +1,587 @@
+@@ meta
+naslov = NumPy: vektori, matrice i vektorizacija
+podnaslov = Polja umjesto petlji: oblik, tip, maske, broadcasting, agregacije po osima, linearna algebra i zašto je vektorizirani kod deset do sto puta brži
+oznake = ndarray, shape i dtype, maske, broadcasting, agregacije po osima, matrični produkt, np.linalg, vektorizacija
+
+@@ ciljevi
+<li>Čitati i predviđati oblik (<code>shape</code>) svakog izraza s poljima te prepoznati i popraviti tipične greške s oblicima.</li>
+<li>Indeksirati polja rezovima, maskama i nizovima indeksa, koristiti broadcasting umjesto petlji i agregirati po osima s <code>axis</code> i <code>keepdims</code>.</li>
+<li>Računati matrične produkte s <code>@</code> i rješavati sustave, najmanje kvadrate i svojstvene probleme funkcijama iz <code>np.linalg</code>.</li>
+<li>Napisati stabilan softmax, standardizaciju stupaca i udaljenosti među točkama bez ijedne Python petlje – i izmjeriti koliko se time dobiva.</li>
+
+@@ teorija
+<p>Model strojnog učenja je, kad se sve svede, niz množenja matrica i primjena funkcija po elementima. Python petlja po elementima za to je prespora stotine puta; <b>NumPy</b> premješta petlju u prevedeni C kod, a tebi ostavlja matematički zapis: $\hat y = Xw$ postaje <code>X @ w</code>. Sve ostale biblioteke kurikuluma – pandas, scikit-learn, PyTorch – grade se na istim pojmovima: polje, oblik, os, broadcasting. Tko ih svlada ovdje, u PyTorchu samo mijenja <code>np</code> u <code>torch</code>.</p>
+
+<h3>Polje: oblik i tip</h3>
+<definicija naslov="ndarray, shape, dtype">
+<code>ndarray</code> je $n$-dimenzionalno polje elemenata <em>istog</em> tipa. <b>Oblik</b> <code>a.shape</code> je n-torka duljina po svakoj <b>osi</b> (engl. <i>axis</i>): vektor duljine $5$ ima oblik <code>(5,)</code>, matrica $3\times4$ oblik <code>(3, 4)</code>, batch od $32$ slika $28\times28$ oblik <code>(32, 28, 28)</code>. Broj osi je <code>a.ndim</code>, ukupan broj elemenata <code>a.size</code>. <b>Tip</b> <code>a.dtype</code> je zajednički svim elementima: <code>float64</code> (zadano za realne), <code>int64</code>, <code>bool</code>, u dubokom učenju često <code>float32</code>.
+</definicija>
+<p>Polja stvaraš iz listi (<code>np.array([[1, 2], [3, 4]])</code>) ili funkcijama <code>np.zeros(oblik)</code>, <code>np.ones</code>, <code>np.full(oblik, vr)</code>, <code>np.eye(n)</code>, <code>np.arange(a, b, korak)</code>, <code>np.linspace(a, b, n)</code>. Oblik mijenjaš s <code>a.reshape(2, 3)</code> – jedan od brojeva smije biti <code>-1</code> („izračunaj sam”), a <code>a.ravel()</code> ispeglava u 1D. <code>a.T</code> transponira. Tip pretvaraš s <code>a.astype(np.float32)</code>; pazi da cjelobrojno polje <em>ostaje cjelobrojno</em> pri pridruživanju (<code>a[0] = 2.7</code> upiše $2$).</p>
+
+<h3>Indeksiranje, rezovi, maske</h3>
+<p>Indeksi se pišu u jednoj zagradi s zarezom po osima: <code>A[i, j]</code>, cijeli redak <code>A[i]</code>, cijeli stupac <code>A[:, j]</code>, podmatrica <code>A[1:3, ::2]</code>. <b>Rez je pogled</b> (engl. <i>view</i>), ne kopija: mijenjanje <code>B = A[:, 0]; B[:] = 0</code> mijenja i <code>A</code>; kopiju tražiš eksplicitno s <code>.copy()</code>. <b>Maska</b> je polje tipa <code>bool</code> istog oblika: <code>A[A &gt; 0]</code> vraća (1D kopiju) elemenata koji zadovoljavaju uvjet, <code>A[A &lt; 0] = 0</code> ih mijenja na mjestu. Uvjeti se spajaju s <code>&amp;</code>, <code>|</code>, <code>~</code> (ne <code>and</code>/<code>or</code>!) i zagradama. <code>np.where(uvjet, a, b)</code> bira element po element. <b>Napredno indeksiranje</b> nizom indeksa <code>A[[0, 2, 2]]</code> vraća retke u zadanom poretku (s ponavljanjem), a <code>A[redci, stupci]</code> s dva niza iste duljine vraća elemente $(r_k, s_k)$ – ne podmatricu.</p>
+
+<h3>Operacije po elementima i broadcasting</h3>
+<p>Aritmetika (<code>+ - * / **</code>), usporedbe i <b>univerzalne funkcije</b> (<code>np.exp</code>, <code>np.log</code>, <code>np.sqrt</code>, <code>np.maximum</code>, …) djeluju element po element i vraćaju polje istog oblika. Kad oblici nisu jednaki, NumPy ih pokušava uskladiti <b>broadcastingom</b>.</p>
+<definicija naslov="Pravilo broadcastinga">
+Oblici se poravnaju <em>zdesna</em>; kraćem se slijeva dodaju osi duljine $1$. Po svakoj osi duljine moraju biti jednake ili jedna od njih mora biti $1$ – ta se os „rastegne” kopiranjem (bez stvarnog kopiranja u memoriji). Inače slijedi <code>ValueError: operands could not be broadcast together</code>.
+</definicija>
+<p>Primjeri: <code>(3, 4) + (4,)</code> → <code>(3, 4)</code> (vektor se dodaje svakom retku); <code>(3, 4) + (3, 1)</code> → <code>(3, 4)</code> (stupac se dodaje svakom stupcu); <code>(3, 1) + (1, 4)</code> → <code>(3, 4)</code> (vanjski zbroj, tablica); <code>(3, 4) + (3,)</code> → <b>greška</b>, jer se $4$ i $3$ poravnavaju zdesna. Zadnji je slučaj najčešći izvor zabune: vektor duljine $n$ nije ni redak ni stupac. Stupac dobiješ s <code>v[:, None]</code> (ili <code>v.reshape(-1, 1)</code>), redak s <code>v[None, :]</code>.</p>
+<napomena>Najpodmuklija greška u NumPy-ju ne baca iznimku: <code>y - y_hat</code> gdje je <code>y</code> oblika <code>(n,)</code>, a <code>y_hat</code> oblika <code>(n, 1)</code>, broadcastingom daje matricu <code>(n, n)</code>, pa MSE ispadne nekoliko puta prevelik, a model „ne uči”. Kad god rezultat ima neočekivan oblik ili gubitak ne pada, ispiši <code>.shape</code> svih sudionika. <code>np.squeeze</code> uklanja osi duljine $1$, <code>ravel()</code> sve ispegla.</napomena>
+
+<h3>Agregacije po osima</h3>
+<p><code>a.sum()</code>, <code>mean</code>, <code>std</code>, <code>min</code>, <code>max</code>, <code>argmax</code>, <code>any</code>, <code>all</code> bez argumenta sažimaju cijelo polje u broj. S <code>axis=k</code> sažimaju <em>duž</em> osi $k$ – ta os nestaje iz oblika. Za matricu <code>(n, d)</code>: <code>axis=0</code> daje po jedan broj za svaki <em>stupac</em> (oblik <code>(d,)</code> – prosjek značajke po svim primjerima), <code>axis=1</code> po jedan za svaki <em>redak</em> (<code>(n,)</code>). Uz <code>keepdims=True</code> os ostaje duljine $1$, pa se rezultat odmah može broadcastati natrag: <code>A - A.mean(axis=1, keepdims=True)</code> oduzima svakom retku njegov prosjek. <code>argmax(axis=1)</code> vraća indeks najvećeg elementa u svakom retku – tako se iz izlaza klasifikatora oblika <code>(n, k)</code> dobivaju predviđene klase. Kumulativne verzije: <code>cumsum</code>, <code>cumprod</code>.</p>
+
+<h3>Matrični produkt i linearna algebra</h3>
+<p><code>*</code> je množenje <em>po elementima</em>; matrični produkt je <code>@</code> (ili <code>np.dot</code>, <code>np.matmul</code>). Za <code>A</code> oblika <code>(n, k)</code> i <code>B</code> oblika <code>(k, m)</code> je <code>A @ B</code> oblika <code>(n, m)</code>; <code>A @ v</code> s <code>v</code> oblika <code>(k,)</code> daje <code>(n,)</code>; <code>v @ w</code> dvaju vektora je skalarni produkt. <code>np.outer(u, v)</code> je vanjski produkt $uv^\top$, a <code>A.T @ A</code> Gramova matrica. Za batch matrica <code>(b, n, k) @ (b, k, m)</code> daje <code>(b, n, m)</code> – <code>@</code> se broadcasta po vodećim osima.</p>
+<p>Modul <code>np.linalg</code>: <code>solve(A, b)</code> rješava $Ax=b$ (uvijek umjesto <code>inv(A) @ b</code> – brže i stabilnije), <code>inv(A)</code> inverz, <code>det</code>, <code>norm(v)</code> euklidska norma $\lVert v\rVert_2$ (s <code>axis</code> norma svakog retka, <code>ord</code> za druge norme), <code>lstsq(X, y)</code> najmanji kvadrati i za pravokutne $X$, <code>eigh(S)</code> svojstvene vrijednosti (rastuće) i vektori <em>simetrične</em> matrice (kovarijance!), <code>eig</code> za općenitu, <code>svd(A)</code> dekompozicija $A=U\Sigma V^\top$ na kojoj počivaju PCA i kompresija (lekcija M6).</p>
+
+<h3>Slučajni brojevi</h3>
+<p>Moderno sučelje je <b>generator</b>: <code>rng = np.random.default_rng(0)</code>, pa <code>rng.random(oblik)</code> na $[0,1)$, <code>rng.normal(mu, sigma, oblik)</code>, <code>rng.integers(a, b, oblik)</code> ($b$ isključen), <code>rng.choice(n, k, replace=False)</code>, <code>rng.permutation(n)</code> za miješanje indeksa, <code>rng.shuffle(a)</code> na mjestu. Sjeme čini svaki eksperiment ponovljivim – svaki blok koda u ovom kurikulumu počinje njime. Stari stil <code>np.random.seed(0); np.random.rand()</code> srest ćeš u tuđem kodu; radi, ali dijeli globalno stanje.</p>
+
+<h3>Vektorizacija</h3>
+<p><b>Vektorizirati</b> znači zamijeniti Python petlju operacijama nad cijelim poljima. Dobitak je dvostruk: brzina (petlja u C-u, bez tumačenja svakog koraka) i čitljivost (kod izgleda kao formula). Recept: (1) zapiši što računaš za <em>jedan</em> element ili par; (2) složi ulaze tako da broadcasting napravi sve parove odjednom (<code>x[:, None]</code> protiv <code>y[None, :]</code>); (3) agregiraj po pravoj osi. Petlja u Pythonu ostaje prihvatljiva po <em>epohama</em> ili <em>iteracijama algoritma</em>, nikad po primjerima ili elementima. Cijena vektorizacije je memorija: za $n$ točaka matrica svih parova ima $n^2$ elemenata, pa za $n=10^5$ treba računati u komadima (batchevima).</p>
+
+@@ primjeri
+<primjer>
+<p>Rezultati $6$ učenika na $4$ testa zadani su u postocima. Složi ih u matricu, ispiši oblik i tip, pretvori je u realne brojeve i: (a) nađi prosjek po testu i po učeniku; (b) izdvoji učenike koji su na svim testovima imali barem $50$; (c) oduzmi od svakog stupca njegov prosjek (centriranje) i provjeri oblike koji nastaju uz <code>keepdims</code> i bez njega; (d) pokaži zamku <code>(n,)</code> protiv <code>(n, 1)</code>.</p>
+<rjesenje>
+<p><b>Korak 1: polje, oblik, tip.</b> Lista listi postaje matrica oblika <code>(6, 4)</code>; cijeli brojevi daju <code>int64</code>, pa odmah pretvaramo u <code>float</code> da dijeljenja i centriranje rade kako očekujemo.</p>
+<kod jezik="python">
+import numpy as np
+
+R = np.array([[78, 92, 65, 88],
+              [45, 60, 52, 49],
+              [90, 85, 95, 91],
+              [60, 55, 70, 65],
+              [30, 48, 55, 40],
+              [82, 79, 88, 90]])
+print(R.shape, R.ndim, R.size, R.dtype)
+R = R.astype(float)
+print(R.dtype, R[0], R[:, 1], R[2, 3])
+print(R.reshape(2, -1).shape, R.T.shape)
+</kod>
+<izlaz>
+(6, 4) 2 24 int64
+float64 [78. 92. 65. 88.] [92. 60. 85. 55. 48. 79.] 91.0
+(2, 12) (4, 6)
+</izlaz>
+<p><b>Korak 2: agregacije po osima i maske.</b> <code>axis=0</code> gleda niz redaka, pa daje jedan broj po stupcu (testu); <code>axis=1</code> jedan po retku (učeniku). Uvjet „na svim testovima barem $50$” je <code>all</code> po osi $1$.</p>
+<kod jezik="python">
+print("po testu:  ", R.mean(axis=0).round(1), R.mean(axis=0).shape)
+print("po učeniku:", R.mean(axis=1).round(1), R.mean(axis=1).shape)
+print("najbolji učenik na svakom testu:", R.argmax(axis=0))
+
+svi_prosli = (R >= 50).all(axis=1)
+print(svi_prosli, "->", np.flatnonzero(svi_prosli))
+print(R[svi_prosli].shape, "redaka zadovoljava")
+print("rezultata ispod 50:", (R < 50).sum(), "; udio:", round((R < 50).mean(), 3))
+</kod>
+<izlaz>
+po testu:   [64.2 69.8 70.8 70.5] (4,)
+po učeniku: [80.8 51.5 90.2 62.5 43.2 84.8] (6,)
+najbolji učenik na svakom testu: [2 0 2 2]
+[ True False  True  True False  True] -> [0 2 3 5]
+(4, 4) redaka zadovoljava
+rezultata ispod 50: 5 ; udio: 0.208
+</izlaz>
+<p><b>Korak 3: centriranje i keepdims.</b> Prosjek po stupcima ima oblik <code>(4,)</code> i broadcasta se na <code>(6, 4)</code> bez problema – poravnanje zdesna. Prosjek po recima ima oblik <code>(6,)</code> i <em>ne može</em> se oduzeti od <code>(6, 4)</code>; treba <code>keepdims=True</code> ili <code>[:, None]</code>.</p>
+<kod jezik="python">
+C = R - R.mean(axis=0)
+print(C.shape, C.mean(axis=0).round(10))
+try:
+    R - R.mean(axis=1)
+except ValueError as e:
+    print("greška:", e)
+po_retku = R - R.mean(axis=1, keepdims=True)
+print(R.mean(axis=1, keepdims=True).shape, po_retku.shape, po_retku.sum(axis=1).round(10))
+</kod>
+<izlaz>
+(6, 4) [-0.  0.  0.  0.]
+greška: operands could not be broadcast together with shapes (6,4) (6,)
+(6, 1) (6, 4) [0. 0. 0. 0. 0. 0.]
+</izlaz>
+<p><b>Korak 4: zamka koja ne baca grešku.</b> Ciljne vrijednosti <code>y</code> oblika <code>(6,)</code> i predikcije <code>y_hat</code> oblika <code>(6, 1)</code> – jer ih je model vratio kao stupac – daju razliku oblika <code>(6, 6)</code> i pogrešan MSE.</p>
+<kod jezik="python">
+y = R.mean(axis=1)                 # (6,)
+y_hat = (y + 1)[:, None]           # (6, 1): svaka predikcija za 1 prevelika
+print((y - y_hat).shape, "MSE =", ((y - y_hat) ** 2).mean().round(2), "(točno je 1.0)")
+print("popravljeno:", ((y - y_hat.ravel()) ** 2).mean())
+</kod>
+<izlaz>
+(6, 6) MSE = 617.36 (točno je 1.0)
+popravljeno: 1.0
+</izlaz>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Procijeni $\pi$ Monte Carlo metodom s $N=10^6$ točaka na dva načina – Python petljom i vektorizirano – te usporedi rezultate i vrijeme. Zatim pomoću <code>cumsum</code> prikaži kako se procjena mijenja s brojem točaka i nađi prvi $N$ nakon kojeg greška ostaje ispod $10^{-2}$.</p>
+<rjesenje>
+<p><b>Korak 1: petlja.</b> Ovako bi to napisao netko tko zna samo osnovni Python (lekcija P2, Zadatak 6). Vrijeme mjerimo s <code>perf_counter</code>; ispis vremena ovisi o računalu pa se ne provjerava.</p>
+<kod jezik="python">
+import time
+
+N = 10 ** 6
+rng = np.random.default_rng(0)
+tocke = rng.random((N, 2))          # oblik (N, 2), svaki redak jedna točka
+
+t0 = time.perf_counter()
+u_krugu = 0
+for x, y in tocke:
+    if x * x + y * y <= 1:
+        u_krugu += 1
+t_petlja = time.perf_counter() - t0
+print("petlja:    pi ≈", 4 * u_krugu / N)
+</kod>
+<izlaz>
+petlja:    pi ≈ 3.141168
+</izlaz>
+<p><b>Korak 2: vektorizirano.</b> Kvadrat norme svakog retka je <code>(tocke ** 2).sum(axis=1)</code>, oblik <code>(N,)</code>; usporedba daje masku, a <code>mean</code> maske udio istinitih (jer je <code>True</code> jednak $1$).</p>
+<kod jezik="python">
+t0 = time.perf_counter()
+r2 = (tocke ** 2).sum(axis=1)
+unutra = r2 <= 1
+t_np = time.perf_counter() - t0
+print("vektorski: pi ≈", 4 * unutra.mean())
+print("isti broj točaka u krugu:", unutra.sum() == u_krugu)
+</kod>
+<izlaz>
+vektorski: pi ≈ 3.141168
+isti broj točaka u krugu: True
+</izlaz>
+<kod jezik="python">
+print(f"petlja {t_petlja:.3f} s, NumPy {t_np:.4f} s, ubrzanje {t_petlja / t_np:.0f}x")
+</kod>
+<izlaz provjera="ne">
+petlja 0.917 s, NumPy 0.0231 s, ubrzanje 40x
+</izlaz>
+<p>Ubrzanje od nekoliko desetaka do nekoliko stotina puta tipično je za zamjenu petlje po elementima vektoriziranim izrazom. Na natjecanju je to razlika između rješenja koje stigne isprobati pet ideja i rješenja koje čeka jednu.</p>
+<p><b>Korak 3: konvergencija s cumsum.</b> Kumulativni zbroj maske podijeljen s $1,2,\dots,N$ daje procjenu nakon svakog broja točaka odjednom; <code>argmax</code> na maski „greška je ispod praga od ovog mjesta nadalje” nalazi prvi takav indeks; „trajno ispod praga” znači iza <em>zadnjeg</em> indeksa na kojem greška još premašuje prag.</p>
+<kod jezik="python">
+procjena = 4 * np.cumsum(unutra) / np.arange(1, N + 1)
+for n in (10, 100, 1000, 10 ** 4, 10 ** 5, 10 ** 6):
+    print(f"N = {n:>7}: {procjena[n - 1]:.4f}")
+greska = np.abs(procjena - np.pi)
+zadnji_los = np.flatnonzero(greska > 1e-2).max()
+print("greška trajno ispod 0.01 od N =", zadnji_los + 2)
+</kod>
+<izlaz>
+N =      10: 2.8000
+N =     100: 2.9200
+N =    1000: 3.2440
+N =   10000: 3.1484
+N =  100000: 3.1481
+N = 1000000: 3.1412
+greška trajno ispod 0.01 od N = 19228
+</izlaz>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>(a) Riješi sustav $Ax=b$ za slučajnu matricu $4\times4$ i provjeri rezidual; usporedi <code>solve</code> s <code>inv</code>. (b) Sintetičkim podacima $y=2x_1-x_2+0{,}5+\varepsilon$ prilagodi linearni model s <code>lstsq</code> i s normalnom jednadžbom. (c) Za oblak točaka u ravnini izračunaj kovarijacijsku matricu, njezine svojstvene vektore s <code>eigh</code> i pokaži da se smjer najveće raspršenosti poklapa sa <code>svd</code> centriranih podataka.</p>
+<rjesenje>
+<p><b>Korak 1: sustav jednadžbi.</b> Rezidual $\lVert Ax-b\rVert$ reda $10^{-15}$ je „nula” u aritmetici dvostruke preciznosti. <code>inv(A) @ b</code> daje isto, ali računa cijeli inverz ($O(n^3)$ i više zaokruživanja) da bi iskoristio jedan stupac.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+A = rng.normal(size=(4, 4))
+b = rng.normal(size=4)
+x = np.linalg.solve(A, b)
+print("x =", x.round(4))
+print("rezidual:", np.linalg.norm(A @ x - b) < 1e-12)
+print("isto kao inv:", np.allclose(np.linalg.inv(A) @ b, x))
+print("det(A) = %.4f, I = %s" % (np.linalg.det(A), np.allclose(A @ np.linalg.inv(A), np.eye(4))))
+</kod>
+<izlaz>
+x = [-0.2109  0.2392 -0.865   0.6463]
+rezidual: True
+isto kao inv: True
+det(A) = -1.8848, I = True
+</izlaz>
+<p><b>Korak 2: najmanji kvadrati.</b> Matrica dizajna ima stupac jedinica za pomak (lekcija M1). <code>lstsq</code> vraća i zbroj kvadrata reziduala, rang i singularne vrijednosti; uzimamo samo rješenje.</p>
+<kod jezik="python">
+n = 200
+X = rng.normal(size=(n, 2))
+y = 2 * X[:, 0] - X[:, 1] + 0.5 + rng.normal(0, 0.1, size=n)
+Xd = np.column_stack([np.ones(n), X])                 # (200, 3)
+w_lstsq, *_ = np.linalg.lstsq(Xd, y, rcond=None)
+w_norm = np.linalg.solve(Xd.T @ Xd, Xd.T @ y)
+print("lstsq:", w_lstsq.round(3), " normalna jednadžba:", w_norm.round(3))
+print("oblici:", Xd.shape, (Xd.T @ Xd).shape, (Xd.T @ y).shape, w_lstsq.shape)
+</kod>
+<izlaz>
+lstsq: [ 0.498  1.989 -1.004]  normalna jednadžba: [ 0.498  1.989 -1.004]
+oblici: (200, 3) (3, 3) (3,) (3,)
+</izlaz>
+<p>Procijenjeni koeficijenti $(b, w_1, w_2)\approx(0{,}5,\,2,\,-1)$ pogađaju prave vrijednosti na dvije decimale; šum $\sigma=0{,}1$ ne dopušta bolje.</p>
+<p><b>Korak 3: kovarijanca, eigh i svd.</b> Točke rastežemo duž smjera $(1, 1)/\sqrt2$ (standardna devijacija $3$) i stisnemo okomito ($0{,}5$). Kovarijacijska matrica $S=\frac1n X_c^\top X_c$ centriranih podataka je simetrična, pa je <code>eigh</code> pravi alat; svojstveni vektor uz najveću svojstvenu vrijednost je <b>glavna komponenta</b>. Isti smjer je prvi redak <code>Vt</code> iz <code>svd</code>, a singularne vrijednosti $\sigma_i$ i svojstvene $\lambda_i$ vezane su s $\lambda_i=\sigma_i^2/n$.</p>
+<kod jezik="python">
+n = 1000
+smjer = np.array([1.0, 1.0]) / np.sqrt(2)
+okomito = np.array([-1.0, 1.0]) / np.sqrt(2)
+P = rng.normal(0, 3, n)[:, None] * smjer + rng.normal(0, 0.5, n)[:, None] * okomito + [5, -2]
+Pc = P - P.mean(axis=0)
+S = Pc.T @ Pc / n
+print("S =\n", S.round(3))
+
+lam, V = np.linalg.eigh(S)                      # rastuće svojstvene vrijednosti
+glavni = V[:, np.argmax(lam)]
+print("svojstvene vrijednosti:", lam.round(3), "  std duž njih:", np.sqrt(lam).round(3))
+print("glavna komponenta:", glavni.round(4), " |cos| sa smjerom:", abs(glavni @ smjer).round(4))
+
+U, sig, Vt = np.linalg.svd(Pc, full_matrices=False)
+print("svd: sigma^2/n =", (sig ** 2 / n).round(3), " isti smjer:", np.allclose(abs(Vt[0] @ glavni), 1))
+</kod>
+<izlaz>
+S =
+ [[4.42  4.235]
+ [4.235 4.558]]
+svojstvene vrijednosti: [0.254 8.725]   std duž njih: [0.504 2.954]
+glavna komponenta: [0.7013 0.7128]  |cos| sa smjerom: 1.0
+svd: sigma^2/n = [8.725 0.254]  isti smjer: True
+</izlaz>
+<p>Svojstvene vrijednosti su varijance duž glavnih smjerova: oko $8{,}7$ i $0{,}25$, blizu kvadrata zadanih devijacija $3^2=9$ i $0{,}5^2=0{,}25$ (odstupanje je uzorkovanje). Projekcija na glavnu komponentu <code>Pc @ glavni</code> čuva gotovo svu informaciju jednog 2D oblaka u jednom broju – to je PCA, sustavno u lekciji M6. Predznak svojstvenog vektora je proizvoljan, zato uspoređujemo apsolutnu vrijednost kosinusa.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Bez pokretanja odredi oblik rezultata (ili predvidi grešku) za <code>a</code> oblika <code>(3,)</code>, <code>b</code> oblika <code>(3, 1)</code>, <code>M</code> oblika <code>(4, 3)</code> i <code>N</code> oblika <code>(3, 2)</code>: <code>a + b</code>, <code>M * a</code>, <code>M + b</code>, <code>M @ N</code>, <code>M @ a</code>, <code>a @ a</code>, <code>M.sum(axis=0)</code>, <code>M.sum(axis=1, keepdims=True)</code>, <code>M + M.sum(axis=1)</code>. Zatim provjeri.</p>
+<rjesenje>
+<kod jezik="python">
+a, b = np.ones(3), np.ones((3, 1))
+M, N = np.ones((4, 3)), np.ones((3, 2))
+izrazi = {"a + b": lambda: a + b, "M * a": lambda: M * a, "M + b": lambda: M + b,
+          "M @ N": lambda: M @ N, "M @ a": lambda: M @ a, "a @ a": lambda: a @ a,
+          "M.sum(axis=0)": lambda: M.sum(axis=0),
+          "M.sum(axis=1, keepdims=True)": lambda: M.sum(axis=1, keepdims=True),
+          "M + M.sum(axis=1)": lambda: M + M.sum(axis=1)}
+for ime, f in izrazi.items():
+    try:
+        print(f"{ime:<30} {np.shape(f())}")
+    except ValueError:
+        print(f"{ime:<30} greška: oblici se ne mogu uskladiti")
+</kod>
+<izlaz>
+a + b                          (3, 3)
+M * a                          (4, 3)
+M + b                          greška: oblici se ne mogu uskladiti
+M @ N                          (4, 2)
+M @ a                          (4,)
+a @ a                          ()
+M.sum(axis=0)                  (3,)
+M.sum(axis=1, keepdims=True)   (4, 1)
+M + M.sum(axis=1)              greška: oblici se ne mogu uskladiti
+</izlaz>
+<p><code>a + b</code> je vanjski zbroj <code>(3, 3)</code>; <code>M + b</code> ne prolazi jer se <code>(4, 3)</code> i <code>(3, 1)</code> poravnavaju zdesna: $3$ naspram $1$ je u redu, ali $4$ naspram $3$ nije; <code>a @ a</code> je skalar (oblik <code>()</code>); zadnji izraz pada jer <code>(4,)</code> nije stupac – treba <code>keepdims</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Bez petlji napravi: (a) tablicu množenja $9\times9$ (broadcastingom ili <code>np.outer</code>); (b) šahovnicu $8\times8$ od nula i jedinica (rezovi s korakom $2$); (c) matricu $5\times5$ s $1,2,3,4,5$ na dijagonali i $-1$ odmah iznad dijagonale (<code>np.diag</code> s argumentom <code>k</code>). Ispiši zbroj svake od njih.</p>
+<rjesenje>
+<kod jezik="python">
+k = np.arange(1, 10)
+tablica = k[:, None] * k[None, :]
+print(tablica[2, 6], tablica.sum(), np.array_equal(tablica, np.outer(k, k)))
+
+sah = np.zeros((8, 8), dtype=int)
+sah[::2, 1::2] = 1
+sah[1::2, ::2] = 1
+print(sah[:3], sah.sum())
+
+T = np.diag(np.arange(1, 6)) + np.diag(-np.ones(4, dtype=int), k=1)
+print(T, T.sum())
+</kod>
+<izlaz>
+21 2025 True
+[[0 1 0 1 0 1 0 1]
+ [1 0 1 0 1 0 1 0]
+ [0 1 0 1 0 1 0 1]] 32
+[[ 1 -1  0  0  0]
+ [ 0  2 -1  0  0]
+ [ 0  0  3 -1  0]
+ [ 0  0  0  4 -1]
+ [ 0  0  0  0  5]] 11
+</izlaz>
+<p>Zbroj tablice množenja je $(1+\dots+9)^2=45^2=2025$. Rez <code>[::2, 1::2]</code> znači „svaki drugi redak od nultog, svaki drugi stupac od prvog”.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Za matricu <code>Z</code> oblika <code>(5, 6)</code> slučajnih brojeva iz $\mathcal N(0,1)$ (generator sa sjemenom $3$): (a) zamijeni sve negativne elemente nulom na dva načina (<code>np.where</code> i <code>np.maximum</code>) i provjeri da su rezultati jednaki; (b) izbroji elemente veće od prosjeka cijele matrice; (c) nađi položaj $(i,j)$ najvećeg elementa pomoću <code>argmax</code> i <code>np.unravel_index</code>; (d) u svakom retku nađi indeks stupca s najmanjim elementom.</p>
+<rjesenje>
+<kod jezik="python">
+Z = np.random.default_rng(3).normal(size=(5, 6))
+relu1 = np.where(Z < 0, 0.0, Z)
+relu2 = np.maximum(Z, 0)
+print(np.array_equal(relu1, relu2), (relu1 == 0).sum(), "nula")
+print("iznad prosjeka:", (Z > Z.mean()).sum())
+i, j = np.unravel_index(Z.argmax(), Z.shape)
+print("maksimum", Z.max().round(3), "na", (int(i), int(j)), Z[i, j] == Z.max())
+print("najmanji po retku u stupcu:", Z.argmin(axis=1))
+</kod>
+<izlaz>
+True 18 nula
+iznad prosjeka: 11
+maksimum 3.323 na (1, 3) True
+najmanji po retku u stupcu: [1 0 2 5 3]
+</izlaz>
+<p>Funkcija $\max(0,z)$ po elementima je <b>ReLU</b>, najčešća aktivacijska funkcija neuronskih mreža (lekcija D1) – u NumPy-ju jedan redak. <code>argmax</code> bez osi vraća indeks u ispeglanom polju; <code>unravel_index</code> ga pretvara natrag u $(i,j)$.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Softmax vektora $z\in\mathbb R^k$ je $\sigma(z)_i=\dfrac{e^{z_i}}{\sum_j e^{z_j}}$. Napiši funkciju <code>softmax(Z)</code> koja ga računa <em>po recima</em> matrice oblika <code>(n, k)</code>. Pokaži da naivna formula za $z=(1000, 0)$ daje <code>nan</code>, dokaži da oduzimanje bilo koje konstante od $z$ ne mijenja rezultat i iskoristi to (oduzmi maksimum retka) za stabilnu verziju. Provjeri da redci zbrajaju na $1$.</p>
+<naputak>$\dfrac{e^{z_i-c}}{\sum_j e^{z_j-c}}=\dfrac{e^{-c}e^{z_i}}{e^{-c}\sum_j e^{z_j}}$. Najveći eksponent nakon pomaka je $0$, pa <code>exp</code> ne može preliti.</naputak>
+<rjesenje>
+<kod jezik="python">
+def softmax_naivno(Z):
+    E = np.exp(Z)
+    return E / E.sum(axis=1, keepdims=True)
+
+def softmax(Z):
+    Zs = Z - Z.max(axis=1, keepdims=True)
+    E = np.exp(Zs)
+    return E / E.sum(axis=1, keepdims=True)
+
+z = np.array([[1000.0, 0.0]])
+with np.errstate(over="ignore", invalid="ignore"):
+    print("naivno:  ", softmax_naivno(z))
+print("stabilno:", softmax(z))
+
+Z = np.random.default_rng(0).normal(size=(4, 5)) * 3
+Sm = softmax(Z)
+print(Sm.round(3))
+print("zbroj redaka:", Sm.sum(axis=1), " isti kao naivno:", np.allclose(Sm, softmax_naivno(Z)))
+print("pomak ne mijenja:", np.allclose(softmax(Z + 7), Sm))
+</kod>
+<izlaz>
+naivno:   [[nan  0.]]
+stabilno: [[1. 0.]]
+[[0.138 0.064 0.649 0.13  0.019]
+ [0.042 0.712 0.244 0.002 0.   ]
+ [0.084 0.619 0.001 0.284 0.013]
+ [0.004 0.007 0.014 0.128 0.847]]
+zbroj redaka: [1. 1. 1. 1.]  isti kao naivno: True
+pomak ne mijenja: True
+</izlaz>
+<p>$e^{1000}$ premašuje najveći <code>float64</code> ($\approx 1{,}8\cdot10^{308}$) i postaje <code>inf</code>, a <code>inf/inf</code> je <code>nan</code>. Oduzimanjem maksimuma brojnik i nazivnik množe se istim $e^{-c}$, pa je rezultat matematički isti, a numerički siguran. Svaka ozbiljna biblioteka (<code>scipy.special.softmax</code>, <code>torch.softmax</code>) radi upravo ovo; isti trik stoji iza <code>logsumexp</code>-a u lekciji M3.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napiši funkciju <code>standardiziraj(X)</code> koja svaki stupac matrice <code>X</code> oblika <code>(n, d)</code> preslika na prosjek $0$ i standardnu devijaciju $1$ te vrati i parametre (prosjeke i devijacije) da se ista transformacija može primijeniti na testne podatke. Stupac s nultom devijacijom ne smije proizvesti <code>nan</code>. Provjeri na matrici <code>R</code> iz Primjera 1 kojoj si dodao konstantan stupac.</p>
+<naputak>Devijaciju nula zamijeni jedinicom: <code>np.where(std == 0, 1.0, std)</code>. Transformacija je $x'=(x-\mu)/\sigma$ po stupcima, pa su <code>mu</code> i <code>std</code> oblika <code>(d,)</code> i broadcastaju se bez <code>keepdims</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def standardiziraj(X, mu=None, std=None):
+    if mu is None:
+        mu = X.mean(axis=0)
+        std = X.std(axis=0)
+        std = np.where(std == 0, 1.0, std)
+    return (X - mu) / std, mu, std
+
+Rk = np.column_stack([R, np.full(len(R), 7.0)])      # konstantan 5. stupac
+Rs, mu, std = standardiziraj(Rk)
+print(Rs.shape, mu.round(2), std.round(2))
+print("prosjeci:", Rs.mean(axis=0).round(10))
+print("devijacije:", Rs.std(axis=0).round(10))
+print("bez nan:", not np.isnan(Rs).any())
+
+X_test = np.array([[50.0, 50.0, 50.0, 50.0, 7.0]])
+print("test:", standardiziraj(X_test, mu, std)[0].round(3))
+</kod>
+<izlaz>
+(6, 5) [64.17 69.83 70.83 70.5   7.  ] [21.33 16.32 15.91 20.53  1.  ]
+prosjeci: [-0.  0.  0. -0.  0.]
+devijacije: [1. 1. 1. 1. 0.]
+bez nan: True
+test: [[-0.664 -1.215 -1.309 -0.998  0.   ]]
+</izlaz>
+<p>Konstantan stupac postaje stupac nula (nema informacije, ali ni <code>nan</code>-ova koji bi srušili model). Testne podatke standardiziramo <em>parametrima treninga</em> – nikad vlastitim – inače bi se iste vrijednosti preslikavale različito u dva skupa. To je točno ono što radi <code>StandardScaler</code> s <code>fit</code>/<code>transform</code> u scikit-learnu (lekcija M2).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Za matrice točaka <code>A</code> oblika <code>(n, d)</code> i <code>B</code> oblika <code>(m, d)</code> napiši funkciju <code>udaljenosti(A, B)</code> koja bez petlji vraća matricu <code>(n, m)</code> euklidskih udaljenosti $\lVert a_i-b_j\rVert$. Napravi to na dva načina – broadcastingom preko treće osi i formulom $\lVert a-b\rVert^2=\lVert a\rVert^2+\lVert b\rVert^2-2\,a^\top b$ – i oba usporedi s dvostrukom petljom. Koji je brži za $n=m=2000$, $d=50$, i zašto drugi može dati malu negativnu vrijednost pod korijenom?</p>
+<naputak>Za broadcasting: <code>A[:, None, :] - B[None, :, :]</code> ima oblik <code>(n, m, d)</code>; kvadriraj i zbroji po osi $2$. Za formulu: <code>(A ** 2).sum(axis=1)[:, None]</code>, <code>(B ** 2).sum(axis=1)[None, :]</code> i <code>A @ B.T</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+def udaljenosti_broadcast(A, B):
+    razlike = A[:, None, :] - B[None, :, :]            # (n, m, d)
+    return np.sqrt((razlike ** 2).sum(axis=2))
+
+def udaljenosti(A, B):
+    kv = (A ** 2).sum(axis=1)[:, None] + (B ** 2).sum(axis=1)[None, :] - 2 * A @ B.T
+    return np.sqrt(np.maximum(kv, 0))
+
+def udaljenosti_petlja(A, B):
+    D = np.zeros((len(A), len(B)))
+    for i in range(len(A)):
+        for j in range(len(B)):
+            D[i, j] = np.sqrt(((A[i] - B[j]) ** 2).sum())
+    return D
+
+rng = np.random.default_rng(0)
+A, B = rng.normal(size=(5, 3)), rng.normal(size=(4, 3))
+D = udaljenosti(A, B)
+print(D.shape, np.allclose(D, udaljenosti_broadcast(A, B)), np.allclose(D, udaljenosti_petlja(A, B)))
+print("najbliža točka iz B za svaku iz A:", D.argmin(axis=1))
+</kod>
+<izlaz>
+(5, 4) True True
+najbliža točka iz B za svaku iz A: [0 0 3 0 0]
+</izlaz>
+<kod jezik="python">
+A, B = rng.normal(size=(2000, 50)), rng.normal(size=(2000, 50))
+for f in (udaljenosti_broadcast, udaljenosti):
+    t0 = time.perf_counter(); f(A, B); print(f"{f.__name__:<22}{time.perf_counter() - t0:.3f} s")
+</kod>
+<izlaz provjera="ne">
+udaljenosti_broadcast 1.278 s
+udaljenosti           0.042 s
+</izlaz>
+<p>Broadcasting stvara međupolje od $n\cdot m\cdot d=2\cdot10^8$ brojeva ($1{,}6$ GB!) i zato je višestruko sporiji – ili uopće ne stane u memoriju; formula s <code>A @ B.T</code> radi samo s poljima <code>(n, m)</code> i koristi optimizirano množenje matrica. Cijena je zaokruživanje: za $a\approx b$ oduzimaju se dva gotovo jednaka velika broja, pa rezultat može biti $-10^{-13}$ umjesto $0$ – zato <code>np.maximum(kv, 0)</code> prije korijena. Dvostruka petlja za $2000\times2000$ trajala bi desetke sekundi.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Klasifikator za $k=4$ klase vratio je matricu rezultata <code>L</code> oblika <code>(8, 4)</code>, a prave oznake su <code>y = [0, 2, 1, 3, 2, 2, 0, 1]</code>. Bez petlji: (a) odredi predviđene klase; (b) izračunaj točnost; (c) pretvori <code>y</code> u one-hot matricu <code>(8, 4)</code> jednim indeksiranjem jedinične matrice; (d) izračunaj <b>matricu zabune</b> (engl. <i>confusion matrix</i>) $C_{ij}$ = broj primjera prave klase $i$ predviđenih kao $j$ pomoću <code>np.add.at</code> ili <code>np.bincount</code>; (e) iz nje izračunaj preciznost po klasi (dijagonala podijeljena zbrojem stupca), pazeći na dijeljenje nulom.</p>
+<naputak>One-hot: <code>np.eye(k)[y]</code>. Matrica zabune: parovi $(i,j)$ kodirani kao $i\cdot k+j$ pa <code>bincount(..., minlength=k*k).reshape(k, k)</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+rng = np.random.default_rng(5)
+y = np.array([0, 2, 1, 3, 2, 2, 0, 1])
+k = 4
+L = rng.normal(size=(8, k))
+L[np.arange(8), y] += 1.5          # istinita klasa dobiva prednost, ali ne uvijek pobjeđuje
+pred = L.argmax(axis=1)
+print("predikcije:", pred, " točnost:", (pred == y).mean())
+
+onehot = np.eye(k)[y]
+print(onehot.shape, onehot.sum(axis=1), np.array_equal(onehot.argmax(axis=1), y))
+
+C = np.bincount(y * k + pred, minlength=k * k).reshape(k, k)
+C2 = np.zeros((k, k), dtype=int)
+np.add.at(C2, (y, pred), 1)
+print(C, np.array_equal(C, C2))
+
+po_stupcu = C.sum(axis=0)
+preciznost = np.where(po_stupcu > 0, np.diag(C) / np.maximum(po_stupcu, 1), np.nan)
+print("preciznost po klasi:", preciznost.round(2))
+</kod>
+<izlaz>
+predikcije: [0 0 1 1 2 2 0 1]  točnost: 0.75
+(8, 4) [1. 1. 1. 1. 1. 1. 1. 1.] True
+[[2 0 0 0]
+ [0 2 0 0]
+ [1 0 2 0]
+ [0 1 0 0]] True
+preciznost po klasi: [0.67 0.67 1.    nan]
+</izlaz>
+<p>Redak <code>L[np.arange(8), y] += 1.5</code> je napredno indeksiranje parovima $(i, y_i)$ – jedan element po retku. Trag matrice zabune je broj točnih, zbroj retka $i$ broj primjera klase $i$, zbroj stupca $j$ broj predikcija klase $j$; sve metrike iz lekcije M3 (preciznost, odziv, F1) čitaju se iz nje. Klasa koja nikad nije predviđena ima nedefiniranu preciznost – ispisujemo <code>nan</code> umjesto da program padne.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Implementiraj algoritam $k$-sredina (engl. <i>k-means</i>) bez petlji po točkama: za $300$ točaka iz tri grupe u ravnini (sintetički, generator sa sjemenom $0$) i $k=3$ ponavljaj $10$ puta: (1) svakoj točki dodijeli najbliži centroid (funkcija <code>udaljenosti</code> iz Zadatka 6 i <code>argmin</code>), (2) svaki centroid pomakni u prosjek svojih točaka. Korak (2) napiši bez petlje po točkama – maskom po klasteru ili one-hot matricom pripadnosti. Ispiši ukupni zbroj kvadrata udaljenosti do pripadnog centroida po iteracijama i konačne centroide.</p>
+<naputak>One-hot pripadnost <code>P = np.eye(k)[oznake]</code> oblika <code>(n, k)</code>: zbroj točaka po klasteru je <code>P.T @ X</code> oblika <code>(k, 2)</code>, broj točaka <code>P.sum(axis=0)</code>; podijeli uz <code>[:, None]</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+sredista = np.array([[0.0, 0.0], [5.0, 5.0], [0.0, 6.0]])
+X = np.concatenate([rng.normal(c, 0.8, size=(100, 2)) for c in sredista])
+istina = np.repeat(np.arange(3), 100)
+
+centroidi = X[rng.choice(len(X), 3, replace=False)]      # početni centroidi: 3 slučajne točke
+for it in range(10):
+    D = udaljenosti(X, centroidi)                        # (300, 3)
+    oznake = D.argmin(axis=1)
+    inercija = (D[np.arange(len(X)), oznake] ** 2).sum()
+    P = np.eye(3)[oznake]                                # (300, 3) pripadnost
+    centroidi = (P.T @ X) / P.sum(axis=0)[:, None]
+    if it in (0, 1, 2, 9):
+        print(f"iteracija {it}: inercija = {inercija:.2f}")
+print("centroidi:\n", centroidi.round(2))
+
+# koliko se klasteri poklapaju s pravim grupama (klasteri su u proizvoljnom poretku)
+zabuna = np.bincount(istina * 3 + oznake, minlength=9).reshape(3, 3)
+print(zabuna, " točno grupirano:", zabuna.max(axis=1).sum(), "od", len(X))
+</kod>
+<izlaz>
+iteracija 0: inercija = 3698.81
+iteracija 1: inercija = 931.81
+iteracija 2: inercija = 379.26
+iteracija 9: inercija = 379.08
+centroidi:
+ [[ 4.9   4.96]
+ [-0.06  0.08]
+ [-0.05  6.06]]
+[[  0 100   0]
+ [100   0   0]
+ [  0   0 100]]  točno grupirano: 300 od 300
+</izlaz>
+<p>Inercija pada monotono i već nakon tri iteracije gotovo se zaustavlja – k-means konvergira brzo, ali u <em>lokalni</em> minimum koji ovisi o početnim centroidima (zato ga scikit-learn pokreće više puta, <code>n_init</code>). Pronađeni centroidi su blizu pravih središta $(0,0)$, $(5,5)$ i $(0,6)$, u redoslijedu koji ovisi o početnom izboru. U lekciji M6 isti algoritam dobivaš s <code>KMeans(n_clusters=3)</code>, ali ovdje vidiš da je cijela njegova jezgra: jedna matrica udaljenosti, jedan <code>argmin</code> i jedan matrični produkt.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p><b>Metoda potencija</b> (engl. <i>power iteration</i>) nalazi svojstveni vektor simetrične matrice uz svojstvenu vrijednost najveće apsolutne vrijednosti ponavljanjem $v\leftarrow Sv/\lVert Sv\rVert$. Primijeni je na kovarijacijsku matricu <code>S</code> iz Primjera 3 i na slučajnu simetričnu matricu $6\times6$ (<code>M = A + A.T</code>); usporedi s <code>eigh</code> i ispiši grešku nakon $1, 5, 20, 100$ koraka. O čemu ovisi brzina konvergencije? Zatim pomoću svojstvene dekompozicije izračunaj $S^{1/2}$ (matricu čiji je kvadrat $S$) i provjeri.</p>
+<naputak>Ako su svojstvene vrijednosti $|\lambda_1|\gt|\lambda_2|\ge\dots$, komponenta uz $\lambda_2$ smanjuje se u svakom koraku za faktor $|\lambda_2/\lambda_1|$. Za $S=V\Lambda V^\top$ je $S^{1/2}=V\Lambda^{1/2}V^\top$.</naputak>
+<rjesenje>
+<kod jezik="python">
+def potencije(S, koraka, sjeme=0):
+    v = np.random.default_rng(sjeme).normal(size=len(S))
+    for _ in range(koraka):
+        v = S @ v
+        v /= np.linalg.norm(v)
+    return v, v @ S @ v                                  # Rayleighov kvocijent = procjena lambda
+
+rng = np.random.default_rng(1)
+A = rng.normal(size=(6, 6))
+M = A + A.T
+for ime, Mat in (("S", S), ("M", M)):
+    lam, V = np.linalg.eigh(Mat)
+    i = np.argmax(np.abs(lam))
+    apsolutne = np.sort(np.abs(lam))[::-1]
+    print(f"{ime}: |lambda| sortirano = {apsolutne.round(3)}, omjer = {apsolutne[1] / apsolutne[0]:.3f}, lambda_1 = {lam[i]:.4f}")
+    for koraka in (1, 5, 20, 100):
+        v, l = potencije(Mat, koraka)
+        print(f"   {koraka:>3} koraka: greška lambda = {abs(l - lam[i]):.1e}, kut-greška = {1 - abs(v @ V[:, i]):.1e}")
+
+lam, V = np.linalg.eigh(S)
+S_pola = V @ np.diag(np.sqrt(lam)) @ V.T
+print("S^(1/2) @ S^(1/2) == S:", np.allclose(S_pola @ S_pola, S), " simetrična:", np.allclose(S_pola, S_pola.T))
+</kod>
+<izlaz>
+S: |lambda| sortirano = [8.725 0.254], omjer = 0.029, lambda_1 = 8.7247
+     1 koraka: greška lambda = 3.7e+00, kut-greška = 2.5e-01
+     5 koraka: greška lambda = 3.4e-12, kut-greška = 2.0e-13
+    20 koraka: greška lambda = 1.8e-15, kut-greška = 0.0e+00
+   100 koraka: greška lambda = 1.8e-15, kut-greška = 0.0e+00
+M: |lambda| sortirano = [4.939 4.41  3.826 1.753 1.518 0.97 ], omjer = 0.893, lambda_1 = -4.9385
+     1 koraka: greška lambda = 5.2e+00, kut-greška = 4.4e-01
+     5 koraka: greška lambda = 1.5e+00, kut-greška = 9.1e-02
+    20 koraka: greška lambda = 2.6e-03, kut-greška = 1.4e-04
+   100 koraka: greška lambda = 2.4e-11, kut-greška = 1.3e-12
+S^(1/2) @ S^(1/2) == S: True  simetrična: True
+</izlaz>
+<p>Za <code>S</code> je omjer $|\lambda_2/\lambda_1|\approx 0{,}03$, pa je metoda nakon pet koraka na strojnoj preciznosti; za <code>M</code> su dvije najveće svojstvene vrijednosti po apsolutnoj vrijednosti bliske (omjer $\approx 0{,}89$), pa je nakon $20$ koraka greška tek reda $10^{-3}$, a za $10^{-11}$ treba stotinu koraka – konvergencija je linearna s faktorom jednakim tom omjeru. Uoči da je dominantna svojstvena vrijednost matrice <code>M</code> negativna: metoda nalazi najveću po <em>apsolutnoj</em> vrijednosti. Metoda potencija je osnova PageRanka i načina na koji se u praksi računa prvih nekoliko glavnih komponenti golemih matrica (ne računa se cijeli <code>eigh</code>). Funkcije matrica poput $S^{1/2}$ ili $S^{-1/2}$ (koriste se za <em>izbjeljivanje</em> podataka) računaju se primjenom funkcije na svojstvene vrijednosti.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Polje ima <code>shape</code>, <code>dtype</code> i osi; <code>(n,)</code> nije ni redak ni stupac – stupac je <code>v[:, None]</code>. Pri svakoj čudnoj greški ili rezultatu prvo ispiši oblike.</li>
+<li>Rezovi su pogledi (mijenjaju izvornik), maske <code>A[A &gt; 0]</code> i napredno indeksiranje <code>A[idx]</code> su kopije; uvjete spajaj s <code>&amp;</code>, <code>|</code>, <code>~</code>.</li>
+<li>Broadcasting poravnava oblike zdesna i rasteže osi duljine $1$; <code>axis=0</code> sažima stupce, <code>axis=1</code> retke, <code>keepdims=True</code> čuva os za povratni broadcasting.</li>
+<li><code>*</code> je po elementima, <code>@</code> matrični produkt; <code>solve</code> umjesto <code>inv</code>, <code>lstsq</code> za najmanje kvadrate, <code>eigh</code> za simetrične matrice, <code>svd</code> za PCA.</li>
+<li><code>np.random.default_rng(sjeme)</code> za ponovljive eksperimente; vektoriziraj petlje po elementima (deset do sto puta brže), petlje ostavi za epohe i iteracije algoritma.</li>
+<li>Tri recepta za pamćenje: softmax s oduzetim maksimumom retka, standardizacija parametrima treninga, udaljenosti preko $\lVert a\rVert^2+\lVert b\rVert^2-2a^\top b$.</li>
+</ul>
+
+@@ literatura
+<li>Službena dokumentacija: <a href="https://numpy.org/doc/stable/user/absolute_beginners.html">NumPy: the absolute basics for beginners</a>, <a href="https://numpy.org/doc/stable/user/basics.broadcasting.html">Broadcasting</a> i <a href="https://numpy.org/doc/stable/reference/routines.linalg.html">Linear algebra (numpy.linalg)</a>.</li>
+<li>J. VanderPlas, <i>Python Data Science Handbook</i>, 2. izd. (O'Reilly; besplatno na <a href="https://jakevdp.github.io/PythonDataScienceHandbook/">jakevdp.github.io</a>), poglavlje 2: Introduction to NumPy.</li>
+<li>N. Rougier, <i>From Python to NumPy</i> (besplatna online knjiga) – vektorizacija na brojnim primjerima.</li>
