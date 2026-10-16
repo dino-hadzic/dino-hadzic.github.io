@@ -1,0 +1,580 @@
+@@ meta
+naslov = pandas: tablični podaci
+podnaslov = Series i DataFrame: čitanje, odabir, čišćenje, grupiranje, spajanje i priprema tablice za scikit-learn
+oznake = Series, DataFrame, loc/iloc, nedostajuće vrijednosti, groupby, merge, get_dummies, $X$ i $y$
+
+@@ ciljevi
+<li>Razlikovati <code>Series</code> i <code>DataFrame</code>, učitati CSV i brzo upoznati tablicu (<code>head</code>, <code>info</code>, <code>describe</code>, <code>value_counts</code>).</li>
+<li>Odabirati retke i stupce s <code>loc</code>/<code>iloc</code> i logičkim maskama te pronaći i obraditi nedostajuće vrijednosti (<code>isna</code>, <code>fillna</code>, <code>dropna</code>).</li>
+<li>Grupirati i agregirati (<code>groupby</code>/<code>agg</code>), spajati tablice (<code>merge</code>), sortirati i primjenjivati funkcije (<code>apply</code>).</li>
+<li>Kodirati kategoričke varijable (<code>get_dummies</code>) i iz tablice složiti matricu značajki $X$ i vektor cilja $y$ za scikit-learn.</li>
+
+@@ teorija
+<p>NumPy polje (lekcija P3) je homogeno: svi elementi istog su tipa i nemaju imena. Stvarni podaci rijetko izgledaju tako – tablica s natjecanja ima stupce različitih tipova (brojevi, tekst, datumi), imena stupaca, rupe gdje vrijednost nedostaje i retke koje treba spojiti s drugom tablicom. Za to služi biblioteka <b>pandas</b>: tablica s imenovanim stupcima i redcima, iza koje i dalje stoje NumPy polja (po jedno po stupcu), pa je sve što znaš o vektorizaciji i dalje istina. Na IOAI tabularni zadaci u pravilu dolaze kao CSV datoteke; pandas je alat kojim ih pretvoriš u $X$ i $y$ za model.</p>
+
+<h3>Series i DataFrame</h3>
+<definicija naslov="Series i DataFrame">
+<b>Series</b> je jednodimenzionalni niz vrijednosti istog tipa (<code>dtype</code>) uz <b>indeks</b> – niz oznaka redaka. <b>DataFrame</b> je tablica: uređeni rječnik Seriesa (stupaca) koji dijele isti indeks. Stupac <code>df["ime"]</code> je Series, redak <code>df.loc[oznaka]</code> također (s imenima stupaca kao indeksom), a <code>df.to_numpy()</code> vraća golo NumPy polje.
+</definicija>
+<p>Zadani indeks je <code>RangeIndex</code> $0,1,\dots,n-1$, ali indeks može biti bilo što (imena, datumi). Ključna razlika prema NumPy-ju: <em>oznaka retka nije njegov položaj</em>. Nakon filtriranja redaka indeks ostaje „rupičast” ($0,2,5,\dots$), a aritmetika između dva Seriesa <b>poravnava se po indeksu</b>, ne po položaju – gdje se oznake ne poklope, rezultat je <code>NaN</code>. Kad ti indeks ne znači ništa, vrati ga u $0,\dots,n-1$ s <code>reset_index(drop=True)</code>.</p>
+
+<h3>Čitanje i prvi pogled</h3>
+<p><code>pd.read_csv(put)</code> čita datoteku ili bilo koji objekt s metodom <code>read</code>, pa i <code>io.StringIO(tekst)</code> – tako se u lekcijama tablica može zadati izravno u kodu. Važniji parametri: <code>sep</code> (razdjelnik, zadano zarez), <code>header</code>/<code>names</code> (ima li zaglavlje), <code>na_values</code> (koji se tekst čita kao nedostajuća vrijednost), <code>dtype</code>. Prvih pet minuta s novom tablicom uvijek izgleda isto:</p>
+<ul>
+<li><code>df.shape</code>, <code>df.head()</code>, <code>df.dtypes</code> – koliko redaka i stupaca, kako izgledaju, je li svaki stupac dobrog tipa (broj zapisan kao tekst znak je prljavih podataka);</li>
+<li><code>df.info()</code> – isto plus broj ne-praznih vrijednosti po stupcu;</li>
+<li><code>df.describe()</code> – prosjek, standardna devijacija, minimum, kvartili i maksimum numeričkih stupaca; <code>describe(include="object")</code> za tekstualne;</li>
+<li><code>df["stupac"].value_counts()</code> – frekvencije kategorija (uz <code>normalize=True</code> udjeli); ovdje se vidi neuravnoteženost klasa.</li>
+</ul>
+
+<h3>Odabir: loc, iloc i maske</h3>
+<definicija naslov="loc i iloc">
+<code>df.loc[retci, stupci]</code> bira <b>po oznakama</b> (indeks i imena stupaca); rez <code>loc[a:b]</code> <em>uključuje</em> oba kraja. <code>df.iloc[retci, stupci]</code> bira <b>po položajima</b> (cijeli brojevi), kao u NumPy-ju – rez <code>iloc[a:b]</code> isključuje $b$. Oba primaju pojedinačnu vrijednost, listu, rez ili logičku masku.
+</definicija>
+<p><b>Filtriranje</b> je logička maska: <code>df[df["dob"] &gt; 18]</code>. Uvjeti se spajaju s <code>&amp;</code>, <code>|</code> i <code>~</code> (ne <code>and</code>/<code>or</code>), svaki u zagradama. Pomoćne metode: <code>isin(lista)</code>, <code>between(a, b)</code>, <code>str.contains(…)</code> za tekst.</p>
+<napomena>Pri <em>pisanju</em> u dio tablice uvijek koristi jedan poziv <code>df.loc[maska, "stupac"] = vrijednost</code>. Lančani oblik <code>df[maska]["stupac"] = …</code> može mijenjati kopiju umjesto izvorne tablice (pandas tada ispisuje <code>SettingWithCopyWarning</code>) i na natjecanju je to klasičan tihi bug. Kad od tablice napraviš podskup koji ćeš dalje mijenjati, napravi <code>.copy()</code>.</napomena>
+
+<h3>Nedostajuće vrijednosti</h3>
+<p>Prazna ćelija u CSV-u postaje <code>NaN</code> (<i>not a number</i>, tipa <code>float</code>), pa stupac cijelih brojeva s jednom rupom postaje <code>float64</code>. Alati: <code>df.isna()</code> daje tablicu istina/laž (pa <code>df.isna().sum()</code> broji rupe po stupcu), <code>df.dropna()</code> briše retke s rupom (<code>subset=[…]</code> gleda samo neke stupce, <code>axis=1</code> briše stupce), <code>df["s"].fillna(v)</code> popunjava zadanom vrijednošću. Modeli u scikit-learnu ne prihvaćaju <code>NaN</code>, pa se prije učenja uvijek mora odlučiti: izbaciti ili <b>imputirati</b> (engl. <i>impute</i>) – numeričke stupce tipično medijanom, kategoričke najčešćom vrijednošću (<code>mode()[0]</code>). Često je korisno i dodati stupac-indikator „vrijednost je nedostajala”: sama činjenica da nešto nije izmjereno može nositi informaciju.</p>
+<napomena>Statistiku za popunjavanje (medijan, prosjek) računaj <em>samo na skupu za učenje</em> i istu vrijednost primijeni na test. Ako medijan računaš na svim podacima, informacija iz testa „procuri” u učenje (engl. <i>data leakage</i>) i procjena točnosti postaje preoptimistična – lekcija M5.</napomena>
+
+<h3>Grupiranje, agregiranje, spajanje</h3>
+<p><code>groupby</code> provodi obrazac <b>podijeli – primijeni – spoji</b>: tablica se podijeli po vrijednostima ključa, na svaku grupu primijeni se funkcija, rezultati se spoje u novu tablicu. Za grupu $g$ s $|g|$ redaka prosjek je $\bar x_g=\frac1{|g|}\sum_{i\in g}x_i$; <code>df.groupby("k")["x"].mean()</code> računa sve $\bar x_g$ odjednom. Više statistika daje <code>agg(["mean", "std", "count"])</code> ili imenovane agregacije <code>agg(prosjek=("x", "mean"))</code>. Kad rezultat treba vratiti u <em>svaki redak</em> (npr. oduzeti prosjek grupe), koristi <code>groupby(…)["x"].transform("mean")</code>, koji vraća Series iste duljine kao tablica.</p>
+<p><code>pd.merge(a, b, on="kljuc", how=…)</code> spaja dvije tablice po zajedničkom stupcu kao SQL <i>join</i>: <code>how="inner"</code> zadržava samo ključeve prisutne u objema, <code>"left"</code> sve retke lijeve (desno nepostojeće postaje <code>NaN</code>), <code>"outer"</code> sve ključeve. Ako se ključ u desnoj tablici ponavlja, lijevi se redak <em>umnoži</em> – uvijek provjeri broj redaka prije i poslije spajanja. <code>pd.concat([a, b])</code> slaže tablice jednu ispod druge (ili uz <code>axis=1</code> jednu uz drugu).</p>
+<p><code>sort_values("x", ascending=False)</code> sortira po stupcu (ili listi stupaca), <code>nlargest(k, "x")</code> daje $k$ najvećih. <code>s.map(f)</code> i <code>df.apply(f, axis=1)</code> primjenjuju proizvoljnu Python funkciju na svaki element odnosno redak – fleksibilno, ali <em>sporo</em>, jer je to petlja u Pythonu. Što god se može zapisati stupčanom aritmetikom (<code>df["a"] / df["b"]</code>, <code>np.where</code>, <code>clip</code>), zapiši tako; <code>apply</code> ostavi za stvarno nestandardne operacije.</p>
+
+<h3>Kategoričke varijable i tablica za model</h3>
+<p>Model prima brojeve. <b>Nominalna</b> kategorija (grad, boja) nema poredak, pa se kodira <b>one-hot</b>: za $k$ kategorija nastaje $k$ stupaca s vrijednostima $0/1$ – <code>pd.get_dummies(df, columns=[…], dtype=int)</code>. <b>Ordinalna</b> kategorija (malo/srednje/veliko) ima poredak i smije postati cijeli broj preko <code>map({"malo": 0, …})</code>. Kodirati nominalnu kategoriju brojevima $0,1,2$ pogrešno je za linearne modele (izmišlja poredak i razmake), a za stabla (M4) prolazi.</p>
+<p>Na kraju tablicu razdvojimo: <code>y = df["cilj"]</code> i <code>X = df.drop(columns="cilj")</code>. Scikit-learn prima DataFrame izravno (pamti imena stupaca u <code>feature_names_in_</code>) i interno ga pretvara u NumPy polje oblika $(n, d)$. Tri uvjeta moraju biti ispunjeni: svi stupci numerički, nijedan <code>NaN</code>, i – najčešća greška – <em>isti stupci istim redom</em> u skupu za učenje i u testu. One-hot kodiranje testa u kojem se neka kategorija ne pojavljuje daje manje stupaca; lijek je <code>X_te.reindex(columns=X_tr.columns, fill_value=0)</code> ili <code>OneHotEncoder(handle_unknown="ignore")</code> iz scikit-learna, koji to radi sam (lekcija N3).</p>
+
+@@ primjeri
+<primjer>
+<p>Tablica rezultata iz škole zadana je kao CSV tekst (ime, razred, sati učenja tjedno, bodovi na testu, grad). Učitaj je iz <code>io.StringIO</code>, upoznaj je, odaberi retke i stupce s <code>loc</code>/<code>iloc</code>, filtriraj učenike 2. razreda s više od $70$ bodova i obradi nedostajuće vrijednosti.</p>
+<rjesenje>
+<p><b>Korak 1: čitanje i pregled.</b> Prazno polje u retku Ive i Marka postaje <code>NaN</code>; primijeti da je zato stupac <code>sati</code> tipa <code>float64</code> iako su svi brojevi cijeli.</p>
+<kod jezik="python">
+import io
+import numpy as np
+import pandas as pd
+
+csv = """ime,razred,sati,bodovi,grad
+Ana,1,6,78,Zagreb
+Ivo,2,,91,Split
+Maja,2,9,85,Zagreb
+Luka,1,3,52,Osijek
+Petra,3,7,,Rijeka
+Marko,3,,66,Split
+Sara,2,5,73,Osijek
+Filip,1,8,88,Zagreb
+"""
+df = pd.read_csv(io.StringIO(csv))
+print(df.shape)
+print(df.dtypes)
+print(df.head(3))
+</kod>
+<izlaz>
+(8, 5)
+ime        object
+razred      int64
+sati      float64
+bodovi    float64
+grad       object
+dtype: object
+    ime  razred  sati  bodovi    grad
+0   Ana       1   6.0    78.0  Zagreb
+1   Ivo       2   NaN    91.0   Split
+2  Maja       2   9.0    85.0  Zagreb
+</izlaz>
+<kod jezik="python">
+print(df.describe().round(2))
+print(df["grad"].value_counts())
+</kod>
+<izlaz>
+       razred  sati  bodovi
+count    8.00  6.00    7.00
+mean     1.88  6.33   76.14
+std      0.83  2.16   13.78
+min      1.00  3.00   52.00
+25%      1.00  5.25   69.50
+50%      2.00  6.50   78.00
+75%      2.25  7.75   86.50
+max      3.00  9.00   91.00
+grad
+Zagreb    3
+Split     2
+Osijek    2
+Rijeka    1
+Name: count, dtype: int64
+</izlaz>
+<p><code>describe</code> gleda samo numeričke stupce; redak <code>count</code> odmah otkriva rupe (dvije u <code>sati</code>, jedna u <code>bodovi</code>). Razred je ovdje broj, ali zapravo kategorija – <code>describe</code> će mu bez pogovora izračunati prosjek, što nema smisla; na tebi je da to primijetiš.</p>
+<p><b>Korak 2: loc i iloc.</b> Oznake redaka su $0,\dots,7$, pa <code>loc</code> i <code>iloc</code> ovdje biraju iste retke, ali rez po oznakama uključuje kraj, a rez po položajima ne.</p>
+<kod jezik="python">
+print(df.loc[1:3, ["ime", "bodovi"]])      # oznake 1, 2 i 3
+print(df.iloc[1:3, [0, 3]])                # položaji 1 i 2
+print(df.loc[4, "ime"], df.iloc[-1, 0])    # pojedinačne vrijednosti
+</kod>
+<izlaz>
+    ime  bodovi
+1   Ivo    91.0
+2  Maja    85.0
+3  Luka    52.0
+    ime  bodovi
+1   Ivo    91.0
+2  Maja    85.0
+Petra Filip
+</izlaz>
+<p><b>Korak 3: filtriranje.</b> Svaki uvjet u zagrade, spajanje s <code>&amp;</code>. Indeks rezultata zadržava izvorne oznake.</p>
+<kod jezik="python">
+maska = (df["razred"] == 2) & (df["bodovi"] > 70)
+print(df[maska])
+print(df.loc[df["grad"].isin(["Split", "Rijeka"]), "ime"].tolist())
+</kod>
+<izlaz>
+    ime  razred  sati  bodovi    grad
+1   Ivo       2   NaN    91.0   Split
+2  Maja       2   9.0    85.0  Zagreb
+6  Sara       2   5.0    73.0  Osijek
+['Ivo', 'Petra', 'Marko']
+</izlaz>
+<p><b>Korak 4: nedostajuće vrijednosti.</b> Prebrojimo ih, pa sate popunimo medijanom (otporniji na odstupanja od prosjeka), a redak bez bodova izbacimo – bodovi su ciljna vrijednost i nju nema smisla izmišljati.</p>
+<kod jezik="python">
+print(df.isna().sum())
+cisto = df.copy()
+cisto["sati"] = cisto["sati"].fillna(cisto["sati"].median())
+cisto = cisto.dropna(subset=["bodovi"]).reset_index(drop=True)
+print(cisto)
+print("preostale rupe:", int(cisto.isna().sum().sum()))
+</kod>
+<izlaz>
+ime       0
+razred    0
+sati      2
+bodovi    1
+grad      0
+dtype: int64
+     ime  razred  sati  bodovi    grad
+0    Ana       1   6.0    78.0  Zagreb
+1    Ivo       2   6.5    91.0   Split
+2   Maja       2   9.0    85.0  Zagreb
+3   Luka       1   3.0    52.0  Osijek
+4  Marko       3   6.5    66.0   Split
+5   Sara       2   5.0    73.0  Osijek
+6  Filip       1   8.0    88.0  Zagreb
+preostale rupe: 0
+</izlaz>
+<p>Medijan sati je $6{,}5$, pa su Ivo i Marko dobili tu vrijednost; Petra je izbačena, a <code>reset_index</code> je oznake vratio u $0,\dots,6$. Primijeti da smo radili na kopiji – izvorni <code>df</code> i dalje ima rupe, što je korisno kad poslije želiš usporediti varijante čišćenja.</p>
+</rjesenje>
+</primjer>
+
+<primjer izvor="skup podataka iris">
+<p>Skup <code>load_iris(as_frame=True)</code> sadrži $150$ cvjetova perunike, četiri mjere (duljina i širina lapa i latice u cm) i vrstu ($0$, $1$, $2$). Učitaj ga kao DataFrame, pogledaj raspodjelu klasa, izračunaj prosjek i standardnu devijaciju mjera po vrsti, dodaj izvedenu značajku omjera latice i pripremi $X$ i $y$ za model.</p>
+<rjesenje>
+<p><b>Korak 1: učitavanje i raspodjela klasa.</b> Uz <code>as_frame=True</code> atribut <code>frame</code> je cijela tablica (značajke + stupac <code>target</code>). Imena stupaca skratimo da ispis bude čitljiv.</p>
+<kod jezik="python">
+from sklearn.datasets import load_iris
+
+iris = load_iris(as_frame=True)
+iris_df = iris.frame.rename(columns={
+    "sepal length (cm)": "lap_d", "sepal width (cm)": "lap_s",
+    "petal length (cm)": "lat_d", "petal width (cm)": "lat_s"})
+iris_df["vrsta"] = iris_df["target"].map(dict(enumerate(iris.target_names)))
+print(iris_df.head())
+print(iris_df["vrsta"].value_counts(normalize=True))
+</kod>
+<izlaz>
+   lap_d  lap_s  lat_d  lat_s  target   vrsta
+0    5.1    3.5    1.4    0.2       0  setosa
+1    4.9    3.0    1.4    0.2       0  setosa
+2    4.7    3.2    1.3    0.2       0  setosa
+3    4.6    3.1    1.5    0.2       0  setosa
+4    5.0    3.6    1.4    0.2       0  setosa
+vrsta
+setosa        0.333333
+versicolor    0.333333
+virginica     0.333333
+Name: proportion, dtype: float64
+</izlaz>
+<p>Klase su savršeno uravnotežene (po $50$ cvjetova), što je u stvarnim zadacima rijetkost – obično je ovaj ispis prvi znak da ćeš trebati metrike otpornije od točnosti (lekcija M3).</p>
+<p><b>Korak 2: groupby i agg.</b> Prosjek i standardna devijacija duljine latice po vrsti; zatim sortiranje po prosjeku.</p>
+<kod jezik="python">
+po_vrsti = iris_df.groupby("vrsta")[["lat_d", "lat_s"]].agg(["mean", "std"]).round(2)
+print(po_vrsti)
+prosjeci = iris_df.groupby("vrsta")["lat_d"].mean().sort_values(ascending=False)
+print(prosjeci.round(3))
+</kod>
+<izlaz>
+           lat_d       lat_s
+            mean   std  mean   std
+vrsta
+setosa      1.46  0.17  0.25  0.11
+versicolor  4.26  0.47  1.33  0.20
+virginica   5.55  0.55  2.03  0.27
+vrsta
+virginica     5.552
+versicolor    4.260
+setosa        1.462
+Name: lat_d, dtype: float64
+</izlaz>
+<p>Vrste se po duljini latice gotovo ne preklapaju: <i>setosa</i> ima latice oko $1{,}5$ cm s malim rasipanjem, <i>virginica</i> oko $5{,}6$ cm. Već iz ove tablice vidiš da će zadatak klasifikacije biti lagan – takav pogled na podatke prije modela (engl. <i>exploratory data analysis</i>, EDA) uvijek se isplati.</p>
+<p><b>Korak 3: nova značajka i apply.</b> Omjer duljine i širine latice je stupčana aritmetika (brzo). Za usporedbu, ista stvar s <code>apply</code> po retcima daje isti rezultat, ali petljom u Pythonu.</p>
+<kod jezik="python">
+iris_df["omjer"] = iris_df["lat_d"] / iris_df["lat_s"]
+omjer_apply = iris_df.apply(lambda red: red["lat_d"] / red["lat_s"], axis=1)
+print("jednako:", np.allclose(iris_df["omjer"], omjer_apply))
+print(iris_df.groupby("vrsta")["omjer"].median().round(2))
+</kod>
+<izlaz>
+jednako: True
+vrsta
+setosa        7.00
+versicolor    3.24
+virginica     2.67
+Name: omjer, dtype: float64
+</izlaz>
+<p><b>Korak 4: X i y za scikit-learn.</b> Cilj je stupac <code>target</code>; iz $X$ izbacimo i tekstualni stupac <code>vrsta</code> (duplikat cilja – ostaviti ga bio bi <em>leakage</em>). Model je ovdje samo ilustracija sučelja; klasifikacija se obrađuje u lekciji M3.</p>
+<kod jezik="python">
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+X = iris_df.drop(columns=["target", "vrsta"])
+y = iris_df["target"]
+print(X.shape, y.shape, list(X.columns))
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.3, random_state=0, stratify=y)
+model = LogisticRegression(max_iter=1000).fit(X_tr, y_tr)
+print("točnost na testu: %.3f" % model.score(X_te, y_te))
+print("model pamti stupce:", list(model.feature_names_in_))
+</kod>
+<izlaz>
+(150, 5) (150,) ['lap_d', 'lap_s', 'lat_d', 'lat_s', 'omjer']
+točnost na testu: 0.978
+model pamti stupce: ['lap_d', 'lap_s', 'lat_d', 'lat_s', 'omjer']
+</izlaz>
+<p><code>stratify=y</code> čuva omjer klasa u obje polovice. Model je naučio imena stupaca, pa će se buniti ako mu u <code>predict</code> daš tablicu s drugim imenima ili drugim redoslijedom – to je zaštita koju gubiš ako prerano pretvoriš sve u NumPy.</p>
+</rjesenje>
+</primjer>
+
+<primjer>
+<p>Simulacija tabularnog zadatka: tablica <code>stanovi</code> (površina, broj soba, kat, grad, cijena) s nedostajućim vrijednostima i zasebna tablica <code>gradovi</code> s prosječnom plaćom po gradu. Spoji ih, očisti, kodiraj grad one-hot kodiranjem i izmjeri koliko linearna regresija (lekcija M1) objašnjava cijenu.</p>
+<rjesenje>
+<p><b>Korak 1: sintetički podaci.</b> Cijena ovisi o površini, katu i gradu uz šum; u $40$ od $300$ redaka kat nedostaje. Grad Pula postoji u <code>stanovi</code>, ali ne i u <code>gradovi</code> – namjerno, da vidimo kako se <code>merge</code> ponaša.</p>
+<kod jezik="python">
+rng = np.random.default_rng(0)
+n = 300
+gradovi_lista = ["Zagreb", "Split", "Osijek", "Rijeka", "Pula"]
+stanovi = pd.DataFrame({
+    "povrsina": rng.uniform(30, 120, n).round(1),
+    "sobe": rng.integers(1, 5, n),
+    "kat": rng.integers(0, 10, n).astype(float),
+    "grad": rng.choice(gradovi_lista, n, p=[0.4, 0.25, 0.15, 0.15, 0.05]),
+})
+premija = {"Zagreb": 900, "Split": 1100, "Osijek": 300, "Rijeka": 600, "Pula": 800}
+stanovi["cijena"] = (stanovi["povrsina"] * (1800 + stanovi["grad"].map(premija))
+                     + 3000 * stanovi["kat"] + rng.normal(0, 15000, n)).round(-2)
+stanovi.loc[rng.random(n) < 0.1, "kat"] = np.nan
+gradovi = pd.DataFrame({"grad": ["Zagreb", "Split", "Osijek", "Rijeka"],
+                        "placa": [1450, 1300, 1150, 1350]})
+print(stanovi.head())
+print("rupe:", stanovi.isna().sum().to_dict())
+</kod>
+<izlaz>
+   povrsina  sobe  kat    grad    cijena
+0      87.3     3  4.0  Zagreb  257800.0
+1      54.3     4  7.0  Osijek  127100.0
+2      33.7     3  7.0  Osijek   85200.0
+3      31.5     3  8.0  Osijek   98300.0
+4     103.2     2  1.0  Osijek  216200.0
+rupe: {'povrsina': 0, 'sobe': 0, 'kat': 40, 'grad': 0, 'cijena': 0}
+</izlaz>
+<p><b>Korak 2: merge.</b> Unutarnje spajanje gubi sve stanove iz Pule; lijevo ih čuva s <code>NaN</code> plaćom. Broj redaka prije i poslije uvijek ispiši.</p>
+<kod jezik="python">
+unutarnje = pd.merge(stanovi, gradovi, on="grad", how="inner")
+lijevo = pd.merge(stanovi, gradovi, on="grad", how="left")
+print(len(stanovi), len(unutarnje), len(lijevo))
+print(lijevo[lijevo["placa"].isna()]["grad"].value_counts().to_dict())
+print(lijevo.groupby("grad")["cijena"].agg(["count", "mean"]).round(0))
+</kod>
+<izlaz>
+300 288 300
+{'Pula': 12}
+        count      mean
+grad
+Osijek     51  180639.0
+Pula       12  215250.0
+Rijeka     48  200675.0
+Split      71  249868.0
+Zagreb    118  218397.0
+</izlaz>
+<p><b>Korak 3: čišćenje i kodiranje.</b> Kat popunimo medijanom, plaću za Pulu medijanom ostalih (bolje bi bilo zasebno obilježje „plaća nepoznata”, ali držimo primjer kratkim), a grad pretvorimo u pet stupaca $0/1$.</p>
+<kod jezik="python">
+df = lijevo.copy()
+df["kat"] = df["kat"].fillna(df["kat"].median())
+df["placa"] = df["placa"].fillna(df["placa"].median())
+df = pd.get_dummies(df, columns=["grad"], dtype=int)
+print(list(df.columns))
+print(df.iloc[:3, 4:].to_string())
+</kod>
+<izlaz>
+['povrsina', 'sobe', 'kat', 'cijena', 'placa', 'grad_Osijek', 'grad_Pula', 'grad_Rijeka', 'grad_Split', 'grad_Zagreb']
+    placa  grad_Osijek  grad_Pula  grad_Rijeka  grad_Split  grad_Zagreb
+0  1450.0            0          0            0           0            1
+1  1150.0            1          0            0           0            0
+2  1150.0            1          0            0           0            0
+</izlaz>
+<p><b>Korak 4: X, y i model.</b> Sve je numeričko i bez rupa, pa tablica ide ravno u scikit-learn.</p>
+<kod jezik="python">
+from sklearn.linear_model import LinearRegression
+
+X = df.drop(columns="cijena")
+y = df["cijena"]
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.25, random_state=0)
+reg = LinearRegression().fit(X_tr, y_tr)
+print("R^2 trening: %.3f   R^2 test: %.3f" % (reg.score(X_tr, y_tr), reg.score(X_te, y_te)))
+koef = pd.Series(reg.coef_, index=X.columns).round(0)
+print(koef.sort_values(ascending=False).head(4))
+</kod>
+<izlaz>
+R^2 trening: 0.945   R^2 test: 0.951
+grad_Split    31398.0
+kat            2640.0
+povrsina       2510.0
+sobe           1121.0
+dtype: float64
+</izlaz>
+<p>Visoki $R^2$ nije iznenađenje – podatke smo sami generirali linearnim pravilom. Koeficijenti, međutim, nisu „pravi” brojevi iz generatora: one-hot stupci i plaća nose istu informaciju (grad), pa ih model raspodjeljuje međusobno, a <code>sobe</code> dobivaju koeficijent iako u pravilu ne sudjeluju – to je šum, ne otkriće. Pouka primjera je tijek rada: <em>spoji → provjeri broj redaka → popuni rupe → kodiraj → X, y → model</em>. Taj slijed vrijedi za gotovo svaki tabularni zadatak, a poslije (lekcija N3) ćeš ga zapakirati u scikit-learnov <code>Pipeline</code> da se isti koraci automatski primijene i na test.</p>
+</rjesenje>
+</primjer>
+
+@@ zadaci
+<zadatak tezina="0">
+<p>Napravi Series <code>a</code> iz rječnika <code>{"x": 1, "y": 2, "z": 3}</code> i Series <code>b</code> iz <code>{"y": 10, "z": 20, "w": 30}</code>. Što je <code>a + b</code>? Zašto se u rezultatu pojavljuju <code>NaN</code> i kako ih izbjeći?</p>
+<rjesenje>
+<kod jezik="python">
+a = pd.Series({"x": 1, "y": 2, "z": 3})
+b = pd.Series({"y": 10, "z": 20, "w": 30})
+print((a + b).to_dict())
+print(a.add(b, fill_value=0).to_dict())
+</kod>
+<izlaz>
+{'w': nan, 'x': nan, 'y': 12.0, 'z': 23.0}
+{'w': 30.0, 'x': 1.0, 'y': 12.0, 'z': 23.0}
+</izlaz>
+<p>Zbrajanje se poravnava po indeksu, ne po položaju: za <code>x</code> i <code>w</code> jedan od pribrojnika ne postoji, pa je rezultat <code>NaN</code>. Metoda <code>add(…, fill_value=0)</code> nepostojeće tretira kao nulu. Ista pravila vrijede za stupce DataFramea – zato je nakon filtriranja ili sortiranja tablica često pametno pozvati <code>reset_index(drop=True)</code> prije kombiniranja s drugom.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>Neka je <code>t = pd.DataFrame({"v": [10, 20, 30, 40, 50]}, index=[5, 3, 1, 4, 2])</code>. Bez pokretanja predvidi što vraćaju <code>t.loc[3:4]</code>, <code>t.iloc[3:4]</code> i <code>t.loc[1]</code>, pa provjeri.</p>
+<rjesenje>
+<kod jezik="python">
+t = pd.DataFrame({"v": [10, 20, 30, 40, 50]}, index=[5, 3, 1, 4, 2])
+print(t.loc[3:4]["v"].tolist(), t.iloc[3:4]["v"].tolist(), int(t.loc[1, "v"]))
+</kod>
+<izlaz>
+[20, 30, 40] [40] 30
+</izlaz>
+<p><code>loc[3:4]</code> reže po <em>oznakama</em> od retka s oznakom $3$ do retka s oznakom $4$ uključivo, prema redoslijedu u tablici: $20, 30, 40$. <code>iloc[3:4]</code> uzima samo položaj $3$: $40$. <code>loc[1]</code> je redak s oznakom $1$ (treći po redu), vrijednost $30$ – nije redak na položaju $1$. Kad indeks nije $0,\dots,n-1$, miješanje tih dvoje najčešći je izvor „nemogućih” rezultata.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="0">
+<p>U tablici perunika iz Primjera 2 izdvoji cvjetove s duljinom latice većom od $4$ cm. Koliki je udio svake vrste među njima? Ispiši imena vrsta i širine lapa za tri cvijeta s najširim lapom među izdvojenima.</p>
+<rjesenje>
+<kod jezik="python">
+velike = iris_df[iris_df["lat_d"] > 4]
+print(len(velike), "cvjetova")
+print(velike["vrsta"].value_counts(normalize=True).round(3))
+print(velike.nlargest(3, "lap_s")[["vrsta", "lap_s"]].to_string())
+</kod>
+<izlaz>
+84 cvjetova
+vrsta
+virginica     0.595
+versicolor    0.405
+Name: proportion, dtype: float64
+         vrsta  lap_s
+117  virginica    3.8
+131  virginica    3.8
+109  virginica    3.6
+</izlaz>
+<p>Nijedna <i>setosa</i> nema laticu dulju od $4$ cm, pa je uvjet sam po sebi savršen klasifikator te vrste. Primijeti da <code>nlargest</code> zadržava izvorne oznake redaka ($117$, $131$, …) – to su položaji u <em>izvornoj</em> tablici, koristan trag pri provjeri podataka.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>U tablici <code>stanovi</code> iz Primjera 3 kat nedostaje u $40$ redaka. Umjesto jednim medijanom, popuni rupe <em>medijanom kata unutar istog grada</em>. Provjeri da rupa više nema i ispiši medijane po gradu koji su upotrijebljeni.</p>
+<naputak><code>groupby("grad")["kat"].transform("median")</code> vraća Series iste duljine kao tablica, s medijanom grupe u svakom retku.</naputak>
+<rjesenje>
+<kod jezik="python">
+s = stanovi.copy()
+medijani = s.groupby("grad")["kat"].transform("median")
+s["kat"] = s["kat"].fillna(medijani)
+print("rupa u katu:", int(s["kat"].isna().sum()))
+print(s.groupby("grad")["kat"].median().to_dict())
+</kod>
+<izlaz>
+rupa u katu: 0
+{'Osijek': 5.0, 'Pula': 6.0, 'Rijeka': 4.0, 'Split': 5.0, 'Zagreb': 4.0}
+</izlaz>
+<p><code>transform</code> je ključna riječ: vraća rezultat agregacije „razvučen” natrag na sve retke, pa ga <code>fillna</code> može poravnati po indeksu. Isti obrazac služi za oduzimanje prosjeka grupe, udjele unutar grupe (<code>x / transform("sum")</code>) i slično. Kad bi neki grad imao <em>sve</em> katove prazne, njegov medijan bio bi <code>NaN</code> i rupa bi ostala – zato na kraju uvijek prebroji.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="1">
+<p>Napravi tablicu prosječne cijene po kvadratnom metru u ovisnosti o gradu (retci) i broju soba (stupci) za podatke iz Primjera 3. Koja kombinacija ima najviše stanova?</p>
+<naputak><code>pd.pivot_table(df, values=…, index=…, columns=…, aggfunc=…)</code>; za broj stanova <code>aggfunc="size"</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+s = stanovi.copy()
+s["po_m2"] = s["cijena"] / s["povrsina"]
+print(pd.pivot_table(s, values="po_m2", index="grad", columns="sobe", aggfunc="mean").round(0))
+broj = pd.pivot_table(s, values="po_m2", index="grad", columns="sobe", aggfunc="size")
+print(broj)
+g, k = broj.stack().idxmax()
+print("najviše stanova:", g, "s", int(k), "sobe:", int(broj.loc[g, k]))
+</kod>
+<izlaz>
+sobe         1       2       3       4
+grad
+Osijek  2130.0  2478.0  2320.0  2320.0
+Pula    2844.0  2797.0  2609.0  3574.0
+Rijeka  2585.0  2707.0  2674.0  2789.0
+Split   3085.0  2961.0  2998.0  3107.0
+Zagreb  2914.0  2912.0  2885.0  2808.0
+sobe     1   2   3   4
+grad
+Osijek   9  12  17  13
+Pula     3   4   4   1
+Rijeka  11  11  18   8
+Split   18  19  12  22
+Zagreb  29  24  34  31
+najviše stanova: Zagreb s 3 sobe: 34
+</izlaz>
+<p>Cijena po kvadratu ovisi o gradu (Split najskuplji, Osijek najjeftiniji – tako smo generirali podatke), a o broju soba ne, jer sobe uopće nisu u pravilu za cijenu. Pivot tablica je <code>groupby</code> po dva ključa s rezultatom „raširenim” u mrežu; isto bi dao <code>s.groupby(["grad", "sobe"])["po_m2"].mean().unstack()</code>.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>Standardiziraj četiri mjere perunike <em>unutar svake vrste</em>: $z=\dfrac{x-\bar x_g}{s_g}$, gdje su $\bar x_g$ i $s_g$ prosjek i standardna devijacija grupe. Provjeri da je u svakoj grupi prosjek $z$ približno $0$ i standardna devijacija $1$. Zašto takve značajke <em>ne smiješ</em> dati modelu koji predviđa vrstu?</p>
+<naputak>Dva poziva <code>transform</code>, ili jedan <code>transform(lambda g: (g - g.mean()) / g.std())</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+mjere = ["lap_d", "lap_s", "lat_d", "lat_s"]
+grupe = iris_df.groupby("vrsta")[mjere]
+z = (iris_df[mjere] - grupe.transform("mean")) / grupe.transform("std")
+print(z.groupby(iris_df["vrsta"]).mean().abs().max().max() < 1e-12)
+print(z.groupby(iris_df["vrsta"]).std().round(6).iloc[0].to_dict())
+</kod>
+<izlaz>
+True
+{'lap_d': 1.0, 'lap_s': 1.0, 'lat_d': 1.0, 'lat_s': 1.0}
+</izlaz>
+<p>Standardizacija po grupama koristi <em>ciljnu varijablu</em> (vrstu) za izračun značajki: za novi cvijet čiju vrstu tek trebamo predvidjeti ne znamo kojim prosjekom i devijacijom ga standardizirati. To je oblik propuštanja informacije (<i>leakage</i>) – na treningu bi model izgledao sjajno, a u primjeni bio neupotrebljiv. Standardizacija po grupama je legitimna samo kad je ključ grupe poznat i u primjeni (npr. normalizacija unutar iste bolnice ili istog senzora).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="2">
+<p>U tablicu <code>gradovi</code> iz Primjera 3 greškom je dva puta upisan Zagreb (s plaćama $1450$ i $1500$). Spoji je s tablicom <code>stanovi</code> (<code>how="left"</code>) i objasni što se dogodilo s brojem redaka. Pomoću <code>indicator=True</code> prebroji koliko stanova nije našlo svoj grad. Kako bi u praksi otkrio i spriječio takvu grešku?</p>
+<naputak>Parametar <code>validate="many_to_one"</code> u <code>pd.merge</code> provjerava da je ključ u desnoj tablici jedinstven.</naputak>
+<rjesenje>
+<kod jezik="python">
+gradovi2 = pd.concat([gradovi, pd.DataFrame({"grad": ["Zagreb"], "placa": [1500]})],
+                     ignore_index=True)
+sp = pd.merge(stanovi, gradovi2, on="grad", how="left", indicator=True)
+print(len(stanovi), "->", len(sp), "redaka;", int((stanovi["grad"] == "Zagreb").sum()), "stanova u Zagrebu")
+print(sp["_merge"].value_counts().to_dict())
+try:
+    pd.merge(stanovi, gradovi2, on="grad", how="left", validate="many_to_one")
+except pd.errors.MergeError as e:
+    print("MergeError:", str(e)[:60])
+</kod>
+<izlaz>
+300 -> 418 redaka; 118 stanova u Zagrebu
+{'both': 406, 'left_only': 12, 'right_only': 0}
+MergeError: Merge keys are not unique in right dataset; not a many-to-on
+</izlaz>
+<p>Svaki zagrebački stan spario se s <em>oba</em> retka Zagreba, pa se tablica povećala točno za broj zagrebačkih stanova – duplikati u ključu umnožavaju retke, a svaki od dupliciranih stanova sad bi dvaput ušao u učenje. Obrana: prije spajanja provjeri <code>gradovi["grad"].is_unique</code> ili traži <code>validate="many_to_one"</code>, koji na duplikat baca grešku umjesto da tiho umnoži podatke, i nakon spajanja uvijek usporedi <code>len</code> prije i poslije. Stupac <code>_merge</code> pokazuje i $12$ stanova iz Pule koji su ostali bez plaće (<code>left_only</code>).</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Napiši funkciju <code>pripremi(train, test)</code> koja iz dviju tablica oblika <code>stanovi</code> vraća <code>X_tr, y_tr, X_te, y_te</code> spremne za scikit-learn: numeričke rupe popunjava <em>medijanima iz treninga</em>, grad kodira one-hot kodiranjem i jamči da test ima <em>iste stupce istim redom</em> kao trening – i kad se u testu pojavi grad kojeg u treningu nema ili obrnuto. Ispitaj je na podjeli u kojoj svi stanovi iz Pule završe u testu.</p>
+<naputak>Posljednji korak: <code>X_te = X_te.reindex(columns=X_tr.columns, fill_value=0)</code>. Što se dogodi sa stupcem <code>grad_Pula</code>?</naputak>
+<rjesenje>
+<kod jezik="python">
+def pripremi(train, test, cilj="cijena"):
+    train, test = train.copy(), test.copy()
+    numericki = train.drop(columns=cilj).select_dtypes("number").columns
+    medijani = train[numericki].median()            # SAMO iz treninga
+    train[numericki] = train[numericki].fillna(medijani)
+    test[numericki] = test[numericki].fillna(medijani)
+    X_tr = pd.get_dummies(train.drop(columns=cilj), columns=["grad"], dtype=int)
+    X_te = pd.get_dummies(test.drop(columns=cilj), columns=["grad"], dtype=int)
+    X_te = X_te.reindex(columns=X_tr.columns, fill_value=0)
+    return X_tr, train[cilj], X_te, test[cilj]
+
+pula = stanovi["grad"] == "Pula"
+ostali = stanovi[~pula]
+tr_idx, te_idx = train_test_split(ostali.index, test_size=0.2, random_state=0)
+train = stanovi.loc[tr_idx]
+test = pd.concat([stanovi.loc[te_idx], stanovi[pula]])
+X_tr, y_tr, X_te, y_te = pripremi(train, test)
+print(list(X_tr.columns))
+print("isti stupci:", list(X_tr.columns) == list(X_te.columns), " rupe:",
+      int(X_tr.isna().sum().sum() + X_te.isna().sum().sum()))
+print("Pula u testu:", int(pula.sum()), "stanova; redak jednog od njih:",
+      X_te.loc[stanovi[pula].index[0], ["grad_Zagreb", "grad_Split", "grad_Osijek", "grad_Rijeka"]].tolist())
+</kod>
+<izlaz>
+['povrsina', 'sobe', 'kat', 'grad_Osijek', 'grad_Rijeka', 'grad_Split', 'grad_Zagreb']
+isti stupci: True  rupe: 0
+Pula u testu: 12 stanova; redak jednog od njih: [0.0, 0.0, 0.0, 0.0]
+</izlaz>
+<p>Stupac <code>grad_Pula</code> postoji samo u testu, pa ga <code>reindex</code> briše; stanovi iz Pule dobivaju nule u svim gradskim stupcima – model ih tretira kao „nepoznati grad”, što je jedino pošteno jer o Puli nije ništa naučio. Kad bi se, obrnuto, neki grad pojavio samo u treningu, <code>reindex</code> bi testu dodao stupac nula. Upravo ovu logiku (statistike iz treninga, nepoznate kategorije u nule) scikit-learn ugrađuje u <code>SimpleImputer</code>, <code>OneHotEncoder(handle_unknown="ignore")</code> i <code>Pipeline</code>, o kojima u lekciji N3 – ali vrijedi je jednom napisati rukom da znaš što se događa.</p>
+</rjesenje>
+</zadatak>
+
+<zadatak tezina="3">
+<p>Tablica ima $200\,000$ redaka sa stupcima <code>a</code> i <code>b</code>. Treba izračunati stupac <code>c = a / b</code>, ali tako da je <code>c = 0</code> gdje je <code>b = 0</code>. Napiši to (a) s <code>apply</code> po retcima, (b) vektorizirano s <code>np.where</code>. Izmjeri vrijeme obaju načina i provjeri da daju iste rezultate. Koliko je puta vektorizirano brže?</p>
+<naputak><code>time.perf_counter()</code> prije i poslije; dijeljenje nulom u NumPy-ju daje <code>inf</code> uz upozorenje, pa dijeli s <code>np.where(b == 0, 1, b)</code> ili koristi <code>np.divide(…, where=…)</code>.</naputak>
+<rjesenje>
+<kod jezik="python">
+import time
+
+rng = np.random.default_rng(0)
+m = 200_000
+velika = pd.DataFrame({"a": rng.normal(size=m), "b": rng.integers(0, 3, m).astype(float)})
+
+t0 = time.perf_counter()
+c_apply = velika.apply(lambda r: 0.0 if r["b"] == 0 else r["a"] / r["b"], axis=1)
+t_apply = time.perf_counter() - t0
+
+t0 = time.perf_counter()
+b_sigurno = np.where(velika["b"] == 0, 1.0, velika["b"])
+c_vekt = np.where(velika["b"] == 0, 0.0, velika["a"] / b_sigurno)
+t_vekt = time.perf_counter() - t0
+
+print("jednako:", np.allclose(c_apply, c_vekt))
+print("apply: %.2f s   vektorizirano: %.4f s   omjer: %.0fx" % (t_apply, t_vekt, t_apply / t_vekt))
+</kod>
+<izlaz provjera="ne">
+jednako: True
+apply: 1.17 s   vektorizirano: 0.0028 s   omjer: 418x
+</izlaz>
+<p>Točni brojevi ovise o računalu, ali omjer je redovito u stotinama: <code>apply(axis=1)</code> za svaki redak gradi Series i poziva Python funkciju, dok <code>np.where</code> radi nad cijelim stupcima u C-u. Na natjecanju, gdje tablice imaju milijune redaka i vrijeme je ograničeno, to je razlika između rješenja koje se izvrši i onoga koje ne stigne. Pravilo: <code>apply</code> po retcima je posljednje sredstvo; prvo potraži stupčanu operaciju, <code>np.where</code>/<code>np.select</code>, <code>map</code> s rječnikom ili <code>groupby().transform</code>.</p>
+</rjesenje>
+</zadatak>
+
+@@ sazetak
+<ul>
+<li>Series = stupac s indeksom, DataFrame = tablica Seriesa; operacije se poravnavaju po <em>indeksu</em>, a <code>reset_index(drop=True)</code> vraća oznake u $0,\dots,n-1$.</li>
+<li>Prvi pogled: <code>shape</code>, <code>head</code>, <code>dtypes</code>/<code>info</code>, <code>describe</code>, <code>value_counts</code>; odabir <code>loc</code> (oznake, kraj uključen) i <code>iloc</code> (položaji); filtriranje maskama s <code>&amp;</code>, <code>|</code>, <code>~</code>; pisanje samo kroz <code>df.loc[maska, stupac] = …</code>.</li>
+<li>Rupe: <code>isna().sum()</code>, <code>dropna</code>, <code>fillna</code> medijanom/modom <em>izračunatim na treningu</em>; po želji indikator „nedostajalo”.</li>
+<li><code>groupby</code> + <code>agg</code> za sažetke po grupi, <code>transform</code> za vrijednost grupe u svakom retku; <code>merge</code> s <code>how=</code> i provjerom broja redaka (<code>validate</code>); <code>sort_values</code>, <code>pivot_table</code>.</li>
+<li>Kategorije: nominalne <code>get_dummies</code> (one-hot), ordinalne <code>map</code>; <code>apply</code> po retcima izbjegavaj – vektoriziraj.</li>
+<li>Za model: <code>y = df[cilj]</code>, <code>X = df.drop(columns=cilj)</code>; sve numeričko, bez <code>NaN</code>, isti stupci u treningu i testu (<code>reindex(columns=…)</code>).</li>
+</ul>
+
+@@ literatura
+<li>W. McKinney, <i>Python for Data Analysis</i>, 3. izd., O'Reilly – autor pandasa; poglavlja 5–8 i 10 (besplatno na <a href="https://wesmckinney.com/book/">wesmckinney.com/book</a>).</li>
+<li>pandas dokumentacija: <a href="https://pandas.pydata.org/docs/user_guide/10min.html">10 minutes to pandas</a>, <a href="https://pandas.pydata.org/docs/user_guide/indexing.html">Indexing and selecting data</a>, <a href="https://pandas.pydata.org/docs/user_guide/groupby.html">Group by</a>, <a href="https://pandas.pydata.org/docs/user_guide/merging.html">Merge, join, concatenate</a>.</li>
+<li>J. VanderPlas, <i>Python Data Science Handbook</i>, 2. izd., poglavlje „Data Manipulation with Pandas” (besplatno na <a href="https://jakevdp.github.io/PythonDataScienceHandbook/">jakevdp.github.io</a>).</li>
