@@ -2,7 +2,7 @@
 title: Finite state machine
 ---
 
-Prerequisites: [Languages and decision problems](./cc-basic.md#问题)
+Prerequisites: [Languages and decision problems](./cc-basic.md#problems)
 
 A **finite state machine** (FSM; below also simply called an automaton) is the simplest kind of computational model, which shows in the fact that both its descriptive power and its resources are extremely limited. Automata are widely used in competitive programming and in computer science, and their idea appears in many string algorithms, so it is recommended to learn automata before studying some string algorithms ([KMP](../string/kmp.md), [AC automaton](../string/ac-automaton.md), [SAM](../string/sam.md)).
 

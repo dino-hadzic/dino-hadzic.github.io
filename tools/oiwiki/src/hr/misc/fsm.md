@@ -2,7 +2,7 @@
 title: Konačni automat
 ---
 
-Preduvjeti: [Jezici i problemi odlučivanja](./cc-basic.md#问题)
+Preduvjeti: [Jezici i problemi odlučivanja](./cc-basic.md#problemi)
 
 **Konačni automat** (Finite State Machine, FSM; u nastavku kraće i samo automat) najjednostavnija je vrsta računskog modela, što se očituje u tome da su mu i izražajna moć i resursi iznimno ograničeni. Automati se široko primjenjuju u natjecateljskom programiranju i računarstvu, a njihova se ideja pojavljuje u mnogim algoritmima nad nizovima znakova, pa se preporučuje da prije učenja nekih algoritama nad nizovima znakova ([KMP](../string/kmp.md), [AC automat](../string/ac-automaton.md), [SAM](../string/sam.md)) najprije savladate automate.
 

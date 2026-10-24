@@ -36,7 +36,7 @@ In summary, the SSP algorithm correctly computes the minimum-cost maximum flow o
 
 ### Time complexity
 
-If the [Bellman–Ford algorithm](../shortest-path.md#bellmanford-algorithm) is used for shortest paths, each search for an augmenting path takes $O(nm)$. Let the maximum flow of the network be $f$; then the worst-case time complexity is $O(nmf)$. In fact, the SSP algorithm runs in [pseudo-polynomial time](../../misc/cc-basic.md#pseudo-polynomial-time-伪多项式时间).
+If the [Bellman–Ford algorithm](../shortest-path.md#bellmanford-algorithm) is used for shortest paths, each search for an augmenting path takes $O(nm)$. Let the maximum flow of the network be $f$; then the worst-case time complexity is $O(nmf)$. In fact, the SSP algorithm runs in [pseudo-polynomial time](../../misc/cc-basic.md#pseudo-polynomial-time).
 
 ???+ note "Why is the SSP algorithm pseudo-polynomial?"
     The time complexity of the SSP algorithm has an upper bound of $O(nmf)$, which is a polynomial in the value range, so it is pseudo-polynomial.
