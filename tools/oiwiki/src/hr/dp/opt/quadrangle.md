@@ -48,7 +48,7 @@ Nejednakost četverokuta možemo shvatiti tako da je, na razumnoj domeni, mješo
 
 Pomoću monotonosti odluka mnogi se uobičajeni algoritmi mogu optimizirati na složenost $O(n\log n)$. Ti se algoritmi razlikuju po području primjene, težini implementacije i učinkovitosti, pa prikladan algoritam treba izabrati prema konkretnoj situaciji. To uglavnom ovisi o svojstvima $w(j,i)$. Ako nije drugačije rečeno, u ovom tekstu pretpostavljamo da $w(j,i)$ dopušta **nasumični pristup**, tj. da se $w(j,i)$ može dohvatiti ili izračunati u vremenu $O(1)$. No nije u svim zadacima $w(j,i)$ tako lako izračunati. Zato, osim osnovnog slučaja, ovaj tekst razmatra i metode optimizacije DP-a monotonošću odluka kad $w(j,i)$ ima samo sljedeća svojstva:
 
--   **Pomični pristup**: $w(j,i)$ se u vremenu $O(1)$ može dobiti iz $w(j\pm 1,i)$ ili $w(j,i\pm 1)$. (Slično situaciji u [Moovu algoritmu](../../misc/mo-algo.md).)
+-   **Pomični pristup**: $w(j,i)$ se u vremenu $O(1)$ može dobiti iz $w(j\pm 1,i)$ ili $w(j,i\pm 1)$. (Slično situaciji u [Mo algoritmu](../../misc/mo-algo.md).)
 -   **Dinamičko računanje**: izračun $w(j,i)$ ovisi o $\{f(j'):j' < j\}$. To znači da se $f$ i $w$ mogu računati samo redom. Problem rastavljanja intervala bez ograničenja na broj intervala, opisan u nastavku, pripada ovoj situaciji.
 
 Ta se dva svojstva međusobno ne isključuju; moguće je da $w(j,i)$ treba računati dinamički, a dopušta samo pomični pristup.

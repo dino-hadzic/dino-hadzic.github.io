@@ -59,7 +59,7 @@ Exercises:
 
 ### CDQ divide and conquer optimization of DP
 
-Main page: [CDQ divide and conquer optimization of DP](../../misc/cdq-divide.md#cdq-分治优化-1d1d-动态规划的转移)
+Main page: [CDQ divide and conquer optimization of DP](../../misc/cdq-divide.md#cdq-divide-and-conquer-optimization-of-1d1d-dynamic-programming-transitions)
 
 As above, view the whole DP process as a sequence of queries and updates. In some problems computing them in order is too slow, so the whole sequence of queries and updates can be processed offline and sped up with CDQ divide and conquer.
 

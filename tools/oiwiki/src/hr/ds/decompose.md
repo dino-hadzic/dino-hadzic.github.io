@@ -91,7 +91,7 @@ Ideja dekompozicije na blokove može se primijeniti i na druge probleme s cijeli
 
 Ima i drugih problema koji se mogu riješiti dekompozicijom, primjerice održavanje skupa brojeva u koji se brojevi smiju dodavati i iz kojeg se smiju brisati, provjera pripada li broj skupu te pronalaženje $k$-tog najvećeg broja. Za rješenje brojeve treba čuvati u rastućem poretku i podijeliti ih na više blokova od po $\sqrt{n}$ brojeva. Pri svakom dodavanju ili brisanju broja blokove treba ponovno uravnotežiti premještanjem brojeva preko granica susjednih blokova.
 
-Poznati offline algoritam [Mo-ov algoritam](../misc/mo-algo.md) također se temelji na ideji dekompozicije na blokove.
+Poznati offline algoritam [Mo algoritam](../misc/mo-algo.md) također se temelji na ideji dekompozicije na blokove.
 
 ## Zadaci za vježbu
 
