@@ -59,7 +59,7 @@ Zadaci:
 
 ### Optimizacija DP-a CDQ podjelom
 
-Glavna stranica: [optimizacija DP-a CDQ podjelom](../../misc/cdq-divide.md#cdq-分治优化-1d1d-动态规划的转移)
+Glavna stranica: [optimizacija DP-a CDQ podjelom](../../misc/cdq-divide.md#optimizacija-prijelaza-1d1d-dinamičkog-programiranja-cdq-podjelom)
 
 Slično kao gore, cijeli DP postupak promatramo kao niz upita i izmjena. U nekim je zadacima redoslijedno računanje presporo, pa se cijeli niz upita i izmjena može obraditi offline i ubrzati CDQ podjelom (CDQ divide and conquer).
 

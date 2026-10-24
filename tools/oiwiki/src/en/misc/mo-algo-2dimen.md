@@ -42,7 +42,7 @@ Finally, the time complexity of the computation part is $\Theta(n^2\cdot q^{\fra
 
 First, as in the previous problem, the whole matrix needs to be discretized. Note, however, that in this problem, besides splitting the positions into blocks, we also need to split the value range into blocks (value-range blocking) in order to compute the answer.
 
-Here we also need odd-even sorting as an optimization; for details see [Ordinary Mo's algorithm](../misc/mo-algo.md#普通莫队的优化).
+Here we also need odd-even sorting as an optimization; for details see [Ordinary Mo's algorithm](../misc/mo-algo.md#optimization-of-ordinary-mos-algorithm).
 
 For this problem the time limit is not very generous, so pay attention to the constant factor of the code. The computed block size is generally small: when $n$ and $q$ both take their maximum values the block size is about $11$, so it can be set directly as a constant to save running time.
 

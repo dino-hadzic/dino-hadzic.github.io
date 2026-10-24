@@ -369,7 +369,7 @@ Nedefinirano ponašanje dovodi do nepredvidivih rezultata, što može biti WA, R
 
 -   Pogrešna funkcija usporedbe pri sortiranju. `std::sort` zahtijeva da funkcija usporedbe bude strogi slabi uređaj: `a<a` je `false`; ako je `a<b` `true`, onda je `b<a` `false`; ako su `a<b` `true` i `b<c` `true`, onda je `a<c` `true`. Posebno pazite na drugu točku.
     Ako ti uvjeti nisu zadovoljeni, sortiranje vrlo vjerojatno završi s RE.
-    Na primjer, pri pisanju sortiranja po parnosti za Moov algoritam ovako je pogrešno:
+    Na primjer, pri pisanju sortiranja po parnosti za Mo algoritam ovako je pogrešno:
 
     ```cpp
     bool operator<(const int a, const int b) {

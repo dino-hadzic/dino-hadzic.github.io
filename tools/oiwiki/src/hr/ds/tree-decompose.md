@@ -4,15 +4,15 @@ title: Blokovna dekompozicija stabla
 
 ## Načini blokovne dekompozicije stabla
 
-Može se pogledati [Pravi Moov algoritam na stablu](../misc/mo-algo-on-tree.md).
+Može se pogledati [Pravi Mo algoritam na stablu](../misc/mo-algo-on-tree.md).
 
-Također se može pogledati [ouuanov blog / Detaljno o Moovu algoritmu, Moovu algoritmu s izmjenama i Moovu algoritmu na stablu / Moov algoritam na stablu](https://ouuan.github.io/莫队、带修莫队、树上莫队详解/#树上莫队).
+Također se može pogledati [ouuanov blog / Detaljno o Mo algoritmu, Mo algoritmu s izmjenama i Mo algoritmu na stablu / Mo algoritam na stablu](https://ouuan.github.io/莫队、带修莫队、树上莫队详解/#树上莫队).
 
-Za Moov algoritam na stablu također se mogu pogledati ta dva članka.
+Za Mo algoritam na stablu također se mogu pogledati ta dva članka.
 
 ## Primjene blokovne dekompozicije stabla
 
-Osim u Moovu algoritmu, blokovna dekompozicija stabla može se fleksibilno primijeniti i u nekim drugim problemima na stablima. No zadaci koji se mogu riješiti blokovnom dekompozicijom stabla obično imaju i bolja rješenja, pa je takvih zadataka razmjerno malo.
+Osim u Mo algoritmu, blokovna dekompozicija stabla može se fleksibilno primijeniti i u nekim drugim problemima na stablima. No zadaci koji se mogu riješiti blokovnom dekompozicijom stabla obično imaju i bolja rješenja, pa je takvih zadataka razmjerno malo.
 
 Usput, rješenje zadatka „gty 的妹子树” blokovnom dekompozicijom stabla može se oboriti zvijezdom (star graph).
 

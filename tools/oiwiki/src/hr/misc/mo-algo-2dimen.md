@@ -42,7 +42,7 @@ Na kraju, vremenska složenost dijela s računanjem jest $\Theta(n^2\cdot q^{\fr
 
 Najprije, kao i u prethodnom zadatku, treba diskretizirati cijelu matricu. No pazite: u ovom zadatku, osim podjele na blokove po pozicijama, treba podijeliti na blokove i domenu vrijednosti (value-range blocking) da bi se mogao izračunati odgovor.
 
-Ovdje je za optimizaciju potrebno i sortiranje po parnosti bloka (odd-even sorting); detalje potražite u članku [Obični Mo algoritam](../misc/mo-algo.md#普通莫队的优化).
+Ovdje je za optimizaciju potrebno i sortiranje po parnosti bloka (odd-even sorting); detalje potražite u članku [Obični Mo algoritam](../misc/mo-algo.md#optimizacija-običnog-mo-algoritma).
 
 U ovom zadatku vremensko ograničenje nije osobito široko, pa pazite na konstantu u kodu. Izračunana veličina bloka općenito je mala: kad su $n$ i $q$ maksimalni, veličina bloka iznosi oko $11$, pa se može izravno postaviti kao konstanta kako bi se uštedjelo vrijeme izvođenja.
 
