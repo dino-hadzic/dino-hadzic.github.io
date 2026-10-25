@@ -129,4 +129,4 @@ Slijedi primjer rješavanja nabrajanjem i optimiranja raspona nabrajanja.
 
 ## Literatura i bilješke
 
-[^1]: [Bucket sort](../basic/bucket-sort.md), [Problem većinskog elementa](../misc/main-element.md#离线算法) i [objašnjenje strukture „bucket” na Stack Overflowu](https://stackoverflow.com/questions/42399355/what-is-a-bucket-or-double-bucket-data-structure) (engleski)
+[^1]: [Bucket sort](../basic/bucket-sort.md), [Problem većinskog elementa](../misc/main-element.md#offline-algoritam) i [objašnjenje strukture „bucket” na Stack Overflowu](https://stackoverflow.com/questions/42399355/what-is-a-bucket-or-double-bucket-data-structure) (engleski)

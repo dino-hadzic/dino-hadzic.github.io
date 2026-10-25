@@ -174,7 +174,7 @@ Besides optimizing the transitions, the computational complexity can also be red
 
 ### DP of DP and DFA minimization
 
-Main pages: [DP of DP](../dp-of-dp.md), [DFA minimization](../../misc/fsm.md#dfa-最小化)
+Main pages: [DP of DP](../dp-of-dp.md), [DFA minimization](../../misc/fsm.md#dfa-minimization)
 
 In some DP problems the state function can be written in the form $f(i,x)$, but the transition of $x$ itself is complicated and may even depend on another DP problem. For such problems we can first build an automaton for the transitions of the state $x$, reduce the number of states by DFA minimization, and then run the outer DP.
 

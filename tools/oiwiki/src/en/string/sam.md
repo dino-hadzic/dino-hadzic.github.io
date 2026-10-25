@@ -27,7 +27,7 @@ Intuitively, the SAM of a string can be understood as a compressed form of **all
 
 ## Definition
 
-The SAM of a string $s$ is the minimal [DFA](../misc/fsm.md#确定性有限状态自动机) that accepts all suffixes of $s$.
+The SAM of a string $s$ is the minimal [DFA](../misc/fsm.md#deterministic-finite-automaton) that accepts all suffixes of $s$.
 
 In other words:
 
@@ -91,7 +91,7 @@ Two substrings $t_1$ and $t_2$ may have exactly the same end positions: $\operat
 
 It is a fact that each such equivalence class corresponds to one state of the SAM[^state-endpos]. That is, as long as two substrings have the same end positions, their paths in the SAM lead to the same state. In other words, every non-initial state of the SAM corresponds to one or more nonempty substrings with the same $\operatorname{endpos}$. In short, the states of the SAM are exactly the equivalence classes of all nonempty substrings, plus the initial state.
 
-Let us accept this fact for now; we will base the construction algorithm on it. We will also show that all properties the SAM must satisfy, except minimality, are satisfied; minimality follows from the [Myhill–Nerode theorem](../misc/fsm.md#myhillnerode-定理).
+Let us accept this fact for now; we will base the construction algorithm on it. We will also show that all properties the SAM must satisfy, except minimality, are satisfied; minimality follows from the [Myhill–Nerode theorem](../misc/fsm.md#myhillnerode-theorem).
 
 From the values of $\operatorname{endpos}$ we can derive several important conclusions that explain the relationship between the different substrings corresponding to the same state.
 

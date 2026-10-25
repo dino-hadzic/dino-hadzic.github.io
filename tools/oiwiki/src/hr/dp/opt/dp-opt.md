@@ -174,7 +174,7 @@ Osim optimizacije prijelaza, složenost izračuna može se smanjiti i pojednosta
 
 ### DP nad DP-om i minimizacija DFA
 
-Glavne stranice: [DP nad DP-om](../dp-of-dp.md), [minimizacija DFA](../../misc/fsm.md#dfa-最小化)
+Glavne stranice: [DP nad DP-om](../dp-of-dp.md), [minimizacija DFA](../../misc/fsm.md#minimizacija-dfa)
 
 U nekim se DP zadacima funkcija stanja može zapisati u obliku $f(i,x)$, ali je prijelaz samog $x$ složen, pa čak može ovisiti o drugom DP zadatku. Za takve zadatke možemo najprije za prijelaze stanja $x$ izgraditi automat, minimizacijom DFA smanjiti broj stanja, a zatim provesti vanjski DP.
 

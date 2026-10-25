@@ -16,7 +16,7 @@ Ta se tehnika uglavnom primjenjuje na klasu problema **prebrojavanja nizova**, *
 -   Za svaki konkretan niz $s\in\Sigma^n$ dinamičkim se programiranjem može provjeriti je li valjan (tj. $s\in A$), izračunati njegova težina ili neka povezana vrijednost.
 -   Na kraju želimo izračunati broj svih nizova iz skupa $A$, njihovu ukupnu težinu, očekivanje itd.
 
-Tada nabrajanje svih nizova nije izvedivo. Zato postupak „provjere je li niz valjan” (tj. unutarnji DP) apstrahiramo u [deterministički konačni automat](../misc/fsm.md#确定性有限状态自动机) (DFA). Općenito, za fiksni niz $s\in\Sigma^n$ funkcija stanja unutarnjeg DP-a može se zapisati kao $g(i,x;s)$, tj. vrijednost neke veličine kad je obrađen prefiks niza $s$ duljine $i$, a ostale komponente stanja su $x$. Odgovarajuća jednadžba prijelaza stanja unutarnjeg DP-a glasi
+Tada nabrajanje svih nizova nije izvedivo. Zato postupak „provjere je li niz valjan” (tj. unutarnji DP) apstrahiramo u [deterministički konačni automat](../misc/fsm.md#deterministički-konačni-automat) (DFA). Općenito, za fiksni niz $s\in\Sigma^n$ funkcija stanja unutarnjeg DP-a može se zapisati kao $g(i,x;s)$, tj. vrijednost neke veličine kad je obrađen prefiks niza $s$ duljine $i$, a ostale komponente stanja su $x$. Odgovarajuća jednadžba prijelaza stanja unutarnjeg DP-a glasi
 
 $$
 g(i,\cdot;s) = G(g(i-1,\cdot;s),s_i).

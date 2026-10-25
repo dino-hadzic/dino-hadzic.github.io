@@ -27,7 +27,7 @@ Intuitivno, SAM niza može se shvatiti kao sažeti oblik **svih podnizova** zada
 
 ## Definicija
 
-SAM niza $s$ najmanji je [DFA](../misc/fsm.md#确定性有限状态自动机) koji prihvaća sve sufikse niza $s$.
+SAM niza $s$ najmanji je [DFA](../misc/fsm.md#deterministički-konačni-automat) koji prihvaća sve sufikse niza $s$.
 
 Drugim riječima:
 
@@ -91,7 +91,7 @@ Dva podniza $t_1$ i $t_2$ mogu imati potpuno iste završne pozicije: $\operatorn
 
 Činjenica je da svaka takva klasa ekvivalencije odgovara jednom stanju SAM-a[^state-endpos]. Drugim riječima, čim dva podniza imaju iste završne pozicije, njihovi putovi u SAM-u završavaju u istom stanju. Rečeno drukčije, svako nepočetno stanje SAM-a odgovara jednom ili više nepraznih podnizova s istim $\operatorname{endpos}$. Ukratko, stanja SAM-a upravo su klase ekvivalencije svih nepraznih podnizova, uz dodatak početnog stanja.
 
-Prihvatimo zasad tu činjenicu; na njoj ćemo temeljiti algoritam izgradnje SAM-a. Pokazat ćemo i da su sva svojstva koja SAM mora zadovoljavati, osim minimalnosti, ispunjena; minimalnost pak slijedi iz [Myhill–Nerodeova teorema](../misc/fsm.md#myhillnerode-定理).
+Prihvatimo zasad tu činjenicu; na njoj ćemo temeljiti algoritam izgradnje SAM-a. Pokazat ćemo i da su sva svojstva koja SAM mora zadovoljavati, osim minimalnosti, ispunjena; minimalnost pak slijedi iz [Myhill–Nerodeova teorema](../misc/fsm.md#myhillnerodeov-teorem).
 
 Iz vrijednosti $\operatorname{endpos}$ možemo izvesti nekoliko važnih zaključaka koji objašnjavaju odnos među različitim podnizovima koji odgovaraju istom stanju.
 

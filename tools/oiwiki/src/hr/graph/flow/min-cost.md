@@ -36,7 +36,7 @@ Zaključno, algoritam SSP ispravno računa maksimalni tok minimalne cijene za mr
 
 ### Vremenska složenost
 
-Ako za najkraće putove koristimo [Bellman–Fordov algoritam](../shortest-path.md#bellmanfordov-algoritam), svako traženje povećavajućeg puta ima složenost $O(nm)$. Neka je maksimalni tok mreže $f$; tada je najgora složenost $O(nmf)$. Zapravo, algoritam SSP radi u [pseudopolinomnom vremenu](../../misc/cc-basic.md#pseudo-polynomial-time-伪多项式时间).
+Ako za najkraće putove koristimo [Bellman–Fordov algoritam](../shortest-path.md#bellmanfordov-algoritam), svako traženje povećavajućeg puta ima složenost $O(nm)$. Neka je maksimalni tok mreže $f$; tada je najgora složenost $O(nmf)$. Zapravo, algoritam SSP radi u [pseudopolinomnom vremenu](../../misc/cc-basic.md#pseudo-polynomial-time--pseudopolinomno-vrijeme).
 
 ???+ note "Zašto je algoritam SSP pseudopolinoman?"
     Vremenska složenost algoritma SSP ima gornju granicu $O(nmf)$, što je polinom u veličini vrijednosti, pa je riječ o pseudopolinomnom vremenu.

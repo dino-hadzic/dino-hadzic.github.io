@@ -119,7 +119,7 @@ Gornji postupak zove se nerekurzivna/iterativna implementacija dsu on tree (ili 
 
 2.  Zadaci koje se može „na silu” riješiti dsu-om
 
-    Mogu se pokupiti parcijalni bodovi nekih zadataka s ugniježđenim strukturama (bez operacija izmjene), a složenost dsu-a bolja je od $O(n\sqrt{m})$ Mo-ova algoritma na stablu.
+    Mogu se pokupiti parcijalni bodovi nekih zadataka s ugniježđenim strukturama (bez operacija izmjene), a složenost dsu-a bolja je od $O(n\sqrt{m})$ Mo algoritma na stablu.
 
 ## Zadaci za vježbu
 
