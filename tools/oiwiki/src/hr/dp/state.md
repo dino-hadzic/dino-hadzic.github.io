@@ -58,7 +58,7 @@ $$
 \end{cases}
 $$
 
-Treba paziti da se ovdje ne mogu izravno prolaziti svi skupovi pa provjeravati jesu li podskupovi, nego treba koristiti [prolazak po podskupovima](../math/binary-set.md#遍历所有掩码的子掩码), čime vremenska složenost postaje $O(3^n)$.
+Treba paziti da se ovdje ne mogu izravno prolaziti svi skupovi pa provjeravati jesu li podskupovi, nego treba koristiti [prolazak po podskupovima](../math/binary-set.md#obilazak-podmaski-svih-maski), čime vremenska složenost postaje $O(3^n)$.
 
 ### Implementacija
 
