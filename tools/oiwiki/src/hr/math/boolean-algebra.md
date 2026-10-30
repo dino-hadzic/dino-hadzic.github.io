@@ -51,7 +51,7 @@ Budući da $n$-arna Booleova funkcija ima $2^n$ mogućih ulaza, postoji $2\uparr
 
 Kombinaciju logičkih operatora nazivamo **logičkim izrazom** (logical expression).
 
-Ako $\mathbf{B}$ promatramo kao [klase ostataka](./number-theory/basic.md#同余类与剩余系) po modulu $2$, tada je isključivo ili ekvivalentno zbrajanju po modulu $2$, a i množenju po modulu $2$, pa Booleovu domenu ponekad označavamo i $\mathbf{Z}_2$.
+Ako $\mathbf{B}$ promatramo kao [klase ostataka](./number-theory/basic.md#klase-kongruencije-i-sustavi-ostataka) po modulu $2$, tada je isključivo ili ekvivalentno zbrajanju po modulu $2$, a i množenju po modulu $2$, pa Booleovu domenu ponekad označavamo i $\mathbf{Z}_2$.
 
 ### Prioritet
 

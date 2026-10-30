@@ -12,13 +12,13 @@ When $n$ is prime, obviously $\varphi(n) = n - 1$.
 
 ## Properties
 
--   Euler's totient function is a [multiplicative function](./basic.md#积性函数).
+-   Euler's totient function is a [multiplicative function](./basic.md#multiplicative-functions).
 
     That is, for any integers $a,b$ with $\gcd(a, b) = 1$, we have $\varphi(ab) = \varphi(a)\varphi(b)$.
 
     In particular, when $n$ is odd, $\varphi(2n) = \varphi(n)$.
 
-    For a proof, see [Composition of residue systems](./basic.md#剩余系的复合).
+    For a proof, see [Composition of residue systems](./basic.md#composition-of-residue-systems).
 
 -   $n = \sum_{d \mid n}{\varphi(d)}$.
 
@@ -97,7 +97,7 @@ If only the totient of a single number is needed, just compute it directly from 
 
 If the totients of several numbers are needed, they can be computed with the linear sieve, which will be introduced later.
 
-For details, see: [Computing Euler's totient function with a sieve](./sieve.md#筛法求欧拉函数)
+For details, see: [Computing Euler's totient function with a sieve](./sieve.md#sieve-for-eulers-totient-function)
 
 ## Applications
 

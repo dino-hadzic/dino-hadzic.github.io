@@ -147,7 +147,7 @@ Da bismo potpuno razumjeli jedinstvenu faktorizaciju u općem prstenu kvadratnih
 2.  $p$ se u $\mathbf Z[\omega]$ **cijepa** (split), tj. $(p)$ se u $\mathbf Z[\omega]$ može zapisati kao umnožak dvaju različitih konjugiranih prostih ideala;
 3.  $p$ se u $\mathbf Z[\omega]$ **grana** (ramify), tj. $(p)$ se u $\mathbf Z[\omega]$ može zapisati kao kvadrat nekog prostog ideala.
 
-Dalje se može dokazati da je za određivanje u koji od tih triju slučajeva pada neki prosti broj $p$ dovoljno izračunati [Kroneckerov simbol](https://en.wikipedia.org/wiki/Kronecker_symbol) $\left(\dfrac{D}{p}\right)$ za diskriminantu $D$ kvadratnog polja kojem pripada $\mathbf Z[\omega]$ i taj prosti broj $p$. Ta tri slučaja odgovaraju redom trima vrijednostima Kroneckerova simbola: $-1$, $+1$ i $0$. Kad je $p$ neparan prost broj, Kroneckerov simbol upravo je [Legendreov simbol](./quad-residue.md#legendre-符号), pa ta tri slučaja odgovaraju redom tome da je $D$ [kvadratni neostatak](./quad-residue.md) modulo $p$, da je $D$ [kvadratni ostatak](./quad-residue.md) modulo $p$ te da $p$ dijeli $D$. Kad je $p=2$, ta tri slučaja odgovaraju redom $D\equiv \pm 3\pmod 8$, $D\equiv \pm 1\pmod 8$ i tome da $2$ dijeli $D$.
+Dalje se može dokazati da je za određivanje u koji od tih triju slučajeva pada neki prosti broj $p$ dovoljno izračunati [Kroneckerov simbol](https://en.wikipedia.org/wiki/Kronecker_symbol) $\left(\dfrac{D}{p}\right)$ za diskriminantu $D$ kvadratnog polja kojem pripada $\mathbf Z[\omega]$ i taj prosti broj $p$. Ta tri slučaja odgovaraju redom trima vrijednostima Kroneckerova simbola: $-1$, $+1$ i $0$. Kad je $p$ neparan prost broj, Kroneckerov simbol upravo je [Legendreov simbol](./quad-residue.md#legendreov-simbol), pa ta tri slučaja odgovaraju redom tome da je $D$ [kvadratni neostatak](./quad-residue.md) modulo $p$, da je $D$ [kvadratni ostatak](./quad-residue.md) modulo $p$ te da $p$ dijeli $D$. Kad je $p=2$, ta tri slučaja odgovaraju redom $D\equiv \pm 3\pmod 8$, $D\equiv \pm 1\pmod 8$ i tome da $2$ dijeli $D$.
 
 ## Gaussovi cijeli brojevi
 
@@ -205,7 +205,7 @@ $$
 4(1+r_1)\cdots(1+r_\ell).
 $$
 
-Neka $f(n)$ označava broj cjelobrojnih rješenja jednadžbe $x^2+y^2=n$. Kad ona ima rješenje, $f(n)$ je dan gornjim izrazom; inače je $f(n)=0$. Lako se provjerava da je $\dfrac14f(n)$ [multiplikativna funkcija](./basic.md#积性函数). Vrijednosti multiplikativne funkcije određene su njezinim vrijednostima na potencijama prostih brojeva. Iz izraza za $f(n)$ može se odrediti da su vrijednosti $\dfrac14f(n)$ na potencijama prostih brojeva $p^k$ sljedeće:
+Neka $f(n)$ označava broj cjelobrojnih rješenja jednadžbe $x^2+y^2=n$. Kad ona ima rješenje, $f(n)$ je dan gornjim izrazom; inače je $f(n)=0$. Lako se provjerava da je $\dfrac14f(n)$ [multiplikativna funkcija](./basic.md#multiplikativne-funkcije). Vrijednosti multiplikativne funkcije određene su njezinim vrijednostima na potencijama prostih brojeva. Iz izraza za $f(n)$ može se odrediti da su vrijednosti $\dfrac14f(n)$ na potencijama prostih brojeva $p^k$ sljedeće:
 
 1.  ako je $p$ prost broj oblika $4k+3$, tada je $\dfrac14f(1)=1,\dfrac14f(p)=0,\dfrac14f(p^2)=1,\dfrac14f(p^3)=0,\cdots$;
 2.  ako je $p$ prost broj oblika $4k+1$, tada je $\dfrac14f(p^k)=k+1$;

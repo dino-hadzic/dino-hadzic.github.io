@@ -81,7 +81,7 @@ Dosadašnje razmatranje samo je pretpostavljalo postojanje fundamentalnog rješe
     Pellova jednadžba $x^2-Dy^2=1$ uvijek ima cjelobrojno rješenje različito od $(\pm 1,0)$.
 
 ??? note "Dokaz"
-    Najprije, [Dirichletov teorem](./continued-fraction.md#用渐近分数逼近实数) pokazuje da postoji beskonačno mnogo parova pozitivnih cijelih brojeva $(x,y)$ za koje vrijedi
+    Najprije, [Dirichletov teorem](./continued-fraction.md#aproksimacija-realnih-brojeva-konvergentama) pokazuje da postoji beskonačno mnogo parova pozitivnih cijelih brojeva $(x,y)$ za koje vrijedi
     
     $$
     \left|\dfrac{x}{y}-\sqrt{D}\right| \le \dfrac{1}{y^2}
@@ -150,13 +150,13 @@ $$
 \omega=\dfrac{P_0+\sqrt{D}}{Q_0}
 $$
 
-u verižni razlomak $[a_0,a_1,\cdots]$ može dobiti sljedećim [rekurzivnim formulama](./continued-fraction.md#二次无理数):
+u verižni razlomak $[a_0,a_1,\cdots]$ može dobiti sljedećim [rekurzivnim formulama](./continued-fraction.md#kvadratni-iracionalni-brojevi):
 
 $$
 a_k = \left\lfloor\dfrac{P_k+\sqrt{D}}{Q_k}\right\rfloor,\ P_{k+1} = a_kQ_k - P_k,\ Q_{k+1} = \dfrac{D-P_{k+1}^2}{Q_k}.
 $$
 
-Nadalje, brojnik $A_k$ i nazivnik $B_k$ $k$-te konvergente od $\omega$ dani su sljedećim [rekurzivnim formulama](./continued-fraction.md#递推关系):
+Nadalje, brojnik $A_k$ i nazivnik $B_k$ $k$-te konvergente od $\omega$ dani su sljedećim [rekurzivnim formulama](./continued-fraction.md#rekurzivne-relacije):
 
 $$
 A_k = a_kA_{k-1} + A_{k-2},\ B_k = a_kB_{k-1} + B_{k-2}
@@ -164,7 +164,7 @@ $$
 
 uz $A_{-1} = 1$, $A_{-2}=0$, $B_{-1}=0$, $B_{-2}=1$.
 
-Točnost tih formula već je dokazana u članku o verižnim razlomcima. Ondje je također objašnjeno da je kvadratna iracionalnost [periodički verižni razlomak](./continued-fraction.md#二次无理数), pa trojke $(P_k,Q_k,a_k)$ na kraju ulaze u ciklus i algoritam uvijek završava u konačno mnogo koraka. Neka je najmanja duljina perioda $\ell$, a najraniji početak perioda na položaju $k_0$; tada se razvoj kvadratne iracionalnosti u verižni razlomak može zapisati kao
+Točnost tih formula već je dokazana u članku o verižnim razlomcima. Ondje je također objašnjeno da je kvadratna iracionalnost [periodički verižni razlomak](./continued-fraction.md#kvadratni-iracionalni-brojevi), pa trojke $(P_k,Q_k,a_k)$ na kraju ulaze u ciklus i algoritam uvijek završava u konačno mnogo koraka. Neka je najmanja duljina perioda $\ell$, a najraniji početak perioda na položaju $k_0$; tada se razvoj kvadratne iracionalnosti u verižni razlomak može zapisati kao
 
 $$
 \omega=[a_0,\cdots,a_{k_0-1},\overline{a_{k_0},\cdots,a_{k_0+\ell-1}}].
@@ -213,7 +213,7 @@ Da bismo PQa algoritmom riješili Pellovu jednadžbu, trebamo sljedeći rezultat
     \end{aligned}
     $$
     
-    U posljednjem koraku iskorištena je [formula za razliku](./continued-fraction.md#误差估计) konvergenti. Time je dokazana prva tvrdnja.
+    U posljednjem koraku iskorištena je [formula za razliku](./continued-fraction.md#procjena-pogreške) konvergenti. Time je dokazana prva tvrdnja.
     
     Da bismo dokazali drugu tvrdnju, uvrstimo izraz za $G_k$ u prvu tvrdnju:
     
@@ -237,7 +237,7 @@ Ta je zamisao srž rješavanja Pellove i poopćene Pellove jednadžbe. Nakon št
 
 Da bismo riješili Pellovu jednadžbu $x^2-Dy^2=1$, dovoljno je izvesti PQa algoritam za $(P_0,Q_0,D)=(0,1,D)$ sve dok se ne pojavi $(-1)^kQ_k=1$; tada je $(A_{k-1},B_{k-1})$ rješenje Pellove jednadžbe (jer je $G_{k-1}$ u tom slučaju upravo $A_{k-1}$). Naravno, za Pellovu jednadžbu taj postupak možemo opisati i preciznije.
 
-Prvo, rješenje se sigurno pojavljuje na kraju perioda. Gornji postupak odgovara razvoju $\sqrt{D}$ u verižni razlomak. Za njega već imamo [rezultat](./continued-fraction.md#纯循环连分数):
+Prvo, rješenje se sigurno pojavljuje na kraju perioda. Gornji postupak odgovara razvoju $\sqrt{D}$ u verižni razlomak. Za njega već imamo [rezultat](./continued-fraction.md#čisto-periodični-verižni-razlomci):
 
 $$
 \sqrt{D} = [\lfloor\sqrt{D}\rfloor,\overline{a_1,\cdots,a_{\ell-1},2\lfloor\sqrt{D}\rfloor}].
@@ -257,15 +257,15 @@ Sljedeće treba pokazati da je upravo dobiveno rješenje sigurno fundamentalno r
     \left|\dfrac{x}{y}-\sqrt{D}\right| = \dfrac{N}{y(x+y\sqrt{D})}<\dfrac{N}{2y^2\sqrt{D}}<\dfrac{1}{2y^2}.
     $$
     
-    Prema [Legendreovu kriteriju](./continued-fraction.md#渐近分数的判定), $\dfrac{x}{y}$ je konvergenta od $\sqrt{D}$.
+    Prema [Legendreovu kriteriju](./continued-fraction.md#prepoznavanje-konvergenti), $\dfrac{x}{y}$ je konvergenta od $\sqrt{D}$.
     
-    Kad je $N<0$, $x>y\sqrt{D}$ više ne vrijedi. Zato umjesto toga promatramo rješenja jednadžbe $y^2-\dfrac{1}{D}x^2=-\dfrac{N}{D}$. Budući da je $\dfrac{|N|}{D}<\sqrt{\dfrac{1}{D}}$, gornje rasuđivanje i dalje vrijedi. To znači da je $\dfrac{y}{x}$ konvergenta od $\dfrac{1}{\sqrt{D}}$. Prema [teoremu o recipročnoj vrijednosti](./continued-fraction.md#递推关系), $\dfrac{x}{y}$ je također konvergenta od $\sqrt{D}$.
+    Kad je $N<0$, $x>y\sqrt{D}$ više ne vrijedi. Zato umjesto toga promatramo rješenja jednadžbe $y^2-\dfrac{1}{D}x^2=-\dfrac{N}{D}$. Budući da je $\dfrac{|N|}{D}<\sqrt{\dfrac{1}{D}}$, gornje rasuđivanje i dalje vrijedi. To znači da je $\dfrac{y}{x}$ konvergenta od $\dfrac{1}{\sqrt{D}}$. Prema [teoremu o recipročnoj vrijednosti](./continued-fraction.md#rekurzivne-relacije), $\dfrac{x}{y}$ je također konvergenta od $\sqrt{D}$.
 
 ???+ note "Teorem"
     Tijekom izvođenja gornjeg PQa algoritma za $(P_0,Q_0,D)=(0,1,D)$, iz $Q_k=1$ nužno slijedi $\ell\mid k$.
 
 ??? note "Dokaz"
-    U razvoju $\sqrt{D}$ u verižni razlomak svi su ostatci osim $0$. ostatka [čisto periodički verižni razlomci](./continued-fraction.md#纯循环连分数). Neka je $Q_k=1$. Prema Galoisovu rezultatu, ostatak $\omega_k=P_k+\sqrt{D}>1$ nužno ima konjugat $-1<P_k-\sqrt{D}<0$, što znači da je $P_k=\lfloor\sqrt{D}\rfloor$. Stoga je ostatak $\omega_k$ jednak $\omega_\ell$. No ponavljanje ostatka znači periodičnost verižnog razlomka, pa ako $k$ nije višekratnik od $\ell$, dolazimo u proturječje s time da je $\ell$ najmanji pozitivni period. Dakle, nužno je $\ell\mid k$.
+    U razvoju $\sqrt{D}$ u verižni razlomak svi su ostatci osim $0$. ostatka [čisto periodički verižni razlomci](./continued-fraction.md#čisto-periodični-verižni-razlomci). Neka je $Q_k=1$. Prema Galoisovu rezultatu, ostatak $\omega_k=P_k+\sqrt{D}>1$ nužno ima konjugat $-1<P_k-\sqrt{D}<0$, što znači da je $P_k=\lfloor\sqrt{D}\rfloor$. Stoga je ostatak $\omega_k$ jednak $\omega_\ell$. No ponavljanje ostatka znači periodičnost verižnog razlomka, pa ako $k$ nije višekratnik od $\ell$, dolazimo u proturječje s time da je $\ell$ najmanji pozitivni period. Dakle, nužno je $\ell\mid k$.
 
 Objedinimo li razmatranja u ovom odjeljku, zaključujemo: dovoljno je razviti $\sqrt{D}$ u verižni razlomak, tj. izvesti PQa algoritam s početkom $(P_0,Q_0,D)=(0,1,D)$, i kad prvi put dobijemo $Q_\ell=1$, stigli smo do kraja prvog perioda. Tada je, ako je $\ell$ paran, $(A_{\ell-1},B_{\ell-1})$ fundamentalno rješenje Pellove jednadžbe; inače je fundamentalno rješenje Pellove jednadžbe $(A_{2\ell-1},B_{2\ell-1})$. Za slučaj neparne duljine perioda $\ell$ nije potrebno nastavljati PQa algoritam do dvostrukog perioda; uskoro ćemo pokazati da je $A_{2\ell-1}+B_{2\ell-1}\sqrt{D}=(A_{\ell-1}+B_{\ell-1}\sqrt{D})^2$, pa se fundamentalno rješenje Pellove jednadžbe može izračunati izravno iz $(A_{\ell-1},B_{\ell-1})$. Sva ostala rješenja Pellove jednadžbe mogu se izračunati iz fundamentalnog rješenja Pellove jednadžbe.
 
@@ -382,7 +382,7 @@ Točnost tog algoritma oslanja se na sljedeće činjenice:
     \left|\dfrac{(x+y)/2}{y}-\dfrac{1+\sqrt{D}}{2}\right| = \dfrac{2}{y(x+y\sqrt{D})}<\dfrac{1}{2y^2}.
     $$
     
-    Prema [Legendreovu kriteriju](./continued-fraction.md#渐近分数的判定), $\dfrac{(x+y)/2}{y}$ je konvergenta od $\dfrac{1+\sqrt{D}}{2}$.
+    Prema [Legendreovu kriteriju](./continued-fraction.md#prepoznavanje-konvergenti), $\dfrac{(x+y)/2}{y}$ je konvergenta od $\dfrac{1+\sqrt{D}}{2}$.
     
     Ako je $(x,y)$ rješenje jednadžbe $x^2-Dy^2=-4$, da bismo dobili gornju nejednakost, dovoljno je dokazati $4y<x+y\sqrt{D}$. To vrijedi barem u svim slučajevima osim $D=5,13$. Za slučaj $D=5,13$, uvrstimo li $x=\sqrt{Dy^2-4}$ u tu nejednakost, vidimo da je ona ekvivalentna s $2(\sqrt{D}-2)y^2>1$. Osim za $(D,y)=(5,1)$, ta nejednakost vrijedi za sve $D=5,13$ i pozitivne cijele brojeve $y$. Preostaje provjeriti slučaj $(D,y)=(5,1)$; tada je rješenje jednadžbe $x^2-5y^2=-4$ jednako $(x,y)=(1,1)$, a treba provjeriti da je $\dfrac{1}{1}$ konvergenta od $\dfrac{1+\sqrt{5}}{2}=[\overline{1}]$, što očito vrijedi.
 
@@ -396,7 +396,7 @@ Točnost tog algoritma oslanja se na sljedeće činjenice:
     gdje je $\ell$ duljina perioda, a $a_k=a_{\ell-k}$ vrijedi za svaki $1\le k<\ell$.
 
 ??? note "Dokaz"
-    Budući da je $\lfloor\omega\rfloor-1+\omega>1$, a njegov konjugat jednak je $\lfloor\omega\rfloor - \omega$ i leži između $-1$ i $0$, prema [Galoisovu rezultatu](./continued-fraction.md#纯循环连分数) $\lfloor\omega\rfloor-1+\omega$ je čisto periodički verižni razlomak i može se zapisati kao
+    Budući da je $\lfloor\omega\rfloor-1+\omega>1$, a njegov konjugat jednak je $\lfloor\omega\rfloor - \omega$ i leži između $-1$ i $0$, prema [Galoisovu rezultatu](./continued-fraction.md#čisto-periodični-verižni-razlomci) $\lfloor\omega\rfloor-1+\omega$ je čisto periodički verižni razlomak i može se zapisati kao
     
     $$
     \lfloor\omega\rfloor-1+\omega = [\overline{2\lfloor\omega\rfloor-1,a_1,\cdots,a_{\ell-1}}].
@@ -420,7 +420,7 @@ Točnost tog algoritma oslanja se na sljedeće činjenice:
     Neka je $D\equiv 1\pmod 4$. Tijekom izvođenja gornjeg PQa algoritma za $(P_0,Q_0,D)=(1,2,D)$, iz $Q_k=2$ nužno slijedi $\ell\mid k$.
 
 ??? note "Dokaz"
-    U razvoju $\dfrac{1+\sqrt{D}}{2}$ u verižni razlomak svi su ostatci osim $0$. ostatka [čisto periodički verižni razlomci](./continued-fraction.md#纯循环连分数). Neka je $Q_k=2$. Prema Galoisovu rezultatu, konjugat ostatka $\omega_k=\dfrac{P_k+\sqrt{D}}{2}$ nužno zadovoljava $-1<\dfrac{P_k-\sqrt{D}}{2}<0$, tj. $\sqrt{D}-2<P_k<\sqrt{D}$. Budući da u PQa algoritmu uvijek vrijedi $Q_k\mid P_k^2-D$ (vidi [dokaz točnosti algoritma](./continued-fraction.md#二次无理数)), $P_k$ je sigurno neparan, što znači da je vrijednost $P_k$ jedinstvena, tj. $P_k=P_0+2(\lfloor\omega\rfloor-1)$, odnosno ostatak $\omega_k=\omega_\ell$. No ponavljanje ostatka znači periodičnost verižnog razlomka, pa ako $k$ nije višekratnik od $\ell$, dolazimo u proturječje s time da je $\ell$ najmanji pozitivni period. Dakle, nužno je $\ell\mid k$.
+    U razvoju $\dfrac{1+\sqrt{D}}{2}$ u verižni razlomak svi su ostatci osim $0$. ostatka [čisto periodički verižni razlomci](./continued-fraction.md#čisto-periodični-verižni-razlomci). Neka je $Q_k=2$. Prema Galoisovu rezultatu, konjugat ostatka $\omega_k=\dfrac{P_k+\sqrt{D}}{2}$ nužno zadovoljava $-1<\dfrac{P_k-\sqrt{D}}{2}<0$, tj. $\sqrt{D}-2<P_k<\sqrt{D}$. Budući da u PQa algoritmu uvijek vrijedi $Q_k\mid P_k^2-D$ (vidi [dokaz točnosti algoritma](./continued-fraction.md#kvadratni-iracionalni-brojevi)), $P_k$ je sigurno neparan, što znači da je vrijednost $P_k$ jedinstvena, tj. $P_k=P_0+2(\lfloor\omega\rfloor-1)$, odnosno ostatak $\omega_k=\omega_\ell$. No ponavljanje ostatka znači periodičnost verižnog razlomka, pa ako $k$ nije višekratnik od $\ell$, dolazimo u proturječje s time da je $\ell$ najmanji pozitivni period. Dakle, nužno je $\ell\mid k$.
 
 ???+ note "Teorem"
     Neka je $(x_1,y_1)$ najmanje pozitivno cjelobrojno rješenje jednadžbe $x^2-Dy^2=\pm 4$. Tada je skup svih njezinih rješenja
@@ -610,13 +610,13 @@ Točnost tog algoritma jamči sljedeći teorem:
     \dfrac{P\zeta+R}{Q\zeta+S} = \dfrac{(x+P_0y)\sqrt{D}+(P_0x+Dy)}{(x+y\sqrt{D})Q_0} = \dfrac{P_0+\sqrt{D}}{Q_0} = \omega.
     $$
     
-    Sada treba dokazati da je $\dfrac{P}{Q}$ konvergenta od $\omega$. Neka $\dfrac{P}{Q}$ ima [razvoj u verižni razlomak](./continued-fraction.md#简单连分数)
+    Sada treba dokazati da je $\dfrac{P}{Q}$ konvergenta od $\omega$. Neka $\dfrac{P}{Q}$ ima [razvoj u verižni razlomak](./continued-fraction.md#jednostavni-verižni-razlomci)
     
     $$
     \dfrac{P}{Q} = [a_0,a_1,\cdots,a_k]
     $$
     
-    takav da je $PS-QR = (-1)^{k-1}$. Ako je $\dfrac{p_k}{q_k}$ njegova $k$-ta konvergenta, onda je $(p_k,q_k)=(P,Q)$, a prema [formuli za razliku konvergenti](./continued-fraction.md#误差估计) vrijedi $p_kq_{k-1}-q_kp_{k-1}=(-1)^{k-1}$. To znači
+    takav da je $PS-QR = (-1)^{k-1}$. Ako je $\dfrac{p_k}{q_k}$ njegova $k$-ta konvergenta, onda je $(p_k,q_k)=(P,Q)$, a prema [formuli za razliku konvergenti](./continued-fraction.md#procjena-pogreške) vrijedi $p_kq_{k-1}-q_kp_{k-1}=(-1)^{k-1}$. To znači
     
     $$
     p_k(S-q_{k-1}) = q_k(R-p_{k-1}).

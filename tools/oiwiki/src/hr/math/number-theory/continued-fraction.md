@@ -95,7 +95,7 @@ $$
 a_k = \left\lfloor\frac{p_k}{q_k}\right\rfloor,\ r_{k+1} = \dfrac{1}{r_k-a_k} = \dfrac{q_k}{p_k-a_kq_k} = \dfrac{q_k}{p_k\bmod q_k}.
 $$
 
-Taj je postupak zapravo [Euklidov algoritam](./gcd.md#欧几里得算法) primijenjen na $p$ i $q$. To također pokazuje da je za racionalan broj $x=\dfrac{p}{q}$ duljina prikaza verižnim razlomkom $O(\log\min\{p, q\})$. Složenost računanja prikaza racionalnog broja $\dfrac{p}{q}$ također je $O(\log\min\{p, q\})$.
+Taj je postupak zapravo [Euklidov algoritam](./gcd.md#euklidov-algoritam) primijenjen na $p$ i $q$. To također pokazuje da je za racionalan broj $x=\dfrac{p}{q}$ duljina prikaza verižnim razlomkom $O(\log\min\{p, q\})$. Složenost računanja prikaza racionalnog broja $\dfrac{p}{q}$ također je $O(\log\min\{p, q\})$.
 
 ???+ example "Referentna implementacija"
     Za zadani brojnik $p$ i nazivnik $q$ razlomka ispisati niz koeficijenata verižnog razlomka $[a_0,a_1,\ldots,a_n]$.
@@ -572,7 +572,7 @@ Zapravo se i rješenja linearne diofantske jednadžbe s dvije nepoznanice mogu d
     Zadani su $A, B, C \in \mathbf Z$. Pronađite $x, y \in \mathbf Z$ takve da vrijedi $Ax + By = C$.
 
 ??? note "Rješenje"
-    Iako se taj problem obično rješava [proširenim Euklidovim algoritmom](./bezouts.md#两个变量的情形), jednako se može riješiti i verižnim razlomcima.
+    Iako se taj problem obično rješava [proširenim Euklidovim algoritmom](./bezouts.md#slučaj-dviju-varijabli), jednako se može riješiti i verižnim razlomcima.
     
     Neka je $\dfrac{A}{B}=[a_0, a_1, \ldots, a_k]$. Gore je dokazano $p_k q_{k-1} - p_{k-1} q_k = (-1)^{k-1}$. Zamijenimo li $p_k$ i $q_k$ s $A$ i $B$, dobivamo
     

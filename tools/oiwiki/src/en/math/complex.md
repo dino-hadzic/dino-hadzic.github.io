@@ -288,7 +288,7 @@ In addition, as a simple corollary of this analysis, we have:
 ???+ note "Theorem"
     As $k$ ranges over the divisors of $n$, the primitive $k$-th roots of unity form exactly a partition of the $n$-th roots of unity. Moreover, for $\ell\perp n$, the map $x\mapsto x^\ell$ is a bijection of the $n$-th roots of unity that preserves this partition: it still maps primitive roots of unity of order $k\mid n$ to primitive $k$-th roots of unity.
 
-Although there are many choices of primitive root of unity, the first root $\omega_n$ has the simplest form, so $\omega_n$ remains the most commonly used in competitive programming. In some scenarios, to improve computational efficiency, a [primitive root of unity](./number-theory/residue.md#单位根) modulo some modulus may be used instead of $\omega_n$ in the complex field.
+Although there are many choices of primitive root of unity, the first root $\omega_n$ has the simplest form, so $\omega_n$ remains the most commonly used in competitive programming. In some scenarios, to improve computational efficiency, a [primitive root of unity](./number-theory/residue.md#roots-of-unity) modulo some modulus may be used instead of $\omega_n$ in the complex field.
 
 ## Complex numbers in programming languages
 

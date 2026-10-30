@@ -95,7 +95,7 @@ $$
 a_k = \left\lfloor\frac{p_k}{q_k}\right\rfloor,\ r_{k+1} = \dfrac{1}{r_k-a_k} = \dfrac{q_k}{p_k-a_kq_k} = \dfrac{q_k}{p_k\bmod q_k}.
 $$
 
-This computation is in fact the [Euclidean algorithm](./gcd.md#欧几里得算法) applied to $p$ and $q$. This also shows that for a rational number $x=\dfrac{p}{q}$, the length of the continued fraction representation is $O(\log\min\{p, q\})$. The complexity of computing it for the rational number $\dfrac{p}{q}$ is also $O(\log\min\{p, q\})$.
+This computation is in fact the [Euclidean algorithm](./gcd.md#euclidean-algorithm) applied to $p$ and $q$. This also shows that for a rational number $x=\dfrac{p}{q}$, the length of the continued fraction representation is $O(\log\min\{p, q\})$. The complexity of computing it for the rational number $\dfrac{p}{q}$ is also $O(\log\min\{p, q\})$.
 
 ???+ example "Reference implementation"
     Given the numerator $p$ and denominator $q$ of a fraction, output the sequence of coefficients $[a_0,a_1,\ldots,a_n]$ of its continued fraction.
@@ -572,7 +572,7 @@ In fact, solutions of a linear Diophantine equation in two variables can be foun
     Given $A, B, C \in \mathbf Z$. Find $x, y \in \mathbf Z$ such that $Ax + By = C$.
 
 ??? note "Solution"
-    Although this problem is usually solved with the [extended Euclidean algorithm](./bezouts.md#两个变量的情形), it can equally be solved with continued fractions.
+    Although this problem is usually solved with the [extended Euclidean algorithm](./bezouts.md#the-case-of-two-variables), it can equally be solved with continued fractions.
     
     Let $\dfrac{A}{B}=[a_0, a_1, \ldots, a_k]$. It was proved above that $p_k q_{k-1} - p_{k-1} q_k = (-1)^{k-1}$. Replacing $p_k$ and $q_k$ with $A$ and $B$, we get
     

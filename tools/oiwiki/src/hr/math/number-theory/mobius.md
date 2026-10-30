@@ -74,7 +74,7 @@ Ako treba izračunati vrijednost Möbiusove funkcije $\mu(n)$ za jedan $n$, mož
         --8<-- "docs/math/code/mobius/mobius-func-1.py:core"
         ```
 
-Ako treba unaprijed izračunati vrijednosti $\mu(n)$ za prvih $n$ pozitivnih cijelih brojeva, može se iskoristiti to što je ona multiplikativna i izračunati ih [linearnim sitom](./sieve.md#筛法求莫比乌斯函数) u vremenu $O(n)$.
+Ako treba unaprijed izračunati vrijednosti $\mu(n)$ za prvih $n$ pozitivnih cijelih brojeva, može se iskoristiti to što je ona multiplikativna i izračunati ih [linearnim sitom](./sieve.md#sito-za-möbiusovu-funkciju) u vremenu $O(n)$.
 
 ???+ example "Referentna implementacija"
     === "C++"
@@ -325,7 +325,7 @@ $$
 
 U lijevoj jednakosti vrijednost $f(n)$ zbroj je vrijednosti $g$ u svim djeliteljima od $n$. Ako $a\mid b$ shvatimo kao „$a$ je poredan prije $b$”, onda se $f(n)$ može shvatiti kao prefiksna suma od $g(n)$ u određenom smislu. Zato se u kineskoj natjecateljskoj zajednici postupak računanja $\{f(k)\}_{k=1}^n$ iz $\{g(k)\}_{k=1}^n$ naziva i **Dirichletova prefiksna suma**, a odgovarajući obrnuti postupak Dirichletova razlika. Ove se metode uglavnom pojavljuju kada treba unaprijed izračunati vrijednosti neke aritmetičke funkcije u prvih $N$ točaka.
 
-Razmotrimo sada računanje Dirichletovih prefiksnih suma. Ako svaki prost broj promatramo kao jednu dimenziju, riječ je o vrsti višedimenzionalnih prefiksnih suma. Prisjetimo se [algoritma prefiksnih suma dimenziju po dimenziju](../../basic/prefix-sum.md#prefiksne-sume-dimenziju-po-dimenziju) za višedimenzionalne prefiksne sume: prolazimo redom sve dimenzije i vrijednost na svakoj poziciji pribrajamo sljedbeniku te pozicije u toj dimenziji. Za aritmetičke funkcije to znači: prolazimo sve proste brojeve $p$ od manjih prema većima i vrijednost funkcije u $n$ pribrajamo vrijednosti u $np$. To je isti redoslijed obilaska kao u [Eratostenovu situ](./sieve.md#埃拉托斯特尼筛法). Stoga ovaj algoritam računa Dirichletovu prefiksnu sumu niza duljine $n$ u vremenu $O(n\log\log n)$. Slično, razlikama dimenziju po dimenziju može se u istoj vremenskoj složenosti izračunati Dirichletova razlika niza.
+Razmotrimo sada računanje Dirichletovih prefiksnih suma. Ako svaki prost broj promatramo kao jednu dimenziju, riječ je o vrsti višedimenzionalnih prefiksnih suma. Prisjetimo se [algoritma prefiksnih suma dimenziju po dimenziju](../../basic/prefix-sum.md#prefiksne-sume-dimenziju-po-dimenziju) za višedimenzionalne prefiksne sume: prolazimo redom sve dimenzije i vrijednost na svakoj poziciji pribrajamo sljedbeniku te pozicije u toj dimenziji. Za aritmetičke funkcije to znači: prolazimo sve proste brojeve $p$ od manjih prema većima i vrijednost funkcije u $n$ pribrajamo vrijednosti u $np$. To je isti redoslijed obilaska kao u [Eratostenovu situ](./sieve.md#eratostenovo-sito). Stoga ovaj algoritam računa Dirichletovu prefiksnu sumu niza duljine $n$ u vremenu $O(n\log\log n)$. Slično, razlikama dimenziju po dimenziju može se u istoj vremenskoj složenosti izračunati Dirichletova razlika niza.
 
 ???+ example "Referentna implementacija"
     === "Dirichletova prefiksna suma"
@@ -399,7 +399,7 @@ Ovaj odjeljak kroz primjere zadataka pokazuje način primjene Möbiusove inverzi
     --8<-- "docs/math/code/mobius/mobius_1.cpp"
     ```
 
-Sljedeća dva zadatka pokazuju način obrade iteriranjem po zajedničkom faktoru te računanje vrijednosti općih multiplikativnih funkcija [sitom](./sieve.md#一般的积性函数).
+Sljedeća dva zadatka pokazuju način obrade iteriranjem po zajedničkom faktoru te računanje vrijednosti općih multiplikativnih funkcija [sitom](./sieve.md#opće-multiplikativne-funkcije).
 
 ???+ example "[SPOJ LCMSUM](https://www.spoj.com/problems/LCMSUM/)"
     $T$ skupova podataka. Za svaki skup izračunajte:
@@ -596,7 +596,7 @@ Sljedeća dva zadatka pokazuju način obrade iteriranjem po zajedničkom faktoru
     \sum_{i=1}^{\lfloor n/k\rfloor}i[d\mid i] = d\sum_{i=1}^{\lfloor\lfloor n/k\rfloor/d\rfloor}i = dG\left(\left\lfloor\dfrac{\lfloor n/k\rfloor}{d}\right\rfloor\right) = dG\left(\left\lfloor\dfrac{n}{kd}\right\rfloor\right).
     $$
     
-    Pritom je $G(n)=\dfrac{1}{2}n(n+1)$ upravo zbroj aritmetičkog niza, a posljednja jednakost koristi svojstvo [funkcije najvećeg cijelog](./basic.md#取整函数). Simetrično, druga se suma računa analogno. Uvrštavanjem natrag u prethodni izraz dobivamo
+    Pritom je $G(n)=\dfrac{1}{2}n(n+1)$ upravo zbroj aritmetičkog niza, a posljednja jednakost koristi svojstvo [funkcije najvećeg cijelog](./basic.md#funkcije-pod-i-strop). Simetrično, druga se suma računa analogno. Uvrštavanjem natrag u prethodni izraz dobivamo
     
     $$
     f(n,m) = \sum_k k\sum_{d}\mu(d)d^2G\left(\left\lfloor\dfrac{n}{kd}\right\rfloor\right)G\left(\left\lfloor\dfrac{m}{kd}\right\rfloor\right).
@@ -745,7 +745,7 @@ Posljednji zadatak pokazuje kako primijeniti multiplikativnu inačicu Möbiusove
     g(n) = \prod_k\prod_d\prod_{i=1}^{\lfloor n/k\rfloor}\prod_{j=1}^{\lfloor n/k\rfloor}k\uparrow(\mu(d)[d\mid i][d\mid j]).
     $$
     
-    Dalje izlučimo faktor (tj. stavimo $i=di'$, $j=dj'$) i primijenimo svojstvo [funkcije najvećeg cijelog](./basic.md#取整函数), čime dobivamo:
+    Dalje izlučimo faktor (tj. stavimo $i=di'$, $j=dj'$) i primijenimo svojstvo [funkcije najvećeg cijelog](./basic.md#funkcije-pod-i-strop), čime dobivamo:
     
     $$
     g(n) = \prod_k\prod_d\prod_{i=1}^{\lfloor n/(kd)\rfloor}\prod_{j=1}^{\lfloor n/(kd)\rfloor}k\uparrow\mu(d).

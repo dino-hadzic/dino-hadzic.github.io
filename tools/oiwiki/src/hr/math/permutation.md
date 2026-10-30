@@ -130,7 +130,7 @@ Jednostavno rečeno, najprije se primijeni preslikavanje $\sigma$, a zatim presl
 
 Budući da su permutacije $\sigma$ i $\pi$ u biti dva preslikavanja, vrijedi $(\pi\circ\sigma)(x)=\pi(\sigma(x))$. Redoslijed računanja kompozicije permutacija ide zdesna nalijevo. Množenje permutacija nije komutativno, pa računanje u pogrešnom redoslijedu može dovesti do pogrešnog rezultata.
 
-Uzastopna višestruka kompozicija iste permutacije naziva se potencijom permutacije i može se ubrzano izračunati [brzim potenciranjem](./binary-exponentiation.md#多次置换).
+Uzastopna višestruka kompozicija iste permutacije naziva se potencijom permutacije i može se ubrzano izračunati [brzim potenciranjem](./binary-exponentiation.md#višestruka-primjena-permutacije).
 
 ### Inverzna permutacija
 
@@ -300,7 +300,7 @@ Ako razmještaje $n$ elemenata ispišemo u leksikografskom poretku od najmanjeg 
 U kineskoj natjecateljskoj zajednici taj se rang često naziva „Cantorovim razvojem” razmještaja, ali taj naziv nije sasvim precizan. Preciznije rečeno, **Cantorov razvoj** (Cantor expansion) ranga razmještaja odgovara **Lehmerovu kodu** (Lehmer code) tog razmještaja.
 
 ??? info "O „Cantorovu razvoju”"
-    Kao što ime sugerira, Cantorov razvoj metoda je razvoja prirodnog broja u niz. Može se shvatiti kao posebna vrsta brojevnog sustava, koja se naziva i [faktorijelni brojevni sustav](./numeral-sys/base.md#混合基数进制). U tom sustavu različita mjesta imaju različite baze (radix). Primjerice, dekadski broj $463_{10}$ u faktorijelnom se sustavu može zapisati kao
+    Kao što ime sugerira, Cantorov razvoj metoda je razvoja prirodnog broja u niz. Može se shvatiti kao posebna vrsta brojevnog sustava, koja se naziva i [faktorijelni brojevni sustav](./numeral-sys/base.md#sustavi-s-mješovitom-bazom). U tom sustavu različita mjesta imaju različite baze (radix). Primjerice, dekadski broj $463_{10}$ u faktorijelnom se sustavu može zapisati kao
     
     $$
     463_{10}=341010_{!}.

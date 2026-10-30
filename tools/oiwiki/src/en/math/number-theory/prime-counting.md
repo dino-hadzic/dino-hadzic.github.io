@@ -15,7 +15,7 @@ This article uses the following notation:
 
 -   $\mathbf P$ is the set of (positive) primes, and $p_a$ is the $a$-th smallest prime (indices start from $1$). For convenience of exposition, we also set $p_0=1$. In this article, the letters $p$ and $q$ always denote primes.
 -   $\operatorname{lpf}(n)$ denotes the least prime factor of $n$. We also set $\operatorname{lpf}(1)=+\infty$.
--   $D(x) = \{\lfloor x/i\rfloor : i = 1,2,\dots,\lfloor x\rfloor\}$. Its properties are described in detail in the section [Properties of floor-division blocks](./sqrt-decomposition.md#性质).
+-   $D(x) = \{\lfloor x/i\rfloor : i = 1,2,\dots,\lfloor x\rfloor\}$. Its properties are described in detail in the section [Properties of floor-division blocks](./sqrt-decomposition.md#properties).
 -   $\pi(x)$ is the number of primes not exceeding $x$.
 -   $\varphi(x,a)=\#\{n \in\mathbf N_+ : n \le x,~ (p\mid n \implies p > p_a)\}$ is the number of positive integers not exceeding $x$ all of whose prime factors are greater than $p_a$.
 -   $P_k(x,a)=\#\{n\in\mathbf N_+ : n \le x,~ n = q_1q_2\cdots q_k,~ \forall i(q_i > p_a)\}$ is the number of positive integers not exceeding $x$ that have exactly $k$ prime factors (counted with multiplicity), all of which are greater than $p_a$.
@@ -175,7 +175,7 @@ Below is a reference implementation of this algorithm for $c=0$:
     --8<-- "docs/math/code/prime-counting/lmo-offline.cpp:core"
     ```
 
-This offline approach has a high space complexity and has difficulty handling problems of size $10^{13}$. The bottleneck is that the $\operatorname{lpf}$ information for $[1,x/y]$ needs to be stored during precomputation. In fact, this information is only used for the subsequent offline queries, and only a single sequential pass is needed, so it can perfectly well be computed at query time with a [segmented sieve](./sieve.md#分块筛选).
+This offline approach has a high space complexity and has difficulty handling problems of size $10^{13}$. The bottleneck is that the $\operatorname{lpf}$ information for $[1,x/y]$ needs to be stored during precomputation. In fact, this information is only used for the subsequent offline queries, and only a single sequential pass is needed, so it can perfectly well be computed at query time with a [segmented sieve](./sieve.md#segmented-sieve).
 
 In fact, the original paper provides an implementation entirely based on the segmented sieve. Both the computation of $P_2(x,a)$ and of $\varphi(x,a)$ are done inside the segmented sieve, yielding an algorithm with $\tilde O(x^{2/3})$ time complexity and $\tilde O(x^{1/3})$ space complexity. This requires enumerating all leaves directly in some way and converting the offline algorithm into an online one. Next, we introduce a simple way to implement it.
 
@@ -228,7 +228,7 @@ the value of the prime counting function $\pi(x)$ is obtained directly.
     
     That is, $S(30,2)=S(30,1)-\bigl(S(10,1)-(2-1)\bigr)=15-(5-1)=11$.
 
-This recurrence relation is easy to compute with dynamic programming. Since $S(x,a)=S(\lfloor x\rfloor,a)$, all divisions in the recurrence relation can be regarded as integer divisions. By the [properties of floor-division blocks](./sqrt-decomposition.md#性质), the values of the first dimension in the dynamic programming must lie in the set $D(x)$, which has only $\Theta(\sqrt{x})$ elements. Moreover, due to the special form of the recurrence relation, the values $S(\cdot,a)$ can be stored in a single array of length $|D(x)|$; for each $a$, traverse the elements of $D(x)$ from largest to smallest and update the array using the recurrence relation, until the element is strictly smaller than $p_a^2$. Only $\pi(\sqrt{x})$ rounds of updates are needed to obtain the final result.
+This recurrence relation is easy to compute with dynamic programming. Since $S(x,a)=S(\lfloor x\rfloor,a)$, all divisions in the recurrence relation can be regarded as integer divisions. By the [properties of floor-division blocks](./sqrt-decomposition.md#properties), the values of the first dimension in the dynamic programming must lie in the set $D(x)$, which has only $\Theta(\sqrt{x})$ elements. Moreover, due to the special form of the recurrence relation, the values $S(\cdot,a)$ can be stored in a single array of length $|D(x)|$; for each $a$, traverse the elements of $D(x)$ from largest to smallest and update the array using the recurrence relation, until the element is strictly smaller than $p_a^2$. Only $\pi(\sqrt{x})$ rounds of updates are needed to obtain the final result.
 
 The space complexity of the algorithm is clearly $O(x^{1/2})$. As for the time complexity, the complexity of the precomputation part is $O(x^{1/2})$, and the complexity of the dynamic programming part is given by
 
@@ -422,7 +422,7 @@ Assume that the number-theoretic function $f$ satisfies the following conditions
 1.  $f$ is completely multiplicative, i.e., $f(mn)=f(m)f(n)$ holds for all positive integers $m,n$;
 2.  the prefix sum $F(x)=\sum_{n \le x}f(n)$ is easy to compute.
 
-Common number-theoretic functions satisfying these conditions include power functions and [Dirichlet characters](https://en.wikipedia.org/wiki/Dirichlet_character) (for example, the [Legendre symbol](./quad-residue.md#legendre-符号)). Of course, if some function can be expressed as a linear combination of several functions satisfying these conditions, its prefix sum over primes can also be obtained. Therefore, the method of this section can handle the cases where $f$ is a polynomial or $f$ is a periodic function[^periodic]. Another, more concise way of handling periodic functions is described in the example problems below.
+Common number-theoretic functions satisfying these conditions include power functions and [Dirichlet characters](https://en.wikipedia.org/wiki/Dirichlet_character) (for example, the [Legendre symbol](./quad-residue.md#legendre-symbol)). Of course, if some function can be expressed as a linear combination of several functions satisfying these conditions, its prefix sum over primes can also be obtained. Therefore, the method of this section can handle the cases where $f$ is a polynomial or $f$ is a periodic function[^periodic]. Another, more concise way of handling periodic functions is described in the example problems below.
 
 Under these conditions, the earlier recurrence relation can be generalized. Define $S(x,a)$ as the sum of the values of $f(\cdot)$ at the integers remaining in the interval $[2,x]$ after sieving out the first $a$ primes, i.e.,
 

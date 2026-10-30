@@ -58,7 +58,7 @@ $$
 
 ## Examples
 
-### [Polynomial inverse](./elementary-func.md#多项式求逆)
+### [Polynomial inverse](./elementary-func.md#polynomial-inverse)
 
 Let the given function be $h\left(x\right)$; we have:
 
@@ -81,7 +81,7 @@ $$
 T\left(n\right)=T\left(\frac{n}{2}\right)+O\left(n\log{n}\right)=O\left(n\log{n}\right)
 $$
 
-### [Polynomial square root](./elementary-func.md#多项式开方)
+### [Polynomial square root](./elementary-func.md#polynomial-square-root)
 
 Let the given function be $h\left(x\right)$; we have:
 
@@ -104,7 +104,7 @@ $$
 T\left(n\right)=T\left(\frac{n}{2}\right)+O\left(n\log{n}\right)=O\left(n\log{n}\right)
 $$
 
-### [Polynomial exponential](./elementary-func.md#多项式对数函数--指数函数)
+### [Polynomial exponential](./elementary-func.md#polynomial-logarithm-and-exponential)
 
 Let the given function be $h\left(x\right)$; we have:
 

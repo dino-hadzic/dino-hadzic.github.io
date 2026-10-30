@@ -6,7 +6,7 @@ Bit operations are unary and binary operations on the binary representation of i
 
 ## Integers and bit sequences
 
-See also: [Integer types](../lang/var.md#整数类型), [Complement representations](./numeral-sys/base.md#补数法)
+See also: [Integer types](../lang/var.md#整数类型), [Complement representations](./numeral-sys/base.md#method-of-complements)
 
 We call a fixed-length sequence consisting only of `0` and `1` a bit sequence. The leftmost bit is called the most significant bit and the rightmost bit the least significant bit.
 
@@ -43,7 +43,7 @@ Converting a bit sequence to an integer is also easy: for nonnegative numbers no
 
 ## Bitwise operations
 
-Bitwise operations are operations that apply certain [Boolean functions](./boolean-algebra.md#布尔函数) to a bit sequence bit by bit. Formally, for a Boolean function $f:\mathbf{B}^k\to \mathbf{B}$, the bitwise operation is the function of the form
+Bitwise operations are operations that apply certain [Boolean functions](./boolean-algebra.md#boolean-functions) to a bit sequence bit by bit. Formally, for a Boolean function $f:\mathbf{B}^k\to \mathbf{B}$, the bitwise operation is the function of the form
 
 $$
 \begin{aligned}

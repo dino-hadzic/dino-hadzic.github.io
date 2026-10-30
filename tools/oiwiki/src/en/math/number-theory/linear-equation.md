@@ -16,7 +16,7 @@ is called a **linear congruence equation**.
 
 Solving a linear congruence means finding all solutions $x$ in the interval $[0,n-1]$. Of course, adding or subtracting any multiple of $n$ still gives solutions of the equation. Modulo $n$, these are all the solutions of the equation.
 
-The rest of this article introduces two approaches to solving linear congruences, using inverses and Diophantine equations, respectively. In the general case, both computing inverses and solving Diophantine equations require the [extended Euclidean algorithm](./gcd.md#扩展欧几里得算法), so the two approaches are in fact the same.
+The rest of this article introduces two approaches to solving linear congruences, using inverses and Diophantine equations, respectively. In the general case, both computing inverses and solving Diophantine equations require the [extended Euclidean algorithm](./gcd.md#extended-euclidean-algorithm), so the two approaches are in fact the same.
 
 ## Solving with inverses
 
@@ -54,7 +54,7 @@ Summarizing the two cases, the **number of solutions** of a linear congruence eq
 
 ## Solving with Diophantine equations
 
-A linear congruence is equivalent to the [linear Diophantine equation in two variables](./bezouts.md#两个变量的情形) $x,y$:
+A linear congruence is equivalent to the [linear Diophantine equation in two variables](./bezouts.md#the-case-of-two-variables) $x,y$:
 
 $$
 ax + ny = b.

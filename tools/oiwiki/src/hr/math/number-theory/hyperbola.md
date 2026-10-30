@@ -104,7 +104,7 @@ $$
 D(n) = \left\{\left\lfloor\dfrac{n}{x}\right\rfloor : 1 \le x \le n,~x\in\mathbf N_+\right\}
 $$
 
-To je ujedno skup svih visina blokova i skup svih desnih krajeva blokova. Uočimo da prema [svojstvima](./sqrt-decomposition.md#性质) blokovskog dijeljenja taj skup sadrži sve cijele brojeve $1\le x\le\sqrt{n}$, pa je poznavanje vrijednosti $F,G$ na $D(n)$ ekvivalentno poznavanju vrijednosti $f,g$ u svim točkama $1\le x\le\sqrt{n}$. Veličina tog skupa je $\Theta(\sqrt{n})$, pa je pri računanju $H(n)$ dovoljno znati vrijednosti $F,G$ na rijetkom skupu točaka. To je opažanje ključno za optimizaciju računanja prefiksnih suma teorijsko-brojevnih funkcija.
+To je ujedno skup svih visina blokova i skup svih desnih krajeva blokova. Uočimo da prema [svojstvima](./sqrt-decomposition.md#svojstva) blokovskog dijeljenja taj skup sadrži sve cijele brojeve $1\le x\le\sqrt{n}$, pa je poznavanje vrijednosti $F,G$ na $D(n)$ ekvivalentno poznavanju vrijednosti $f,g$ u svim točkama $1\le x\le\sqrt{n}$. Veličina tog skupa je $\Theta(\sqrt{n})$, pa je pri računanju $H(n)$ dovoljno znati vrijednosti $F,G$ na rijetkom skupu točaka. To je opažanje ključno za optimizaciju računanja prefiksnih suma teorijsko-brojevnih funkcija.
 
 ## Blokovsko sito i njegova konvolucija
 
@@ -159,7 +159,7 @@ $$
 
 Za $z=\left(\dfrac{n}{\log n}\right)^{2/3}$ ukupna vremenska složenost je najmanja i iznosi $O\left(n^{2/3}(\log n)^{1/3}\right)$.
 
-Naravno, složenost [računanja vrijednosti](./dirichlet.md#dirichlet-卷积的计算) Dirichletove konvolucije ovisi o svojstvima $f,g,h$. Kad $f,g,h$ imaju posebna svojstva, optimalna točka podjele i složenost malo se razlikuju:
+Naravno, složenost [računanja vrijednosti](./dirichlet.md#računanje-dirichletove-konvolucije) Dirichletove konvolucije ovisi o svojstvima $f,g,h$. Kad $f,g,h$ imaju posebna svojstva, optimalna točka podjele i složenost malo se razlikuju:
 
 -   Ako je $f$ ili $g$ multiplikativna, onda je za $z=\left(\dfrac{n}{\log\log n}\right)^{2/3}$ ukupna vremenska složenost najmanja i iznosi $O\left(n^{2/3}(\log\log n)^{1/3}\right)$.
 -   Ako je $h$ multiplikativna, onda je za $z=n^{2/3}$ ukupna vremenska složenost najmanja i iznosi $O(n^{2/3})$.
@@ -250,7 +250,7 @@ $$
 G(n) = \dfrac{1}{f(1)}\left(H(n)-\sum_{x=2}^{\lfloor x_0\rfloor}f(x)G\left(\left\lfloor\dfrac{n}{x}\right\rfloor\right) - \sum_{y=1}^{\lfloor y_0\rfloor}F\left(\left\lfloor\dfrac{n}{y}\right\rfloor\right)g(y) + F(\lfloor x_0\rfloor)G(\lfloor y_0\rfloor)\right).
 $$
 
-U bilo kojem obliku to je rekurzivna relacija za $G(n)$. Da bismo izračunali vrijednost $G(n)$, treba izračunati vrijednosti $G$ na $D(n)\setminus\{n\}$. Budući da $D(n)$ ima [rekurzivnu strukturu](./sqrt-decomposition.md#性质), tj. za $m\in D(n)$ uvijek vrijedi $D(m)\subseteq D(n)$, u cijelom rekurzivnom postupku dovoljno je vrijednost $G$ u svakom elementu $D(n)$ izračunati samo jedanput. Drugim riječima, računajući $G(n)$ zapravo dobivamo blokovsko sito $\mathcal S_g(n)$ funkcije $g$.
+U bilo kojem obliku to je rekurzivna relacija za $G(n)$. Da bismo izračunali vrijednost $G(n)$, treba izračunati vrijednosti $G$ na $D(n)\setminus\{n\}$. Budući da $D(n)$ ima [rekurzivnu strukturu](./sqrt-decomposition.md#svojstva), tj. za $m\in D(n)$ uvijek vrijedi $D(m)\subseteq D(n)$, u cijelom rekurzivnom postupku dovoljno je vrijednost $G$ u svakom elementu $D(n)$ izračunati samo jedanput. Drugim riječima, računajući $G(n)$ zapravo dobivamo blokovsko sito $\mathcal S_g(n)$ funkcije $g$.
 
 U konkretnoj implementaciji može se upotrijebiti rekurzija uz memoizaciju radi izbjegavanja ponovljenih računanja. Naravno, može se koristiti i iterativna metoda, računajući vrijednosti $G$ u točkama $D(n)$ redom od najmanje prema najvećoj. Pritom se suma u izrazu može računati i blokovskim dijeljenjem i Dirichletovom metodom hiperbole.
 
@@ -351,7 +351,7 @@ Ovaj odjeljak predstavlja nekoliko zadataka o računanju prefiksnih suma teorijs
     
     Pritom je $F(n) = \dfrac{1}{2}n(n+1)$. Taj se izraz može izračunati blokovskim dijeljenjem, ali treba predračunati prefiksnu sumu $d^2\varphi(d)$.
     
-    U tu svrhu možemo iskoristiti Du sito. Označimo $f(n)=(\operatorname{id}^2\varphi)(n)$ i $S(n)=\sum_{i=1}^n f(i)$. Ključ primjene Du sita jest konstruirati funkciju $g$ takvu da se i $f\ast g$ i $g$ mogu brzo sumirati. Prethodno smo već raspravili metodu predračuna prefiksne sume $\varphi$ Du sitom, za što je dovoljno iskoristiti relaciju $\operatorname{id} = \varphi\ast 1$. U odnosu na $\varphi$, ovdje $f$ ima dodatni faktor $\operatorname{id}^2$. Budući da je $\operatorname{id}$ potpuno multiplikativna funkcija, prema [svojstvima](./dirichlet.md#性质) Dirichletove konvolucije dovoljno je analogno svaki član pomnožiti s $\operatorname{id}^2$ i dobivamo
+    U tu svrhu možemo iskoristiti Du sito. Označimo $f(n)=(\operatorname{id}^2\varphi)(n)$ i $S(n)=\sum_{i=1}^n f(i)$. Ključ primjene Du sita jest konstruirati funkciju $g$ takvu da se i $f\ast g$ i $g$ mogu brzo sumirati. Prethodno smo već raspravili metodu predračuna prefiksne sume $\varphi$ Du sitom, za što je dovoljno iskoristiti relaciju $\operatorname{id} = \varphi\ast 1$. U odnosu na $\varphi$, ovdje $f$ ima dodatni faktor $\operatorname{id}^2$. Budući da je $\operatorname{id}$ potpuno multiplikativna funkcija, prema [svojstvima](./dirichlet.md#svojstva) Dirichletove konvolucije dovoljno je analogno svaki član pomnožiti s $\operatorname{id}^2$ i dobivamo
     
     $$
     \operatorname{id}^3 = f \ast \operatorname{id}^2.
@@ -359,7 +359,7 @@ Ovaj odjeljak predstavlja nekoliko zadataka o računanju prefiksnih suma teorijs
     
     Budući da se prefiksne sume $\operatorname{id}^2(n)=n^2$ i $\operatorname{id}^3(n)=n^3$ mogu izračunati u $O(1)$, prefiksna suma $f$ može se predračunati u vremenu $O(n^{2/3})$. Zajedno s blokovskim dijeljenjem ukupna vremenska složenost i dalje je $O(n^{2/3})$.
     
-    Drugi način da se slična multiplikativna funkcija prikaže kao kvocijent (u smislu Dirichletove konvolucije) dviju funkcija jest pomoću [Dirichletovih funkcija izvodnica](./dirichlet.md#dirichlet-生成函数).
+    Drugi način da se slična multiplikativna funkcija prikaže kao kvocijent (u smislu Dirichletove konvolucije) dviju funkcija jest pomoću [Dirichletovih funkcija izvodnica](./dirichlet.md#dirichletova-funkcija-izvodnica).
 
 ??? note "Referentna implementacija"
     ```cpp

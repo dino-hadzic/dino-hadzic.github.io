@@ -189,7 +189,7 @@ The implementation of the naive fraction-finding algorithm is as follows:
 
 The complexity of the algorithm is $O(p+q)$, so it is not practical in algorithm competitions.
 
-In the Stern–Brocot number system, every positive irrational number corresponds to a unique infinitely long string. The same algorithm can be used to construct this string. Every prefix of this infinitely long string corresponds to a rational irreducible fraction. Arranging these irreducible fractions in a sequence, the denominators of the fractions in the sequence are strictly increasing, and the limit of the sequence is the irrational number. Therefore the Stern–Brocot tree can be used to find a rational approximation of an irrational number to any precision. Note, however, that the gap between this sequence of rationals and the irrational number is not strictly decreasing. For the rigorous theory of rational approximation, refer to the section [Diophantine approximation](./continued-fraction.md#丢番图逼近) on the continued fractions page. When using the Stern–Brocot tree in practice to find the best approximation of a real number with denominator not exceeding a given bound, one should finally compare the distances from the left and right endpoints of the interval to that real number.
+In the Stern–Brocot number system, every positive irrational number corresponds to a unique infinitely long string. The same algorithm can be used to construct this string. Every prefix of this infinitely long string corresponds to a rational irreducible fraction. Arranging these irreducible fractions in a sequence, the denominators of the fractions in the sequence are strictly increasing, and the limit of the sequence is the irrational number. Therefore the Stern–Brocot tree can be used to find a rational approximation of an irrational number to any precision. Note, however, that the gap between this sequence of rationals and the irrational number is not strictly decreasing. For the rigorous theory of rational approximation, refer to the section [Diophantine approximation](./continued-fraction.md#diophantine-approximation) on the continued fractions page. When using the Stern–Brocot tree in practice to find the best approximation of a real number with denominator not exceeding a given bound, one should finally compare the distances from the left and right endpoints of the interval to that real number.
 
 #### Fast Algorithm
 
@@ -230,7 +230,7 @@ $$
 \dfrac{p_k}{q_k} = \dfrac{t_kp_{k-1}+p_{k-2}}{t_kq_{k-1}+q_{k-2}}.
 $$
 
-By the [recurrence relation](./continued-fraction.md#递推关系) of continued fractions, the endpoint is
+By the [recurrence relation](./continued-fraction.md#recurrence-relation) of continued fractions, the endpoint is
 
 $$
 \dfrac{p_k}{q_k} = [t_0,t_1,\cdots,t_k].
@@ -242,7 +242,7 @@ $$
 \dfrac{p}{q} = \dfrac{p_n+p_{n-1}}{q_n+q_{n-1}} = [t_0,t_1,\cdots,t_{n-1},t_n,1].
 $$
 
-Therefore, in the [continued fraction representation](./continued-fraction.md#简单连分数) of the target fraction ending in one, the terms before the final one encode the path from the root to the current node in the Stern–Brocot tree. Among them, the even-indexed terms (indices starting from $0$) are edges to the right child, and the odd-indexed terms are edges to the left child.
+Therefore, in the [continued fraction representation](./continued-fraction.md#simple-continued-fractions) of the target fraction ending in one, the terms before the final one encode the path from the root to the current node in the Stern–Brocot tree. Among them, the even-indexed terms (indices starting from $0$) are edges to the right child, and the odd-indexed terms are edges to the left child.
 
 The continued fraction representation of a rational number can be obtained by the Euclidean algorithm, so the complexity of the fraction-finding algorithm based on the continued fraction representation is $O(\log\min\{p,q\})$.
 
@@ -369,7 +369,7 @@ $$
 \end{aligned}
 $$
 
-Here $\varphi(n)$ is [Euler's totient function](./euler-totient.md). This expression can be computed in $O(n)$ using the [linear sieve](./sieve.md#筛法求欧拉函数), and the complexity can be reduced to $O(n^{2/3})$ using [Du's sieve](./hyperbola.md#杜教筛).
+Here $\varphi(n)$ is [Euler's totient function](./euler-totient.md). This expression can be computed in $O(n)$ using the [linear sieve](./sieve.md#sieve-for-eulers-totient-function), and the complexity can be reduced to $O(n^{2/3})$ using [Du's sieve](./hyperbola.md#dus-sieve).
 
 More common than computing the length of the sequence directly is the situation where one needs to find the index of some fraction $r=\dfrac{p}{q}$ in the sequence $F_n$. This amounts to evaluating
 
@@ -419,7 +419,7 @@ Each of the two equations has exactly one positive integer solution satisfying $
 
 Of course, the fractions $\dfrac{a}{b}<\dfrac{c}{d}$ found in this process are exactly the left and right neighbors of $\dfrac{p}{q}$ when it is inserted into the sequence. Hence they are themselves Farey neighbors and $\dfrac{p}{q}$ is their mediant. Let $\dfrac{p}{q}=[t_0,t_1,\cdots,t_n,1]$; then these two Farey neighbors with smaller denominators are $[t_0,t_1,\cdots,t_n]$ and $[t_0,t_1,\cdots,t_{n-1}]$ respectively.
 
-To compute the other Farey neighbors of the current fraction $\dfrac{p}{q}$, it suffices to find all solutions satisfying the conditions using the [extended Euclidean algorithm](./bezouts.md#两个变量的情形).
+To compute the other Farey neighbors of the current fraction $\dfrac{p}{q}$, it suffices to find all solutions satisfying the conditions using the [extended Euclidean algorithm](./bezouts.md#the-case-of-two-variables).
 
 ### Recurrence Relation
 

@@ -2,9 +2,9 @@
 title: Multiplicative order & primitive root
 ---
 
-Prerequisites: [Fermat's little theorem](./fermat.md#费马小定理), [Euler's theorem](./fermat.md#欧拉定理), [Lagrange's theorem](./congruence-equation.md#素数模同余方程)
+Prerequisites: [Fermat's little theorem](./fermat.md#fermats-little-theorem), [Euler's theorem](./fermat.md#eulers-theorem), [Lagrange's theorem](./congruence-equation.md#congruences-modulo-a-prime)
 
-The multiplicative order and the primitive root are important tools for understanding the multiplicative structure of the [reduced residue system](./basic.md#同余类与剩余系) $\mathbf Z_m^*$ modulo $m$. Concepts such as the [discrete logarithm](./discrete-logarithm.md) are defined on top of them. A more general discussion can be found in the relevant sections of the [group theory](../algebra/group-theory.md#阶) and [ring theory](../algebra/ring-theory.md#应用整数同余类的乘法群) pages of the abstract algebra part.
+The multiplicative order and the primitive root are important tools for understanding the multiplicative structure of the [reduced residue system](./basic.md#congruence-classes-and-residue-systems) $\mathbf Z_m^*$ modulo $m$. Concepts such as the [discrete logarithm](./discrete-logarithm.md) are defined on top of them. A more general discussion can be found in the relevant sections of the [group theory](../algebra/group-theory.md#阶) and [ring theory](../algebra/ring-theory.md#应用整数同余类的乘法群) pages of the abstract algebra part.
 
 ## Order
 
@@ -48,7 +48,7 @@ This shows that a power with an arbitrary exponent can be shifted into the first
 ??? note "Proof"
     As stated above, $a^{n}\equiv a^{n\bmod\delta_m(a)}\pmod m$. By Property 1, the only $r$ in the range $0\le r < \delta_m(a)$ for which $a^r\equiv 1\pmod m$ holds is $r=0$. Therefore $a^n \equiv 1 \pmod m$ holds if and only if $n\bmod \delta_m(a) = 0$, that is, $\delta_m(a)\mid n$.
 
-By [Euler's theorem](./fermat.md#欧拉定理), the congruence $a^{\varphi(m)}\equiv 1\pmod m$ holds for all $a\perp m$. Combined with Property 2, this means that $\delta_m(a)\mid\varphi(m)$ for all $a\perp m$. In other words, $\varphi(m)$ is a common multiple of the orders of all $a\perp m$. For a positive integer $m$, the least common multiple of the orders $\delta_m(a)$ of all $a\perp m$, denoted by $\lambda(m)$, is the [Carmichael function](#carmichael-function) of $m$. Its properties are discussed in detail later.
+By [Euler's theorem](./fermat.md#eulers-theorem), the congruence $a^{\varphi(m)}\equiv 1\pmod m$ holds for all $a\perp m$. Combined with Property 2, this means that $\delta_m(a)\mid\varphi(m)$ for all $a\perp m$. In other words, $\varphi(m)$ is a common multiple of the orders of all $a\perp m$. For a positive integer $m$, the least common multiple of the orders $\delta_m(a)$ of all $a\perp m$, denoted by $\lambda(m)$, is the [Carmichael function](#carmichael-function) of $m$. Its properties are discussed in detail later.
 
 Similarly to other cyclic structures, the order of $a^k$ can be computed from the order of $a$.
 
@@ -289,7 +289,7 @@ To prove this statement, the following four cases need to be discussed separatel
         f(x) = x^{d(k-1)} + x^{d(k-2)} + \cdots + x^d + 1. 
         $$
         
-        By [Euler's theorem](./fermat.md#欧拉定理), the congruence $(x^d-1)f(x)=x^{p-1}-1\equiv 0\pmod{p}$ has exactly $p-1$ pairwise distinct solutions. These solutions are the zeros of $x^d-1$ and of $f(x)$ respectively. By [Lagrange's theorem](./congruence-equation.md#素数模同余方程), they can have at most $d$ and $d(k-1)$ pairwise distinct zeros respectively. Since $d+d(k-1)=p-1$, the former must have exactly $d$ pairwise distinct zeros. This shows that the congruence $x^d\equiv 1\pmod p$ has exactly $d$ pairwise distinct solutions.
+        By [Euler's theorem](./fermat.md#eulers-theorem), the congruence $(x^d-1)f(x)=x^{p-1}-1\equiv 0\pmod{p}$ has exactly $p-1$ pairwise distinct solutions. These solutions are the zeros of $x^d-1$ and of $f(x)$ respectively. By [Lagrange's theorem](./congruence-equation.md#congruences-modulo-a-prime), they can have at most $d$ and $d(k-1)$ pairwise distinct zeros respectively. Since $d+d(k-1)=p-1$, the former must have exactly $d$ pairwise distinct zeros. This shows that the congruence $x^d\equiv 1\pmod p$ has exactly $d$ pairwise distinct solutions.
         
         **Step 2**: for $d\mid(p-1)$, there are exactly $\varphi(d)$ elements of order $d$.
         
@@ -445,7 +445,7 @@ An element $a\perp m$ attaining this maximum is also called a **$\lambda$‑prim
 
 ### Recursive formula
 
-The Carmichael function is an [arithmetic function](./basic.md#数论函数). This section discusses a recursive formula for it and thereby gives another proof of the primitive root existence theorem.
+The Carmichael function is an [arithmetic function](./basic.md#number-theoretic-functions). This section discusses a recursive formula for it and thereby gives another proof of the primitive root existence theorem.
 
 Although it is not a multiplicative function, when computing the Carmichael function, coprime factors can likewise be handled separately.
 
@@ -487,7 +487,7 @@ Next, we handle the case of odd prime powers.
     For $m=p^e$, where $p$ is an odd prime and $e\in\mathbf N_+$, we have $\lambda(m)=p^{e-1}(p-1)$.
 
 ??? note "Proof"
-    First we prove that the statement holds for $e=1$, i.e. when $m=p$ is an odd prime. For this, by the definition of the Carmichael function, all integers $a$ coprime to $p$ are solutions of the congruence $x^{\lambda(p)}\equiv 1\pmod{p}$. Modulo $p$, this congruence has $p-1$ pairwise distinct solutions in total. By [Lagrange's theorem](./congruence-equation.md#素数模同余方程), $p-1\le\lambda(p)$. At the same time, Euler's theorem requires $\lambda(p)\mid\varphi(p)=p-1$. Therefore, $\lambda(p)=p-1$.
+    First we prove that the statement holds for $e=1$, i.e. when $m=p$ is an odd prime. For this, by the definition of the Carmichael function, all integers $a$ coprime to $p$ are solutions of the congruence $x^{\lambda(p)}\equiv 1\pmod{p}$. Modulo $p$, this congruence has $p-1$ pairwise distinct solutions in total. By [Lagrange's theorem](./congruence-equation.md#congruences-modulo-a-prime), $p-1\le\lambda(p)$. At the same time, Euler's theorem requires $\lambda(p)\mid\varphi(p)=p-1$. Therefore, $\lambda(p)=p-1$.
     
     For $m=p^e$ with $e> 1$, we can start by proving that $1+p$ is an element of order $p^{e-1}$. For this, we have
     
@@ -530,7 +530,7 @@ Since the proof of the recursive formula in this section did not use the primiti
 
 ### Carmichael numbers
 
-Using the Carmichael function, one can discuss the properties and distribution of Carmichael numbers (OEIS: [A002997](https://oeis.org/A002997)). These are the composite numbers that the [Fermat primality test](./prime.md#fermat-素性测试) can never correctly rule out.
+Using the Carmichael function, one can discuss the properties and distribution of Carmichael numbers (OEIS: [A002997](https://oeis.org/A002997)). These are the composite numbers that the [Fermat primality test](./prime.md#fermat-primality-test) can never correctly rule out.
 
 ???+ abstract "Carmichael number"
     For a composite number $n$, if the congruence $a^{n-1} \equiv 1 \pmod n$ holds for all integers $a\perp n$, then $n$ is called a **Carmichael number**.

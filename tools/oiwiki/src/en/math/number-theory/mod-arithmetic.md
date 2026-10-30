@@ -35,7 +35,7 @@ Modular arithmetic can be viewed as performing all kinds of operations on the [c
     --8<-- "docs/math/code/mod-arithmetic/mod-arithmetic.cpp:core"
     ```
 
-This implementation deliberately reduces the number of modulo operations, because a modulo operation is usually much more expensive than an ordinary addition, subtraction, multiplication or comparison. The code comments provide equivalent and more direct implementations. The main idea of these simple optimizations is that when two integers in $[0,M)$ are added or subtracted, the result certainly falls in the interval $(-M,2M)$, so it can be adjusted back into the interval $[0,M)$ by one addition or subtraction. The exponentiation in this implementation uses the technique of [binary exponentiation](../binary-exponentiation.md#模意义下取幂).
+This implementation deliberately reduces the number of modulo operations, because a modulo operation is usually much more expensive than an ordinary addition, subtraction, multiplication or comparison. The code comments provide equivalent and more direct implementations. The main idea of these simple optimizations is that when two integers in $[0,M)$ are added or subtracted, the result certainly falls in the interval $(-M,2M)$, so it can be adjusted back into the interval $[0,M)$ by one addition or subtraction. The exponentiation in this implementation uses the technique of [binary exponentiation](../binary-exponentiation.md#modular-exponentiation).
 
 Besides these basic operations, the following operations can also be performed under various moduli:
 
@@ -43,9 +43,9 @@ Besides these basic operations, the following operations can also be performed u
 -   [division](./linear-equation.md)
 -   [factorial](./factorial.md)
 -   [binomial coefficients](./lucas.md)
--   [square root](./quad-residue.md#模意义下开平方)
+-   [square root](./quad-residue.md#square-roots-in-modular-arithmetic)
 -   [logarithm](./discrete-logarithm.md)
--   [roots](./residue.md#模意义下开方)
+-   [roots](./residue.md#root-extraction-in-modular-arithmetic)
 
 These operations are usually easier under a prime modulus. For a composite modulus, extended versions of the corresponding algorithms and the [Chinese remainder theorem](./crt.md) are often needed. Most of these modular operations can be viewed as solving some kind of congruence equation. For general methods of solving congruence equations, see the [Congruence equations](./congruence-equation.md) page.
 
@@ -235,7 +235,7 @@ As an example, a reference implementation of the inverse of integers modulo $2^{
     --8<-- "docs/math/code/mod-arithmetic/mod-32-inv-pow.cpp:inv"
     ```
 
-Next, exponentiation: given $x,a,b$ and a modulus $m=2^e~(e > 2)$, we need to find $xa^b\bmod m$, where $a$ is odd. From the [analysis](./primitive-root.md#递推公式) of the multiplicative structure of integers modulo $2^e$, we know that $a$ can always be written in the form $\pm g^{\ell}$[^mod-2-g], and the minus sign appears if and only if $a\equiv 3\pmod 4$. In that case, we can replace $a$ by $-a$ and multiply the final result by $(-1)^b$. Therefore, in what follows we may assume that $a\equiv 1\pmod 4$ holds. Then the core idea of the algorithm is to write $a$ in the form $g^{L(a)}\bmod m$ and then compute the desired power as $xg^{bL(a)}\bmod m$.
+Next, exponentiation: given $x,a,b$ and a modulus $m=2^e~(e > 2)$, we need to find $xa^b\bmod m$, where $a$ is odd. From the [analysis](./primitive-root.md#recursive-formula) of the multiplicative structure of integers modulo $2^e$, we know that $a$ can always be written in the form $\pm g^{\ell}$[^mod-2-g], and the minus sign appears if and only if $a\equiv 3\pmod 4$. In that case, we can replace $a$ by $-a$ and multiply the final result by $(-1)^b$. Therefore, in what follows we may assume that $a\equiv 1\pmod 4$ holds. Then the core idea of the algorithm is to write $a$ in the form $g^{L(a)}\bmod m$ and then compute the desired power as $xg^{bL(a)}\bmod m$.
 
 Computing $L(a)$ means computing the discrete logarithm $\operatorname{ind}_ga$. Notice that as long as $a\equiv 1\pmod 4$, $a$ can always be written in the following form:
 
@@ -243,7 +243,7 @@ $$
 a \equiv (2^{e_1}+1)(2^{e_2}+1)\cdots(2^{e_s}+1) \pmod{m},
 $$
 
-where $1 < e_1 < e_2 < \cdots < e_s < e$. This is because, by directly expanding this product, one finds that the second-lowest bit equal to $1$ in the binary representation of $a$ is exactly bit $e_1$ (indices start from $0$), and from this the representation can be found recursively. By the [properties](./discrete-logarithm.md#性质) of the discrete logarithm, we have
+where $1 < e_1 < e_2 < \cdots < e_s < e$. This is because, by directly expanding this product, one finds that the second-lowest bit equal to $1$ in the binary representation of $a$ is exactly bit $e_1$ (indices start from $0$), and from this the representation can be found recursively. By the [properties](./discrete-logarithm.md#properties) of the discrete logarithm, we have
 
 $$
 4L(a) \equiv 4L(2^{e_1}+1) + 4L(2^{e_2}+1) + \cdots + 4L(2^{e_s}+1) \pmod{m}. 

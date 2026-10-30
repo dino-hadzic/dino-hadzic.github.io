@@ -130,7 +130,7 @@ Simply put, first apply the map $\sigma$, then apply the map $\pi$. Note that in
 
 Since the permutations $\sigma$ and $\pi$ are essentially two maps, $(\pi\circ\sigma)(x)=\pi(\sigma(x))$. The order of evaluation of the composition of permutations is from right to left. Multiplication of permutations is not commutative, so computing in the wrong order may lead to a wrong result.
 
-Repeated composition of the same permutation is called a power of the permutation, and it can be computed quickly using [binary exponentiation](./binary-exponentiation.md#多次置换).
+Repeated composition of the same permutation is called a power of the permutation, and it can be computed quickly using [binary exponentiation](./binary-exponentiation.md#applying-a-permutation-multiple-times).
 
 ### Inverse permutation
 
@@ -300,7 +300,7 @@ If the arrangements of $n$ elements are listed in lexicographic order from small
 In the Chinese competitive programming community, this rank is often called the "Cantor expansion" of the arrangement, but this name is not quite standard. More rigorously, the **Cantor expansion** of the rank of an arrangement corresponds to the **Lehmer code** of that arrangement.
 
 ??? info "About the “Cantor expansion”"
-    As the name suggests, the Cantor expansion is a method of expanding a natural number into a sequence. It can be viewed as a special numeral system, also called the [factorial number system](./numeral-sys/base.md#混合基数进制). In this numeral system, different positions have different radices. For example, the decimal number $463_{10}$ can be written in the factorial number system as
+    As the name suggests, the Cantor expansion is a method of expanding a natural number into a sequence. It can be viewed as a special numeral system, also called the [factorial number system](./numeral-sys/base.md#mixed-radix). In this numeral system, different positions have different radices. For example, the decimal number $463_{10}$ can be written in the factorial number system as
     
     $$
     463_{10}=341010_{!}.

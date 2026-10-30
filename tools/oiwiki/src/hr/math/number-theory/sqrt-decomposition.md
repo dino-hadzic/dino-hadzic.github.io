@@ -118,9 +118,9 @@ Osim tih svojstava, skup $D(n)$ ima i lijepo rekurzivno svojstvo:
     \left\lfloor\dfrac{m}{i}\right\rfloor = \left\lfloor\dfrac{\lfloor n/k\rfloor}{i}\right\rfloor = \left\lfloor\dfrac{n}{ki}\right\rfloor \in D(n),
     $$
     
-    slijedi $D(m)\subseteq D(n)$. Pritom druga jednakost koristi svojstvo [funkcije zaokruživanja](./basic.md#取整函数) za ugniježđene razlomke.
+    slijedi $D(m)\subseteq D(n)$. Pritom druga jednakost koristi svojstvo [funkcije zaokruživanja](./basic.md#funkcije-pod-i-strop) za ugniježđene razlomke.
 
-Već je spomenuto da je $D(n)$ i skup vrijednosti $\left\lfloor\dfrac{n}{i}\right\rfloor$ po blokovima i skup desnih krajeva blokova. To znači da, ako blokovsko dijeljenje po cjelobrojnom kvocijentu primjenjujemo rekurzivno (tj. vrijednost funkcije u $n$ ovisi o njezinim vrijednostima u $m\in D(n)\setminus\{n\}$), skup vrijednosti i skup desnih krajeva koji se pojavljuju tijekom cijelog računanja zapravo su upravo $D(n)$. Tipičan je primjer [Du sito](./hyperbola.md#杜教筛).
+Već je spomenuto da je $D(n)$ i skup vrijednosti $\left\lfloor\dfrac{n}{i}\right\rfloor$ po blokovima i skup desnih krajeva blokova. To znači da, ako blokovsko dijeljenje po cjelobrojnom kvocijentu primjenjujemo rekurzivno (tj. vrijednost funkcije u $n$ ovisi o njezinim vrijednostima u $m\in D(n)\setminus\{n\}$), skup vrijednosti i skup desnih krajeva koji se pojavljuju tijekom cijelog računanja zapravo su upravo $D(n)$. Tipičan je primjer [Du sito](./hyperbola.md#du-sito).
 
 ## Postupak
 

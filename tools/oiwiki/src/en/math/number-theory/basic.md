@@ -523,9 +523,9 @@ The derivation of these and even more general sums of similar form can be found 
 More properties and applications of the floor and ceiling functions can be found on the following pages:
 
 -   The modulo operation: $n\bmod m = n - \left\lfloor\dfrac{n}{m}\right\rfloor m$. It can be used to [optimize integer modulo operations](./mod-arithmetic.md#related-algorithms).
--   Proving the [law of quadratic reciprocity](./quad-residue.md#二次互反律) using Gauss's lemma.
+-   Proving the [law of quadratic reciprocity](./quad-residue.md#law-of-quadratic-reciprocity) using Gauss's lemma.
 -   [Floor-division blocks](./sqrt-decomposition.md), especially the part proving its properties.
--   [Legendre's formula](./factorial.md#legendre-公式) for computing the exponent of a prime factor in a factorial.
+-   [Legendre's formula](./factorial.md#legendres-formula) for computing the exponent of a prime factor in a factorial.
 -   [Beatty sequences](../game-theory/impartial-game.md#wythoff-游戏), Rayleigh's theorem and Wythoff's game.
 
 ## References and notes

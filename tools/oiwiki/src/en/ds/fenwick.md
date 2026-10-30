@@ -756,7 +756,7 @@ Thus the time complexity drops to $\Theta(\log n)$.
 
 ### Global inversions (global two-dimensional partial order)
 
-Further reading and reference implementation: [Inversions](../math/permutation.md#逆序数)
+Further reading and reference implementation: [Inversions](../math/permutation.md#inversion-number)
 
 Global inversions can also be solved elegantly with a Fenwick tree over the frequency array. The problem is: given an array $a$ of length $n$, compute the number of pairs $(i, j)$ in $a$ with $i < j$ and $a[i] > a[j]$.
 
@@ -802,7 +802,7 @@ In addition, for the original inversion problem there is also an approach that i
 
 Reason: the elements appearing in $b[x + 1 \ldots V]$ are certainly greater than the current $x = a[j]$, and because $j$ is iterated forwards, the indices $i$ in the original array of those elements already in the frequency array are naturally smaller than the current index $j$.
 
-Furthermore, inversions can also be counted with [merge sort](../basic/merge-sort.md#inversions). That approach avoids value compression. Its time complexity is also $O(n\log n)$. Reference implementations of both algorithms can be found in the chapter [Inversions](../math/permutation.md#逆序数).
+Furthermore, inversions can also be counted with [merge sort](../basic/merge-sort.md#inversions). That approach avoids value compression. Its time complexity is also $O(n\log n)$. Reference implementations of both algorithms can be found in the chapter [Inversions](../math/permutation.md#inversion-number).
 
 ## Fenwick tree for non-invertible information
 

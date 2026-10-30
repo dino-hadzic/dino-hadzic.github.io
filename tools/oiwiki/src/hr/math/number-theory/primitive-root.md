@@ -2,9 +2,9 @@
 title: Red elementa & primitivni korijen
 ---
 
-Predznanje: [mali Fermatov teorem](./fermat.md#费马小定理), [Eulerov teorem](./fermat.md#欧拉定理), [Lagrangeov teorem](./congruence-equation.md#素数模同余方程)
+Predznanje: [mali Fermatov teorem](./fermat.md#mali-fermatov-teorem), [Eulerov teorem](./fermat.md#eulerov-teorem), [Lagrangeov teorem](./congruence-equation.md#kongruencije-po-prostom-modulu)
 
-Red elementa i primitivni korijen važni su alati za razumijevanje multiplikativne strukture [reduciranog sustava ostataka](./basic.md#同余类与剩余系) $\mathbf Z_m^*$ modulo $m$. Na njima se temelje pojmovi poput [diskretnog logaritma](./discrete-logarithm.md). Općenitija rasprava može se naći u odgovarajućim poglavljima stranica o [teoriji grupa](../algebra/group-theory.md#阶) i [teoriji prstena](../algebra/ring-theory.md#应用整数同余类的乘法群) u dijelu o apstraktnoj algebri.
+Red elementa i primitivni korijen važni su alati za razumijevanje multiplikativne strukture [reduciranog sustava ostataka](./basic.md#klase-kongruencije-i-sustavi-ostataka) $\mathbf Z_m^*$ modulo $m$. Na njima se temelje pojmovi poput [diskretnog logaritma](./discrete-logarithm.md). Općenitija rasprava može se naći u odgovarajućim poglavljima stranica o [teoriji grupa](../algebra/group-theory.md#阶) i [teoriji prstena](../algebra/ring-theory.md#应用整数同余类的乘法群) u dijelu o apstraktnoj algebri.
 
 ## Red
 
@@ -48,7 +48,7 @@ To pokazuje da se potencija s bilo kojim eksponentom može pomaknuti u prvi nene
 ??? note "Dokaz"
     Kao što je gore rečeno, $a^{n}\equiv a^{n\bmod\delta_m(a)}\pmod m$. Prema svojstvu 1, jedini $r$ u rasponu $0\le r < \delta_m(a)$ za koji vrijedi $a^r\equiv 1\pmod m$ jest $r=0$. Stoga $a^n \equiv 1 \pmod m$ vrijedi ako i samo ako je $n\bmod \delta_m(a) = 0$, tj. $\delta_m(a)\mid n$.
 
-Prema [Eulerovu teoremu](./fermat.md#欧拉定理) kongruencija $a^{\varphi(m)}\equiv 1\pmod m$ vrijedi za sve $a\perp m$. U kombinaciji sa svojstvom 2 to znači da za sve $a\perp m$ vrijedi $\delta_m(a)\mid\varphi(m)$. Drugim riječima, $\varphi(m)$ je zajednički višekratnik redova svih $a\perp m$. Za pozitivni cijeli broj $m$ najmanji zajednički višekratnik redova $\delta_m(a)$ svih $a\perp m$, označen $\lambda(m)$, upravo je [Carmichaelova funkcija](#carmichaelova-funkcija) broja $m$. Njezina se svojstva detaljno razmatraju u nastavku.
+Prema [Eulerovu teoremu](./fermat.md#eulerov-teorem) kongruencija $a^{\varphi(m)}\equiv 1\pmod m$ vrijedi za sve $a\perp m$. U kombinaciji sa svojstvom 2 to znači da za sve $a\perp m$ vrijedi $\delta_m(a)\mid\varphi(m)$. Drugim riječima, $\varphi(m)$ je zajednički višekratnik redova svih $a\perp m$. Za pozitivni cijeli broj $m$ najmanji zajednički višekratnik redova $\delta_m(a)$ svih $a\perp m$, označen $\lambda(m)$, upravo je [Carmichaelova funkcija](#carmichaelova-funkcija) broja $m$. Njezina se svojstva detaljno razmatraju u nastavku.
 
 Slično kao i kod drugih cikličkih struktura, iz reda elementa $a$ može se izračunati red elementa $a^k$.
 
@@ -289,7 +289,7 @@ Za dokaz ove tvrdnje treba zasebno razmotriti sljedeća četiri slučaja:
         f(x) = x^{d(k-1)} + x^{d(k-2)} + \cdots + x^d + 1. 
         $$
         
-        Prema [Eulerovu teoremu](./fermat.md#欧拉定理) kongruencija $(x^d-1)f(x)=x^{p-1}-1\equiv 0\pmod{p}$ ima točno $p-1$ međusobno različitih rješenja. Ta su rješenja redom nultočke polinoma $x^d-1$ odnosno $f(x)$. Prema [Lagrangeovu teoremu](./congruence-equation.md#素数模同余方程) oni mogu imati najviše $d$ odnosno $d(k-1)$ međusobno različitih nultočaka. Budući da je $d+d(k-1)=p-1$, prvi od njih mora imati točno $d$ međusobno različitih nultočaka. To pokazuje da kongruencija $x^d\equiv 1\pmod p$ ima točno $d$ međusobno različitih rješenja.
+        Prema [Eulerovu teoremu](./fermat.md#eulerov-teorem) kongruencija $(x^d-1)f(x)=x^{p-1}-1\equiv 0\pmod{p}$ ima točno $p-1$ međusobno različitih rješenja. Ta su rješenja redom nultočke polinoma $x^d-1$ odnosno $f(x)$. Prema [Lagrangeovu teoremu](./congruence-equation.md#kongruencije-po-prostom-modulu) oni mogu imati najviše $d$ odnosno $d(k-1)$ međusobno različitih nultočaka. Budući da je $d+d(k-1)=p-1$, prvi od njih mora imati točno $d$ međusobno različitih nultočaka. To pokazuje da kongruencija $x^d\equiv 1\pmod p$ ima točno $d$ međusobno različitih rješenja.
         
         **Drugi korak**: za $d\mid(p-1)$ postoji točno $\varphi(d)$ elemenata reda $d$.
         
@@ -445,7 +445,7 @@ Element $a\perp m$ koji postiže taj maksimum naziva se i **$\lambda$‑primitiv
 
 ### Rekurzivna formula
 
-Carmichaelova funkcija jest [aritmetička funkcija](./basic.md#数论函数). U ovom odjeljku razmatramo jednu njezinu rekurzivnu formulu i iz nje izvodimo još jedan dokaz teorema o postojanju primitivnog korijena.
+Carmichaelova funkcija jest [aritmetička funkcija](./basic.md#teorijsko-brojevne-funkcije). U ovom odjeljku razmatramo jednu njezinu rekurzivnu formulu i iz nje izvodimo još jedan dokaz teorema o postojanju primitivnog korijena.
 
 Iako nije multiplikativna funkcija, pri računanju Carmichaelove funkcije relativno prosti faktori također se mogu obraditi zasebno.
 
@@ -487,7 +487,7 @@ Zatim obrađujemo slučaj potencija neparnih prostih brojeva.
     Za $m=p^e$, gdje je $p$ neparan prost broj i $e\in\mathbf N_+$, vrijedi $\lambda(m)=p^{e-1}(p-1)$.
 
 ??? note "Dokaz"
-    Najprije dokazujemo da tvrdnja vrijedi za $e=1$, tj. kada je $m=p$ neparan prost broj. U tu svrhu, prema definiciji Carmichaelove funkcije, svi cijeli brojevi $a$ relativno prosti s $p$ rješenja su kongruencije $x^{\lambda(p)}\equiv 1\pmod{p}$. Modulo $p$ ta kongruencija ima ukupno $p-1$ međusobno različitih rješenja. Prema [Lagrangeovu teoremu](./congruence-equation.md#素数模同余方程) vrijedi $p-1\le\lambda(p)$. Istodobno, Eulerov teorem zahtijeva $\lambda(p)\mid\varphi(p)=p-1$. Dakle, $\lambda(p)=p-1$.
+    Najprije dokazujemo da tvrdnja vrijedi za $e=1$, tj. kada je $m=p$ neparan prost broj. U tu svrhu, prema definiciji Carmichaelove funkcije, svi cijeli brojevi $a$ relativno prosti s $p$ rješenja su kongruencije $x^{\lambda(p)}\equiv 1\pmod{p}$. Modulo $p$ ta kongruencija ima ukupno $p-1$ međusobno različitih rješenja. Prema [Lagrangeovu teoremu](./congruence-equation.md#kongruencije-po-prostom-modulu) vrijedi $p-1\le\lambda(p)$. Istodobno, Eulerov teorem zahtijeva $\lambda(p)\mid\varphi(p)=p-1$. Dakle, $\lambda(p)=p-1$.
     
     Za $m=p^e$ uz $e> 1$ možemo početi dokazom da je $1+p$ element reda $p^{e-1}$. U tu svrhu vrijedi
     
@@ -530,7 +530,7 @@ Budući da se u dokazu rekurzivne formule u ovom odjeljku nije koristio teorem o
 
 ### Carmichaelovi brojevi
 
-Pomoću Carmichaelove funkcije mogu se razmatrati svojstva i raspodjela Carmichaelovih brojeva (OEIS: [A002997](https://oeis.org/A002997)). To su složeni brojevi koje [Fermatov test prostosti](./prime.md#fermat-素性测试) nikada ne može ispravno isključiti.
+Pomoću Carmichaelove funkcije mogu se razmatrati svojstva i raspodjela Carmichaelovih brojeva (OEIS: [A002997](https://oeis.org/A002997)). To su složeni brojevi koje [Fermatov test prostosti](./prime.md#fermatov-test-prostosti) nikada ne može ispravno isključiti.
 
 ???+ abstract "Carmichaelov broj"
     Za složeni broj $n$, ako za sve cijele brojeve $a\perp n$ vrijedi kongruencija $a^{n-1} \equiv 1 \pmod n$, tada se $n$ naziva **Carmichaelov broj**.

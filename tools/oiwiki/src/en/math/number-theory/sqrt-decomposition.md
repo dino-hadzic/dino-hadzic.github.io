@@ -118,9 +118,9 @@ Besides these properties, the set $D(n)$ also has a nice recursive property:
     \left\lfloor\dfrac{m}{i}\right\rfloor = \left\lfloor\dfrac{\lfloor n/k\rfloor}{i}\right\rfloor = \left\lfloor\dfrac{n}{ki}\right\rfloor \in D(n),
     $$
     
-    it follows that $D(m)\subseteq D(n)$. Here, the second equality uses the property of the [floor function](./basic.md#取整函数) for nested fractions.
+    it follows that $D(m)\subseteq D(n)$. Here, the second equality uses the property of the [floor function](./basic.md#floor-and-ceiling-functions) for nested fractions.
 
-As mentioned above, $D(n)$ is both the set of values of $\left\lfloor\dfrac{n}{i}\right\rfloor$ over the blocks and the set of right endpoints of the blocks. This means that if floor-division blocks are applied recursively (i.e. the value of the function at $n$ depends on its values at $m\in D(n)\setminus\{n\}$), then the set of values and the set of right endpoints involved in the whole computation are in fact both $D(n)$. A typical example is [Du's sieve](./hyperbola.md#杜教筛).
+As mentioned above, $D(n)$ is both the set of values of $\left\lfloor\dfrac{n}{i}\right\rfloor$ over the blocks and the set of right endpoints of the blocks. This means that if floor-division blocks are applied recursively (i.e. the value of the function at $n$ depends on its values at $m\in D(n)\setminus\{n\}$), then the set of values and the set of right endpoints involved in the whole computation are in fact both $D(n)$. A typical example is [Du's sieve](./hyperbola.md#dus-sieve).
 
 ## Procedure
 

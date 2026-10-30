@@ -4,7 +4,7 @@ title: Zhou's sieve
 
 ## Prerequisites
 
--   [Multiplicative functions](./basic.md#积性函数)
+-   [Multiplicative functions](./basic.md#multiplicative-functions)
 
 ## Definition
 

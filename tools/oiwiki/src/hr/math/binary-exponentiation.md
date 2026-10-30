@@ -163,7 +163,7 @@ Druga je implementacija nerekurzivna. Tijekom petlje potencije koje odgovaraju b
 
 ???+ warning "Napomena"
     -   Modul je u pravilu veći od $1$. U vrlo posebnim slučajevima modul $p$ može biti jednak $1$; tada treba posebno razmotriti slučaj $b=0$.
-    -   Kad je eksponent vrlo velik, treba ga smanjiti pomoću [proširenog Eulerova teorema](./number-theory/fermat.md#扩展欧拉定理) pa tek onda računati.
+    -   Kad je eksponent vrlo velik, treba ga smanjiti pomoću [proširenog Eulerova teorema](./number-theory/fermat.md#prošireni-eulerov-teorem) pa tek onda računati.
 
 ### Računanje Fibonaccijevih brojeva
 
@@ -174,7 +174,7 @@ Prema rekurziji Fibonaccijeva niza $F_n = F_{n-1} + F_{n-2}$ možemo sastaviti m
 ???+ note "Opis problema"
     Zadan je niz duljine $n$ i permutacija; primijenite tu permutaciju na niz $k$ puta.
 
-Dovoljno je permutaciju potencirati na $k$-tu potenciju i zatim je primijeniti na niz. Vremenska složenost je $O(n \log k)$. Više pojedinosti vidi u [Kompozicija permutacija](./permutation.md#复合).
+Dovoljno je permutaciju potencirati na $k$-tu potenciju i zatim je primijeniti na niz. Vremenska složenost je $O(n \log k)$. Više pojedinosti vidi u [Kompozicija permutacija](./permutation.md#kompozicija).
 
 ???+ warning "Napomena"
     Ako od permutacije izgradimo graf i na svakom ciklusu zasebno izračunamo $k$-tu potenciju (što je zapravo ekvivalentno uzimanju $k$ modulo duljina ciklusa), problem se može riješiti u vremenskoj složenosti $O(n)$.
@@ -214,11 +214,11 @@ a \cdot b = \begin{cases}
 \end{cases}
 $$
 
-No u praksi ta metoda zbog veće računske složenosti nije vremenski učinkovita. U stvarnom programiranju za množenje s modulom u rasponu `long long` obično se koristi [brzo množenje](./number-theory/mod-arithmetic.md#快速乘).
+No u praksi ta metoda zbog veće računske složenosti nije vremenski učinkovita. U stvarnom programiranju za množenje s modulom u rasponu `long long` obično se koristi [brzo množenje](./number-theory/mod-arithmetic.md#brzo-množenje).
 
 ### Brzo potenciranje velikih brojeva
 
-Preduvjet: [Množenje velikih brojeva](./bignum.md#乘法)
+Preduvjet: [Množenje velikih brojeva](./bignum.md#množenje)
 
 ???+ example "[Luogu P1045 \[NOIP 2003 普及组\] 麦森数 (Mersenneovi brojevi)](https://www.luogu.com.cn/problem/P1045)"
     Zadan je cijeli broj $P$ ($1000 < P < 3100000$); izračunajte broj znamenki broja $2^P−1$ i njegovih posljednjih $500$ znamenki (u dekadskom zapisu); ako ima manje od $500$ znamenki, dopunite ga nulama 0 na višim mjestima.
@@ -237,7 +237,7 @@ Kad je baza $a$ fiksna, možemo iskoristiti [ideju dekompozicije na blokove](../
 
 Pretpostavimo da je raspon eksponenta $b$ jednak $[0,n]$; tada se za duljinu bloka $s$ često bira $\sqrt{n}$ ili njemu bliska potencija broja $2$. Izbor $\sqrt{n}$ daje optimalnu složenost pretprocesiranja $O(\sqrt{n})$, a izbor potencije broja $2$ omogućuje pojednostavljenje računanja bitovnim operacijama.
 
-Posebno, pri računanju potencija u modularnoj aritmetici jednaka baza $a$ implicitno zahtijeva i jednak modul $m$. Zbog [proširenog Eulerova teorema](./number-theory/fermat.md#扩展欧拉定理), za proizvoljan modul $m$ gornja granica raspona eksponenata koje treba pretprocesirati jest $n = 2\varphi(m)$; za prost modul $p$ gornja granica jest $n = p - 1$. U oba je slučaja složenost pretprocesiranja $O(\sqrt{m})$.
+Posebno, pri računanju potencija u modularnoj aritmetici jednaka baza $a$ implicitno zahtijeva i jednak modul $m$. Zbog [proširenog Eulerova teorema](./number-theory/fermat.md#prošireni-eulerov-teorem), za proizvoljan modul $m$ gornja granica raspona eksponenata koje treba pretprocesirati jest $n = 2\varphi(m)$; za prost modul $p$ gornja granica jest $n = p - 1$. U oba je slučaja složenost pretprocesiranja $O(\sqrt{m})$.
 
 ???+ example "Referentni kod"
     ```cpp

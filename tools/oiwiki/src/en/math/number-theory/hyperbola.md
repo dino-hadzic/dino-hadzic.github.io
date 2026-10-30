@@ -104,7 +104,7 @@ $$
 D(n) = \left\{\left\lfloor\dfrac{n}{x}\right\rfloor : 1 \le x \le n,~x\in\mathbf N_+\right\}
 $$
 
-are needed. It is both the set of all block heights and the set of all right endpoints of the blocks. Note that by the [properties](./sqrt-decomposition.md#性质) of floor-division blocks, this set contains all integers $1\le x\le\sqrt{n}$, so knowing the values of $F,G$ on $D(n)$ is equivalent to knowing the values of $f,g$ at all $1\le x\le\sqrt{n}$. The size of this set is $\Theta(\sqrt{n})$, so when computing $H(n)$ we only need to know the values of $F,G$ on a sparse set. This observation is the key to optimizing the computation of prefix sums of arithmetic functions.
+are needed. It is both the set of all block heights and the set of all right endpoints of the blocks. Note that by the [properties](./sqrt-decomposition.md#properties) of floor-division blocks, this set contains all integers $1\le x\le\sqrt{n}$, so knowing the values of $F,G$ on $D(n)$ is equivalent to knowing the values of $f,g$ at all $1\le x\le\sqrt{n}$. The size of this set is $\Theta(\sqrt{n})$, so when computing $H(n)$ we only need to know the values of $F,G$ on a sparse set. This observation is the key to optimizing the computation of prefix sums of arithmetic functions.
 
 ## Block sieves and their convolution
 
@@ -159,7 +159,7 @@ $$
 
 When $z=\left(\dfrac{n}{\log n}\right)^{2/3}$, the total time complexity is minimized at $O\left(n^{2/3}(\log n)^{1/3}\right)$.
 
-Of course, the complexity of [computing the values](./dirichlet.md#dirichlet-卷积的计算) of a Dirichlet convolution depends on the properties of $f,g,h$. When $f,g,h$ have special properties, the optimal split point and the complexity are slightly different:
+Of course, the complexity of [computing the values](./dirichlet.md#computing-dirichlet-convolutions) of a Dirichlet convolution depends on the properties of $f,g,h$. When $f,g,h$ have special properties, the optimal split point and the complexity are slightly different:
 
 -   If $f$ or $g$ is multiplicative, then when $z=\left(\dfrac{n}{\log\log n}\right)^{2/3}$ the total time complexity is minimized at $O\left(n^{2/3}(\log\log n)^{1/3}\right)$.
 -   If $h$ is multiplicative, then when $z=n^{2/3}$ the total time complexity is minimized at $O(n^{2/3})$.
@@ -250,7 +250,7 @@ $$
 G(n) = \dfrac{1}{f(1)}\left(H(n)-\sum_{x=2}^{\lfloor x_0\rfloor}f(x)G\left(\left\lfloor\dfrac{n}{x}\right\rfloor\right) - \sum_{y=1}^{\lfloor y_0\rfloor}F\left(\left\lfloor\dfrac{n}{y}\right\rfloor\right)g(y) + F(\lfloor x_0\rfloor)G(\lfloor y_0\rfloor)\right).
 $$
 
-In either form, it is a recurrence relation for $G(n)$. To compute the value of $G(n)$, we need to compute the values of $G$ on $D(n)\setminus\{n\}$. Since $D(n)$ has a [recursive structure](./sqrt-decomposition.md#性质), i.e., for $m\in D(n)$ we always have $D(m)\subseteq D(n)$, during the whole recursive computation the value of $G$ at each element of $D(n)$ needs to be computed only once. In other words, when computing $G(n)$, we actually obtain the block sieve $\mathcal S_g(n)$ of $g$.
+In either form, it is a recurrence relation for $G(n)$. To compute the value of $G(n)$, we need to compute the values of $G$ on $D(n)\setminus\{n\}$. Since $D(n)$ has a [recursive structure](./sqrt-decomposition.md#properties), i.e., for $m\in D(n)$ we always have $D(m)\subseteq D(n)$, during the whole recursive computation the value of $G$ at each element of $D(n)$ needs to be computed only once. In other words, when computing $G(n)$, we actually obtain the block sieve $\mathcal S_g(n)$ of $g$.
 
 In a concrete implementation, one can use recursion with memoization to avoid repeated computations. Of course, one can also use an iterative method, computing the values of $G$ at the points of $D(n)$ in increasing order. In this case, the sum in the expression can be computed either with floor-division blocks or with the Dirichlet hyperbola method.
 
@@ -351,7 +351,7 @@ This section presents several problems on computing prefix sums of arithmetic fu
     
     Here $F(n) = \dfrac{1}{2}n(n+1)$. This expression can be computed with floor-division blocks, but the prefix sum of $d^2\varphi(d)$ must be precomputed.
     
-    For this, Du's sieve can be used. Let $f(n)=(\operatorname{id}^2\varphi)(n)$ and $S(n)=\sum_{i=1}^n f(i)$. The key to applying Du's sieve is to construct a function $g$ such that both $f\ast g$ and $g$ can be summed quickly. Above we already discussed precomputing the prefix sum of $\varphi$ with Du's sieve, which only requires the relation $\operatorname{id} = \varphi\ast 1$. Compared with $\varphi$, the $f$ here has an extra factor $\operatorname{id}^2$. Since $\operatorname{id}$ is a completely multiplicative function, by the [properties](./dirichlet.md#性质) of Dirichlet convolution it suffices to similarly multiply each term by $\operatorname{id}^2$, which gives
+    For this, Du's sieve can be used. Let $f(n)=(\operatorname{id}^2\varphi)(n)$ and $S(n)=\sum_{i=1}^n f(i)$. The key to applying Du's sieve is to construct a function $g$ such that both $f\ast g$ and $g$ can be summed quickly. Above we already discussed precomputing the prefix sum of $\varphi$ with Du's sieve, which only requires the relation $\operatorname{id} = \varphi\ast 1$. Compared with $\varphi$, the $f$ here has an extra factor $\operatorname{id}^2$. Since $\operatorname{id}$ is a completely multiplicative function, by the [properties](./dirichlet.md#properties) of Dirichlet convolution it suffices to similarly multiply each term by $\operatorname{id}^2$, which gives
     
     $$
     \operatorname{id}^3 = f \ast \operatorname{id}^2.
@@ -359,7 +359,7 @@ This section presents several problems on computing prefix sums of arithmetic fu
     
     Since the prefix sums of $\operatorname{id}^2(n)=n^2$ and $\operatorname{id}^3(n)=n^3$ can both be computed in $O(1)$ time, the prefix sum of $f$ can be precomputed in $O(n^{2/3})$ time. Together with floor-division blocks, the overall time complexity is still $O(n^{2/3})$.
     
-    Another way to represent a similar multiplicative function as the quotient (in the sense of Dirichlet convolution) of two functions is to use [Dirichlet generating functions](./dirichlet.md#dirichlet-生成函数).
+    Another way to represent a similar multiplicative function as the quotient (in the sense of Dirichlet convolution) of two functions is to use [Dirichlet generating functions](./dirichlet.md#dirichlet-generating-function).
 
 ??? note "Reference implementation"
     ```cpp

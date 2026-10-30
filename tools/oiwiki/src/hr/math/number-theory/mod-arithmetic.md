@@ -35,7 +35,7 @@ Modularna aritmetika može se promatrati kao izvođenje raznih operacija nad [kl
     --8<-- "docs/math/code/mod-arithmetic/mod-arithmetic.cpp:core"
     ```
 
-Ova implementacija namjerno smanjuje broj operacija modulo jer je operacija modulo obično znatno skuplja od običnog zbrajanja, oduzimanja, množenja ili usporedbe. U komentarima koda dane su ekvivalentne i izravnije implementacije. Glavna je ideja tih jednostavnih optimizacija da pri zbrajanju ili oduzimanju dvaju cijelih brojeva iz $[0,M)$ rezultat sigurno pada u interval $(-M,2M)$, pa se jednim zbrajanjem ili oduzimanjem može vratiti u interval $[0,M)$. Potenciranje u ovoj implementaciji koristi tehniku [brzog potenciranja](../binary-exponentiation.md#模意义下取幂).
+Ova implementacija namjerno smanjuje broj operacija modulo jer je operacija modulo obično znatno skuplja od običnog zbrajanja, oduzimanja, množenja ili usporedbe. U komentarima koda dane su ekvivalentne i izravnije implementacije. Glavna je ideja tih jednostavnih optimizacija da pri zbrajanju ili oduzimanju dvaju cijelih brojeva iz $[0,M)$ rezultat sigurno pada u interval $(-M,2M)$, pa se jednim zbrajanjem ili oduzimanjem može vratiti u interval $[0,M)$. Potenciranje u ovoj implementaciji koristi tehniku [brzog potenciranja](../binary-exponentiation.md#modularno-potenciranje).
 
 Osim tih osnovnih operacija, pri raznim modulima mogu se izvoditi i sljedeće operacije:
 
@@ -43,9 +43,9 @@ Osim tih osnovnih operacija, pri raznim modulima mogu se izvoditi i sljedeće op
 -   [dijeljenje](./linear-equation.md)
 -   [faktorijel](./factorial.md)
 -   [binomni koeficijenti](./lucas.md)
--   [kvadratni korijen](./quad-residue.md#模意义下开平方)
+-   [kvadratni korijen](./quad-residue.md#kvadratni-korijen-u-modularnoj-aritmetici)
 -   [logaritam](./discrete-logarithm.md)
--   [korijen](./residue.md#模意义下开方)
+-   [korijen](./residue.md#vađenje-korijena-u-modularnoj-aritmetici)
 
 Te su operacije obično lakše pri prostom modulu. Za složeni modul često su potrebne proširene verzije odgovarajućih algoritama i [kineski teorem o ostatcima](./crt.md). Većina tih operacija u modularnom smislu može se promatrati kao rješavanje neke vrste kongruencije. Za opće metode rješavanja kongruencija može se pogledati stranica [Kongruencije](./congruence-equation.md).
 
@@ -235,7 +235,7 @@ Kao primjer, referentna implementacija inverza cijelih brojeva modulo $2^{32}$ i
     --8<-- "docs/math/code/mod-arithmetic/mod-32-inv-pow.cpp:inv"
     ```
 
-Zatim potenciranje: za zadane $x,a,b$ i modul $m=2^e~(e > 2)$ treba naći $xa^b\bmod m$, pri čemu je $a$ neparan. Prema [analizi](./primitive-root.md#递推公式) strukture množenja cijelih brojeva modulo $2^e$ znamo da se $a$ uvijek može zapisati u obliku $\pm g^{\ell}$[^mod-2-g], pri čemu se negativni predznak pojavljuje točno onda kad je $a\equiv 3\pmod 4$. U tom se slučaju $a$ može zamijeniti s $-a$, a konačni rezultat pomnožiti s $(-1)^b$. Stoga u nastavku bez smanjenja općenitosti pretpostavljamo da vrijedi $a\equiv 1\pmod 4$. Tada je središnja ideja algoritma zapisati $a$ u obliku $g^{L(a)}\bmod m$ i zatim traženu potenciju izračunati kao $xg^{bL(a)}\bmod m$.
+Zatim potenciranje: za zadane $x,a,b$ i modul $m=2^e~(e > 2)$ treba naći $xa^b\bmod m$, pri čemu je $a$ neparan. Prema [analizi](./primitive-root.md#rekurzivna-formula) strukture množenja cijelih brojeva modulo $2^e$ znamo da se $a$ uvijek može zapisati u obliku $\pm g^{\ell}$[^mod-2-g], pri čemu se negativni predznak pojavljuje točno onda kad je $a\equiv 3\pmod 4$. U tom se slučaju $a$ može zamijeniti s $-a$, a konačni rezultat pomnožiti s $(-1)^b$. Stoga u nastavku bez smanjenja općenitosti pretpostavljamo da vrijedi $a\equiv 1\pmod 4$. Tada je središnja ideja algoritma zapisati $a$ u obliku $g^{L(a)}\bmod m$ i zatim traženu potenciju izračunati kao $xg^{bL(a)}\bmod m$.
 
 Izračunati $L(a)$ znači izračunati diskretni logaritam $\operatorname{ind}_ga$. Primijetimo da se, čim je $a\equiv 1\pmod 4$, $a$ uvijek može zapisati u sljedećem obliku:
 
@@ -243,7 +243,7 @@ $$
 a \equiv (2^{e_1}+1)(2^{e_2}+1)\cdots(2^{e_s}+1) \pmod{m},
 $$
 
-gdje je $1 < e_1 < e_2 < \cdots < e_s < e$. Naime, izravnim razvojem tog umnoška vidi se da je drugi najniži bit binarnog zapisa od $a$ koji je jednak $1$ upravo $e_1$. bit (indeksi počinju od $0$), pa se taj zapis može naći rekurzivno. Prema [svojstvima](./discrete-logarithm.md#性质) diskretnog logaritma vrijedi
+gdje je $1 < e_1 < e_2 < \cdots < e_s < e$. Naime, izravnim razvojem tog umnoška vidi se da je drugi najniži bit binarnog zapisa od $a$ koji je jednak $1$ upravo $e_1$. bit (indeksi počinju od $0$), pa se taj zapis može naći rekurzivno. Prema [svojstvima](./discrete-logarithm.md#svojstva) diskretnog logaritma vrijedi
 
 $$
 4L(a) \equiv 4L(2^{e_1}+1) + 4L(2^{e_2}+1) + \cdots + 4L(2^{e_s}+1) \pmod{m}. 

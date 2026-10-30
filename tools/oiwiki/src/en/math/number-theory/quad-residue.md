@@ -37,7 +37,7 @@ When the modulus is an odd prime, we have the following theorem:
     2.  $a$ is a quadratic non-residue modulo $p$ if and only if $a^{\frac{p-1}{2}}\equiv -1 \pmod p$.
 
 ??? note "Proof"
-    First, by [Fermat's little theorem](./fermat.md#费马小定理) we have $a^{p-1}\equiv 1\pmod p$, hence
+    First, by [Fermat's little theorem](./fermat.md#fermats-little-theorem) we have $a^{p-1}\equiv 1\pmod p$, hence
     
     $$
     \left(a^{\frac{p-1}{2}}+1\right)\left(a^{\frac{p-1}{2}}-1\right)\equiv 0\pmod p,
@@ -60,7 +60,7 @@ When the modulus is an odd prime, we have the following theorem:
     \end{aligned}
     $$
     
-    By [Theorem 5 on congruence equations](./congruence-equation.md#素数模同余方程), $a$ is a quadratic residue modulo $p$ if and only if $a^{(p-1)/2}\equiv 1\pmod p$. Consequently, $a$ is a quadratic non-residue modulo $p$ if and only if $a^{(p-1)/2}\equiv -1\pmod p$.
+    By [Theorem 5 on congruence equations](./congruence-equation.md#congruences-modulo-a-prime), $a$ is a quadratic residue modulo $p$ if and only if $a^{(p-1)/2}\equiv 1\pmod p$. Consequently, $a$ is a quadratic non-residue modulo $p$ if and only if $a^{(p-1)/2}\equiv -1\pmod p$.
 
 Based on Euler's criterion, we obtain the following corollary:
 
@@ -70,7 +70,7 @@ Based on Euler's criterion, we obtain the following corollary:
 ??? note "Proof"
     By Euler's criterion, consider $a^{\frac{p-1}{2}}\equiv 1\pmod p.$
     
-    Note that $\dfrac{p-1}{2}\mid (p-1)$, so by [Theorem 6 on congruence equations](./congruence-equation.md#素数模同余方程) the congruence $a^{\frac{p-1}{2}}\equiv 1\pmod p$ has $\dfrac{p-1}{2}$ solutions. Therefore there are $\dfrac{p-1}{2}$ quadratic residues and as many quadratic non-residues modulo $p$.
+    Note that $\dfrac{p-1}{2}\mid (p-1)$, so by [Theorem 6 on congruence equations](./congruence-equation.md#congruences-modulo-a-prime) the congruence $a^{\frac{p-1}{2}}\equiv 1\pmod p$ has $\dfrac{p-1}{2}$ solutions. Therefore there are $\dfrac{p-1}{2}$ quadratic residues and as many quadratic non-residues modulo $p$.
 
 ## Legendre symbol
 
@@ -118,7 +118,7 @@ The table below shows some values of the Legendre symbol (from [Wikipedia](https
 
 2.  $a_1\equiv a_2\pmod p\implies \left(\dfrac{a_1}{p}\right)=\left(\dfrac{a_2}{p}\right).$
 
-3.  ([Complete multiplicativity](./basic.md#积性函数)) For all integers $a_1,a_2$,
+3.  ([Complete multiplicativity](./basic.md#multiplicative-functions)) For all integers $a_1,a_2$,
 
     $$
     \left(\frac{a_1a_2}{p}\right)=\left(\frac{a_1}{p}\right)\left(\frac{a_2}{p}\right).
@@ -163,7 +163,7 @@ The table below shows some values of the Legendre symbol (from [Wikipedia](https
         $$
     4.  See the [law of quadratic reciprocity](#law-of-quadratic-reciprocity).
 
-Based on the properties above, if for any two odd primes $p$ and $q$ we can compute the value of $\left(\dfrac{p}{q}\right)$, then we can compute the value of the Legendre symbol in every valid case. Next we have a beautiful theorem that ingeniously establishes a connection between $\left(\dfrac{p}{q}\right)$ and $\left(\dfrac{q}{p}\right)$, allowing us to finish the computation with an idea similar to the [Euclidean algorithm](./gcd.md#欧几里得算法).
+Based on the properties above, if for any two odd primes $p$ and $q$ we can compute the value of $\left(\dfrac{p}{q}\right)$, then we can compute the value of the Legendre symbol in every valid case. Next we have a beautiful theorem that ingeniously establishes a connection between $\left(\dfrac{p}{q}\right)$ and $\left(\dfrac{q}{p}\right)$, allowing us to finish the computation with an idea similar to the [Euclidean algorithm](./gcd.md#euclidean-algorithm).
 
 ### Law of quadratic reciprocity
 
@@ -302,7 +302,7 @@ We can further generalize the modulus to **integers** (we only need to add the d
 
 ## Square roots in modular arithmetic
 
-This section discusses algorithms for taking square roots in modular arithmetic. In particular, this section mainly covers the case of a prime modulus. For the case of a general modulus, see the discussion in [higher-order roots in modular arithmetic](./residue.md#模意义下开方).
+This section discusses algorithms for taking square roots in modular arithmetic. In particular, this section mainly covers the case of a prime modulus. For the case of a general modulus, see the discussion in [higher-order roots in modular arithmetic](./residue.md#root-extraction-in-modular-arithmetic).
 
 ### Algorithm for special cases
 

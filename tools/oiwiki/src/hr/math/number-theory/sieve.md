@@ -552,7 +552,7 @@ $f_i$ označava zbroj djelitelja broja $i$, a $g_i$ zbroj $p^0+p^1+p^2+\dots p^k
 
 ## Opće multiplikativne funkcije
 
-Ako [multiplikativna funkcija](./basic.md#积性函数)  $f$ zadovoljava: za svaki prosti broj $p$ i prirodan broj $k$ vrijednost $f(p^k)$ može se izračunati u vremenu polinomnom niskog stupnja u $k$, tada se vrijednosti $f(1),f(2),\dots,f(n)$ mogu prosijati u vremenu $O(n)$.
+Ako [multiplikativna funkcija](./basic.md#multiplikativne-funkcije)  $f$ zadovoljava: za svaki prosti broj $p$ i prirodan broj $k$ vrijednost $f(p^k)$ može se izračunati u vremenu polinomnom niskog stupnja u $k$, tada se vrijednosti $f(1),f(2),\dots,f(n)$ mogu prosijati u vremenu $O(n)$.
 
 Neka je rastav složenog broja $n$ na proste faktore $\prod_{i=1}^k p_i^{\alpha_i}$, gdje su $p_1<p_2<\dots<p_k$ prosti brojevi; u linearnom situ pamtimo $g_n=p_1^{\alpha_1}$. Ako se $n$ prosijava kao $x\cdot p$ ($p$ je prost), tada $g$ zadovoljava sljedeću rekurziju:
 

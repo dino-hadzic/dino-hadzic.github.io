@@ -128,7 +128,7 @@ $$
 f^{-1}_0=\dfrac{1}{f_0},f^{-1}_n=\dfrac{-1}{f_0}\sum_{k=0}^{n-1}f^{-1}_kf_{n-k}
 $$
 
-Izravno računanje prvih $n$ članova rekurzijom ima složenost $O(n^2)$; [primjenom FFT-a](./elementary-func.md#多项式求逆) dobiva se algoritam složenosti $O(n\log n)$.
+Izravno računanje prvih $n$ članova rekurzijom ima složenost $O(n^2)$; [primjenom FFT-a](./elementary-func.md#inverz-polinoma) dobiva se algoritam složenosti $O(n\log n)$.
 
 ???+ note "Napomena"
     Lako se vidi da je recipročna vrijednost od $f(x)$ upravo beskonačni Maclaurinov razvoj od $\frac{1}{f(x)}$ (beskonačni Taylorov razvoj u točki $x=0$).
@@ -399,7 +399,7 @@ gdje se $k_n(x)$ zove jezgrena funkcija. Različite jezgrene funkcije daju razli
 
 1.  Obična funkcija izvodnica: $k_n(x)=x^n$.
 2.  Eksponencijalna funkcija izvodnica: $k_n(x)=\dfrac{x^n}{n!}$.
-3.  [Dirichletova funkcija izvodnica](../number-theory/dirichlet.md#dirichlet-生成函数): $k_n(x)=\dfrac{1}{n^x}$.
+3.  [Dirichletova funkcija izvodnica](../number-theory/dirichlet.md#dirichletova-funkcija-izvodnica): $k_n(x)=\dfrac{1}{n^x}$.
 
 ## Literatura i daljnje čitanje
 

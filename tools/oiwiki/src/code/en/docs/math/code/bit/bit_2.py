@@ -12,10 +12,10 @@ def divPowerOfTwo(n, m):  # compute n/(2^m)
 def Abs(n):
     return (n ^ (n >> 31)) - (n >> 31)
     """
-    n>>31 取得 n 的符号，若 n 为正数，n>>31 等于 0，若 n 为负数，n>>31 等于 -1
-    若 n 为正数 n^0=n, 数不变，若 n 为负数有 n^(-1)
-    需要计算 n 和 -1 的补码，然后进行异或运算，
-    结果 n 变号并且为 n 的绝对值减 1，再减去 -1 就是绝对值
+    n>>31 gives the sign of n: if n is positive, n>>31 equals 0; if n is negative, n>>31 equals -1
+    if n is positive, n^0=n and the number is unchanged; if n is negative, we have n^(-1)
+    we need the two's complement of n and -1 and then XOR them,
+    the result is n with its sign flipped, equal to the absolute value of n minus 1; subtracting -1 gives the absolute value
     """
 
 

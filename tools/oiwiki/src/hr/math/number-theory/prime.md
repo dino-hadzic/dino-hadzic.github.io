@@ -13,7 +13,7 @@ Funkcija prebrojavanja prostih brojeva: broj prostih brojeva manjih ili jednakih
 Postoje dvije vrste testova prostosti:
 
 1.  Deterministički testovi: sa sigurnošću utvrđuju je li broj prost. Uobičajeni su primjeri probno dijeljenje, Lucas–Lehmerov test i dokaz prostosti eliptičkim krivuljama.
-2.  Probabilistički testovi: obično su znatno brži od determinističkih, ali mogu (iako s vrlo malom vjerojatnošću) pogrešno proglasiti [složen broj](./basic.md#素数与合数) prostim (obrnuto se ne događa). Zato se brojevi koji prođu probabilistički test prostosti nazivaju **vjerojatno prostima** sve dok se njihova prostost ne dokaže deterministički. Brojevi koji prođu test, a zapravo su složeni, nazivaju se **pseudoprostima**. Postoji mnogo posebnih vrsta pseudoprostih brojeva; najčešći su Fermatovi pseudoprosti brojevi – složeni brojevi koji zadovoljavaju mali Fermatov teorem. Uobičajen primjer probabilističkog testa je Miller–Rabinov test.
+2.  Probabilistički testovi: obično su znatno brži od determinističkih, ali mogu (iako s vrlo malom vjerojatnošću) pogrešno proglasiti [složen broj](./basic.md#prosti-i-složeni-brojevi) prostim (obrnuto se ne događa). Zato se brojevi koji prođu probabilistički test prostosti nazivaju **vjerojatno prostima** sve dok se njihova prostost ne dokaže deterministički. Brojevi koji prođu test, a zapravo su složeni, nazivaju se **pseudoprostima**. Postoji mnogo posebnih vrsta pseudoprostih brojeva; najčešći su Fermatovi pseudoprosti brojevi – složeni brojevi koji zadovoljavaju mali Fermatov teorem. Uobičajen primjer probabilističkog testa je Miller–Rabinov test.
 
 ### Probno dijeljenje
 
@@ -75,7 +75,7 @@ Budući da je $1$ sigurno djelitelj, njega ne provjeravamo.
 
 **Fermatov test prostosti** najjednostavniji je probabilistički test prostosti.
 
-Iz [malog Fermatova teorema](./fermat.md#费马小定理) možemo izvesti ideju za provjeru prostosti:
+Iz [malog Fermatova teorema](./fermat.md#mali-fermatov-teorem) možemo izvesti ideju za provjeru prostosti:
 
 Osnovna je zamisao uzastopno birati baze $a$ iz $[2, n-1]$ i provjeravati vrijedi li svaki put $a^{n-1} \equiv 1 \pmod n$.
 
@@ -110,7 +110,7 @@ Osnovna je zamisao uzastopno birati baze $a$ iz $[2, n-1]$ i provjeravati vrijed
 
 Ako je $a^{n-1} \equiv 1 \pmod n$, a $n$ nije prost, $n$ se naziva **Fermatov pseudoprost broj** za bazu $a$. U praksi opažamo da je, ako vrijedi $a^{n-1} \equiv 1 \pmod n$, broj $n$ obično prost. No postoje protuprimjeri: za $n = 341$ i $a = 2$ vrijedi $2^{340}\equiv 1 {\pmod {341}}$, ali $341 = 11 \cdot 31$ je složen. Zapravo, za svaku fiksnu bazu $a$ takvih protuprimjera ima beskonačno mnogo[^inf-fermat-pp].
 
-Budući da Fermatov test prostosti s jednom bazom ne jamči točnost, prirodna je ideja provjeriti više baza. Međutim, čak i ako provjerimo sve moguće baze $a$ relativno proste s $n$, i dalje ne možemo jamčiti da je $n$ prost. Drugim riječima, obrat malog Fermatova teorema ne vrijedi: čak i ako za sve $a\perp n$ vrijedi $a^{n-1}\equiv 1\pmod n$, $n$ ne mora biti prost. Takvi se brojevi nazivaju [Carmichaelovi brojevi](./primitive-root.md#carmichael-数). I njih ima beskonačno mnogo. To nas prisiljava da potražimo stroži test prostosti.
+Budući da Fermatov test prostosti s jednom bazom ne jamči točnost, prirodna je ideja provjeriti više baza. Međutim, čak i ako provjerimo sve moguće baze $a$ relativno proste s $n$, i dalje ne možemo jamčiti da je $n$ prost. Drugim riječima, obrat malog Fermatova teorema ne vrijedi: čak i ako za sve $a\perp n$ vrijedi $a^{n-1}\equiv 1\pmod n$, $n$ ne mora biti prost. Takvi se brojevi nazivaju [Carmichaelovi brojevi](./primitive-root.md#carmichaelovi-brojevi). I njih ima beskonačno mnogo. To nas prisiljava da potražimo stroži test prostosti.
 
 ### Miller–Rabinov test prostosti
 
@@ -124,7 +124,7 @@ Kako bi se riješio problem Carmichaelovih brojeva, Miller–Rabinov test prosto
     Ako je $p$ neparan prost broj, rješenja jednadžbe $x^2 \equiv 1 \pmod p$ su $x \equiv 1 \pmod p$ ili $x \equiv p - 1 \pmod p$.
 
 ??? note "Dokaz"
-    Lako se provjerava da za neparan prost $p$ i $x\equiv 1\pmod p$ i $x\equiv p-1\pmod p$ zadovoljavaju gornju jednadžbu. Po [Lagrangeovu teoremu](./congruence-equation.md#素数模同余方程) to su sva rješenja te jednadžbe.
+    Lako se provjerava da za neparan prost $p$ i $x\equiv 1\pmod p$ i $x\equiv p-1\pmod p$ zadovoljavaju gornju jednadžbu. Po [Lagrangeovu teoremu](./congruence-equation.md#kongruencije-po-prostom-modulu) to su sva rješenja te jednadžbe.
 
 Kombinirajući mali Fermatov teorem i teorem o kvadratnoj provjeri dobivamo Miller–Rabinov test prostosti:
 
@@ -222,11 +222,11 @@ Može se dokazati[^millerrabinproof] da je vjerojatnost da neparan složen broj 
     S\subseteq S' = \{a\bmod n:a^{u2^{\ell-1}}\equiv\pm 1{\textstyle\pmod n}\}.
     $$
     
-    Za element $a$ skupa $S$ postoje samo dvije mogućnosti. Ako je $a^u\equiv 1\pmod n$, očito vrijedi i $a^{u2^{\ell-1}}\equiv 1\pmod n$, tj. $a\in S'$. Ako za neki $0\le i < t$ vrijedi $a^{u2^i}\equiv -1\pmod n$, onda za svaki prosti faktor $p\mid n$ vrijedi $a^{u2^i}\equiv-1\pmod p$. Neka je $\delta_p(a)$ [red](./primitive-root.md#阶) elementa $a$ modulo $p$; tada očito $\delta_p(a)\mid u2^{i+1}$, ali $\delta_p(a)\nmid u2^{i}$, što znači da je u rastavu $\delta_p(a)$ na proste faktore eksponent od $2$ točno $i+1$, pa $2^{i+1}\mid\delta_p(a)$. Po malom Fermatovu teoremu $\delta_p(a)\mid p-1$, pa je $2^{i+1}\mid p-1$. To vrijedi za sve proste faktore $p$ broja $n$. Stoga je $i+1\le\ell$. Odatle $a^{u2^{\ell-1}} = (a^{u2^i})^{2^{\ell-1-i}} \equiv \pm 1 \pmod n$, pa je opet $a\in S'$. Objedinjujući obje mogućnosti dobivamo $S\subseteq S'$.
+    Za element $a$ skupa $S$ postoje samo dvije mogućnosti. Ako je $a^u\equiv 1\pmod n$, očito vrijedi i $a^{u2^{\ell-1}}\equiv 1\pmod n$, tj. $a\in S'$. Ako za neki $0\le i < t$ vrijedi $a^{u2^i}\equiv -1\pmod n$, onda za svaki prosti faktor $p\mid n$ vrijedi $a^{u2^i}\equiv-1\pmod p$. Neka je $\delta_p(a)$ [red](./primitive-root.md#red) elementa $a$ modulo $p$; tada očito $\delta_p(a)\mid u2^{i+1}$, ali $\delta_p(a)\nmid u2^{i}$, što znači da je u rastavu $\delta_p(a)$ na proste faktore eksponent od $2$ točno $i+1$, pa $2^{i+1}\mid\delta_p(a)$. Po malom Fermatovu teoremu $\delta_p(a)\mid p-1$, pa je $2^{i+1}\mid p-1$. To vrijedi za sve proste faktore $p$ broja $n$. Stoga je $i+1\le\ell$. Odatle $a^{u2^{\ell-1}} = (a^{u2^i})^{2^{\ell-1-i}} \equiv \pm 1 \pmod n$, pa je opet $a\in S'$. Objedinjujući obje mogućnosti dobivamo $S\subseteq S'$.
     
     **Drugi korak**: izračunajmo $|S'|$.
     
-    Neka je rastav broja $n$ na proste faktore $n = p_1^{e_1}p_2^{e_2}\cdots p_k^{e_k}$. Po [kineskom teoremu o ostatcima](./crt.md) uvjet $a^{u2^{\ell - 1}}\equiv 1\pmod n$ ekvivalentan je tome da $a^{u2^{\ell - 1}}\equiv 1\pmod{p_i^{e_i}}$ vrijedi za sve $p_i^{e_i}$. Budući da [primitivni korijen](./primitive-root.md#原根) modulo potencija neparnog prostog broja $p_i^{e_i}$ uvijek postoji, [broj rješenja](./residue.md#性质) kongruencije $a^{u2^{\ell - 1}}\equiv 1\pmod{p_i^{e_i}}$ jednak je
+    Neka je rastav broja $n$ na proste faktore $n = p_1^{e_1}p_2^{e_2}\cdots p_k^{e_k}$. Po [kineskom teoremu o ostatcima](./crt.md) uvjet $a^{u2^{\ell - 1}}\equiv 1\pmod n$ ekvivalentan je tome da $a^{u2^{\ell - 1}}\equiv 1\pmod{p_i^{e_i}}$ vrijedi za sve $p_i^{e_i}$. Budući da [primitivni korijen](./primitive-root.md#primitivni-korijen) modulo potencija neparnog prostog broja $p_i^{e_i}$ uvijek postoji, [broj rješenja](./residue.md#svojstva) kongruencije $a^{u2^{\ell - 1}}\equiv 1\pmod{p_i^{e_i}}$ jednak je
     
     $$
     \gcd(u2^{\ell-1},p_i^{e_i-1}(p_i-1)) = \gcd(u2^{\ell-1},p_i-1) = 2^{\ell-1}\gcd(u,p_i-1).

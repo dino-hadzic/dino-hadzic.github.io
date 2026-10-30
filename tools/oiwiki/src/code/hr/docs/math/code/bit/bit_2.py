@@ -12,10 +12,10 @@ def divPowerOfTwo(n, m):  # računa n/(2^m)
 def Abs(n):
     return (n ^ (n >> 31)) - (n >> 31)
     """
-    n>>31 取得 n 的符号，若 n 为正数，n>>31 等于 0，若 n 为负数，n>>31 等于 -1
-    若 n 为正数 n^0=n, 数不变，若 n 为负数有 n^(-1)
-    需要计算 n 和 -1 的补码，然后进行异或运算，
-    结果 n 变号并且为 n 的绝对值减 1，再减去 -1 就是绝对值
+    n>>31 daje predznak broja n: ako je n pozitivan, n>>31 je 0, ako je n negativan, n>>31 je -1
+    ako je n pozitivan, n^0=n i broj se ne mijenja; ako je n negativan, imamo n^(-1)
+    treba izračunati dvojni komplement brojeva n i -1 pa ih povezati operacijom XOR,
+    rezultat je n s promijenjenim predznakom, jednak apsolutnoj vrijednosti n umanjenoj za 1; oduzimanjem -1 dobiva se apsolutna vrijednost
     """
 
 

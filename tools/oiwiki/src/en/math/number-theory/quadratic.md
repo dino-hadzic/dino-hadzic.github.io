@@ -147,7 +147,7 @@ To fully understand unique factorization in a general quadratic integer ring $\m
 2.  $p$ **splits** in $\mathbf Z[\omega]$, i.e., $(p)$ can be written in $\mathbf Z[\omega]$ as a product of two distinct conjugate prime ideals;
 3.  $p$ **ramifies** in $\mathbf Z[\omega]$, i.e., $(p)$ can be written in $\mathbf Z[\omega]$ as the square of some prime ideal.
 
-It can further be proved that to decide which of the three cases a prime $p$ falls into, it suffices to compute the [Kronecker symbol](https://en.wikipedia.org/wiki/Kronecker_symbol) $\left(\dfrac{D}{p}\right)$ for the discriminant $D$ of the quadratic field containing $\mathbf Z[\omega]$ and the prime $p$. The three cases correspond respectively to the three values of the Kronecker symbol: $-1$, $+1$ and $0$. When $p$ is an odd prime, the Kronecker symbol is the [Legendre symbol](./quad-residue.md#legendre-符号), and the three cases correspond respectively to $D$ being a [quadratic non-residue](./quad-residue.md) modulo $p$, $D$ being a [quadratic residue](./quad-residue.md) modulo $p$, and $p$ dividing $D$. When $p=2$, the three cases correspond respectively to $D\equiv \pm 3\pmod 8$, $D\equiv \pm 1\pmod 8$, and $2$ dividing $D$.
+It can further be proved that to decide which of the three cases a prime $p$ falls into, it suffices to compute the [Kronecker symbol](https://en.wikipedia.org/wiki/Kronecker_symbol) $\left(\dfrac{D}{p}\right)$ for the discriminant $D$ of the quadratic field containing $\mathbf Z[\omega]$ and the prime $p$. The three cases correspond respectively to the three values of the Kronecker symbol: $-1$, $+1$ and $0$. When $p$ is an odd prime, the Kronecker symbol is the [Legendre symbol](./quad-residue.md#legendre-symbol), and the three cases correspond respectively to $D$ being a [quadratic non-residue](./quad-residue.md) modulo $p$, $D$ being a [quadratic residue](./quad-residue.md) modulo $p$, and $p$ dividing $D$. When $p=2$, the three cases correspond respectively to $D\equiv \pm 3\pmod 8$, $D\equiv \pm 1\pmod 8$, and $2$ dividing $D$.
 
 ## Gaussian Integers
 
@@ -205,7 +205,7 @@ $$
 4(1+r_1)\cdots(1+r_\ell).
 $$
 
-Let $f(n)$ denote the number of integer solutions of the equation $x^2+y^2=n$. When it has a solution, $f(n)$ is given by the above expression; otherwise, $f(n)=0$. It is easy to verify that $\dfrac14f(n)$ is a [multiplicative function](./basic.md#积性函数). The values of a multiplicative function are determined by its values at prime powers. From the expression for $f(n)$ one can determine that the values of $\dfrac14f(n)$ at prime powers $p^k$ are as follows:
+Let $f(n)$ denote the number of integer solutions of the equation $x^2+y^2=n$. When it has a solution, $f(n)$ is given by the above expression; otherwise, $f(n)=0$. It is easy to verify that $\dfrac14f(n)$ is a [multiplicative function](./basic.md#multiplicative-functions). The values of a multiplicative function are determined by its values at prime powers. From the expression for $f(n)$ one can determine that the values of $\dfrac14f(n)$ at prime powers $p^k$ are as follows:
 
 1.  if $p$ is a prime of the form $4k+3$, then $\dfrac14f(1)=1,\dfrac14f(p)=0,\dfrac14f(p^2)=1,\dfrac14f(p^3)=0,\cdots$;
 2.  if $p$ is a prime of the form $4k+1$, then $\dfrac14f(p^k)=k+1$;

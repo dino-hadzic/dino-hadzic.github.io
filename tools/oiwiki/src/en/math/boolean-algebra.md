@@ -51,7 +51,7 @@ Since an $n$-ary Boolean function has $2^n$ possible inputs, there are $2\uparro
 
 We call a combination of logical operators a **logical expression**.
 
-If we regard $\mathbf{B}$ as the [residue classes](./number-theory/basic.md#同余类与剩余系) modulo $2$, then XOR is equivalent to addition modulo $2$ and AND is equivalent to multiplication modulo $2$, so we sometimes also denote the Boolean domain by $\mathbf{Z}_2$.
+If we regard $\mathbf{B}$ as the [residue classes](./number-theory/basic.md#congruence-classes-and-residue-systems) modulo $2$, then XOR is equivalent to addition modulo $2$ and AND is equivalent to multiplication modulo $2$, so we sometimes also denote the Boolean domain by $\mathbf{Z}_2$.
 
 ### Precedence
 

@@ -4,7 +4,7 @@ title: Zhou sito
 
 ## Predznanje
 
--   [Multiplikativne funkcije](./basic.md#积性函数)
+-   [Multiplikativne funkcije](./basic.md#multiplikativne-funkcije)
 
 ## Definicija
 

@@ -756,7 +756,7 @@ Tako se vremenska složenost smanjuje na $\Theta(\log n)$.
 
 ### Globalne inverzije (globalni dvodimenzionalni parcijalni poredak)
 
-Dodatno čitanje i referentna implementacija: [Inverzije](../math/permutation.md#逆序数)
+Dodatno čitanje i referentna implementacija: [Inverzije](../math/permutation.md#broj-inverzija)
 
 Globalne inverzije također se mogu elegantno riješiti Fenwickovim stablom nad frekvencijskim nizom. Problem glasi: za zadani niz $a$ duljine $n$ izračunajte broj parova $(i, j)$ u $a$ za koje je $i < j$ i $a[i] > a[j]$.
 
@@ -802,7 +802,7 @@ Osim toga, za izvorni problem inverzija postoji i pristup s prolaskom $j$ unapri
 
 Razlog: elementi koji se pojavljuju u $b[x + 1 \ldots V]$ sigurno su veći od trenutnog $x = a[j]$, a zbog prolaska $j$ unaprijed indeksi $i$ u izvornom nizu tih elemenata koji su već u frekvencijskom nizu prirodno su manji od trenutnog indeksa $j$.
 
-Nadalje, inverzije se mogu brojati i [merge sortom](../basic/merge-sort.md#inverzije). Taj pristup izbjegava kompresiju vrijednosti. Vremenska je složenost također $O(n\log n)$. Referentne implementacije obaju algoritama nalaze se u poglavlju [Inverzije](../math/permutation.md#逆序数).
+Nadalje, inverzije se mogu brojati i [merge sortom](../basic/merge-sort.md#inverzije). Taj pristup izbjegava kompresiju vrijednosti. Vremenska je složenost također $O(n\log n)$. Referentne implementacije obaju algoritama nalaze se u poglavlju [Inverzije](../math/permutation.md#broj-inverzija).
 
 ## Fenwickovo stablo za neinvertibilne informacije
 

@@ -4,7 +4,7 @@ title: Faktorijel po modulu
 
 ## Uvod
 
-U ovom se članku razmatraju rezultati vezani uz računanje faktorijela po zadanom modulu te se daje metoda računanja čija je vremenska složenost linearna u veličini modula, pa je ta metoda prikladna uglavnom kada modul nije prevelik ($\sim 10^6$). Osim metode opisane u ovom članku, ovisno o situaciji, za brzo računanje mogu se primijeniti i [polinomne tehnike](../poly/shift.md#模素数意义下阶乘).
+U ovom se članku razmatraju rezultati vezani uz računanje faktorijela po zadanom modulu te se daje metoda računanja čija je vremenska složenost linearna u veličini modula, pa je ta metoda prikladna uglavnom kada modul nije prevelik ($\sim 10^6$). Osim metode opisane u ovom članku, ovisno o situaciji, za brzo računanje mogu se primijeniti i [polinomne tehnike](../poly/shift.md#faktorijel-modulo-prost-broj).
 
 Prema [kineskom teoremu o ostatcima](./crt.md), problem računanja faktorijela po modulu može se svesti na slučaj u kojem je modul potencija prostog broja $p^\alpha$. Pri rješavanju takvih problema često je za prost broj $p$ i prirodan broj $n$ potrebno iz faktorijela $n!$ izdvojiti sve faktore $p$, čime se dobiva rastav:
 
@@ -51,7 +51,7 @@ Wilsonov se teorem može poopćiti na slučaj općeg modula.
     \prod_{1\le k<m,\ k\perp m} k \equiv \pm 1 \pmod{m}.
     $$
     
-    Štoviše, ostatak $\pm 1$ jednak je $-1$ ako i samo ako [postoji primitivni korijen](./primitive-root.md#原根存在定理) po modulu $m$, tj. kada je $m=2,4,p^\alpha,2p^\alpha$, gdje je $p$ neparan prost broj, a $\alpha$ prirodan broj.
+    Štoviše, ostatak $\pm 1$ jednak je $-1$ ako i samo ako [postoji primitivni korijen](./primitive-root.md#teorem-o-postojanju-primitivnog-korijena) po modulu $m$, tj. kada je $m=2,4,p^\alpha,2p^\alpha$, gdje je $p$ neparan prost broj, a $\alpha$ prirodan broj.
 
 ??? note "Dokaz"
     Ovaj se teorem može jednostavno dokazati pomoću strukture [multiplikativne grupe cijelih brojeva po modulu $m$](../algebra/ring-theory.md#应用整数同余类的乘法群). Ovdje dajemo dokaz slične ideje, ali elementarniji.

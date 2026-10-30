@@ -267,7 +267,7 @@ Vrijedi spomenuti da se gornja analiza temelji na potpuno slučajnom preslikavan
 
 Primjer zadatka: [P4718【模板】Pollard-Rho 算法 (Predložak: Pollardov rho algoritam)](https://www.luogu.com.cn/problem/P4718)
 
-Za broj $n$ [Miller–Rabinovim algoritmom](./prime.md#millerrabin-素性测试) provjerimo je li prost; ako jest, možemo ga odmah vratiti, a inače Pollardovim rho algoritmom pronađemo djelitelj $p$ i iz $n$ uklonimo faktor $p$. Zatim rekurzivno rastavljamo $n$ i $p$, Miller–Rabinovim testom provjeravamo jesmo li došli do prostog faktora i ažuriramo max\_factor; tako dobivamo najveći prosti faktor. Budući da su podatci u ovom zadatku vrlo veliki, Floydovo otkrivanje ciklusa nije dovoljno, pa ovdje koristimo optimizaciju udvostručavanjem.
+Za broj $n$ [Miller–Rabinovim algoritmom](./prime.md#millerrabinov-test-prostosti) provjerimo je li prost; ako jest, možemo ga odmah vratiti, a inače Pollardovim rho algoritmom pronađemo djelitelj $p$ i iz $n$ uklonimo faktor $p$. Zatim rekurzivno rastavljamo $n$ i $p$, Miller–Rabinovim testom provjeravamo jesmo li došli do prostog faktora i ažuriramo max\_factor; tako dobivamo najveći prosti faktor. Budući da su podatci u ovom zadatku vrlo veliki, Floydovo otkrivanje ciklusa nije dovoljno, pa ovdje koristimo optimizaciju udvostručavanjem.
 
 ??? note "Implementacija"
     ```cpp

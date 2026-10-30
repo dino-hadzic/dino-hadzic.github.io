@@ -16,7 +16,7 @@ naziva **linearna kongruencija** (linear congruence equation).
 
 Riješiti linearnu kongruenciju znači naći sva rješenja $x$ u intervalu $[0,n-1]$. Dakako, dodavanjem ili oduzimanjem proizvoljnog višekratnika od $n$ i dalje dobivamo rješenja jednadžbe. Modulo $n$ to su sva rješenja te jednadžbe.
 
-U nastavku članka predstavljamo dva pristupa rješavanju linearnih kongruencija, koji redom koriste inverze i diofantske jednadžbe. U općem slučaju i računanje inverza i rješavanje diofantskih jednadžbi zahtijevaju [prošireni Euklidov algoritam](./gcd.md#扩展欧几里得算法), pa su ta dva pristupa zapravo jednaka.
+U nastavku članka predstavljamo dva pristupa rješavanju linearnih kongruencija, koji redom koriste inverze i diofantske jednadžbe. U općem slučaju i računanje inverza i rješavanje diofantskih jednadžbi zahtijevaju [prošireni Euklidov algoritam](./gcd.md#prošireni-euklidov-algoritam), pa su ta dva pristupa zapravo jednaka.
 
 ## Rješavanje pomoću inverza
 
@@ -54,7 +54,7 @@ Sažimajući oba slučaja, **broj rješenja** linearne kongruencije jednak je $d
 
 ## Rješavanje pomoću diofantske jednadžbe
 
-Linearna kongruencija ekvivalentna je [linearnoj diofantskoj jednadžbi s dvije nepoznanice](./bezouts.md#两个变量的情形) $x,y$:
+Linearna kongruencija ekvivalentna je [linearnoj diofantskoj jednadžbi s dvije nepoznanice](./bezouts.md#slučaj-dviju-varijabli) $x,y$:
 
 $$
 ax + ny = b.

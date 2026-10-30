@@ -53,7 +53,7 @@ Slučaj potencije neparnog prostog broja razmjerno je jednostavan. Zapravo, za s
     g^{ky} \equiv g^{\operatorname{ind}_g a}\pmod m.
     $$
     
-    Pritom je $\operatorname{ind}_g a$ diskretni logaritam. Prema [svojstvima reda](./primitive-root.md#幂的循环结构) i $\delta_m(g)=\varphi(m)$, to je ekvivalentno kongruenciji
+    Pritom je $\operatorname{ind}_g a$ diskretni logaritam. Prema [svojstvima reda](./primitive-root.md#ciklička-struktura-potencija) i $\delta_m(g)=\varphi(m)$, to je ekvivalentno kongruenciji
     
     $$
     ky \equiv \operatorname{ind}_g a \pmod{\varphi(m)}.
@@ -65,15 +65,15 @@ Slučaj potencije neparnog prostog broja razmjerno je jednostavan. Zapravo, za s
     y \equiv y_0 + id' \pmod{\varphi(m)},~0\le y_0 < d',~i=0,1,\cdots,d-1.
     $$
     
-    Odatle se dobiva gotovo cijeli sadržaj teorema; jedino što još treba objasniti jest kriterij $a^{d'} \equiv 1 \pmod m$. Prema [svojstvu reda 3](./primitive-root.md#幂的循环结构) vrijedi
+    Odatle se dobiva gotovo cijeli sadržaj teorema; jedino što još treba objasniti jest kriterij $a^{d'} \equiv 1 \pmod m$. Prema [svojstvu reda 3](./primitive-root.md#ciklička-struktura-potencija) vrijedi
     
     $$
     \delta_m(a) = \delta_m(g^{\operatorname{ind}_g a}) = \dfrac{\varphi(m)}{\gcd(\varphi(m),\operatorname{ind}_g a)}.
     $$
     
-    Već znamo da jednadžba ima rješenje ako i samo ako $d\mid \operatorname{ind}_g a$, odnosno $\delta_m(a)\mid d'$. Prema [svojstvu reda 2](./primitive-root.md#幂的循环结构), to je ekvivalentno tom kriteriju.
+    Već znamo da jednadžba ima rješenje ako i samo ako $d\mid \operatorname{ind}_g a$, odnosno $\delta_m(a)\mid d'$. Prema [svojstvu reda 2](./primitive-root.md#ciklička-struktura-potencija), to je ekvivalentno tom kriteriju.
 
-Slučaj modula koji je potencija broja $2$ nešto je posebniji. Za obradu tog slučaja potreban je jedan [rezultat](./primitive-root.md#递推公式) o strukturi reduciranog sustava ostataka modulo $2^e$: svaki neparan broj $a$ na jedinstven je način kongruentan nekom cijelom broju oblika $(-1)^s5^r\bmod 2^e$, gdje je $s\in\{0,1\}$ i $0\le r < 2^{e-2}$. Pomoću tog rezultata dobiva se sljedeći zaključak:
+Slučaj modula koji je potencija broja $2$ nešto je posebniji. Za obradu tog slučaja potreban je jedan [rezultat](./primitive-root.md#rekurzivna-formula) o strukturi reduciranog sustava ostataka modulo $2^e$: svaki neparan broj $a$ na jedinstven je način kongruentan nekom cijelom broju oblika $(-1)^s5^r\bmod 2^e$, gdje je $s\in\{0,1\}$ i $0\le r < 2^{e-2}$. Pomoću tog rezultata dobiva se sljedeći zaključak:
 
 ???+ note "Teorem"
     Neka je $k\ge 2$ cijeli broj, $a$ neparan broj i $m=2^e$ pozitivan cijeli broj uz $e \ge 2$. Tada, kad je $k$ neparan, vrijedi:
@@ -124,14 +124,14 @@ Time je problem određivanja $k$-tih ostataka za različite module potpuno rije�
 
 ## Korijeni jedinice
 
-Kao poseban slučaj $k$-tih korijena, u ovom odjeljku razmatramo pojam $k$-tog (primitivnog) korijena jedinice. Možemo ga shvatiti kao pandan pojma $k$-tog [korijena jedinice](../complex.md#单位根) u polju kompleksnih brojeva $\mathbf C$ unutar reduciranog sustava ostataka $\mathbf Z_m^*$ modulo $m$. Kad je modul $m$ prikladan, zamjena kompleksnog korijena $\omega_k$ $k$-tim primitivnim korijenom jedinice modulo $m$ može ubrzati računanje.
+Kao poseban slučaj $k$-tih korijena, u ovom odjeljku razmatramo pojam $k$-tog (primitivnog) korijena jedinice. Možemo ga shvatiti kao pandan pojma $k$-tog [korijena jedinice](../complex.md#korijeni-jedinice) u polju kompleksnih brojeva $\mathbf C$ unutar reduciranog sustava ostataka $\mathbf Z_m^*$ modulo $m$. Kad je modul $m$ prikladan, zamjena kompleksnog korijena $\omega_k$ $k$-tim primitivnim korijenom jedinice modulo $m$ može ubrzati računanje.
 
 Slično kao u polju kompleksnih brojeva, imamo sljedeću definiciju:
 
 ???+ abstract "$k$-ti korijen jedinice modulo $m$"
     Za modul $m$, $k$-ti korijen elementa $1$ naziva se **$k$-ti korijen jedinice modulo $m$** ($k$-th root of unity modulo $m$). Posebno, ako je $x$ $k$-ti korijen jedinice modulo $m$ i nije korijen jedinice modulo $m$ ni za koji red $k' < k$, tada se $x$ naziva i **$k$-ti primitivni korijen jedinice modulo $m$** ($k$-th primitive root of unity modulo $m$).
 
-Usporedbom s [definicijom primitivnog korijena](./primitive-root.md#原根) vidi se da je primitivni korijen $g$ upravo $\varphi(m)$-ti primitivni korijen jedinice modulo $m$, gdje je $\varphi(m)$ [Eulerova funkcija](./euler-totient.md).
+Usporedbom s [definicijom primitivnog korijena](./primitive-root.md#primitivni-korijen) vidi se da je primitivni korijen $g$ upravo $\varphi(m)$-ti primitivni korijen jedinice modulo $m$, gdje je $\varphi(m)$ [Eulerova funkcija](./euler-totient.md).
 
 Kad $k$-ti primitivni korijen jedinice modulo $m$ postoji, njegova su algebarska svojstva jednaka svojstvima $k$-tog primitivnog kompleksnog korijena jedinice $\omega_k$, pa može zamijeniti $\omega_k$ u raznim izračunima. Na primjer, primjenom u [brzoj Fourierovoj transformaciji](../poly/fft.md) dobiva se [brza teorijsko-brojevna transformacija](../poly/ntt.md) nad konačnim poljem[^fnnt].
 
@@ -140,9 +140,9 @@ Kad $k$-ti primitivni korijen jedinice modulo $m$ postoji, njegova su algebarska
 U polju kompleksnih brojeva (primitivni) korijeni jedinice postoje za svaki red. U teoriji brojeva, međutim, s (primitivnim) korijenima jedinice nije tako.
 
 ???+ note "Svojstva"
-    Za modul $m$ neka je $\lambda(m)$ njegova [Carmichaelova funkcija](./primitive-root.md#carmichael-函数). Tada vrijedi:
+    Za modul $m$ neka je $\lambda(m)$ njegova [Carmichaelova funkcija](./primitive-root.md#carmichaelova-funkcija). Tada vrijedi:
     
-    1.  Svaki cijeli broj $a$ relativno prost s $m$ jest $\delta_m(a)$-ti primitivni korijen jedinice modulo $m$, gdje je $\delta_m(a)$ [red](./primitive-root.md#阶) od $a$ modulo $m$.
+    1.  Svaki cijeli broj $a$ relativno prost s $m$ jest $\delta_m(a)$-ti primitivni korijen jedinice modulo $m$, gdje je $\delta_m(a)$ [red](./primitive-root.md#red) od $a$ modulo $m$.
     2.  Ako je element $a$ $k$-ti korijen jedinice modulo $m$ i $k'$ je bilo koji višekratnik od $k$, tada je $a$ i $k'$-ti korijen jedinice modulo $m$.
     3.  Ako je element $a$ $k$-ti (primitivni) korijen jedinice modulo $m$, tada je element $a^{\ell}$ $\dfrac{k}{\gcd(k,\ell)}$-ti (odgovarajuće, primitivni) korijen jedinice modulo $m$.
     4.  Kad $k'$ prolazi djeliteljima od $k$, svi $k'$-ti primitivni korijeni jedinice modulo $m$ čine particiju skupa $k$-tih korijena jedinice modulo $m$. Štoviše, za $\ell\perp k$ preslikavanje $x\mapsto x^\ell$ daje bijekciju među $k$-tim korijenima jedinice koja čuva tu particiju: primitivne korijene jedinice reda $k'\mid k$ preslikava ponovno u $k'$-te primitivne korijene jedinice.
@@ -152,7 +152,7 @@ U polju kompleksnih brojeva (primitivni) korijeni jedinice postoje za svaki red.
 ??? note "Dokaz"
     Prema definiciji reda, svaki cijeli broj $a$ relativno prost s $m$ jest $\delta_m(a)$-ti primitivni korijen jedinice modulo $m$, gdje je $\delta_m(a)$ red od $a$ modulo $m$. Obratno, ako je $a$ $k$-ti korijen jedinice modulo $m$, tada je $\gcd(a^k,m)=1$, pa je $\gcd(a,m)=1$. Dakle, $a$ je (primitivni) korijen jedinice modulo $m$ ako i samo ako je $a$ relativno prost s $m$. To je svojstvo 1.
     
-    Izravnom provjerom definicije vidi se da se, čim $k\mid k'$, iz $a^k\equiv 1\pmod m$ može izvesti $a^{k'}\equiv 1\pmod m$; to je svojstvo 2. Prema [svojstvima reda](./primitive-root.md#幂的循环结构) vrijedi
+    Izravnom provjerom definicije vidi se da se, čim $k\mid k'$, iz $a^k\equiv 1\pmod m$ može izvesti $a^{k'}\equiv 1\pmod m$; to je svojstvo 2. Prema [svojstvima reda](./primitive-root.md#ciklička-struktura-potencija) vrijedi
     
     $$
     \delta_m(a^\ell) = \dfrac{\delta_m(a)}{\gcd(\delta_m(a),\ell)}.
@@ -176,7 +176,7 @@ U polju kompleksnih brojeva (primitivni) korijeni jedinice postoje za svaki red.
     
     Dakle, $a^{k'}$ je $k$-ti primitivni korijen jedinice. S druge strane, prema definiciji Carmichaelove funkcije, red svakog $x\perp m$ djelitelj je od $\lambda(m)$. Time dobivamo svojstvo 5.
     
-    Gotovo doslovnim ponavljanjem dokaza [kriterija za primitivni korijen](./primitive-root.md#原根判定定理) dobiva se svojstvo 6. Taj kriterij zapravo provjerava $\delta_m(a)=k$.
+    Gotovo doslovnim ponavljanjem dokaza [kriterija za primitivni korijen](./primitive-root.md#kriterij-za-primitivni-korijen) dobiva se svojstvo 6. Taj kriterij zapravo provjerava $\delta_m(a)=k$.
 
 Iz tih se svojstava vidi da $\lambda$‑primitivni korijen modulo $m$ ima sličnu temeljnu ulogu kao primitivni korijen u slučaju kad on postoji. Za razliku od primitivnog korijena, potencijama $\lambda$‑primitivnog korijena ne mogu se generirati svi korijeni jedinice modulo $m$. Unatoč tome, budući da gustoća $\lambda$‑primitivnih korijena nije mala[^lambda-density], ako doista treba pronaći $k$-ti primitivni korijen jedinice, možemo najprije nasumičnim pretraživanjem pronaći $\lambda$‑primitivni korijen, a zatim potenciranjem dobiti $k$-ti primitivni korijen jedinice.
 
@@ -226,7 +226,7 @@ Taj teorem pokazuje da, kad primitivni korijen postoji, svi $k$-ti korijeni jedi
 
 ## Vađenje korijena u modularnoj aritmetici
 
-Na kraju razmatramo kako izračunati $k$-ti korijen. Za slučaj $k=2$ postoji [mnogo učinkovitih algoritama](./quad-residue.md#模意义下开平方) za vađenje kvadratnog korijena po modulu. Za opći $k$, međutim, nije poznat algoritam polinomnog vremena. U ovom odjeljku predstavljamo dva uobičajena algoritma, koji $k$-ti korijen pronalaze u vremenu $O(m^{1/2})$ odnosno $O(m^{1/4+\varepsilon})$. Pomoću kineskog teorema o ostatcima problem se uvijek može svesti na slučaj modula koji je potencija prostog broja, pa se u ovom odjeljku uglavnom razmatra rješavanje za takve module.
+Na kraju razmatramo kako izračunati $k$-ti korijen. Za slučaj $k=2$ postoji [mnogo učinkovitih algoritama](./quad-residue.md#kvadratni-korijen-u-modularnoj-aritmetici) za vađenje kvadratnog korijena po modulu. Za opći $k$, međutim, nije poznat algoritam polinomnog vremena. U ovom odjeljku predstavljamo dva uobičajena algoritma, koji $k$-ti korijen pronalaze u vremenu $O(m^{1/2})$ odnosno $O(m^{1/4+\varepsilon})$. Pomoću kineskog teorema o ostatcima problem se uvijek može svesti na slučaj modula koji je potencija prostog broja, pa se u ovom odjeljku uglavnom razmatra rješavanje za takve module.
 
 ### Naivni algoritam
 
@@ -238,7 +238,7 @@ Prethodna [analiza](#svojstva) svojstava $k$-tih ostataka zapravo već ukazuje n
     ky \equiv \operatorname{ind}_g a \pmod{\varphi(m)}.
     $$
 
-    Pritom se $\operatorname{ind}_g a$ može izračunati [BSGS algoritmom](./discrete-logarithm.md#大步小步算法), a sva rješenja [linearne kongruencije](./linear-equation.md) lako je pronaći. Odatle dobivamo sve $k$-te korijene $x\equiv g^y\pmod m$ od $a$.
+    Pritom se $\operatorname{ind}_g a$ može izračunati [BSGS algoritmom](./discrete-logarithm.md#algoritam-baby-step-giant-step), a sva rješenja [linearne kongruencije](./linear-equation.md) lako je pronaći. Odatle dobivamo sve $k$-te korijene $x\equiv g^y\pmod m$ od $a$.
 
     Osim toga, postoji i sličan alternativni pristup. Ponovno uz $x\equiv g^y\pmod m$, preoblikovanjem
 
@@ -278,7 +278,7 @@ Referentna implementacija računanja $k$-tog korijena modulo prost broj glasi: (
 
 ### Poboljšani Tonelli–Shanksov algoritam
 
-Prikladnim poopćenjem [Tonelli–Shanksova algoritma](./quad-residue.md#tonellishanks-算法) za vađenje kvadratnog korijena po modulu može se riješiti vađenje korijena modulo potencija prostog broja. Jedan razmjerno izravan način poopćenja jest Adleman–Manders–Millerov algoritam[^amm], ali njegova složenost još uvijek nije dovoljno dobra[^amm-comp]. U ovom odjeljku predstavljamo poboljšani Tonelli–Shanksov algoritam koji su predložili sugarknri, Min\_25, 37zigen i drugi. On pronalazi jedan $k$-ti korijen u vremenu $O(m^{1/4+\varepsilon})$.
+Prikladnim poopćenjem [Tonelli–Shanksova algoritma](./quad-residue.md#tonellishanksov-algoritam) za vađenje kvadratnog korijena po modulu može se riješiti vađenje korijena modulo potencija prostog broja. Jedan razmjerno izravan način poopćenja jest Adleman–Manders–Millerov algoritam[^amm], ali njegova složenost još uvijek nije dovoljno dobra[^amm-comp]. U ovom odjeljku predstavljamo poboljšani Tonelli–Shanksov algoritam koji su predložili sugarknri, Min\_25, 37zigen i drugi. On pronalazi jedan $k$-ti korijen u vremenu $O(m^{1/4+\varepsilon})$.
 
 Ključna je ideja Tonelli–Shanksova algoritma prebaciti računanje diskretnog logaritma u grupu reda $2^e$ i time smanjiti vremensku složenost. Slično, diskretni logaritam u grupi čiji je red bilo koja potencija prostog broja $p^e$ također se može razmjerno učinkovito izračunati, ali složenost algoritma iznosi $\Omega\left(\sqrt{p}\right)$. Adleman–Manders–Millerov algoritam rastavlja računanje $k$-tog korijena na više računanja diskretnih logaritama u grupama reda potencije prostog broja, ali je ograničen veličinom najvećeg prostog faktora $p_\text{max}(k)$ broja $k$, pa složenost algoritma i dalje iznosi $\Omega\left(\sqrt{p_\text{max}(k)}\right)$. Algoritam iz ovog odjeljka dodatno poboljšava taj postupak izbjegavajući računanje diskretnih logaritama za veće proste faktore, čime se ukupna složenost svodi na $O(m^{1/4+\varepsilon})$.
 
@@ -304,7 +304,7 @@ $$
 x^d\equiv x^{k\ell} \equiv a^{\ell} =: b \pmod{m}.
 $$
 
-Krajnja lijeva kongruencija koristi [Eulerov teorem](./fermat.md#欧拉定理) i sljedeću relaciju kongruencije: ($c\in\mathbf Z$)
+Krajnja lijeva kongruencija koristi [Eulerov teorem](./fermat.md#eulerov-teorem) i sljedeću relaciju kongruencije: ($c\in\mathbf Z$)
 
 $$
 k\ell = d\left(\frac{k}{d}\ell\right) = d\left(c\dfrac{\varphi(m)}{d}+1\right) \equiv d \pmod{\varphi(m)}.
@@ -366,7 +366,7 @@ Vremenska složenost ovog algoritma iznosi $O(m^{1/4+\varepsilon})$. Pri razmatr
 
 Razmotrimo najprije računanje jednog $p^e$-tog korijena. Za pronalaženje $p$-tog neostatka treba provjeriti očekivano $O(1)$ brojeva, pa je ukupna vremenska složenost $O(\log m)$. Računanje svakog od $s,r,\zeta,\eta,b^{qr}$ traje $O(\log m)$. Pri računanju $h$ za svaku znamenku treba $O(\log m)$ vremena za računanje potencija, a znamenki je ukupno $(s-e)$, pa je ukupna vremenska složenost $O((s-e)\log m)$. Već je objašnjeno da predobrada i $(s-e)$ upita u dijelu s računanjem diskretnih logaritama ukupno traju $O\left(\sqrt{(s-e)p}\right)$. Budući da je $s-e\in O(\log m)$, vremenska složenost računanja jednog $p^e$-tog korijena iznosi $O(p^{1/2+\varepsilon})$. Posebno, kad je $s=e$, vremenska se složenost dodatno smanjuje na $O(\log m)$.
 
-Sada možemo razmotriti ukupnu vremensku složenost algoritma. Vremenska složenost računanja $\varphi(m),d,\ell$ iznosi $O(\log m)$ za svaki. Zatim treba napraviti rastav na proste faktore $d=\prod_p{p^e}$; taj se korak pomoću [Pollardova rho algoritma](./pollard-rho.md#pollard-rho-算法) može obaviti u vremenu $O(m^{1/4})$. Konačno, ukupna vremenska složenost uzastopnog računanja $p^e$-tih korijena iznosi
+Sada možemo razmotriti ukupnu vremensku složenost algoritma. Vremenska složenost računanja $\varphi(m),d,\ell$ iznosi $O(\log m)$ za svaki. Zatim treba napraviti rastav na proste faktore $d=\prod_p{p^e}$; taj se korak pomoću [Pollardova rho algoritma](./pollard-rho.md#pollardov-rho-algoritam) može obaviti u vremenu $O(m^{1/4})$. Konačno, ukupna vremenska složenost uzastopnog računanja $p^e$-tih korijena iznosi
 
 $$
 O\left(\sum_{e < s}p^{1/2+\varepsilon}\right).
@@ -436,7 +436,7 @@ Referentna implementacija pronalaženja svih $k$-tih korijena modulo proizvoljan
 
 [^fnnt]: Zapravo, modul $m$ ne mora biti prost. Čim je $a$ $k=2^e$-ti primitivni korijen jedinice modulo $m$, može se koristiti za brzu teorijsko-brojevnu transformaciju modulo $m$. Međutim, budući da je $2^e$ koji obično treba obraditi razmjerno velik, to znači da je svaki prosti faktor modula $m$ oblika $c2^e+1$. Stoga je već pojedini prosti faktor velik, a modul $m$ obično je još veći, pa se slučaj općeg modula ne koristi tako često kao slučaj prostog modula.
 
-[^lambda-density]: Prema [rezultatu o broju primitivnih korijena](./primitive-root.md#原根个数), broj $\lambda$‑primitivnih korijena točno je $\varphi(\lambda(m))$, gdje su $\varphi(\cdot)$ i $\lambda(\cdot)$ redom Eulerova funkcija i Carmichaelova funkcija. Budući da za gotovo sve cijele brojeve $m$ vrijedi $\lambda(m)/m = \exp(-(1+o(1))\log\log m\log\log\log m)$, a postoji $C > 0$ takav da za cijele brojeve $m > 2$ vrijedi $\varphi(m)/m \ge C / \log\log m$, za gotovo sve cijele brojeve $m$ vrijedi $\varphi(\lambda(m))/m = \exp(-(1+o(1))\log\log m\log\log\log m)$. Pritom $o(1)$ u koeficijentu eksponenta apsorbira doprinos faktora $\varphi(\lambda(m))/\lambda(m)$. Stoga se $\lambda$‑primitivni korijen može pronaći u očekivano $\exp((1+o(1))\log\log m\log\log\log m)$ pokušaja. Za ocjenu Eulerove funkcije vidi rad Rosser, J. Barkley, and Lowell Schoenfeld. "Approximate formulas for some functions of prime numbers." Illinois Journal of Mathematics 6, no. 1 (1962): 64-94. Za ocjenu Carmichaelove funkcije vidi rad Erdos, Paul, Carl Pomerance, and Eric Schmutz. "Carmichael’s lambda function." Acta Arith 58, no. 4 (1991): 363-385.
+[^lambda-density]: Prema [rezultatu o broju primitivnih korijena](./primitive-root.md#broj-primitivnih-korijena), broj $\lambda$‑primitivnih korijena točno je $\varphi(\lambda(m))$, gdje su $\varphi(\cdot)$ i $\lambda(\cdot)$ redom Eulerova funkcija i Carmichaelova funkcija. Budući da za gotovo sve cijele brojeve $m$ vrijedi $\lambda(m)/m = \exp(-(1+o(1))\log\log m\log\log\log m)$, a postoji $C > 0$ takav da za cijele brojeve $m > 2$ vrijedi $\varphi(m)/m \ge C / \log\log m$, za gotovo sve cijele brojeve $m$ vrijedi $\varphi(\lambda(m))/m = \exp(-(1+o(1))\log\log m\log\log\log m)$. Pritom $o(1)$ u koeficijentu eksponenta apsorbira doprinos faktora $\varphi(\lambda(m))/\lambda(m)$. Stoga se $\lambda$‑primitivni korijen može pronaći u očekivano $\exp((1+o(1))\log\log m\log\log\log m)$ pokušaja. Za ocjenu Eulerove funkcije vidi rad Rosser, J. Barkley, and Lowell Schoenfeld. "Approximate formulas for some functions of prime numbers." Illinois Journal of Mathematics 6, no. 1 (1962): 64-94. Za ocjenu Carmichaelove funkcije vidi rad Erdos, Paul, Carl Pomerance, and Eric Schmutz. "Carmichael’s lambda function." Acta Arith 58, no. 4 (1991): 363-385.
 
 [^amm]: Izvorni rad: Adleman, Leonard, Kenneth Manders, and Gary Miller. "On taking roots in finite fields." In 18th Annual Symposium on Foundations of Computer Science (sfcs 1977), pp. 175-178. IEEE Computer Society, 1977. Čitljiviji uvod može se naći u Cao, Zhengjun, Qian Sha, and Xiao Fan. "Adleman-Manders-Miller root extraction method revisited." In International Conference on Information Security and Cryptology, pp. 77-85. Berlin, Heidelberg: Springer Berlin Heidelberg, 2011.
 

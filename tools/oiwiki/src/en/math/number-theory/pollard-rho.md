@@ -267,7 +267,7 @@ It is worth mentioning that the analysis above is based on a completely random s
 
 Example problem: [P4718【模板】Pollard-Rho 算法 (Template: Pollard's rho algorithm)](https://www.luogu.com.cn/problem/P4718)
 
-For a number $n$, use the [Miller–Rabin algorithm](./prime.md#millerrabin-素性测试) to test whether it is prime; if so, it can be returned directly, otherwise use Pollard's rho algorithm to find a divisor $p$ and remove the factor $p$ from $n$. Then recursively factor $n$ and $p$, use Miller–Rabin to check whether a prime factor has appeared, and update max\_factor to obtain the largest prime factor. Since the data of this problem are very large, Floyd's cycle detection is not enough, so the doubling optimization is used here.
+For a number $n$, use the [Miller–Rabin algorithm](./prime.md#millerrabin-primality-test) to test whether it is prime; if so, it can be returned directly, otherwise use Pollard's rho algorithm to find a divisor $p$ and remove the factor $p$ from $n$. Then recursively factor $n$ and $p$, use Miller–Rabin to check whether a prime factor has appeared, and update max\_factor to obtain the largest prime factor. Since the data of this problem are very large, Floyd's cycle detection is not enough, so the doubling optimization is used here.
 
 ??? note "Implementation"
     ```cpp

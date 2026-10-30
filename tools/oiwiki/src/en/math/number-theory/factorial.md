@@ -4,7 +4,7 @@ title: Factorial modulo a number
 
 ## Introduction
 
-This article discusses results related to computing factorials modulo a given number and provides a computation method whose time complexity is linear in the size of the modulus, so the method is mainly suitable when the modulus is not too large ($\sim 10^6$). Besides the method described in this article, depending on the situation, [polynomial techniques](../poly/shift.md#模素数意义下阶乘) can also be applied for fast computation.
+This article discusses results related to computing factorials modulo a given number and provides a computation method whose time complexity is linear in the size of the modulus, so the method is mainly suitable when the modulus is not too large ($\sim 10^6$). Besides the method described in this article, depending on the situation, [polynomial techniques](../poly/shift.md#factorial-modulo-a-prime) can also be applied for fast computation.
 
 By the [Chinese remainder theorem](./crt.md), the problem of computing a factorial modulo a number can be reduced to the case where the modulus is a prime power $p^\alpha$. When dealing with such problems, for a prime $p$ and a positive integer $n$ one often needs to extract all factors $p$ from the factorial $n!$, obtaining the decomposition:
 
@@ -51,7 +51,7 @@ Wilson's theorem can be generalized to the case of a general modulus.
     \prod_{1\le k<m,\ k\perp m} k \equiv \pm 1 \pmod{m}.
     $$
     
-    Moreover, the remainder $\pm 1$ equals $-1$ if and only if [a primitive root exists](./primitive-root.md#原根存在定理) modulo $m$, i.e. when $m=2,4,p^\alpha,2p^\alpha$, where $p$ is an odd prime and $\alpha$ is a positive integer.
+    Moreover, the remainder $\pm 1$ equals $-1$ if and only if [a primitive root exists](./primitive-root.md#primitive-root-existence-theorem) modulo $m$, i.e. when $m=2,4,p^\alpha,2p^\alpha$, where $p$ is an odd prime and $\alpha$ is a positive integer.
 
 ??? note "Proof"
     This theorem can be proved simply via the structure of the [multiplicative group of integers modulo $m$](../algebra/ring-theory.md#应用整数同余类的乘法群). Here we give a proof with a similar idea but more elementary.

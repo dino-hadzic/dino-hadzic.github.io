@@ -6,7 +6,7 @@ Bitovne operacije su unarne i binarne operacije nad binarnim zapisom cijelih bro
 
 ## Cijeli brojevi i nizovi bitova
 
-Vidi i: [Cjelobrojni tipovi](../lang/var.md#整数类型), [Komplementi](./numeral-sys/base.md#补数法)
+Vidi i: [Cjelobrojni tipovi](../lang/var.md#整数类型), [Komplementi](./numeral-sys/base.md#metoda-komplemenata)
 
 Niz fiksne duljine sastavljen samo od znakova `0` i `1` nazivamo nizom bitova. Krajnji lijevi bit nazivamo najvišim (najznačajnijim) bitom, a krajnji desni najnižim (najmanje značajnim) bitom.
 
@@ -43,7 +43,7 @@ Pretvaranje niza bitova u cijeli broj također je jednostavno: za nenegativne br
 
 ## Logičke operacije po bitovima
 
-Logičke operacije po bitovima su operacije koje na niz bitova, bit po bit, primjenjuju neke [Booleove funkcije](./boolean-algebra.md#布尔函数). Formalno, za Booleovu funkciju $f:\mathbf{B}^k\to \mathbf{B}$ operacija po bitovima jest funkcija oblika
+Logičke operacije po bitovima su operacije koje na niz bitova, bit po bit, primjenjuju neke [Booleove funkcije](./boolean-algebra.md#booleove-funkcije). Formalno, za Booleovu funkciju $f:\mathbf{B}^k\to \mathbf{B}$ operacija po bitovima jest funkcija oblika
 
 $$
 \begin{aligned}

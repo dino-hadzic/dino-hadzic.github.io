@@ -58,7 +58,7 @@ $$
 
 ## Primjeri zadataka
 
-### [Inverz polinoma](./elementary-func.md#多项式求逆)
+### [Inverz polinoma](./elementary-func.md#inverz-polinoma)
 
 Neka je zadana funkcija $h\left(x\right)$; imamo:
 
@@ -81,7 +81,7 @@ $$
 T\left(n\right)=T\left(\frac{n}{2}\right)+O\left(n\log{n}\right)=O\left(n\log{n}\right)
 $$
 
-### [Korijen polinoma](./elementary-func.md#多项式开方)
+### [Korijen polinoma](./elementary-func.md#korijen-polinoma)
 
 Neka je zadana funkcija $h\left(x\right)$; imamo:
 
@@ -104,7 +104,7 @@ $$
 T\left(n\right)=T\left(\frac{n}{2}\right)+O\left(n\log{n}\right)=O\left(n\log{n}\right)
 $$
 
-### [Eksponencijal polinoma](./elementary-func.md#多项式对数函数--指数函数)
+### [Eksponencijal polinoma](./elementary-func.md#logaritam-i-eksponencijalna-funkcija-polinoma)
 
 Neka je zadana funkcija $h\left(x\right)$; imamo:
 

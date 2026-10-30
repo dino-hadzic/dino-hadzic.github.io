@@ -241,7 +241,7 @@ Using the correspondence between Dirichlet convolution and products of Dirichlet
 
 ### Euler product
 
-The special nature of multiplicative functions is also reflected in their Dirichlet generating functions. Because of the [unique factorization theorem](./basic.md#算术基本定理) for integers, the generating function $F(s)$ of a multiplicative function $f(n)$ can be written in the following form:
+The special nature of multiplicative functions is also reflected in their Dirichlet generating functions. Because of the [unique factorization theorem](./basic.md#fundamental-theorem-of-arithmetic) for integers, the generating function $F(s)$ of a multiplicative function $f(n)$ can be written in the following form:
 
 $$
 \begin{aligned}
@@ -366,7 +366,7 @@ Dirichlet generating functions can be used to express arithmetic functions as Di
 
 For example, in Du's sieve, to compute the prefix sums of an arithmetic function $f$ one needs to find another arithmetic function $g$ such that the prefix sums of both $f\ast g$ and $g$ can be computed quickly. This process can be carried out using Dirichlet generating functions.
 
-Take the example problem from the section on Du's sieve, [Luogu P3768 简单的数学题 (A simple math problem)](../number-theory/hyperbola.md#例题): for $f(n)=n^2\varphi(n)$ we need to construct an arithmetic function $g(n)$ satisfying the above conditions. Since $f$ is multiplicative, its Dirichlet generating function is
+Take the example problem from the section on Du's sieve, [Luogu P3768 简单的数学题 (A simple math problem)](../number-theory/hyperbola.md#example-problems): for $f(n)=n^2\varphi(n)$ we need to construct an arithmetic function $g(n)$ satisfying the above conditions. Since $f$ is multiplicative, its Dirichlet generating function is
 
 $$
 F(s) = \prod_{p\in\mathbf P}\left(1 + \sum_{k=1}^{\infty}\dfrac{p^{3k-1}(p-1)}{p^{ks}}\right) = \prod_{p\in\mathbf P}\dfrac{1-p^{2-s}}{1-p^{3-s}} = \dfrac{\zeta(s-3)}{\zeta(s-2)}.
@@ -427,7 +427,7 @@ $$
 \sum_{p\in\mathbf P,~p\le n}\sum_{k=1}^{\infty}\left\lfloor\dfrac{n}{p^k}\right\rfloor \le \sum_{p\in\mathbf P,~p\le n}\dfrac{n}{p-1} \le \sum_{p\in\mathbf P,~p\le n}\dfrac{2n}{p} \in O(n\log\log n).
 $$
 
-The complexity estimate in the last step is the same as in the proof of the complexity of the [sieve of Eratosthenes](./sieve.md#埃拉托斯特尼筛法). So the time complexity of this algorithm is $O(n\log\log n)$.
+The complexity estimate in the last step is the same as in the proof of the complexity of the [sieve of Eratosthenes](./sieve.md#sieve-of-eratosthenes). So the time complexity of this algorithm is $O(n\log\log n)$.
 
 A reference implementation follows:
 
@@ -440,7 +440,7 @@ In particular, when the multiplicative function $g$ is completely multiplicative
 
 ### Case where the result is multiplicative
 
-Finally, consider the case where $h$ is multiplicative. In particular, when $f,g$ are both multiplicative, $h=f \ast g$ is multiplicative. To compute $h$, it suffices to determine its values at prime powers; then it can be computed in $O(n)$ time with the [linear sieve](./sieve.md#线性筛法). The values $h(p^e)$ at prime powers $p^e$ can be computed directly by brute force:
+Finally, consider the case where $h$ is multiplicative. In particular, when $f,g$ are both multiplicative, $h=f \ast g$ is multiplicative. To compute $h$, it suffices to determine its values at prime powers; then it can be computed in $O(n)$ time with the [linear sieve](./sieve.md#linear-sieve). The values $h(p^e)$ at prime powers $p^e$ can be computed directly by brute force:
 
 $$
 h(p^e) = \sum_{i=0}^e f(p^i)g(p^{e-i}).

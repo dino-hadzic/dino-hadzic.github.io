@@ -74,7 +74,7 @@ If the value of the Möbius function $\mu(n)$ is needed for a single $n$, its [p
         --8<-- "docs/math/code/mobius/mobius-func-1.py:core"
         ```
 
-If the values of $\mu(n)$ need to be precomputed for the first $n$ positive integers, one can use the fact that it is multiplicative and compute them with the [linear sieve](./sieve.md#筛法求莫比乌斯函数) in $O(n)$ time.
+If the values of $\mu(n)$ need to be precomputed for the first $n$ positive integers, one can use the fact that it is multiplicative and compute them with the [linear sieve](./sieve.md#sieve-for-the-möbius-function) in $O(n)$ time.
 
 ???+ example "Reference implementation"
     === "C++"
@@ -325,7 +325,7 @@ $$
 
 In the left equation, the value $f(n)$ is the sum of the values of $g$ at all divisors of $n$. If we interpret $a\mid b$ as "$a$ comes before $b$", then $f(n)$ can be understood as a prefix sum of $g(n)$ in a certain sense. Therefore, in the Chinese competitive programming community, the process of computing $\{f(k)\}_{k=1}^n$ from $\{g(k)\}_{k=1}^n$ is also called the **Dirichlet prefix sum**, and the corresponding inverse process is called the Dirichlet difference. These methods mostly appear when the values of some arithmetic function at the first $N$ points need to be precomputed.
 
-Next, we discuss the computation of Dirichlet prefix sums. If each prime is regarded as a dimension, this is a kind of multidimensional prefix sum. Recall the [dimension-by-dimension prefix sum algorithm](../../basic/prefix-sum.md#dimension-by-dimension-prefix-sums) for multidimensional prefix sums: iterate over all dimensions one by one, and add the value at each position to its successor position in that dimension. For arithmetic functions, this amounts to iterating over all primes $p$ from small to large and adding the function value at $n$ to the value at $np$. This is the same traversal order as in the [sieve of Eratosthenes](./sieve.md#埃拉托斯特尼筛法). Therefore, this algorithm computes the Dirichlet prefix sum of a sequence of length $n$ in $O(n\log\log n)$ time. Similarly, dimension-by-dimension differences compute the Dirichlet difference of a sequence within the same time complexity.
+Next, we discuss the computation of Dirichlet prefix sums. If each prime is regarded as a dimension, this is a kind of multidimensional prefix sum. Recall the [dimension-by-dimension prefix sum algorithm](../../basic/prefix-sum.md#dimension-by-dimension-prefix-sums) for multidimensional prefix sums: iterate over all dimensions one by one, and add the value at each position to its successor position in that dimension. For arithmetic functions, this amounts to iterating over all primes $p$ from small to large and adding the function value at $n$ to the value at $np$. This is the same traversal order as in the [sieve of Eratosthenes](./sieve.md#sieve-of-eratosthenes). Therefore, this algorithm computes the Dirichlet prefix sum of a sequence of length $n$ in $O(n\log\log n)$ time. Similarly, dimension-by-dimension differences compute the Dirichlet difference of a sequence within the same time complexity.
 
 ???+ example "Reference implementation"
     === "Dirichlet prefix sum"
@@ -399,7 +399,7 @@ This section uses example problems to show how to apply Möbius inversion, along
     --8<-- "docs/math/code/mobius/mobius_1.cpp"
     ```
 
-The next two example problems show how to handle enumeration of a common divisor, and how to compute the values of general multiplicative functions with a [sieve](./sieve.md#一般的积性函数).
+The next two example problems show how to handle enumeration of a common divisor, and how to compute the values of general multiplicative functions with a [sieve](./sieve.md#general-multiplicative-functions).
 
 ???+ example "[SPOJ LCMSUM](https://www.spoj.com/problems/LCMSUM/)"
     $T$ test cases. For each test case, evaluate:
@@ -596,7 +596,7 @@ The next two example problems show how to handle enumeration of a common divisor
     \sum_{i=1}^{\lfloor n/k\rfloor}i[d\mid i] = d\sum_{i=1}^{\lfloor\lfloor n/k\rfloor/d\rfloor}i = dG\left(\left\lfloor\dfrac{\lfloor n/k\rfloor}{d}\right\rfloor\right) = dG\left(\left\lfloor\dfrac{n}{kd}\right\rfloor\right).
     $$
     
-    Here $G(n)=\dfrac{1}{2}n(n+1)$ is just the sum of an arithmetic progression, and the last equality uses the property of the [floor function](./basic.md#取整函数). Symmetrically, the other sum can be computed in the same way. Substituting back into the earlier expression gives
+    Here $G(n)=\dfrac{1}{2}n(n+1)$ is just the sum of an arithmetic progression, and the last equality uses the property of the [floor function](./basic.md#floor-and-ceiling-functions). Symmetrically, the other sum can be computed in the same way. Substituting back into the earlier expression gives
     
     $$
     f(n,m) = \sum_k k\sum_{d}\mu(d)d^2G\left(\left\lfloor\dfrac{n}{kd}\right\rfloor\right)G\left(\left\lfloor\dfrac{m}{kd}\right\rfloor\right).
@@ -745,7 +745,7 @@ The last example problem shows how to apply the multiplicative version of Möbiu
     g(n) = \prod_k\prod_d\prod_{i=1}^{\lfloor n/k\rfloor}\prod_{j=1}^{\lfloor n/k\rfloor}k\uparrow(\mu(d)[d\mid i][d\mid j]).
     $$
     
-    Further extract the factor (i.e. set $i=di'$, $j=dj'$) and apply the property of the [floor function](./basic.md#取整函数), obtaining:
+    Further extract the factor (i.e. set $i=di'$, $j=dj'$) and apply the property of the [floor function](./basic.md#floor-and-ceiling-functions), obtaining:
     
     $$
     g(n) = \prod_k\prod_d\prod_{i=1}^{\lfloor n/(kd)\rfloor}\prod_{j=1}^{\lfloor n/(kd)\rfloor}k\uparrow\mu(d).

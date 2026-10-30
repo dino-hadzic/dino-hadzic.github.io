@@ -93,7 +93,7 @@ One octal digit can be represented by 3 binary digits (since $2^3 = 8$), and one
 
 ## Method of complements
 
-See also: [Ones' complement and two's complement](../bit.md#整数与位序列)
+See also: [Ones' complement and two's complement](../bit.md#integers-and-bit-sequences)
 
 The **method of complements** is a technique for representing negative numbers with positive ones so that subtraction can be computed with the same algorithm/circuit/mechanical structure as the addition of positive numbers. The method of complements is widely used in the design of calculators and computers to simplify their structure.
 
@@ -246,7 +246,7 @@ In a standard positional system, the base corresponding to each digit is fixed, 
 
 The number represented by $a_n\cdots a_1a_0$ in base $b$ is $\sum_{i=0}^n a_ib^i$, whereas in a mixed-radix system it represents $\sum_{i=0}^n a_i\prod_{j=0}^{i-1}b_j$, where $b_j$ is the base corresponding to $a_j$.
 
-In algorithmic competitions, the most common mixed-radix system is the [**factorial number system**](https://en.wikipedia.org/wiki/Factorial_number_system), in which numbers can be written as ${a_n\cdots a_1a_0}_{~!}$ and represent $\sum_{i=0}^na_i i!$[^note2]. For applications of the factorial number system in algorithmic competitions, see [Lehmer code/Cantor expansion](../permutation.md#排名).
+In algorithmic competitions, the most common mixed-radix system is the [**factorial number system**](https://en.wikipedia.org/wiki/Factorial_number_system), in which numbers can be written as ${a_n\cdots a_1a_0}_{~!}$ and represent $\sum_{i=0}^na_i i!$[^note2]. For applications of the factorial number system in algorithmic competitions, see [Lehmer code/Cantor expansion](../permutation.md#rank).
 
 ???+ note "Implementation (decimal to factorial number system)"
     ```cpp

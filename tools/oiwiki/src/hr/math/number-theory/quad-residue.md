@@ -37,7 +37,7 @@ Kad je modul neparan prost broj, vrijedi sljedeći teorem:
     2.  $a$ je kvadratni neostatak modulo $p$ ako i samo ako je $a^{\frac{p-1}{2}}\equiv -1 \pmod p$.
 
 ??? note "Dokaz"
-    Prvo, prema [malom Fermatovu teoremu](./fermat.md#费马小定理) vrijedi $a^{p-1}\equiv 1\pmod p$, pa je
+    Prvo, prema [malom Fermatovu teoremu](./fermat.md#mali-fermatov-teorem) vrijedi $a^{p-1}\equiv 1\pmod p$, pa je
     
     $$
     \left(a^{\frac{p-1}{2}}+1\right)\left(a^{\frac{p-1}{2}}-1\right)\equiv 0\pmod p,
@@ -60,7 +60,7 @@ Kad je modul neparan prost broj, vrijedi sljedeći teorem:
     \end{aligned}
     $$
     
-    Prema [teoremu 5 o kongruencijskim jednadžbama](./congruence-equation.md#素数模同余方程), $a$ je kvadratni ostatak modulo $p$ ako i samo ako je $a^{(p-1)/2}\equiv 1\pmod p$. Stoga je $a$ kvadratni neostatak modulo $p$ ako i samo ako je $a^{(p-1)/2}\equiv -1\pmod p$.
+    Prema [teoremu 5 o kongruencijskim jednadžbama](./congruence-equation.md#kongruencije-po-prostom-modulu), $a$ je kvadratni ostatak modulo $p$ ako i samo ako je $a^{(p-1)/2}\equiv 1\pmod p$. Stoga je $a$ kvadratni neostatak modulo $p$ ako i samo ako je $a^{(p-1)/2}\equiv -1\pmod p$.
 
 Na temelju Eulerova kriterija dobivamo sljedeću posljedicu:
 
@@ -70,7 +70,7 @@ Na temelju Eulerova kriterija dobivamo sljedeću posljedicu:
 ??? note "Dokaz"
     Prema Eulerovu kriteriju promatramo $a^{\frac{p-1}{2}}\equiv 1\pmod p.$
     
-    Uočimo da $\dfrac{p-1}{2}\mid (p-1)$, pa prema [teoremu 6 o kongruencijskim jednadžbama](./congruence-equation.md#素数模同余方程) kongruencija $a^{\frac{p-1}{2}}\equiv 1\pmod p$ ima $\dfrac{p-1}{2}$ rješenja. Dakle, modulo $p$ postoji po $\dfrac{p-1}{2}$ kvadratnih ostataka i kvadratnih neostataka.
+    Uočimo da $\dfrac{p-1}{2}\mid (p-1)$, pa prema [teoremu 6 o kongruencijskim jednadžbama](./congruence-equation.md#kongruencije-po-prostom-modulu) kongruencija $a^{\frac{p-1}{2}}\equiv 1\pmod p$ ima $\dfrac{p-1}{2}$ rješenja. Dakle, modulo $p$ postoji po $\dfrac{p-1}{2}$ kvadratnih ostataka i kvadratnih neostataka.
 
 ## Legendreov simbol
 
@@ -118,7 +118,7 @@ Sljedeća tablica prikazuje neke vrijednosti Legendreova simbola (izvor: [Wikipe
 
 2.  $a_1\equiv a_2\pmod p\implies \left(\dfrac{a_1}{p}\right)=\left(\dfrac{a_2}{p}\right).$
 
-3.  ([Potpuna multiplikativnost](./basic.md#积性函数)) Za sve cijele brojeve $a_1,a_2$,
+3.  ([Potpuna multiplikativnost](./basic.md#multiplikativne-funkcije)) Za sve cijele brojeve $a_1,a_2$,
 
     $$
     \left(\frac{a_1a_2}{p}\right)=\left(\frac{a_1}{p}\right)\left(\frac{a_2}{p}\right).
@@ -163,7 +163,7 @@ Sljedeća tablica prikazuje neke vrijednosti Legendreova simbola (izvor: [Wikipe
         $$
     4.  Vidi [kvadratni zakon reciprociteta](#kvadratni-zakon-reciprociteta).
 
-Na temelju gornjih svojstava, ako za bilo koja dva neparna prosta broja $p$ i $q$ možemo izračunati vrijednost $\left(\dfrac{p}{q}\right)$, onda možemo izračunati vrijednost Legendreova simbola u svakom dopuštenom slučaju. Slijedi elegantan teorem koji vješto uspostavlja vezu između $\left(\dfrac{p}{q}\right)$ i $\left(\dfrac{q}{p}\right)$ te nam omogućuje da računanje dovršimo idejom sličnom [Euklidovu algoritmu](./gcd.md#欧几里得算法).
+Na temelju gornjih svojstava, ako za bilo koja dva neparna prosta broja $p$ i $q$ možemo izračunati vrijednost $\left(\dfrac{p}{q}\right)$, onda možemo izračunati vrijednost Legendreova simbola u svakom dopuštenom slučaju. Slijedi elegantan teorem koji vješto uspostavlja vezu između $\left(\dfrac{p}{q}\right)$ i $\left(\dfrac{q}{p}\right)$ te nam omogućuje da računanje dovršimo idejom sličnom [Euklidovu algoritmu](./gcd.md#euklidov-algoritam).
 
 ### Kvadratni zakon reciprociteta
 
@@ -302,7 +302,7 @@ Modul možemo dalje poopćiti na **cijele brojeve** (treba samo dopuniti definic
 
 ## Kvadratni korijen u modularnoj aritmetici
 
-U ovom odjeljku razmatramo algoritme za vađenje kvadratnog korijena u modularnoj aritmetici. Posebno, odjeljak se uglavnom bavi slučajem prostog modula. Za slučaj općeg modula vidi raspravu u [korijeni višeg reda u modularnoj aritmetici](./residue.md#模意义下开方).
+U ovom odjeljku razmatramo algoritme za vađenje kvadratnog korijena u modularnoj aritmetici. Posebno, odjeljak se uglavnom bavi slučajem prostog modula. Za slučaj općeg modula vidi raspravu u [korijeni višeg reda u modularnoj aritmetici](./residue.md#vađenje-korijena-u-modularnoj-aritmetici).
 
 ### Algoritam za posebne slučajeve
 

@@ -163,7 +163,7 @@ The second implementation is non-recursive. During the loop, it multiplies the p
 
 ???+ warning "Note"
     -   The modulus is usually greater than $1$. In very special cases the modulus $p$ may equal $1$; then the case $b=0$ needs special consideration.
-    -   When the exponent is very large, it must be reduced using the [extended Euler's theorem](./number-theory/fermat.md#扩展欧拉定理) before computing.
+    -   When the exponent is very large, it must be reduced using the [extended Euler's theorem](./number-theory/fermat.md#extended-eulers-theorem) before computing.
 
 ### Computing Fibonacci numbers
 
@@ -174,7 +174,7 @@ From the recurrence of the Fibonacci sequence $F_n = F_{n-1} + F_{n-2}$, we can 
 ???+ note "Problem statement"
     You are given a sequence of length $n$ and a permutation; apply the permutation to the sequence $k$ times.
 
-Simply raise the permutation to the $k$-th power and then apply it to the sequence. The time complexity is $O(n \log k)$. For more details see [Composition of permutations](./permutation.md#复合).
+Simply raise the permutation to the $k$-th power and then apply it to the sequence. The time complexity is $O(n \log k)$. For more details see [Composition of permutations](./permutation.md#composition).
 
 ???+ warning "Note"
     By building a graph from the permutation and computing the $k$-th power separately on each cycle (which is in fact equivalent to taking $k$ modulo the cycle length), the problem can be solved in $O(n)$ time.
@@ -214,11 +214,11 @@ a \cdot b = \begin{cases}
 \end{cases}
 $$
 
-In actual use, however, this method is not time-efficient because it introduces a larger computational complexity. In practical programming, [fast multiplication](./number-theory/mod-arithmetic.md#快速乘) is usually used for multiplication with a modulus in the `long long` range.
+In actual use, however, this method is not time-efficient because it introduces a larger computational complexity. In practical programming, [fast multiplication](./number-theory/mod-arithmetic.md#fast-multiplication) is usually used for multiplication with a modulus in the `long long` range.
 
 ### Binary exponentiation with big integers
 
-Prerequisite: [Big integer multiplication](./bignum.md#乘法)
+Prerequisite: [Big integer multiplication](./bignum.md#multiplication)
 
 ???+ example "[Luogu P1045 \[NOIP 2003 普及组\] 麦森数 (Mersenne Numbers)](https://www.luogu.com.cn/problem/P1045)"
     Given an integer $P$ ($1000 < P < 3100000$), compute the number of digits of $2^P−1$ and its last $500$ digits (in decimal); if there are fewer than $500$ digits, pad with 0 in the high positions.
@@ -237,7 +237,7 @@ When the base $a$ is fixed, we can use the [idea of sqrt decomposition](../ds/de
 
 Suppose the range of the exponent $b$ is $[0,n]$; then the block length $s$ is often chosen as $\sqrt{n}$ or a power of $2$ close to it. Choosing $\sqrt{n}$ gives the optimal preprocessing complexity $O(\sqrt{n})$, while choosing a power of $2$ allows the computation to be simplified with bit operations.
 
-In particular, for modular exponentiation, the same base $a$ implicitly requires the same modulus $m$ as well. By the [extended Euler's theorem](./number-theory/fermat.md#扩展欧拉定理), for an arbitrary modulus $m$ the upper bound of the exponent range to precompute is $n = 2\varphi(m)$; for a prime modulus $p$ the upper bound is $n = p - 1$. In both cases the preprocessing complexity is $O(\sqrt{m})$.
+In particular, for modular exponentiation, the same base $a$ implicitly requires the same modulus $m$ as well. By the [extended Euler's theorem](./number-theory/fermat.md#extended-eulers-theorem), for an arbitrary modulus $m$ the upper bound of the exponent range to precompute is $n = 2\varphi(m)$; for a prime modulus $p$ the upper bound is $n = p - 1$. In both cases the preprocessing complexity is $O(\sqrt{m})$.
 
 ???+ example "Reference code"
     ```cpp

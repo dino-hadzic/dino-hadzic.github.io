@@ -103,7 +103,7 @@ $$
 
 #### Newtonova metoda
 
-Vidi [Newtonovu metodu](./newton.md#newtons-method).
+Vidi [Newtonovu metodu](./newton.md#newtonova-metoda).
 
 #### Graeffeova metoda
 
@@ -219,7 +219,7 @@ Ako je $\left[x^0\right]g(x) = 0$, rastavimo $g(x)$ na $x^{k}h(x)$, pri čemu je
 
 #### Newtonova metoda
 
-Vidi [Newtonovu metodu](./newton.md#newtons-method).
+Vidi [Newtonovu metodu](./newton.md#newtonova-metoda).
 
 ### Primjeri zadataka
 
@@ -275,7 +275,7 @@ Zadan je polinom $f(x)$; treba odrediti $\ln{f(x)}$ i $\exp{f(x)}$ modulo $x^{n}
 #### Obična metoda
 
 === "Logaritam polinoma"
-    Najprije, ako za polinom $f(x)$ postoji $\ln{f(x)}$, tada po [definiciji](./intro.md#复合) mora vrijediti:
+    Najprije, ako za polinom $f(x)$ postoji $\ln{f(x)}$, tada po [definiciji](./intro.md#kompozicija) mora vrijediti:
     
     $$
     [x^{0}]f(x)=1
@@ -323,7 +323,7 @@ Zadan je polinom $f(x)$; treba odrediti $\ln{f(x)}$ i $\exp{f(x)}$ modulo $x^{n}
 
 #### Newtonova metoda
 
-[Newtonovom metodom](./newton.md#newtons-method) $\exp$ polinoma može se izračunati u vremenskoj složenosti $O(n\log{n})$.
+[Newtonovom metodom](./newton.md#newtonova-metoda) $\exp$ polinoma može se izračunati u vremenskoj složenosti $O(n\log{n})$.
 
 ### Kôd
 
@@ -414,7 +414,7 @@ Zadan je polinom $f\left(x\right)$; treba odrediti $\sin{f\left(x\right)}, \cos{
 
 ### Rješenje
 
-Najprije iz [Eulerove formule](../complex.md#欧拉公式) $\left(\mathrm{e}^{\mathrm{i}x} = \cos{x} + \mathrm{i}\sin{x}\right)$ dobivamo [drugi zapis trigonometrijskih funkcija](https://en.wikipedia.org/wiki/Trigonometric_functions#Relationship_to_exponential_function_and_complex_numbers):
+Najprije iz [Eulerove formule](../complex.md#eulerova-formula) $\left(\mathrm{e}^{\mathrm{i}x} = \cos{x} + \mathrm{i}\sin{x}\right)$ dobivamo [drugi zapis trigonometrijskih funkcija](https://en.wikipedia.org/wiki/Trigonometric_functions#Relationship_to_exponential_function_and_complex_numbers):
 
 $$
 \begin{aligned}

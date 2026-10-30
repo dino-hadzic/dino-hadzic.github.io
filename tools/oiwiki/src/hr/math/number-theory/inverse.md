@@ -19,7 +19,7 @@ Pomoću proširenog Euklidova algoritma ili brzog potenciranja inverz jednog cij
 
 ### Prošireni Euklidov algoritam
 
-Računanje inverza ekvivalentno je rješavanju linearne kongruencije. Stoga se inverz može izračunati [proširenim Euklidovim algoritmom](./gcd.md#扩展欧几里得算法) u vremenu $O(\log\min\{a,m\})$. Ujedno, budući da je linearna jednadžba koja odgovara inverzu posebno jednostavna, odgovarajući se koraci mogu prikladno pojednostavniti.
+Računanje inverza ekvivalentno je rješavanju linearne kongruencije. Stoga se inverz može izračunati [proširenim Euklidovim algoritmom](./gcd.md#prošireni-euklidov-algoritam) u vremenu $O(\log\min\{a,m\})$. Ujedno, budući da je linearna jednadžba koja odgovara inverzu posebno jednostavna, odgovarajući se koraci mogu prikladno pojednostavniti.
 
 ???+ example "Referentna implementacija"
     === "C++"

@@ -10,7 +10,7 @@ $$
 \left\lfloor\dfrac{ai+b}{c}\right\rfloor
 $$
 
-Glavna mu je ideja iskoristiti rekurzivnu strukturu samih razlomaka kako bi se problem sveo na problem manje veličine i riješio rekurzivno. Budući da je rekurzivna struktura razlomaka u izravnoj [vezi](./continued-fraction.md#连分数表示的求法) s [Euklidovim algoritmom](./gcd.md#欧几里得算法), ova se metoda sumiranja naziva i algoritmom nalik Euklidovu.
+Glavna mu je ideja iskoristiti rekurzivnu strukturu samih razlomaka kako bi se problem sveo na problem manje veličine i riješio rekurzivno. Budući da je rekurzivna struktura razlomaka u izravnoj [vezi](./continued-fraction.md#određivanje-prikaza-verižnim-razlomkom) s [Euklidovim algoritmom](./gcd.md#euklidov-algoritam), ova se metoda sumiranja naziva i algoritmom nalik Euklidovu.
 
 Budući da [verižni razlomci](./continued-fraction.md) i [Stern–Brocotovo stablo](./stern-brocot.md) također opisuju rekurzivnu strukturu razlomaka, problemi koji se mogu riješiti algoritmom nalik Euklidovu obično se mogu riješiti i tim metodama. U usporedbi s njima, algoritam nalik Euklidovu obično je lakše razumjeti, a i implementacija mu je sažetija.
 
@@ -65,7 +65,7 @@ $$
 \end{aligned}
 $$
 
-U preoblikovanju smo više puta iskoristili svojstva [funkcija zaokruživanja](./basic.md#取整函数) (najveće cijelo i najmanje cijelo). Uvrstimo li preoblikovani uvjet, izvorni se izraz može zapisati kao:
+U preoblikovanju smo više puta iskoristili svojstva [funkcija zaokruživanja](./basic.md#funkcije-pod-i-strop) (najveće cijelo i najmanje cijelo). Uvrstimo li preoblikovani uvjet, izvorni se izraz može zapisati kao:
 
 $$
 \begin{aligned}
@@ -138,7 +138,7 @@ $$
 
 Ovaj rekurzivni algoritam funkcionira ponajprije iz dvaju razloga:
 
--   Prvo, nagibu pravca neprestano se uzima razlomljeni dio pa zatim recipročna vrijednost, što je ekvivalentno računanju [razvoja u verižni razlomak](./continued-fraction.md#连分数表示的求法) nagiba pravca $k=a/c$. Budući da je duljina razvoja racionalnog razlomka u verižni razlomak $O(\log\min\{a,c\})$, ovaj postupak nužno završava nakon $O(\log\min\{a,c\})$ koraka;
+-   Prvo, nagibu pravca neprestano se uzima razlomljeni dio pa zatim recipročna vrijednost, što je ekvivalentno računanju [razvoja u verižni razlomak](./continued-fraction.md#određivanje-prikaza-verižnim-razlomkom) nagiba pravca $k=a/c$. Budući da je duljina razvoja racionalnog razlomka u verižni razlomak $O(\log\min\{a,c\})$, ovaj postupak nužno završava nakon $O(\log\min\{a,c\})$ koraka;
 -   Drugo, budući da je pri svakoj zamjeni koordinatnih osi nagib pravca manji od jedan, intuitivno bi trebalo vrijediti $m<n$, odnosno nakon svake takve runde iteracije raspon apscisa neprestano se smanjuje. Strogom analizom u ranijem izračunu složenosti pokazano je da se nakon svake dvije runde iteracije $S=mn$ smanji barem na polovinu, pa ovaj postupak nužno završava nakon $O(\log n)$ koraka.
 
 Zato je složenost algoritma nalik Euklidovu, kad je nagib racionalan, $O(\log\min\{a,c,n\})$.
@@ -295,7 +295,7 @@ Sličnom geometrijskom interpretacijom algoritam nalik Euklidovu može se poopć
     f(a,b,c,n) = nm - f(ca,-cb,a^2r-b^2,m).
     $$
     
-    Da bismo izbjegli cjelobrojno prelijevanje (overflow), potrebno je svaki put $a,b,c$ podijeliti njihovim najvećim zajedničkim djeliteljem. Budući da se ovaj postupak računanja u potpunosti podudara s računanjem verižnog razlomka od $k$, prema [teoriji verižnih razlomaka](./continued-fraction.md#二次无理数), ako osiguramo $\gcd(a,b,c)=1$, oni tijekom računanja nužno ostaju unutar raspona cjelobrojnog tipa. Osim toga, iako se $(a,b,c,n)$ ne prelijeva, pri ograničenjima ovog zadatka $f(a,b,c,n)$ može premašiti raspon $64$-bitnih cijelih brojeva; dovoljno je dopustiti prirodno prelijevanje bez dodatne obrade, jer je konačni rezultat sigurno u $[-n,n]$.
+    Da bismo izbjegli cjelobrojno prelijevanje (overflow), potrebno je svaki put $a,b,c$ podijeliti njihovim najvećim zajedničkim djeliteljem. Budući da se ovaj postupak računanja u potpunosti podudara s računanjem verižnog razlomka od $k$, prema [teoriji verižnih razlomaka](./continued-fraction.md#kvadratni-iracionalni-brojevi), ako osiguramo $\gcd(a,b,c)=1$, oni tijekom računanja nužno ostaju unutar raspona cjelobrojnog tipa. Osim toga, iako se $(a,b,c,n)$ ne prelijeva, pri ograničenjima ovog zadatka $f(a,b,c,n)$ može premašiti raspon $64$-bitnih cijelih brojeva; dovoljno je dopustiti prirodno prelijevanje bez dodatne obrade, jer je konačni rezultat sigurno u $[-n,n]$.
     
     Iako nagib nikad ne postaje nula, složenost algoritma i dalje je $O(\log n)$, što se lako vidi iz ranijeg razmatranja složenosti algoritma.
     
@@ -307,7 +307,7 @@ Sličnom geometrijskom interpretacijom algoritam nalik Euklidovu može se poopć
     Zadani su pozitivni cijeli brojevi $a,b,c,d$. Među svim neskrativim razlomcima $p/q$ koji zadovoljavaju $a/b<p/q<c/d$ pronađite onaj s leksikografski najmanjim $(q,p)$.
 
 ??? note "Rješenje"
-    Ovaj je zadatak ujedno klasična primjena [Stern–Brocotova stabla](./stern-brocot.md); odgovarajuće rješenje može se naći [ovdje](./continued-fraction.md#连分数的树). Budući da ovisi samo o rekurzivnoj strukturi razlomaka, može se riješiti i metodom sličnom Euklidovu algoritmu, pa se može smatrati i primjenom algoritma nalik Euklidovu.
+    Ovaj je zadatak ujedno klasična primjena [Stern–Brocotova stabla](./stern-brocot.md); odgovarajuće rješenje može se naći [ovdje](./continued-fraction.md#stablo-verižnih-razlomaka). Budući da ovisi samo o rekurzivnoj strukturi razlomaka, može se riješiti i metodom sličnom Euklidovu algoritmu, pa se može smatrati i primjenom algoritma nalik Euklidovu.
     
     Ako između $a/b$ i $c/d$ (bez krajeva) postoji barem jedan prirodan broj, možemo izravno uzeti $(q,p)=(1,\lfloor a/b\rfloor+1)$. Inače nužno vrijedi
     
@@ -315,7 +315,7 @@ Sličnom geometrijskom interpretacijom algoritam nalik Euklidovu može se poopć
     \left\lfloor\dfrac{a}{b}\right\rfloor \le \dfrac{a}{b} <\dfrac{p}{q} <\dfrac{c}{d}\le\left\lfloor\dfrac{a}{b}\right\rfloor+1.
     $$
     
-    Iz ove nejednakosti vidimo da je cjelobrojni dio od $p/q$ određen kao $\lfloor a/b\rfloor$; izravno ga uklonimo, a zatim uzmemo recipročnu vrijednost cijelog izraza kako bismo odredili njegov razlomljeni dio. To je upravo [osnovna metoda](./continued-fraction.md#连分数表示的求法) određivanja verižnog razlomka od $p/q$. Ako je konačni odgovor $p/q$, vremenska je složenost algoritma $O(\log\min\{p,q\})$.
+    Iz ove nejednakosti vidimo da je cjelobrojni dio od $p/q$ određen kao $\lfloor a/b\rfloor$; izravno ga uklonimo, a zatim uzmemo recipročnu vrijednost cijelog izraza kako bismo odredili njegov razlomljeni dio. To je upravo [osnovna metoda](./continued-fraction.md#određivanje-prikaza-verižnim-razlomkom) određivanja verižnog razlomka od $p/q$. Ako je konačni odgovor $p/q$, vremenska je složenost algoritma $O(\log\min\{p,q\})$.
     
     Ovdje postoji jedan detalj: je li leksikografski najmanji razlomak dobiven nakon uzimanja recipročne vrijednosti ujedno leksikografski najmanji razlomak prije uzimanja recipročne vrijednosti. Drugim riječima, je li među razlomcima $p/q$ koji zadovoljavaju $a/b<p/q<c/d$ onaj s leksikografski najmanjim $(q,p)$ ujedno i onaj s leksikografski najmanjim $(p,q)$. Pretpostavimo suprotno: neka $p/q$ ima leksikografski najmanji $(q,p)$, ali $r/s\neq p/q$ ima leksikografski najmanji $(r,s)$. Tada nužno vrijedi $r<p$ i $q<s$. No to znači da je
     
@@ -688,7 +688,7 @@ Univerzalnim Euklidovim algoritmom dobivamo sljedeću implementaciju zadatka-pre
         F(k,n,U,R) = F(k^{-1},m,R,U)R^{n-\lfloor k^{-1}m\rfloor}.
         $$
     
-    Iteracija $k$ u algoritmu zapravo je računanje razvoja $\sqrt{r}$ u verižni razlomak. Za to se može primijeniti [PQa algoritam](./pell-equation.md#pqa-算法). Postupak računanja verižnog razlomka i iteracija univerzalnog Euklidova algoritma mogu se provoditi istodobno.
+    Iteracija $k$ u algoritmu zapravo je računanje razvoja $\sqrt{r}$ u verižni razlomak. Za to se može primijeniti [PQa algoritam](./pell-equation.md#pqa-algoritam). Postupak računanja verižnog razlomka i iteracija univerzalnog Euklidova algoritma mogu se provoditi istodobno.
     
     Kao i u slučaju algoritma nalik Euklidovu, složenost algoritma i dalje je $O(\log n)$.
     

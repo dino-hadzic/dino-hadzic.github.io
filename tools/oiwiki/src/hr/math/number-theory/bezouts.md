@@ -65,7 +65,7 @@ Bézoutov teorem otkriva duboku vezu između najvećeg zajedničkog djelitelja i
     
     Time je dokazano da postoje $x,y$ za koje vrijedi $ax+by=d$. Prema prethodnoj analizi, time je dokazana i izvorna tvrdnja.
 
-Ovdje je dokaz egzistencije konstruktivan: ujedno daje i način izračuna tih koeficijenata. Taj je način izračuna upravo [prošireni Euklidov algoritam](./gcd.md#扩展欧几里得算法).
+Ovdje je dokaz egzistencije konstruktivan: ujedno daje i način izračuna tih koeficijenata. Taj je način izračuna upravo [prošireni Euklidov algoritam](./gcd.md#prošireni-euklidov-algoritam).
 
 Promotrimo li poseban slučaj Bézoutova teorema kad je $\gcd(a,b)=1$, dobivamo sljedeću posljedicu:
 
@@ -300,7 +300,7 @@ $$
 \sum_{i=0}^{\lfloor k / a_1 \rfloor} \left(\left\lfloor\dfrac{k-ia_1}{a_2}\right\rfloor+1\right).
 $$
 
-To je klasični problem cjelobrojnih točaka ispod pravca, koji se [algoritmom nalik Euklidovu](./euclidean.md#类欧几里得算法) može riješiti u vremenu $O(\log\min\{a_1,a_2,k\})$.
+To je klasični problem cjelobrojnih točaka ispod pravca, koji se [algoritmom nalik Euklidovu](./euclidean.md#algoritam-nalik-euklidovu) može riješiti u vremenu $O(\log\min\{a_1,a_2,k\})$.
 
 ### Zadatci
 

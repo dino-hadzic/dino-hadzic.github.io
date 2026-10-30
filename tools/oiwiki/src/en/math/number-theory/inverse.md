@@ -19,7 +19,7 @@ Using the extended Euclidean algorithm or binary exponentiation, the inverse of 
 
 ### Extended Euclidean algorithm
 
-Computing an inverse is equivalent to solving a linear congruence. Therefore, the [extended Euclidean algorithm](./gcd.md#扩展欧几里得算法) can be used to compute the inverse in $O(\log\min\{a,m\})$ time. At the same time, since the linear equation corresponding to the inverse is rather special, the corresponding steps can be simplified appropriately.
+Computing an inverse is equivalent to solving a linear congruence. Therefore, the [extended Euclidean algorithm](./gcd.md#extended-euclidean-algorithm) can be used to compute the inverse in $O(\log\min\{a,m\})$ time. At the same time, since the linear equation corresponding to the inverse is rather special, the corresponding steps can be simplified appropriately.
 
 ???+ example "Reference implementation"
     === "C++"

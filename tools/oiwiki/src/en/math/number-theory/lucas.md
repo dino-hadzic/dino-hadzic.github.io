@@ -42,7 +42,7 @@ First we discuss the case where the modulus is a prime $p$. In this case, we hav
     \binom{p}{n} \equiv [n=0\lor n=p] \pmod p.
     $$
     
-    Let $f(x) = ax^n + bx^m$. In general, by the [binomial theorem](../combinatorics/combination.md#二项式定理) and [Fermat's little theorem](./fermat.md#费马小定理) we have
+    Let $f(x) = ax^n + bx^m$. In general, by the [binomial theorem](../combinatorics/combination.md#二项式定理) and [Fermat's little theorem](./fermat.md#fermats-little-theorem) we have
     
     $$
     \begin{aligned}
@@ -191,7 +191,7 @@ $$
 \binom{n}{k} = p^{\nu_p(n!)-\nu_p(k!)-\nu_p((n-k)!)}\dfrac{(n!)_p}{(k!)_p((n-k)!)_p}.
 $$
 
-The quantities $\nu_p(n!)$ etc. in the formula can be computed by [Legendre's formula](./factorial.md#legendres-formula), and $(n!)_p$ etc. by the [recurrence relation](./factorial.md#the-prime-power-modulus-case). Since the latter are coprime to $p^\alpha$, the inverse of the product in the denominator can be computed by the [extended Euclidean algorithm](./inverse.md#扩展欧几里得算法). This solves the problem.
+The quantities $\nu_p(n!)$ etc. in the formula can be computed by [Legendre's formula](./factorial.md#legendres-formula), and $(n!)_p$ etc. by the [recurrence relation](./factorial.md#the-prime-power-modulus-case). Since the latter are coprime to $p^\alpha$, the inverse of the product in the denominator can be computed by the [extended Euclidean algorithm](./inverse.md#extended-euclidean-algorithm). This solves the problem.
 
 Note that if the exponent $\nu_p(n!)-\nu_p(k!)-\nu_p((n-k)!)\ge\alpha$, the remainder must be zero and no further computation is needed.
 

@@ -552,7 +552,7 @@ $f_i$ denotes the sum of divisors of $i$, and $g_i$ denotes $p^0+p^1+p^2+\dots p
 
 ## General multiplicative functions
 
-If a [multiplicative function](./basic.md#积性函数)  $f$ satisfies: for any prime $p$ and positive integer $k$, $f(p^k)$ can be computed in time polynomial of low degree in $k$, then the values $f(1),f(2),\dots,f(n)$ can be sieved in $O(n)$ time.
+If a [multiplicative function](./basic.md#multiplicative-functions)  $f$ satisfies: for any prime $p$ and positive integer $k$, $f(p^k)$ can be computed in time polynomial of low degree in $k$, then the values $f(1),f(2),\dots,f(n)$ can be sieved in $O(n)$ time.
 
 Let the prime factorization of the composite number $n$ be $\prod_{i=1}^k p_i^{\alpha_i}$, where $p_1<p_2<\dots<p_k$ are primes; in the linear sieve we record $g_n=p_1^{\alpha_1}$. If $n$ is sieved as $x\cdot p$ ($p$ is prime), then $g$ satisfies the following recurrence:
 

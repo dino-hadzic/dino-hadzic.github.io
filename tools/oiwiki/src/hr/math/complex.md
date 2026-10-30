@@ -288,7 +288,7 @@ Osim toga, kao jednostavna posljedica ove analize vrijedi:
 ???+ note "Teorem"
     Kad $k$ prolazi svim djeliteljima od $n$, svi primitivni $k$-ti korijeni jedinice čine upravo jednu particiju skupa $n$-tih korijena jedinice. Štoviše, za $\ell\perp n$ preslikavanje $x\mapsto x^\ell$ daje bijekciju skupa $n$-tih korijena jedinice na sebe koja čuva tu particiju: primitivne korijene jedinice reda $k\mid n$ i dalje preslikava u primitivne $k$-te korijene jedinice.
 
-Iako postoji mnogo izbora primitivnog korijena jedinice, prvi korijen $\omega_n$ ima najjednostavniji oblik, pa se u algoritamskim natjecanjima ipak najčešće koristi $\omega_n$. U nekim situacijama, radi veće učinkovitosti računanja, umjesto $\omega_n$ iz polja kompleksnih brojeva može se razmotriti i [primitivni korijen jedinice](./number-theory/residue.md#单位根) modulo neki modul.
+Iako postoji mnogo izbora primitivnog korijena jedinice, prvi korijen $\omega_n$ ima najjednostavniji oblik, pa se u algoritamskim natjecanjima ipak najčešće koristi $\omega_n$. U nekim situacijama, radi veće učinkovitosti računanja, umjesto $\omega_n$ iz polja kompleksnih brojeva može se razmotriti i [primitivni korijen jedinice](./number-theory/residue.md#korijeni-jedinice) modulo neki modul.
 
 ## Kompleksni brojevi u programskim jezicima
 

@@ -42,7 +42,7 @@ Najprije razmotrimo slučaj u kojem je modul prost broj $p$. Tada vrijedi Lucaso
     \binom{p}{n} \equiv [n=0\lor n=p] \pmod p.
     $$
     
-    Neka je $f(x) = ax^n + bx^m$. Općenito, prema [binomnom teoremu](../combinatorics/combination.md#二项式定理) i [malom Fermatovu teoremu](./fermat.md#费马小定理) vrijedi
+    Neka je $f(x) = ax^n + bx^m$. Općenito, prema [binomnom teoremu](../combinatorics/combination.md#二项式定理) i [malom Fermatovu teoremu](./fermat.md#mali-fermatov-teorem) vrijedi
     
     $$
     \begin{aligned}
@@ -191,7 +191,7 @@ $$
 \binom{n}{k} = p^{\nu_p(n!)-\nu_p(k!)-\nu_p((n-k)!)}\dfrac{(n!)_p}{(k!)_p((n-k)!)_p}.
 $$
 
-Vrijednosti $\nu_p(n!)$ i slične u formuli mogu se izračunati [Legendreovom formulom](./factorial.md#legendreova-formula), a $(n!)_p$ i slične [rekurzivnom relacijom](./factorial.md#slučaj-modula-koji-je-potencija-prostog-broja). Budući da su potonje relativno proste s $p^\alpha$, inverz umnoška u nazivniku može se izračunati [proširenim Euklidovim algoritmom](./inverse.md#扩展欧几里得算法). Time je problem riješen.
+Vrijednosti $\nu_p(n!)$ i slične u formuli mogu se izračunati [Legendreovom formulom](./factorial.md#legendreova-formula), a $(n!)_p$ i slične [rekurzivnom relacijom](./factorial.md#slučaj-modula-koji-je-potencija-prostog-broja). Budući da su potonje relativno proste s $p^\alpha$, inverz umnoška u nazivniku može se izračunati [proširenim Euklidovim algoritmom](./inverse.md#prošireni-euklidov-algoritam). Time je problem riješen.
 
 Uočite: ako je eksponent $\nu_p(n!)-\nu_p(k!)-\nu_p((n-k)!)\ge\alpha$, ostatak je nužno nula i nije potrebno dalje računati.
 

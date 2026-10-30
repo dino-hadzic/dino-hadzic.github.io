@@ -12,13 +12,13 @@ Kad je $n$ prost, očito je $\varphi(n) = n - 1$.
 
 ## Svojstva
 
--   Eulerova funkcija je [multiplikativna funkcija](./basic.md#积性函数).
+-   Eulerova funkcija je [multiplikativna funkcija](./basic.md#multiplikativne-funkcije).
 
     Odnosno, za sve cijele brojeve $a,b$ za koje je $\gcd(a, b) = 1$ vrijedi $\varphi(ab) = \varphi(a)\varphi(b)$.
 
     Posebno, kad je $n$ neparan, vrijedi $\varphi(2n) = \varphi(n)$.
 
-    Dokaz vidi u [Kompoziciji sustava ostataka](./basic.md#剩余系的复合).
+    Dokaz vidi u [Kompoziciji sustava ostataka](./basic.md#sastavljanje-sustava-ostataka).
 
 -   $n = \sum_{d \mid n}{\varphi(d)}$.
 
@@ -97,7 +97,7 @@ Ako trebamo vrijednost Eulerove funkcije samo za jedan broj, računamo je izravn
 
 Ako trebamo vrijednosti Eulerove funkcije za više brojeva, možemo ih izračunati linearnim sitom, koje će biti opisano kasnije.
 
-Detalje vidi u: [Računanje Eulerove funkcije sitom](./sieve.md#筛法求欧拉函数)
+Detalje vidi u: [Računanje Eulerove funkcije sitom](./sieve.md#sito-za-eulerovu-funkciju)
 
 ## Primjene
 

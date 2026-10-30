@@ -189,7 +189,7 @@ Implementacija naivnog algoritma traženja razlomka izgleda ovako:
 
 Složenost algoritma je $O(p+q)$, pa na algoritamskim natjecanjima nije praktičan.
 
-U Stern–Brocotovu brojevnom sustavu svakom pozitivnom iracionalnom broju odgovara jedinstven beskonačno dug niz znakova. Isti algoritam može se upotrijebiti za konstrukciju tog niza. Svakom prefiksu tog beskonačnog niza odgovara neki racionalni neskrativi razlomak. Poredamo li te neskrative razlomke u niz, nazivnici razlomaka u nizu strogo rastu, a limes niza je taj iracionalni broj. Stoga se Stern–Brocotovo stablo može upotrijebiti za nalaženje racionalne aproksimacije nekog iracionalnog broja s proizvoljnom točnošću. Treba, međutim, imati na umu da razlika između tog niza racionalnih brojeva i iracionalnog broja nije strogo padajuća. Za strogu teoriju racionalnih aproksimacija vidi odjeljak [Diofantske aproksimacije](./continued-fraction.md#丢番图逼近) na stranici o verižnim razlomcima. Kad se Stern–Brocotovo stablo u praksi koristi za nalaženje najbolje aproksimacije nekog realnog broja s nazivnikom koji ne prelazi zadanu granicu, na kraju treba usporediti udaljenosti lijeve i desne krajnje točke intervala od tog realnog broja.
+U Stern–Brocotovu brojevnom sustavu svakom pozitivnom iracionalnom broju odgovara jedinstven beskonačno dug niz znakova. Isti algoritam može se upotrijebiti za konstrukciju tog niza. Svakom prefiksu tog beskonačnog niza odgovara neki racionalni neskrativi razlomak. Poredamo li te neskrative razlomke u niz, nazivnici razlomaka u nizu strogo rastu, a limes niza je taj iracionalni broj. Stoga se Stern–Brocotovo stablo može upotrijebiti za nalaženje racionalne aproksimacije nekog iracionalnog broja s proizvoljnom točnošću. Treba, međutim, imati na umu da razlika između tog niza racionalnih brojeva i iracionalnog broja nije strogo padajuća. Za strogu teoriju racionalnih aproksimacija vidi odjeljak [Diofantske aproksimacije](./continued-fraction.md#diofantska-aproksimacija) na stranici o verižnim razlomcima. Kad se Stern–Brocotovo stablo u praksi koristi za nalaženje najbolje aproksimacije nekog realnog broja s nazivnikom koji ne prelazi zadanu granicu, na kraju treba usporediti udaljenosti lijeve i desne krajnje točke intervala od tog realnog broja.
 
 #### Brzi algoritam
 
@@ -230,7 +230,7 @@ $$
 \dfrac{p_k}{q_k} = \dfrac{t_kp_{k-1}+p_{k-2}}{t_kq_{k-1}+q_{k-2}}.
 $$
 
-Prema [rekurzivnoj relaciji](./continued-fraction.md#递推关系) verižnih razlomaka slijedi da je krajnja točka
+Prema [rekurzivnoj relaciji](./continued-fraction.md#rekurzivne-relacije) verižnih razlomaka slijedi da je krajnja točka
 
 $$
 \dfrac{p_k}{q_k} = [t_0,t_1,\cdots,t_k].
@@ -242,7 +242,7 @@ $$
 \dfrac{p}{q} = \dfrac{p_n+p_{n-1}}{q_n+q_{n-1}} = [t_0,t_1,\cdots,t_{n-1},t_n,1].
 $$
 
-Dakle, u [prikazu verižnim razlomkom](./continued-fraction.md#简单连分数) ciljnog razlomka koji završava jedinicom, članovi ispred posljednje jedinice kodiraju put od korijena do trenutačnog čvora u Stern–Brocotovu stablu. Pri tome članovi s parnim indeksom (indeksi počinju od $0$) odgovaraju bridovima prema desnom djetetu, a članovi s neparnim indeksom bridovima prema lijevom djetetu.
+Dakle, u [prikazu verižnim razlomkom](./continued-fraction.md#jednostavni-verižni-razlomci) ciljnog razlomka koji završava jedinicom, članovi ispred posljednje jedinice kodiraju put od korijena do trenutačnog čvora u Stern–Brocotovu stablu. Pri tome članovi s parnim indeksom (indeksi počinju od $0$) odgovaraju bridovima prema desnom djetetu, a članovi s neparnim indeksom bridovima prema lijevom djetetu.
 
 Prikaz racionalnog broja verižnim razlomkom može se dobiti Euklidovim algoritmom, pa je složenost algoritma traženja razlomka temeljenog na prikazu verižnim razlomkom $O(\log\min\{p,q\})$.
 
@@ -369,7 +369,7 @@ $$
 \end{aligned}
 $$
 
-Ovdje je $\varphi(n)$ [Eulerova funkcija](./euler-totient.md). Taj se izraz pomoću [linearnog sita](./sieve.md#筛法求欧拉函数) može izračunati u $O(n)$, a pomoću [Du sita](./hyperbola.md#杜教筛) složenost se može spustiti na $O(n^{2/3})$.
+Ovdje je $\varphi(n)$ [Eulerova funkcija](./euler-totient.md). Taj se izraz pomoću [linearnog sita](./sieve.md#sito-za-eulerovu-funkciju) može izračunati u $O(n)$, a pomoću [Du sita](./hyperbola.md#du-sito) složenost se može spustiti na $O(n^{2/3})$.
 
 Češći od izravnog računanja duljine niza je slučaj kad treba odrediti redni broj nekog razlomka $r=\dfrac{p}{q}$ u nizu $F_n$. To je jednako izračunu vrijednosti
 
@@ -419,7 +419,7 @@ Svaka od dviju jednadžbi ima točno jedno rješenje u pozitivnim cijelim brojev
 
 Naravno, razlomci $\dfrac{a}{b}<\dfrac{c}{d}$ nađeni u tom postupku upravo su lijevi i desni susjed razlomka $\dfrac{p}{q}$ u trenutku njegova umetanja u niz. Stoga su oni i sami Fareyevi susjedi, a $\dfrac{p}{q}$ je njihova medijanta. Neka je $\dfrac{p}{q}=[t_0,t_1,\cdots,t_n,1]$; tada su ta dva Fareyeva susjeda s manjim nazivnicima redom $[t_0,t_1,\cdots,t_n]$ i $[t_0,t_1,\cdots,t_{n-1}]$.
 
-Za izračun ostalih Fareyevih susjeda trenutačnog razlomka $\dfrac{p}{q}$ dovoljno je [proširenim Euklidovim algoritmom](./bezouts.md#两个变量的情形) odrediti sva rješenja koja zadovoljavaju uvjete.
+Za izračun ostalih Fareyevih susjeda trenutačnog razlomka $\dfrac{p}{q}$ dovoljno je [proširenim Euklidovim algoritmom](./bezouts.md#slučaj-dviju-varijabli) odrediti sva rješenja koja zadovoljavaju uvjete.
 
 ### Rekurzivna relacija
 

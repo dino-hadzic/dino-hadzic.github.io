@@ -241,7 +241,7 @@ Koristeći vezu između Dirichletove konvolucije i umnoška Dirichletovih funkci
 
 ### Eulerov produkt
 
-Posebnost multiplikativnih funkcija odražava se i na Dirichletovim funkcijama izvodnicama. Zbog [teorema o jedinstvenoj faktorizaciji](./basic.md#算术基本定理) cijelih brojeva, funkcija izvodnica $F(s)$ multiplikativne funkcije $f(n)$ može se zapisati u sljedećem obliku:
+Posebnost multiplikativnih funkcija odražava se i na Dirichletovim funkcijama izvodnicama. Zbog [teorema o jedinstvenoj faktorizaciji](./basic.md#osnovni-teorem-aritmetike) cijelih brojeva, funkcija izvodnica $F(s)$ multiplikativne funkcije $f(n)$ može se zapisati u sljedećem obliku:
 
 $$
 \begin{aligned}
@@ -366,7 +366,7 @@ Dirichletove funkcije izvodnice mogu se upotrijebiti za prikaz aritmetičkih fun
 
 Primjerice, u Du situ za računanje prefiksnih suma aritmetičke funkcije $f$ treba naći drugu aritmetičku funkciju $g$ takvu da se prefiksne sume i od $f\ast g$ i od $g$ mogu brzo izračunati. Taj se postupak može izvesti pomoću Dirichletovih funkcija izvodnica.
 
-Uzmimo za primjer zadatak iz odjeljka o Du situ [Luogu P3768 简单的数学题 (Jednostavan matematički zadatak)](../number-theory/hyperbola.md#例题): za $f(n)=n^2\varphi(n)$ treba konstruirati aritmetičku funkciju $g(n)$ koja zadovoljava gornje uvjete. Budući da je $f$ multiplikativna funkcija, njezina Dirichletova funkcija izvodnica jest
+Uzmimo za primjer zadatak iz odjeljka o Du situ [Luogu P3768 简单的数学题 (Jednostavan matematički zadatak)](../number-theory/hyperbola.md#primjeri-zadataka): za $f(n)=n^2\varphi(n)$ treba konstruirati aritmetičku funkciju $g(n)$ koja zadovoljava gornje uvjete. Budući da je $f$ multiplikativna funkcija, njezina Dirichletova funkcija izvodnica jest
 
 $$
 F(s) = \prod_{p\in\mathbf P}\left(1 + \sum_{k=1}^{\infty}\dfrac{p^{3k-1}(p-1)}{p^{ks}}\right) = \prod_{p\in\mathbf P}\dfrac{1-p^{2-s}}{1-p^{3-s}} = \dfrac{\zeta(s-3)}{\zeta(s-2)}.
@@ -427,7 +427,7 @@ $$
 \sum_{p\in\mathbf P,~p\le n}\sum_{k=1}^{\infty}\left\lfloor\dfrac{n}{p^k}\right\rfloor \le \sum_{p\in\mathbf P,~p\le n}\dfrac{n}{p-1} \le \sum_{p\in\mathbf P,~p\le n}\dfrac{2n}{p} \in O(n\log\log n).
 $$
 
-Posljednji korak ocjene složenosti podudara se s dokazom složenosti [Eratostenova sita](./sieve.md#埃拉托斯特尼筛法). Stoga je vremenska složenost ovog algoritma $O(n\log\log n)$.
+Posljednji korak ocjene složenosti podudara se s dokazom složenosti [Eratostenova sita](./sieve.md#eratostenovo-sito). Stoga je vremenska složenost ovog algoritma $O(n\log\log n)$.
 
 Referentna implementacija:
 
@@ -440,7 +440,7 @@ Posebno, kada je multiplikativna funkcija $g$ potpuno multiplikativna ili njezin
 
 ### Slučaj kada je rezultat multiplikativna funkcija
 
-Naposljetku razmotrimo slučaj kada je $h$ multiplikativna funkcija. Posebno, kada su $f,g$ obje multiplikativne, $h=f \ast g$ je multiplikativna. Za računanje $h$ dovoljno je odrediti njezine vrijednosti na potencijama prostih brojeva, a zatim se ona može izračunati [linearnim sitom](./sieve.md#线性筛法) u vremenu $O(n)$. Vrijednosti $h(p^e)$ na potencijama prostih brojeva $p^e$ računaju se izravno grubom silom:
+Naposljetku razmotrimo slučaj kada je $h$ multiplikativna funkcija. Posebno, kada su $f,g$ obje multiplikativne, $h=f \ast g$ je multiplikativna. Za računanje $h$ dovoljno je odrediti njezine vrijednosti na potencijama prostih brojeva, a zatim se ona može izračunati [linearnim sitom](./sieve.md#linearno-sito) u vremenu $O(n)$. Vrijednosti $h(p^e)$ na potencijama prostih brojeva $p^e$ računaju se izravno grubom silom:
 
 $$
 h(p^e) = \sum_{i=0}^e f(p^i)g(p^{e-i}).

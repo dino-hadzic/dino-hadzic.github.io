@@ -15,7 +15,7 @@ U ovom članku koristit će se sljedeće oznake:
 
 -   $\mathbf P$ je skup (pozitivnih) prostih brojeva, a $p_a$ je $a$-ti najmanji prosti broj (indeksi počinju od $1$). Radi jednostavnosti izlaganja dodatno stavljamo $p_0=1$. U ovom članku slova $p$ i $q$ uvijek označavaju proste brojeve.
 -   $\operatorname{lpf}(n)$ označava najmanji prosti faktor broja $n$. Dodatno stavljamo $\operatorname{lpf}(1)=+\infty$.
--   $D(x) = \{\lfloor x/i\rfloor : i = 1,2,\dots,\lfloor x\rfloor\}$. Njegova su svojstva detaljno opisana u odjeljku [Svojstva blokovskog dijeljenja po cjelobrojnom kvocijentu](./sqrt-decomposition.md#性质).
+-   $D(x) = \{\lfloor x/i\rfloor : i = 1,2,\dots,\lfloor x\rfloor\}$. Njegova su svojstva detaljno opisana u odjeljku [Svojstva blokovskog dijeljenja po cjelobrojnom kvocijentu](./sqrt-decomposition.md#svojstva).
 -   $\pi(x)$ je broj prostih brojeva koji ne premašuju $x$.
 -   $\varphi(x,a)=\#\{n \in\mathbf N_+ : n \le x,~ (p\mid n \implies p > p_a)\}$ je broj pozitivnih cijelih brojeva koji ne premašuju $x$ i čiji su svi prosti faktori veći od $p_a$.
 -   $P_k(x,a)=\#\{n\in\mathbf N_+ : n \le x,~ n = q_1q_2\cdots q_k,~ \forall i(q_i > p_a)\}$ je broj pozitivnih cijelih brojeva koji ne premašuju $x$, imaju točno $k$ prostih faktora (brojeći kratnost) i svi su im prosti faktori veći od $p_a$.
@@ -175,7 +175,7 @@ U nastavku je dana referentna implementacija tog algoritma za $c=0$:
     --8<-- "docs/math/code/prime-counting/lmo-offline.cpp:core"
     ```
 
-Taj offline pristup ima visoku prostornu složenost i teško obrađuje probleme veličine $10^{13}$. Usko je grlo to što pri predobradi treba pohraniti informacije o $\operatorname{lpf}$ za $[1,x/y]$. Zapravo se te informacije koriste samo za kasnije offline upite, i to jednim sekvencijalnim prolazom, pa se sasvim mogu izračunati pri upitu [segmentiranim sitom](./sieve.md#分块筛选).
+Taj offline pristup ima visoku prostornu složenost i teško obrađuje probleme veličine $10^{13}$. Usko je grlo to što pri predobradi treba pohraniti informacije o $\operatorname{lpf}$ za $[1,x/y]$. Zapravo se te informacije koriste samo za kasnije offline upite, i to jednim sekvencijalnim prolazom, pa se sasvim mogu izračunati pri upitu [segmentiranim sitom](./sieve.md#blokovsko-prosijavanje).
 
 Zapravo, izvorni rad nudi način implementacije u potpunosti temeljen na segmentiranom situ. Izračunavanje $P_2(x,a)$ i $\varphi(x,a)$ obavlja se unutar segmentiranog sita, čime se dobiva algoritam vremenske složenosti $\tilde O(x^{2/3})$ i prostorne složenosti $\tilde O(x^{1/3})$. To zahtijeva da se svi listovi na neki način izravno nabroje i da se offline algoritam preradi u online algoritam. U nastavku predstavljamo jedan jednostavan način implementacije.
 
@@ -228,7 +228,7 @@ izravno se dobiva vrijednost funkcije prebrojavanja prostih brojeva $\pi(x)$.
     
     To jest $S(30,2)=S(30,1)-\bigl(S(10,1)-(2-1)\bigr)=15-(5-1)=11$.
 
-Tu je rekurzivnu relaciju lako izračunati dinamičkim programiranjem. Budući da je $S(x,a)=S(\lfloor x\rfloor,a)$, sva se dijeljenja u rekurzivnoj relaciji mogu shvatiti kao cjelobrojna. Prema [svojstvima blokovskog dijeljenja po cjelobrojnom kvocijentu](./sqrt-decomposition.md#性质) vrijednosti prve dimenzije u dinamičkom programiranju nužno su u skupu $D(x)$, kojih ima samo $\Theta(\sqrt{x})$. Štoviše, zbog posebnog oblika rekurzivne relacije vrijednosti $S(\cdot,a)$ mogu se pohraniti u jednom polju duljine $|D(x)|$; za svaki $a$ prolaze se elementi skupa $D(x)$ od većih prema manjima i polje se ažurira prema rekurzivnoj relaciji, sve dok element ne postane strogo manji od $p_a^2$. Dovoljno je $\pi(\sqrt{x})$ ažuriranja da se dobije konačan rezultat.
+Tu je rekurzivnu relaciju lako izračunati dinamičkim programiranjem. Budući da je $S(x,a)=S(\lfloor x\rfloor,a)$, sva se dijeljenja u rekurzivnoj relaciji mogu shvatiti kao cjelobrojna. Prema [svojstvima blokovskog dijeljenja po cjelobrojnom kvocijentu](./sqrt-decomposition.md#svojstva) vrijednosti prve dimenzije u dinamičkom programiranju nužno su u skupu $D(x)$, kojih ima samo $\Theta(\sqrt{x})$. Štoviše, zbog posebnog oblika rekurzivne relacije vrijednosti $S(\cdot,a)$ mogu se pohraniti u jednom polju duljine $|D(x)|$; za svaki $a$ prolaze se elementi skupa $D(x)$ od većih prema manjima i polje se ažurira prema rekurzivnoj relaciji, sve dok element ne postane strogo manji od $p_a^2$. Dovoljno je $\pi(\sqrt{x})$ ažuriranja da se dobije konačan rezultat.
 
 Prostorna je složenost algoritma očito $O(x^{1/2})$. Što se tiče vremenske složenosti, složenost je predobrade $O(x^{1/2})$, a složenost dijela s dinamičkim programiranjem zadana je s
 
@@ -422,7 +422,7 @@ Pretpostavimo da teorijsko-brojevna funkcija $f$ zadovoljava sljedeće uvjete:
 1.  $f$ je potpuno multiplikativna funkcija, tj. $f(mn)=f(m)f(n)$ vrijedi za sve pozitivne cijele brojeve $m,n$;
 2.  prefiksna suma $F(x)=\sum_{n \le x}f(n)$ lako se računa.
 
-Uobičajene teorijsko-brojevne funkcije koje zadovoljavaju te uvjete uključuju potencije i [Dirichletove karaktere](https://en.wikipedia.org/wiki/Dirichlet_character) (npr. [Legendreov simbol](./quad-residue.md#legendre-符号)). Naravno, ako se neka funkcija može prikazati kao linearna kombinacija funkcija koje zadovoljavaju te uvjete, i njezina se prefiksna suma po prostim brojevima može izračunati. Stoga metoda iz ovog odjeljka može obraditi slučajeve kada je $f$ polinom ili kada je $f$ periodična funkcija[^periodic]. Drugi, sažetiji način obrade periodičnih funkcija opisan je u primjeru zadatka u nastavku.
+Uobičajene teorijsko-brojevne funkcije koje zadovoljavaju te uvjete uključuju potencije i [Dirichletove karaktere](https://en.wikipedia.org/wiki/Dirichlet_character) (npr. [Legendreov simbol](./quad-residue.md#legendreov-simbol)). Naravno, ako se neka funkcija može prikazati kao linearna kombinacija funkcija koje zadovoljavaju te uvjete, i njezina se prefiksna suma po prostim brojevima može izračunati. Stoga metoda iz ovog odjeljka može obraditi slučajeve kada je $f$ polinom ili kada je $f$ periodična funkcija[^periodic]. Drugi, sažetiji način obrade periodičnih funkcija opisan je u primjeru zadatka u nastavku.
 
 Pod tim uvjetima može se poopćiti prethodna rekurzivna relacija. Definirajmo $S(x,a)$ kao zbroj vrijednosti $f(\cdot)$ u cijelim brojevima koji u intervalu $[2,x]$ preostaju nakon prosijavanja prvih $a$ prostih brojeva, tj.
 

@@ -6,7 +6,7 @@ U ovom se članku razmatraju mali Fermatov teorem, Eulerov teorem i njegovo pro�
 
 ## Mali Fermatov teorem
 
-**Mali Fermatov teorem** (Fermat's little theorem) jedan je od najosnovnijih teorema teorije brojeva. On je ujedno i teorijska podloga [Fermatova testa prostosti](./prime.md#fermat-素性测试).
+**Mali Fermatov teorem** (Fermat's little theorem) jedan je od najosnovnijih teorema teorije brojeva. On je ujedno i teorijska podloga [Fermatova testa prostosti](./prime.md#fermatov-test-prostosti).
 
 ???+ note "Mali Fermatov teorem"
     Neka je $p$ prost broj. Za svaki cijeli broj $a$ takav da $p\nmid a$ vrijedi $a^{p-1}\equiv 1\pmod p$.
@@ -56,7 +56,7 @@ Ove su dvije kongruencije ekvivalentne kad $p\nmid a$; a kad $p\mid a$, kongruen
     
     Pritom je u drugom koraku primijenjena pretpostavka indukcije. Dakle, po matematičkoj indukciji mali Fermatov teorem vrijedi.
 
-Obrat malog Fermatova teorema ne vrijedi. Čak i ako za sve $a$ relativno proste s $n$ vrijedi $a^{n-1}\equiv 1\pmod n$, $n$ ne mora biti prost. Više o tome u odjeljku [Fermatov test prostosti](./prime.md#fermat-素性测试).
+Obrat malog Fermatova teorema ne vrijedi. Čak i ako za sve $a$ relativno proste s $n$ vrijedi $a^{n-1}\equiv 1\pmod n$, $n$ ne mora biti prost. Više o tome u odjeljku [Fermatov test prostosti](./prime.md#fermatov-test-prostosti).
 
 ## Eulerov teorem
 
@@ -72,7 +72,7 @@ Obrat malog Fermatova teorema ne vrijedi. Čak i ako za sve $a$ relativno proste
     R = \{r\in\mathbf N : 0 < r < m,~\gcd(r,m)=1\}.
     $$
     
-    To je [reducirani sustav ostataka](./basic.md#同余类与剩余系) modulo $m$. Prema definiciji Eulerove funkcije vrijedi $|R|=\varphi(m)$. Slično kao gore, množenje tih brojeva s $a$ odgovara permutaciji tog skupa:
+    To je [reducirani sustav ostataka](./basic.md#klase-kongruencije-i-sustavi-ostataka) modulo $m$. Prema definiciji Eulerove funkcije vrijedi $|R|=\varphi(m)$. Slično kao gore, množenje tih brojeva s $a$ odgovara permutaciji tog skupa:
     
     $$
     R = \{ar\bmod m: r\in R\}.
@@ -86,7 +86,7 @@ Obrat malog Fermatova teorema ne vrijedi. Čak i ako za sve $a$ relativno proste
     
     Ponavljajući prethodni argument i kratimo $\prod_{r\in R}r$, dobivamo $a^{\varphi(m)}\equiv 1\pmod m$.
 
-Za prost broj $p$ vrijedi $\varphi(p)=p-1$, pa je mali Fermatov teorem poseban slučaj Eulerova teorema. Osim toga, eksponent $\varphi(m)$ u Eulerovu teoremu općenito nije najmanji eksponent za koji ta kongruencija vrijedi. Može se poboljšati na $\lambda(m)$, gdje je $\lambda(\cdot)$ [Carmichaelova funkcija](./primitive-root.md#carmichael-函数). Za algebarsku pozadinu srodnih rezultata vidi odjeljak [Multiplikativna grupa klasa ostataka cijelih brojeva](../algebra/ring-theory.md#应用整数同余类的乘法群).
+Za prost broj $p$ vrijedi $\varphi(p)=p-1$, pa je mali Fermatov teorem poseban slučaj Eulerova teorema. Osim toga, eksponent $\varphi(m)$ u Eulerovu teoremu općenito nije najmanji eksponent za koji ta kongruencija vrijedi. Može se poboljšati na $\lambda(m)$, gdje je $\lambda(\cdot)$ [Carmichaelova funkcija](./primitive-root.md#carmichaelova-funkcija). Za algebarsku pozadinu srodnih rezultata vidi odjeljak [Multiplikativna grupa klasa ostataka cijelih brojeva](../algebra/ring-theory.md#应用整数同余类的乘法群).
 
 ## Prošireni Eulerov teorem
 

@@ -93,7 +93,7 @@ Jedna oktalna znamenka može se prikazati s 3 binarne znamenke (jer je $2^3 = 8$
 
 ## Metoda komplemenata
 
-Vidi također: [Jedinični i dvojni komplement](../bit.md#整数与位序列)
+Vidi također: [Jedinični i dvojni komplement](../bit.md#cijeli-brojevi-i-nizovi-bitova)
 
 **Metoda komplemenata** (method of complements) postupak je kojim se negativni brojevi prikazuju pozitivnima tako da se oduzimanje može izvesti istim algoritmom/sklopom/mehaničkom konstrukcijom kao zbrajanje pozitivnih brojeva. Metoda komplemenata široko se koristi u dizajnu kalkulatora i računala radi pojednostavljenja konstrukcije.
 
@@ -246,7 +246,7 @@ U standardnom pozicijskom sustavu baza je svake znamenke fiksna, dok sustav s mj
 
 Broj koji $a_n\cdots a_1a_0$ prikazuje u bazi $b$ iznosi $\sum_{i=0}^n a_ib^i$, dok u sustavu s mješovitom bazom prikazuje $\sum_{i=0}^n a_i\prod_{j=0}^{i-1}b_j$, gdje je $b_j$ baza znamenke $a_j$.
 
-Na algoritamskim natjecanjima najčešći sustav s mješovitom bazom jest [**faktorijelni brojevni sustav**](https://en.wikipedia.org/wiki/Factorial_number_system) (factorial number system), u kojem se brojevi zapisuju kao ${a_n\cdots a_1a_0}_{~!}$ i prikazuju $\sum_{i=0}^na_i i!$[^note2]. Za primjenu faktorijelnog sustava na algoritamskim natjecanjima vidi [Lehmerov kod/Cantorov razvoj](../permutation.md#排名).
+Na algoritamskim natjecanjima najčešći sustav s mješovitom bazom jest [**faktorijelni brojevni sustav**](https://en.wikipedia.org/wiki/Factorial_number_system) (factorial number system), u kojem se brojevi zapisuju kao ${a_n\cdots a_1a_0}_{~!}$ i prikazuju $\sum_{i=0}^na_i i!$[^note2]. Za primjenu faktorijelnog sustava na algoritamskim natjecanjima vidi [Lehmerov kod/Cantorov razvoj](../permutation.md#rang).
 
 ???+ note "Implementacija (iz dekadskog u faktorijelni sustav)"
     ```cpp

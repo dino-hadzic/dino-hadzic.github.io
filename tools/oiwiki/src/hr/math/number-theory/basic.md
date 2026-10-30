@@ -523,9 +523,9 @@ Izvod tih, pa i općenitijih suma sličnog oblika može se pogledati na stranici
 Više svojstava i primjena funkcija pod i strop može se pogledati na sljedećim stranicama:
 
 -   Operacija modulo: $n\bmod m = n - \left\lfloor\dfrac{n}{m}\right\rfloor m$. Može se iskoristiti za [optimizaciju cjelobrojne operacije modulo](./mod-arithmetic.md#srodni-algoritmi).
--   Dokaz [zakona kvadratnog reciprociteta](./quad-residue.md#二次互反律) pomoću Gaussove leme.
+-   Dokaz [zakona kvadratnog reciprociteta](./quad-residue.md#kvadratni-zakon-reciprociteta) pomoću Gaussove leme.
 -   [Blokovsko dijeljenje po cjelobrojnom kvocijentu](./sqrt-decomposition.md), osobito dio s dokazima njegovih svojstava.
--   [Legendreova formula](./factorial.md#legendre-公式) za računanje eksponenta prostog faktora u faktorijelu.
+-   [Legendreova formula](./factorial.md#legendreova-formula) za računanje eksponenta prostog faktora u faktorijelu.
 -   [Beattyjevi nizovi](../game-theory/impartial-game.md#wythoff-游戏), Rayleighov teorem i Wythoffova igra.
 
 ## Literatura i napomene

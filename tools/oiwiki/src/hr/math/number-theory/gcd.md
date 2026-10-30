@@ -14,7 +14,7 @@ Za cijele brojeve $a,b$ koji nisu oba $0$ njihov najveći zajednički djelitelj 
 
 Za cijele brojeve $a_1,\dots,a_n$ koji nisu svi $0$ njihov najveći zajednički djelitelj označavamo $\gcd(a_1,\dots,a_n)$, a kad nema opasnosti od zabune skraćeno $(a_1,\dots,a_n)$.
 
-Svojstva najvećeg zajedničkog djelitelja i najmanjeg zajedničkog višekratnika vidi u [Osnovama teorije brojeva](./basic.md#最大公约数与最小公倍数).
+Svojstva najvećeg zajedničkog djelitelja i najmanjeg zajedničkog višekratnika vidi u [Osnovama teorije brojeva](./basic.md#najveći-zajednički-djelitelj-i-najmanji-zajednički-višekratnik).
 
 Kako, dakle, izračunati najveći zajednički djelitelj? Razmotrimo najprije slučaj dvaju brojeva.
 
@@ -207,7 +207,7 @@ Za velike brojeve treba implementirati: oduzimanje, usporedbu, pomak ulijevo, po
 Gornji kod slijedi implementacije C++17 `std::gcd` u [libstdc++](https://github.com/gcc-mirror/gcc/blob/1667962ae755db27965778b8c8c684c6c0c4da21/libstdc%2B%2B-v3/include/std/numeric#L173) i [MSVC](https://github.com/microsoft/STL/blob/9aca22477df4eed3222b4974746ee79129eb44e7/stl/inc/numeric#L591). U rasponu tipova `unsigned int` i `unsigned long long`, ako se `countr_zero` može izračunati vrlo brzo, Steinov je algoritam brži od Euklidova, a inače može biti i sporiji od Euklidova.
 
 ???+ note "O funkciji countr_zero"
-    1.  gcc ima [ugrađene funkcije](../bit.md#gcc-内建函数) `__builtin_ctz` (32-bitnu) i `__builtin_ctzll` (64-bitnu) koje mogu zamijeniti `countr_zero` u gornjem kodu;
+    1.  gcc ima [ugrađene funkcije](../bit.md#ugrađene-funkcije-gcc-a) `__builtin_ctz` (32-bitnu) i `__builtin_ctzll` (64-bitnu) koje mogu zamijeniti `countr_zero` u gornjem kodu;
     2.  Od C++20 zaglavlje `<bit>` sadrži [`std::countr_zero`](https://en.cppreference.com/w/cpp/numeric/countr_zero);
     3.  Ako ne želite koristiti funkcije izvan standardne knjižnice, a ne možete koristiti standard C++20, sljedeći je kod implementacija koja u modelu Word-RAM with multiplication nakon pretprocesiranja radi u $O(1)$:
     
