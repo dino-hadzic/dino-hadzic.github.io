@@ -254,7 +254,7 @@ Binomni teorem zapravo je poseban slučaj Newtonova binomnog teorema.
 
 ## Funkcija izvodnica Catalanovih brojeva
 
-Vidi [algebarski izvod Catalanovih brojeva](../combinatorics/catalan.md#代数推演).
+Vidi [algebarski izvod Catalanovih brojeva](../combinatorics/catalan.md#algebarsko-izvođenje).
 
 ## Primjene
 

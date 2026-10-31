@@ -43,7 +43,7 @@ Prema definiciji lako se provjerava da je Möbiusova funkcija $\mu(n)$ multiplik
     Pritom je $[\cdot]$ Iversonova zagrada.
 
 ??? note "Dokaz"
-    Neka je $n=\prod_{i=1}^kp_i^{e_i}$ i neka je $n' = \prod_{i=1}^kp_i$. Prema [binomnom teoremu](../combinatorics/combination.md#二项式定理) vrijedi
+    Neka je $n=\prod_{i=1}^kp_i^{e_i}$ i neka je $n' = \prod_{i=1}^kp_i$. Prema [binomnom teoremu](../combinatorics/combination.md#binomni-teorem) vrijedi
     
     $$
     \sum_{d\mid n}\mu(d) = \sum_{d\mid n'}\mu(d) = \sum_{i=0}^k\binom{k}{i}(-1)^i = (1 + (-1))^k = [k = 0] = [n = 1].

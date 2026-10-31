@@ -277,7 +277,7 @@ U iskazu teorema koristi se pojam cikličkog indeksa grupe permutacija. On ne ov
 
 ### Primjene
 
-Težinska inačica Pólyina teorema prebrojavanja ima važnu ulogu u zadacima kombinatornog prebrojavanja. Ovdje kratko raspravljamo o njezinim primjenama, a općenitija rasprava nalazi se u [Simbolička metoda za kombinatorne probleme](../poly/symbolic-method.md#有限制的构造).
+Težinska inačica Pólyina teorema prebrojavanja ima važnu ulogu u zadacima kombinatornog prebrojavanja. Ovdje kratko raspravljamo o njezinim primjenama, a općenitija rasprava nalazi se u [Simbolička metoda za kombinatorne probleme](../poly/symbolic-method.md#ograničene-konstrukcije).
 
 ???+ example "Dijamantna ogrlica"
     Imamo ogrlicu s ukupno četiri jednake perle, a na svaku perlu može se umetnuti nekoliko dijamanata. Ako imamo četiri dijamanta, koliko ukupno ima bitno različitih načina umetanja dijamanata? (Ako se dva rasporeda dijamanata mogu dovesti do podudaranja rotacijom ogrlice, smatramo ih jednakima.)

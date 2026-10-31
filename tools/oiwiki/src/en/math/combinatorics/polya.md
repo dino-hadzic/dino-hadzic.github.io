@@ -277,7 +277,7 @@ The statement of the theorem uses the concept of the cycle index of a permutatio
 
 ### Applications
 
-The weighted version of the Pólya enumeration theorem plays an important role in combinatorial counting problems. Here we briefly discuss its applications; a more general discussion can be found in [Symbolic method for combinatorial problems](../poly/symbolic-method.md#有限制的构造).
+The weighted version of the Pólya enumeration theorem plays an important role in combinatorial counting problems. Here we briefly discuss its applications; a more general discussion can be found in [Symbolic method for combinatorial problems](../poly/symbolic-method.md#restricted-constructions).
 
 ???+ example "Diamond necklace"
     We have a necklace with four identical beads in total, and several diamonds can be set on each bead. If there are four diamonds, how many essentially different ways are there to set them? (If two settings can be made to coincide by rotating the necklace, they are considered the same.)

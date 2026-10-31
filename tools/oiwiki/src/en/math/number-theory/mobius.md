@@ -43,7 +43,7 @@ From the definition it is easy to verify that the Möbius function $\mu(n)$ is m
     Here $[\cdot]$ is the Iverson bracket.
 
 ??? note "Proof"
-    Let $n=\prod_{i=1}^kp_i^{e_i}$ and set $n' = \prod_{i=1}^kp_i$. By the [binomial theorem](../combinatorics/combination.md#二项式定理),
+    Let $n=\prod_{i=1}^kp_i^{e_i}$ and set $n' = \prod_{i=1}^kp_i$. By the [binomial theorem](../combinatorics/combination.md#binomial-theorem),
     
     $$
     \sum_{d\mid n}\mu(d) = \sum_{d\mid n'}\mu(d) = \sum_{i=0}^k\binom{k}{i}(-1)^i = (1 + (-1))^k = [k = 0] = [n = 1].

@@ -251,7 +251,7 @@ $$
 
 Budući da je modul diskretnog logaritma jednak redu $\delta_m(g)=2^{e-2}=m/4$, ovdje smo cijelu kongruenciju izravno pomnožili s $4$ kako bi se račun mogao provoditi u klasama ostataka modulo $m$. Stoga je dovoljno za $1 < d < e$ unaprijed izračunati sve $4L(2^d+1)$ i vrijednost $4L(a)$ može se brzo izračunati.
 
-Obratno, iz $L(a)$ lako se dobiva vrijednost $g^{L(a)}\bmod{m}$. Prema [binomnom teoremu](../combinatorics/combination.md#二项式定理) za $1 < d < e$ vrijedi
+Obratno, iz $L(a)$ lako se dobiva vrijednost $g^{L(a)}\bmod{m}$. Prema [binomnom teoremu](../combinatorics/combination.md#binomni-teorem) za $1 < d < e$ vrijedi
 
 $$
 \begin{aligned}

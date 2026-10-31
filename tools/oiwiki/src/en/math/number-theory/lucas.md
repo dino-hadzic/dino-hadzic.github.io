@@ -12,7 +12,7 @@ $$
 \binom{n}{k} = \dfrac{n!}{k!(n-k)!}.
 $$
 
-When the problem size is not large, binomial coefficients can be computed by the [recurrence](../combinatorics/combination.md#组合数性质--二项式推论) in $O(nk)$ time; modulo a sufficiently large prime $p>n$, they can also be computed in $O(n)$ time by computing the factorials in the numerator and the denominator. But when the problem size is very large ($n\sim 10^{18}$), these methods no longer apply.
+When the problem size is not large, binomial coefficients can be computed by the [recurrence](../combinatorics/combination.md#properties-of-binomial-coefficients--binomial-corollaries) in $O(nk)$ time; modulo a sufficiently large prime $p>n$, they can also be computed in $O(n)$ time by computing the factorials in the numerator and the denominator. But when the problem size is very large ($n\sim 10^{18}$), these methods no longer apply.
 
 Based on Lucas's theorem and its generalization, this article discusses a method that can compute binomial coefficients when the modulus is not too large ($m \sim 10^6$). More precisely, the method can be used as long as the sum of all prime powers in the unique factorization of the modulus $m=\prod p_i^{e_i}$ (i.e. $\sum p_i^{e_i}$) is on the order of $10^6$, because the precomputation of the algorithm is roughly of this size.
 
@@ -42,7 +42,7 @@ First we discuss the case where the modulus is a prime $p$. In this case, we hav
     \binom{p}{n} \equiv [n=0\lor n=p] \pmod p.
     $$
     
-    Let $f(x) = ax^n + bx^m$. In general, by the [binomial theorem](../combinatorics/combination.md#二项式定理) and [Fermat's little theorem](./fermat.md#fermats-little-theorem) we have
+    Let $f(x) = ax^n + bx^m$. In general, by the [binomial theorem](../combinatorics/combination.md#binomial-theorem) and [Fermat's little theorem](./fermat.md#fermats-little-theorem) we have
     
     $$
     \begin{aligned}

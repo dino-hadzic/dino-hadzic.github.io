@@ -2,7 +2,7 @@
 title: Graph enumeration
 ---
 
-In combinatorics, graph enumeration is the branch that studies problems of counting graphs with given properties. [Generating functions](../poly/intro.md), the [Pólya enumeration theorem](./polya.md), the [symbolic method](../poly/symbolic-method.md#%E9%9B%86%E5%90%88%E7%9A%84-cycle-%E6%9E%84%E9%80%A0) and the [OEIS](https://oeis.org/) are the most important mathematical tools for solving such problems. Graph enumeration problems fall into two large classes: labeled and unlabeled. In most cases[^1] the labeled version of a problem is simpler than the corresponding unlabeled one, so we first look at counting labeled structures.
+In combinatorics, graph enumeration is the branch that studies problems of counting graphs with given properties. [Generating functions](../poly/intro.md), the [Pólya enumeration theorem](./polya.md), the [symbolic method](../poly/symbolic-method.md#the-cycle-construction) and the [OEIS](https://oeis.org/) are the most important mathematical tools for solving such problems. Graph enumeration problems fall into two large classes: labeled and unlabeled. In most cases[^1] the labeled version of a problem is simpler than the corresponding unlabeled one, so we first look at counting labeled structures.
 
 [^1]: Unlabeled binary trees may be a counterexample: when the structure is simple, the corresponding permutation group is the identity group, and the labeled version is then obtained directly by multiplying by $n!$.
 
@@ -68,7 +68,7 @@ Substituting into the equation above gives $CG = H$; it suffices to compute the 
 
 #### Method 3: polynomial exp
 
-Another approach is to use the [combinatorial meaning of the polynomial exp of an EGF](../poly/egf.md#egf-%E4%B8%AD%E5%A4%9A%E9%A1%B9%E5%BC%8F-exp-%E7%9A%84%E7%BB%84%E5%90%88%E6%84%8F%E4%B9%89). Let $C(x)$ and $G(x)$ be the EGFs of the sequences of labeled connected graphs and of simple graphs, respectively; then they satisfy the following relation:
+Another approach is to use the [combinatorial meaning of the polynomial exp of an EGF](../poly/egf.md#combinatorial-meaning-of-polynomial-exp-in-egfs). Let $C(x)$ and $G(x)$ be the EGFs of the sequences of labeled connected graphs and of simple graphs, respectively; then they satisfy the following relation:
 
 $$
 \begin{align}
@@ -232,7 +232,7 @@ $$
 
 ## Riddell's formula
 
-The use of the exp of an EGF described above is sometimes called Riddell's formula for labeled graphs, and the [Euler transform](../poly/symbolic-method.md#%E9%9B%86%E5%90%88%E7%9A%84-multiset-%E6%9E%84%E9%80%A0) of a generating function is sometimes called Riddell's formula for unlabeled graphs. The latter first appeared in Euler's study of integer partitions; besides graph enumeration problems, it also appears in the unbounded knapsack problem.
+The use of the exp of an EGF described above is sometimes called Riddell's formula for labeled graphs, and the [Euler transform](../poly/symbolic-method.md#the-multiset-construction) of a generating function is sometimes called Riddell's formula for unlabeled graphs. The latter first appeared in Euler's study of integer partitions; besides graph enumeration problems, it also appears in the unbounded knapsack problem.
 
 For a given sequence $a_i$ with corresponding OGF $A(x)$, the Euler transform of $A(x)$ is defined as:
 

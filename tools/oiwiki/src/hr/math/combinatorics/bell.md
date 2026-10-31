@@ -44,7 +44,7 @@ $B_{n+1}$ je broj particija skupa s $n+1$ elementom. Neka je skup koji pripada b
 
 Nastavljajući tako dobivamo gornju formulu.
 
-Svaki je Bellov broj zbroj odgovarajućih [Stirlingovih brojeva druge vrste](./stirling.md#第二类斯特林数stirling-number),
+Svaki je Bellov broj zbroj odgovarajućih [Stirlingovih brojeva druge vrste](./stirling.md#stirlingovi-brojevi-druge-vrste-stirling-number),
 jer je Stirlingov broj druge vrste broj načina da se skup kardinalnosti $n$ podijeli na točno $k$ nepraznih skupova.
 
 $$

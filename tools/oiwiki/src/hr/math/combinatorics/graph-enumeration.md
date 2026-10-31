@@ -2,7 +2,7 @@
 title: Prebrojavanje grafova
 ---
 
-U kombinatorici je prebrojavanje grafova (graph enumeration) grana koja proučava probleme prebrojavanja grafova sa zadanim svojstvima. [Funkcije izvodnice](../poly/intro.md), [Pólyin teorem prebrojavanja](./polya.md), [simbolička metoda](../poly/symbolic-method.md#%E9%9B%86%E5%90%88%E7%9A%84-cycle-%E6%9E%84%E9%80%A0) i [OEIS](https://oeis.org/) najvažniji su matematički alati za rješavanje takvih problema. Problemi prebrojavanja grafova dijele se na dvije velike skupine: označene (labeled) i neoznačene (unlabeled). U većini slučajeva[^1] označena je inačica problema jednostavnija od odgovarajuće neoznačene, pa ćemo najprije promotriti prebrojavanje označenih struktura.
+U kombinatorici je prebrojavanje grafova (graph enumeration) grana koja proučava probleme prebrojavanja grafova sa zadanim svojstvima. [Funkcije izvodnice](../poly/intro.md), [Pólyin teorem prebrojavanja](./polya.md), [simbolička metoda](../poly/symbolic-method.md#konstrukcija-cycle-ciklusa-nad-skupom) i [OEIS](https://oeis.org/) najvažniji su matematički alati za rješavanje takvih problema. Problemi prebrojavanja grafova dijele se na dvije velike skupine: označene (labeled) i neoznačene (unlabeled). U većini slučajeva[^1] označena je inačica problema jednostavnija od odgovarajuće neoznačene, pa ćemo najprije promotriti prebrojavanje označenih struktura.
 
 [^1]: Neoznačena binarna stabla možda su protuprimjer: kad je struktura jednostavna, odgovarajuća je grupa permutacija trivijalna grupa (identity group), pa se označena inačica dobiva jednostavno množenjem s $n!$.
 
@@ -68,7 +68,7 @@ Uvrštavanjem u gornju jednakost dobivamo $CG = H$; dovoljno je izračunati [inv
 
 #### Metoda 3: eksponencijal polinoma
 
-Drugi je pristup iskoristiti [kombinatorno značenje eksponencijala polinoma kod EGF-a](../poly/egf.md#egf-%E4%B8%AD%E5%A4%9A%E9%A1%B9%E5%BC%8F-exp-%E7%9A%84%E7%BB%84%E5%90%88%E6%84%8F%E4%B9%89). Neka su $C(x)$ i $G(x)$ redom EGF-ovi nizova označenih povezanih grafova i jednostavnih grafova; tada među njima vrijedi sljedeća veza:
+Drugi je pristup iskoristiti [kombinatorno značenje eksponencijala polinoma kod EGF-a](../poly/egf.md#kombinatorno-značenje-polinomnog-exp-u-egf-u). Neka su $C(x)$ i $G(x)$ redom EGF-ovi nizova označenih povezanih grafova i jednostavnih grafova; tada među njima vrijedi sljedeća veza:
 
 $$
 \begin{align}
@@ -232,7 +232,7 @@ $$
 
 ## Riddellova formula
 
-Gornja upotreba eksponencijala EGF-a ponekad se naziva Riddellovom formulom za označene grafove (Riddell's formula for labeled graphs), a [Eulerova transformacija](../poly/symbolic-method.md#%E9%9B%86%E5%90%88%E7%9A%84-multiset-%E6%9E%84%E9%80%A0) funkcije izvodnice ponekad Riddellovom formulom za neoznačene grafove (Riddell's formula for unlabeled graphs). Potonja se prvi put pojavila u Eulerovu proučavanju particija brojeva; osim u prebrojavanju grafova, pojavljuje se i u problemu neograničenog ruksaka (unbounded knapsack).
+Gornja upotreba eksponencijala EGF-a ponekad se naziva Riddellovom formulom za označene grafove (Riddell's formula for labeled graphs), a [Eulerova transformacija](../poly/symbolic-method.md#konstrukcija-multiset-multiskupa-nad-skupom) funkcije izvodnice ponekad Riddellovom formulom za neoznačene grafove (Riddell's formula for unlabeled graphs). Potonja se prvi put pojavila u Eulerovu proučavanju particija brojeva; osim u prebrojavanju grafova, pojavljuje se i u problemu neograničenog ruksaka (unbounded knapsack).
 
 Za zadani niz $a_i$ i pripadnu OGF $A(x)$ Eulerova transformacija od $A(x)$ definira se kao:
 

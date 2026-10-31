@@ -281,7 +281,7 @@ $$
 A^k = p^e\Lambda + I 
 $$
 
-holds. Hence, by the [binomial theorem](./combination.md#二项式定理), we have
+holds. Hence, by the [binomial theorem](./combination.md#binomial-theorem), we have
 
 $$
 A^{kp} = (p^e\Lambda + I)^p = I + \sum_{i=1}^p\binom{p}{i}(p^e\Lambda)^i \equiv I\pmod{p^{e+1}}. 

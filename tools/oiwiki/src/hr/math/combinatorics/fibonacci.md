@@ -281,7 +281,7 @@ $$
 A^k = p^e\Lambda + I 
 $$
 
-Stoga, prema [binomnom teoremu](./combination.md#二项式定理), vrijedi
+Stoga, prema [binomnom teoremu](./combination.md#binomni-teorem), vrijedi
 
 $$
 A^{kp} = (p^e\Lambda + I)^p = I + \sum_{i=1}^p\binom{p}{i}(p^e\Lambda)^i \equiv I\pmod{p^{e+1}}. 

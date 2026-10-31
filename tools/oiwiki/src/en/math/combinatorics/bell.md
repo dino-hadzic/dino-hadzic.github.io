@@ -44,7 +44,7 @@ $B_{n+1}$ is the number of partitions of a set with $n+1$ elements. Let the set 
 
 Continuing in this way gives the formula above.
 
-Every Bell number is the sum of the corresponding [Stirling numbers of the second kind](./stirling.md#第二类斯特林数stirling-number),
+Every Bell number is the sum of the corresponding [Stirling numbers of the second kind](./stirling.md#stirling-numbers-of-the-second-kind-stirling-number),
 because the Stirling number of the second kind is the number of ways to partition a set of cardinality $n$ into exactly $k$ nonempty sets.
 
 $$
