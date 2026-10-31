@@ -1,0 +1,1910 @@
+---
+title: Continued fractions
+---
+
+## Introduction
+
+Continued fractions represent a real number as the limit of a convergent sequence of rational numbers. The rational numbers in this sequence are easy to compute and provide the best approximations of the real number, so continued fractions are frequently used in competitive programming. In addition, continued fractions are closely related to the Euclidean algorithm, so they can be applied to a whole range of number-theoretic problems.
+
+???+ info "About the implementations of continued-fraction algorithms"
+    This article provides a series of implementations of continued-fraction algorithms; for some of them, it cannot be guaranteed that all integers appearing in intermediate steps fit into 32-bit or 64-bit integer variables. In such cases, refer to the corresponding Python implementation, or replace the integer variables in the C++ implementation with an [arbitrary-precision integer class](../bignum.md). To keep the focus clear, some code in this article calls functions implemented earlier in the text without repeating their implementation.
+
+## Continued fractions
+
+A **continued fraction** is, by itself, just a formal notation.
+
+???+ abstract "Finite continued fraction"
+    For a sequence $\{a_k\}_{k=0}^n$, the continued fraction $[a_0,a_1,\ldots,a_n]$ denotes the expansion
+    
+    $$
+    x = a_0+\dfrac{1}{a_1+\dfrac{1}{a_2+\dfrac{1}{\cdots+\dfrac{1}{a_n}}}}.
+    $$
+    
+    The continued fraction is meaningful if and only if the corresponding expansion is meaningful. The $a_k$ are called the **terms** or **coefficients** of the continued fraction.
+
+???+ info "Notation"
+    More general continued fractions allow numerators in the expansion that are not identically $1$, and the corresponding notation has to be modified accordingly; this is beyond the scope of this article. Also, some sources write the first comma "$,$" as a semicolon "$;$"; there is no difference in meaning from the notation used here.
+
+Of course, continued fractions can also be generalized to infinite sequences.
+
+???+ abstract "Infinite continued fraction"
+    For an infinite sequence $\{a_k\}_{k=0}^\infty$, the continued fraction $[a_0,a_1,\ldots]$ denotes the limit
+    
+    $$
+    x = \lim_{k\rightarrow\infty} x_k = \lim_{k\rightarrow\infty} [a_0,a_1,\ldots,a_k].
+    $$
+    
+    The continued fraction is meaningful if and only if the corresponding limit is meaningful. Here, $x_k=[a_0,a_1,\ldots,a_k]$ is called the $k$-th **convergent** of $x$, and $r_k=[a_k,a_{k+1},\ldots]$ is called the $k$-th **remainder** or **complete quotient** of $x$. Correspondingly, the term $a_k$ is sometimes also called the $k$-th **partial quotient**.
+
+### Simple continued fractions
+
+In number theory, one mainly considers continued fractions whose terms are all integers.
+
+???+ abstract "Simple continued fraction"
+    For a continued fraction $[a_0,a_1,\ldots]$, if $a_0$ is an integer and $a_1,a_2,\ldots$ are all positive integers, it is called a **simple continued fraction**, or simply a **continued fraction**. If the sequence $\{a_i\}$ is finite, it is called a **finite (simple) continued fraction**; otherwise it is called an **infinite (simple) continued fraction**. Moreover, $a_0$ is called its **integer part**.
+
+Unless stated otherwise, all continued fractions mentioned in this article are simple continued fractions. It can be shown that an infinite simple continued fraction always converges, and that the remainders of a simple continued fraction are always positive.
+
+Continued fractions have the following basic properties:
+
+???+ note "Properties"
+    Let $x=[a_0,a_1,a_2,\ldots]$ be a real number. Then the following properties hold:
+    
+    1.  For every $k\in\mathbf Z$, $x+k=[a_0+k,a_1,a_2,\ldots]$;
+    2.  For a real number $x>1$, $a_0>0$, and its reciprocal is $x^{-1}=[0,a_0,a_1,a_2,\ldots]$.
+
+Finite continued fractions correspond to rational numbers. Every rational number can be written as a continued fraction in exactly two ways, and their lengths are necessarily one odd and one even. The only difference between the two is whether the last term is $1$, namely
+
+$$
+x = [a_0,a_1,\ldots,a_n] = [a_0,a_1,\ldots,a_n-1,1].
+$$
+
+These two continued fractions are called the **continued fraction representations** of the rational number $x$. The one whose last term is not one is called the canonical representation, and the one whose last term is one is called the non-canonical representation.[^one-representation]
+
+??? example "Example"
+    The continued fraction representations of the rational number $x=\dfrac{5}{3}$ are
+    
+    $$
+    \begin{aligned}
+    x = [1,1,1,1] &= 1+\dfrac{1}{1+\dfrac{1}{1+\dfrac{1}{1}}},\\
+    x = [1,1,2] &= 1+\dfrac{1}{1+\dfrac{1}{2}}.
+    \end{aligned}
+    $$
+
+Infinite continued fractions correspond to irrational numbers. Moreover, every irrational number can be written as a continued fraction in exactly one way, called the continued fraction representation of the irrational number.
+
+### Computing the continued fraction representation
+
+To find the continued fraction representation of a real number $x$, it suffices to note that if its remainder $r_k$ is not an integer, it must satisfy
+
+$$
+r_k = [a_k,a_{k+1},\ldots] = [a_k,r_{k+1}] = a_k + \dfrac{1}{r_{k+1}}.
+$$
+
+Moreover, $r_{k+1}>1$. Therefore, starting from $r_0=x$, one can recursively compute
+
+$$
+a_k = \lfloor r_k\rfloor,\ r_{k+1} = \dfrac{1}{r_k-a_k}.
+$$
+
+The sequence $\{a_k\}$ produced by this process is always uniquely determined, unless some remainder $r_k$ becomes an integer. If $r_k$ turns out to be an integer, the process should terminate, and one may choose to output the corresponding canonical or non-canonical representation.
+
+In competitive programming, one usually deals with the case of a rational number $x=\dfrac{p}{q}$. Then every remainder $r_k$ is a rational number $\dfrac{p_k}{q_k}$, and for $k>0$, since $r_k>1$, we always have $p_k>q_k$. Working out the above recurrence concretely, one finds
+
+$$
+a_k = \left\lfloor\frac{p_k}{q_k}\right\rfloor,\ r_{k+1} = \dfrac{1}{r_k-a_k} = \dfrac{q_k}{p_k-a_kq_k} = \dfrac{q_k}{p_k\bmod q_k}.
+$$
+
+This computation is in fact the [Euclidean algorithm](./gcd.md#euclidean-algorithm) applied to $p$ and $q$. This also shows that for a rational number $x=\dfrac{p}{q}$, the length of the continued fraction representation is $O(\log\min\{p, q\})$. The complexity of computing it for the rational number $\dfrac{p}{q}$ is also $O(\log\min\{p, q\})$.
+
+???+ example "Reference implementation"
+    Given the numerator $p$ and denominator $q$ of a fraction, output the sequence of coefficients $[a_0,a_1,\ldots,a_n]$ of its continued fraction.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/diophantine.cpp:fraction"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/diophantine.py:fraction"
+        ```
+
+## Convergents
+
+The notion of a convergent was introduced in the definition of continued fractions. The convergents of a real number are the convergents of its continued fraction representation: keeping only the first $k$ terms of the continued fraction representation of a real number $x$, the resulting continued fraction $x_k$ is called the $k$-th convergent of the real number $x$. The convergents $x_k$ of a real number $x$ are all rational numbers, and the sequence $\{x_k\}$ converges to the real number $x$.
+
+??? example "Example: convergents of the golden ratio"
+    The first few convergents of the continued fraction $x=[1,1,1,1,\ldots]$ are
+    
+    $$
+    \begin{aligned}
+    x_0 &= [1]=1,\\
+    x_1 &= [1,1]=2,\\
+    x_2 &= [1,1,1]=\dfrac{3}{2},\\
+    x_3 &= [1,1,1,1]=\dfrac{5}{3},\\
+    x_4 &= [1,1,1,1,1]=\dfrac{8}{5}.
+    \end{aligned}
+    $$
+    
+    It can be shown by induction that
+    
+    $$
+    x_k = \frac{F_{k+2}}{F_{k+1}},
+    $$
+    
+    where $\{F_k\}$ is the [Fibonacci sequence](../combinatorics/fibonacci.md). By its closed-form formula,
+    
+    $$
+    x_k = \frac{\phi^{k+2}-(-\phi)^{-(k+2)}}{\phi^{k+1}-(-\phi)^{-(k+1)}},
+    $$
+    
+    where $\phi=\dfrac{1+\sqrt{5}}{2}$ is the golden ratio. As $k$ tends to infinity,
+    
+    $$
+    x=\lim_{k\rightarrow\infty}x_k=\phi.
+    $$
+    
+    Therefore, the continued fraction $x=[1,1,1,1,\ldots]$ represents the golden ratio $\phi$.
+
+These convergents approach the corresponding real number, so they can be used to approximate it. For this purpose, it is necessary to understand the properties of convergents.
+
+### Recurrence relation
+
+First, we need to solve the problem of computing these convergents. Although a convergent is always obtained by appending one term to the continued fraction, it is not necessary to recompute its value from scratch each time. In fact, convergents satisfy the following recurrence:
+
+???+ note "Recurrence formula"
+    For a continued fraction $x=[a_0,a_1,a_2,\ldots]$, let its $k$-th convergent $x_k=[a_0,a_1,\ldots,a_k]$ be uniquely written as the irreducible fraction $\dfrac{p_k}{q_k}$. Then
+    
+    $$
+    \begin{aligned}
+    p_k &= a_kp_{k-1}+p_{k-2},\\
+    q_k &= a_kq_{k-1}+q_{k-2}.
+    \end{aligned}
+    $$
+    
+    The starting point of the recurrence is the (formal) fractions
+    
+    $$
+    x_{-1}=\frac{p_{-1}}{q_{-1}}=\frac{1}{0},\ x_{-2}=\frac{p_{-2}}{q_{-2}}=\frac{0}{1}.
+    $$
+
+??? note "Proof"
+    Every convergent is a finite continued fraction. As mentioned earlier, evaluating a finite continued fraction is essentially performing the Euclidean algorithm. However, what the Euclidean algorithm actually produces is a suffix of the continued fraction, whereas a convergent requires a prefix of the continued fraction. To obtain this prefix, we need to examine how the continued fraction changes when one step is added. To this end, one step of the Euclidean algorithm can be represented by matrix multiplication, namely
+    
+    $$
+    M(a)=\begin{pmatrix} a & 1 \\ 1 & 0 \end{pmatrix},\qquad
+    M(a)\begin{pmatrix} u\\ v \end{pmatrix}=\begin{pmatrix} au+v\\u \end{pmatrix},\qquad
+    \frac{au+v}{u}=a+\frac{1}{u/v}.
+    $$
+    
+    The vector $(a_k,1)^{\mathrm{T}}$ represents the finite continued fraction $[a_k]$; successively multiplying by matrices on the left corresponds to successively prepending coefficients of the continued fraction on the left. The process of completing this continued fraction to the convergent $x_k=\dfrac{p_k}{q_k}=[a_0,a_1,\ldots,a_k]$ yields the following identity:
+    
+    $$
+    M(a_0)M(a_1)M(a_2)\cdots M(a_{k-1})\begin{pmatrix}a_k\\1\end{pmatrix}=\begin{pmatrix}p_k\\q_k\end{pmatrix}.
+    $$
+    
+    Since $\det(M(a_0)M(a_1)\cdots M(a_{k-1}))=(-1)^{k}$, this matrix transformation maps the primitive vector $(a_k,1)^{\mathrm{T}}$ to $(p_k,q_k)^{\mathrm{T}}$, so $p_k$ and $q_k$ must be coprime. The second column of $M(a_k)$ is $(1,0)^{\mathrm{T}}$, and $M(a_{k-1})(1,0)^{\mathrm{T}}=(a_{k-1},1)^{\mathrm{T}}$, so the product for this column can be obtained by recursive substitution. Adding this column, we obtain
+    
+    $$
+    M(a_0)M(a_1)M(a_2)\cdots M(a_k)=\begin{pmatrix}p_k & p_{k-1}\\q_k & q_{k-1}\end{pmatrix}.
+    $$
+    
+    Now it suffices to substitute the first $k$ factors of the matrix product, and the recurrence for the convergents follows easily:
+    
+    $$
+    \begin{aligned}
+    \begin{pmatrix}p_{k-1} & p_{k-2}\\q_{k-1} & q_{k-2}\end{pmatrix}M(a_k)
+    &=\begin{pmatrix}p_k & p_{k-1}\\q_k & q_{k-1}\end{pmatrix}\\
+    \Rightarrow\quad p_k&=a_k p_{k-1}+p_{k-2},\qquad q_k=a_k q_{k-1}+q_{k-2}.
+    \end{aligned}
+    $$
+
+???+ info "Notation"
+    Whenever this article writes a convergent $x_k$ as $\dfrac{p_k}{q_k}$, it is always assumed that the numerator $p_k$ and the denominator $q_k$ are given by the recurrence above. The proof above shows that this always yields the irreducible representation of the convergent.
+
+This recurrence shows that
+
+$$
+x_k=\dfrac{a_kp_{k-1}+p_{k-2}}{a_kq_{k-1}+q_{k-2}}
+$$
+
+lies between $x_{k-1}$ and $x_{k-2}$.
+
+Using the recurrence obtained in this section, we get the following algorithm for computing convergents:
+
+???+ example "Reference implementation"
+    Given the coefficients $a_0,a_1,\ldots,a_n$ of a continued fraction, find the sequence of numerators and denominators of the convergents $(p_0,q_0),(p_1,q_1),\ldots,(p_n,q_n)$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/diophantine.cpp:convergents"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/diophantine.py:convergents"
+        ```
+
+### Continuants
+
+The **continuant** originates from the intermediate quantities in the recurrence relation of convergents.[^continuant]
+
+???+ abstract "Continuant"
+    For any finite sequence, the continuant is defined recursively as follows:
+    
+    -   $K(\varnothing)=1,\, K(a)=a$;
+    -   for $n\ge 1$, $K(a_0,\ldots,a_n)=a_n K(a_0,\ldots,a_{n-1})+K(a_0,\ldots,a_{n-2})$.
+
+From the recurrence of convergents it is easy to see that for $x=[a_0,a_1,a_2,\ldots]$, its convergent $\dfrac{p_k}{q_k}=[a_0,a_1,\ldots,a_k]$ can be expressed in terms of continuants:
+
+$$
+p_k=K(a_0,a_1,\ldots,a_k),\quad q_k=K(a_1,\ldots,a_k).
+$$
+
+In other words, continuants can be used to represent finite continued fractions:
+
+$$
+\frac{K(a_0,a_1,\ldots,a_k)}{K(a_1,\ldots,a_k)}=[a_0,a_1,\ldots,a_k].
+$$
+
+The earlier matrix representation is also easily rewritten using continuants. For $k\ge 1$,
+
+$$
+M(a_0)\cdots M(a_k)=
+\begin{pmatrix}
+K(a_0,\ldots,a_k)&K(a_0,\ldots,a_{k-1})\\
+K(a_1,\ldots,a_k)&K(a_1,\ldots,a_{k-1})
+\end{pmatrix}.
+$$
+
+The most important property of the continuant is its symmetry.
+
+???+ note "Symmetry of the continuant"
+    For any finite sequence $(a_0,\ldots,a_n)$,
+    
+    $$
+    K(a_0,\ldots,a_n)=K(a_n,\ldots,a_0).
+    $$
+
+??? note "Proof"
+    Since every matrix $M(a)$ is symmetric, transposing their product gives
+    
+    $$
+    (M(a_0)\cdots M(a_n))^{\mathrm{T}}=M(a_n)^{\mathrm{T}}\cdots M(a_0)^{\mathrm{T}}=M(a_n)\cdots M(a_0).
+    $$
+    
+    Comparing the top-left entries of the two product matrices immediately yields the claim.
+
+By symmetry, the recurrence for continuants can also be written in the reverse direction:
+
+$$
+K(a_0,\ldots,a_n)=a_0 K(a_1,\ldots,a_n)+K(a_2,\ldots,a_n).
+$$
+
+??? info "Determinant representation of the continuant"
+    The continuant can be written as a determinant:
+    
+    $$
+    K(a_0,\ldots,a_k)=\det
+    \begin{pmatrix}
+    a_0 & 1 & 0 & \cdots & 0 \\
+    -1 & a_1 & 1 & \ddots & \vdots \\
+    0 & -1 & a_2 & \ddots & 0 \\
+    \vdots & \ddots & \ddots & \ddots & 1 \\
+    0 & \cdots & 0 & -1 & a_k
+    \end{pmatrix}.
+    $$
+    
+    This is the determinant of a [tridiagonal matrix](https://en.wikipedia.org/wiki/Tridiagonal_matrix); expanding from the top-left corner yields the reverse recurrence, while expanding from the bottom-right corner yields the recurrence in the definition.
+
+Another interesting property of the continuant is its concatenation property.
+
+???+ note "Concatenation of continuants"
+    For two nonempty sequences $(a_1,\ldots,a_m)$ and $(b_1,\ldots,b_n)$,
+    
+    $$
+    K(a_1,\ldots,a_m,b_1,\ldots,b_n)=K(a_1,\ldots,a_m)K(b_1,\ldots,b_n)+K(a_1,\ldots,a_{m-1})K(b_2,\ldots,b_n).
+    $$
+
+??? note "Proof"
+    It suffices to split the matrix product into two parts using associativity. Let
+    
+    $$
+    P=M(a_1)\cdots M(a_m),\quad Q=M(b_1)\cdots M(b_n),
+    $$
+    
+    then
+    
+    $$
+    (PQ)_{1,1}=P_{1,1}Q_{1,1}+P_{1,2}Q_{2,1}.
+    $$
+    
+    This is exactly the identity of the concatenation property.
+
+This property can be used to study the intermediate quantities of the Euclidean algorithm. For example, Heilbronn used it to estimate the average number of steps of the Euclidean algorithm[^heilbronn]. Below is a contest problem that uses this property to handle a related summation problem.
+
+???+ example "[Luogu P17229 \[Math×Girl²\] 英雄变奏曲 (Heroic Variations)](https://www.luogu.com.cn/problem/P17229)"
+    You are given a positive integer $N$ and the values at all points of two integer-valued functions $g,h:\{1,2,\ldots,N\}\to\mathbf{Z}$.
+    
+    For integers $x,y$ with $1\le y<x\le N$, let $z=x\bmod y$ and define recursively
+    
+    $$
+    f(x,y)=
+    \begin{cases}
+    0, & z=0,\\
+    g\!\left(\left\lfloor\dfrac{x}{y}\right\rfloor\right)
+    h\!\left(\left\lfloor\dfrac{y}{z}\right\rfloor\right)
+    +f(y,z), & z>0.
+    \end{cases}
+    $$
+    
+    Compute
+    
+    $$
+    S(N)=
+    \sum_{\substack{1\le b<a\le N\\\gcd(a,b)=1}}f(a,b).
+    $$
+
+??? note "Idea"
+    The definition of $f(x,y)$ in the problem corresponds to the process of the Euclidean algorithm. Representing the Euclidean algorithm by a continued fraction, let $\dfrac{x}{y}=[a_0,a_1,\ldots,a_k]$ be the canonical representation of the finite continued fraction; then
+    
+    $$
+    f(x,y)=\sum_{i=0}^{k-1}g(a_i)h(a_{i+1}).
+    $$
+    
+    Using the concatenation property of continuants and cutting the continuant at $a_i$, we get
+    
+    $$
+    K(a_0,a_1,\ldots,a_k)=K(a_0,\ldots,a_i)K(a_{i+1},\ldots,a_k)+K(a_0,\ldots,a_{i-1})K(a_{i+2},\ldots,a_k).
+    $$
+    
+    Let
+    
+    $$
+    \begin{aligned}
+    X&=K(a_0,\ldots,a_i),\quad Y=K(a_0,\ldots,a_{i-1}),\\
+    Z&=K(a_{i+1},\ldots,a_k),\quad W=K(a_{i+2},\ldots,a_k).
+    \end{aligned}
+    $$
+    
+    From the property that continuants represent finite continued fractions, we get
+    
+    $$
+    \frac{X}{Y}=[a_i,a_{i-1},\ldots,a_0],\quad \frac{Z}{W}=[a_{i+1},a_{i+2},\ldots,a_k].
+    $$
+    
+    The conditions to be satisfied are $\gcd(X,Y)=\gcd(Z,W)=1$, $1\le Y\le X$, $1\le W\le Z$, $XZ+YW=x\le N$. It looks like we have constructed a bijection between $(x,y,i)$ and $(X,Y,Z,W)$. Note, however, that since $a_0$ may be $1$, the continued fraction corresponding to $\dfrac{X}{Y}$ may be a non-canonical representation, while the continued fraction corresponding to $\dfrac{Z}{W}$ must be a canonical representation (hence $Z=W=1$ is impossible).
+    
+    Now let us compute the contribution of the quadruple $(X,Y,Z,W)$ to the original sum after this transformation. Taking the floor of a fraction gives the first term of the continued fraction, which gives us the arguments of the functions. Next we distinguish cases for $(X,Y)$:
+    
+    1.  $Y>1$: both the canonical and the non-canonical representation of $\dfrac{X}{Y}$ correspond to one triple $(x,y,i)$ each, so the contribution is $2g\left(\left\lfloor\dfrac{X}{Y}\right\rfloor\right)h\left(\left\lfloor\dfrac{Z}{W}\right\rfloor\right)$;
+    2.  $Y=1,X\ge2$: $\dfrac{X}{Y}=X$ corresponds to $[X]$ and $[X-1,1]$; note that the contribution of the latter is different, so the total contribution is $(g(X)+g(X-1))h\left(\left\lfloor\dfrac{Z}{W}\right\rfloor\right)$;
+    3.  $X=Y=1$: the contribution is $g(1)h\left(\left\lfloor\dfrac{Z}{W}\right\rfloor\right)$.
+    
+    Thus we have turned the particularly hard-to-handle $S(N)$ into the following sum over $X,Y,Z,W$ (with the additional definition $g(0)=2g(1)$):
+    
+    $$
+    \begin{aligned}
+    S(N)={}&2\sum_{\substack{XZ+YW\le N\\X>Y\ge 1,\, Z>W\ge 1\\ \gcd(X,Y)=\gcd(Z,W)=1}}g(\lfloor X/Y\rfloor)h(\lfloor Z/W\rfloor) \\
+    &+\sum_{\substack{XZ+W\le N\\X\ge 1,\, Z>W\ge 1\\\gcd(Z,W)=1}}(g(X-1)-g(X))h(\lfloor Z/W\rfloor).
+    \end{aligned}
+    $$
+    
+    This sum is comparatively easy to handle with standard tools, so we do not elaborate further here.
+
+As corollaries of the recurrence relation of convergents and the properties of continuants, the following reversal theorem and reciprocal theorem hold:
+
+???+ note "Reversal theorem"
+    Let $\dfrac{p_k}{q_k}$ be the $k$-th convergent of the real number $x=[a_0,a_1,a_2,\ldots]>0$. Then the ratios of the numerators and of the denominators of two adjacent convergents are, respectively,
+    
+    $$
+    \begin{aligned}
+    \frac{p_k}{p_{k-1}}&=[a_k,a_{k-1},\ldots,a_1,a_0],\\
+    \frac{q_k}{q_{k-1}}&=[a_k,a_{k-1},\ldots,a_1].
+    \end{aligned}
+    $$
+    
+    If $a_0=0$ and $k\ge 2$, the first continued fraction should be understood as truncated at the second-to-last term, i.e. $[a_k,a_{k-1},\ldots,a_2]$.
+
+??? note "Proof"
+    From the continuant representation,
+    
+    $$
+    \frac{q_k}{q_{k-1}}=\frac{K(a_1,\ldots,a_{k-1},a_k)}{K(a_1,\ldots,a_{k-1})}=\frac{K(a_k,a_{k-1},\ldots,a_1)}{K(a_{k-1},\ldots,a_1)}=[a_k,a_{k-1},\ldots,a_1].
+    $$
+    
+    If $a_0\neq 0$, then
+    
+    $$
+    \frac{p_k}{p_{k-1}}=\frac{K(a_0,\ldots,a_{k-1},a_k)}{K(a_0,\ldots,a_{k-1})}=\frac{K(a_k,a_{k-1},\ldots,a_0)}{K(a_{k-1},\ldots,a_0)}=[a_k,a_{k-1},\ldots,a_0].
+    $$
+    
+    If $a_0=0$, the recurrence for continuants gives $K(0,a_1,a_2,\ldots,a_k)=K(a_2,\ldots,a_k)$, hence
+    
+    $$
+    \frac{p_k}{p_{k-1}}=\frac{K(a_2,\ldots,a_{k-1},a_k)}{K(a_2,\ldots,a_{k-1})}=\frac{K(a_k,a_{k-1},\ldots,a_2)}{K(a_{k-1},\ldots,a_2)}=[a_k,a_{k-1},\ldots,a_2].
+    $$
+
+???+ note "Reciprocal theorem"
+    The reciprocals of the convergents of a real number $x>0$ are the convergents of $x^{-1}$.
+
+??? note "Proof"
+    Without loss of generality, let $x>1$ with continued fraction representation $[a_0,a_1,a_2,\ldots]$; then the continued fraction representation of $x^{-1}$ is $[0,a_0,a_1,a_2,\ldots]$. Their convergents can be obtained from the recurrence relation. Moreover, for $x$ the initial conditions are $x_{-2}=\dfrac{0}{1}$ and $x_{-1}=\dfrac{1}{0}$; for $y=x^{-1}$ the initial conditions are $y_{-1}=\dfrac{1}{0}$ and $y_{0}=\dfrac{0}{1}$. Therefore $x_{-2}=(y_{-1})^{-1}$ and $x_{-1}=(y_0)^{-1}$. By the recurrence relation, we obtain $x_k=y_{k+1}^{-1}$. This shows that the reciprocals of the convergents of $x$ are the convergents of $y=x^{-1}$. The case $0<x\le 1$ can be treated similarly.
+
+### Error estimates
+
+Using the recurrence formula for convergents, one can estimate the error made when approximating a real number by a convergent.
+
+First, we can compute the difference between adjacent convergents:
+
+???+ note "Difference of convergents"
+    Let $x_k=\dfrac{p_k}{q_k}$ be the $k$-th convergent of the real number $x$. Then
+    
+    $$
+    p_{k+1}q_k - p_kq_{k+1} = (-1)^k.
+    $$
+    
+    Therefore, the difference of two adjacent convergents is
+    
+    $$
+    x_{k+1} - x_k = \dfrac{(-1)^k}{q_{k+1}q_k}.
+    $$
+
+??? note "Proof"
+    By the recurrence relation,
+    
+    $$
+    \begin{aligned}
+    \det\begin{pmatrix}
+    p_{k+1} & p_k \\
+    q_{k+1} & q_k 
+    \end{pmatrix}
+    &=
+    \det\begin{pmatrix}
+    a_{k+1}p_{k}+p_{k-1} & p_k \\
+    a_{k+1}q_{k}+q_{k-1} & q_k 
+    \end{pmatrix}
+    =
+    \det\begin{pmatrix}
+    p_{k-1} & p_k\\
+    q_{k-1} & q_k
+    \end{pmatrix}
+    \\
+    &=
+    -
+    \det\begin{pmatrix}
+    p_k & p_{k-1}\\
+    q_k & q_{k-1}
+    \end{pmatrix}
+    =
+    (-1)^{k+2}
+    \det\begin{pmatrix}
+    1 & 0\\
+    0 & 1
+    \end{pmatrix}
+    =(-1)^k.
+    \end{aligned}
+    $$
+    
+    This is exactly $p_{k+1}q_k - p_kq_{k+1} = (-1)^k$. Dividing both sides by $q_{k+1}q_k$ gives the claim about $x_{k+1}-x_k$.
+
+Consequently, odd-indexed convergents are always greater than both of their neighbors, and even-indexed convergents are always smaller than both of their neighbors: the convergents alternate.
+
+If we look only at the even-indexed (odd-indexed) convergents, the sequence is monotonically increasing (decreasing). This is because
+
+$$
+x_{k+2}-x_k = \dfrac{(-1)^{k+1}}{q_{k+2}q_{k+1}}+\dfrac{(-1)^{k}}{q_{k+1}q_{k}} = \dfrac{(-1)^k(q_{k+2}-q_k)}{q_{k+2}q_{k+1}q_k} = \dfrac{(-1)^ka_{k+2}}{q_{k+2}q_k}
+$$
+
+is positive (negative) when $k$ is even (odd). At the same time, because of the recurrence $q_{k}=a_kq_{k-1}+q_{k-2}$, the denominators $q_k$ grow no slower than the Fibonacci sequence. Hence the difference between two adjacent convergents must tend to zero. This shows that the even-indexed and odd-indexed convergents approach the same limit from below and from above, respectively. This proves that an infinite simple continued fraction always converges. The way the convergents approach the corresponding real number is illustrated in the following figure:
+
+![](./images/golden-ratio-convergents.svg)
+
+???+ abstract "Upper (lower) convergent"
+    For a real number $x$ and its convergent $x_k$, if $x_k>x$ ($x_k<x$), $x_k$ is called an **upper (lower) convergent** of $x$.
+
+It has already been shown that the upper convergents are exactly the odd-indexed convergents, and the lower convergents are the even-indexed convergents.
+
+Using the difference formula, the real number $x$ can be written as an alternating series:
+
+$$
+x = a_0+\sum_{k=0}^{\infty}\dfrac{(-1)^k}{q_{k+1}q_k}.
+$$
+
+The convergents and remainders in the definition of continued fractions are exactly the partial sums and remainders of this series.
+
+Using the difference formula, one can also directly estimate the error of approximating a real number by a convergent:
+
+???+ note "Error"
+    Let $x_k=\dfrac{p_k}{q_k}\neq x$ be the $k$-th convergent of the real number $x$. Then
+    
+    $$
+    x_k - x = \dfrac{(-1)^k}{q_k\left(r_{k+1}q_k+q_{k-1}\right)},
+    $$
+    
+    where $r_{k+1}$ is the $k+1$-th remainder of the real number $x$. Furthermore,
+    
+    $$
+    \dfrac{1}{2q_{k+1}^2} \le \dfrac{1}{q_k(q_k+q_{k+1})} \le \left|x-\frac{p_k}{q_k}\right| \le \dfrac{1}{q_kq_{k+1}} \le \dfrac{1}{q_k^2}.
+    $$
+
+??? note "Proof"
+    Since $x=[a_0,a_1,\ldots,a_k,r_{k+1}]$ and the difference formula for convergents also holds for formal continued fractions, we have
+    
+    $$
+    x-x_k = \dfrac{(-1)^k}{q_k\left(r_{k+1}q_k+q_{k-1}\right)},
+    $$
+    
+    where $r_{k+1}q_k+q_{k-1}$ is exactly the denominator of the $k+1$-th convergent of this formal continued fraction obtained by the recurrence formula.
+    
+    To complete the subsequent inequality estimates, it suffices to note that when $x_k\neq x$, we always have
+    
+    $$
+    1\le a_{k+1}\le r_{k+1} \le a_{k+1}+1,
+    $$
+    
+    so
+    
+    $$
+    q_{k+1}=a_{k+1}q_k+q_{k-1}\le r_{k+1}q_k+q_{k-1} \le q_k+(a_{k+1}q_k+q_{k-1}) = q_k+q_{k+1}.
+    $$
+    
+    Therefore we have the inequality
+    
+    $$
+    \dfrac{1}{q_k(q_k+q_{k+1})} \le \left|x-\frac{p_k}{q_k}\right| = \dfrac{1}{q_k\left(r_{k+1}q_k+q_{k-1}\right)} \le \dfrac{1}{q_kq_{k+1}}.
+    $$
+    
+    For the outer bounds, it suffices to further note that $q_k\le q_{k+1}$.
+
+The difference formula of this section has another simple corollary: the convergents $\dfrac{p_k}{q_k}$ are always irreducible.
+
+???+ note "Corollary"
+    For any real number $x$, if the numerator and denominator of the convergent $x_k=\dfrac{p_k}{q_k}$ are given by the recurrence formula, then $\dfrac{p_k}{q_k}$ is an irreducible fraction, i.e. $\gcd(p_k,q_k)=1$.
+
+??? note "Proof"
+    It suffices to apply [Bézout's identity](./bezouts.md) to the difference formula.
+
+In fact, solutions of a linear Diophantine equation in two variables can be found by the method of continued fractions.
+
+???+ example "Solving a linear Diophantine equation in two variables"
+    Given $A, B, C \in \mathbf Z$. Find $x, y \in \mathbf Z$ such that $Ax + By = C$.
+
+??? note "Solution"
+    Although this problem is usually solved with the [extended Euclidean algorithm](./bezouts.md#the-case-of-two-variables), it can equally be solved with continued fractions.
+    
+    Let $\dfrac{A}{B}=[a_0, a_1, \ldots, a_k]$. It was proved above that $p_k q_{k-1} - p_{k-1} q_k = (-1)^{k-1}$. Replacing $p_k$ and $q_k$ with $A$ and $B$, we get
+    
+    $$
+    Aq_{k-1} - Bp_{k-1} = (-1)^{k-1} g,
+    $$
+    
+    where $g = \gcd(A, B)$. If $g$ divides $C$, one solution is $x = (-1)^{k-1}\dfrac{C}{g} q_{k-1}$ and $y = (-1)^{k}\dfrac{C}{g} p_{k-1}$; otherwise there is no solution.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/diophantine.cpp:dio"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/diophantine.py:dio"
+        ```
+
+## Diophantine approximation
+
+An important application of the theory of continued fractions is the theory of Diophantine approximation. Diophantine approximation refers to approximating real numbers by rational numbers. Of course, due to the density of the rationals, without any restriction one can obtain approximations with arbitrarily small error. Therefore, it is necessary to restrict the rational numbers that may be used, for example to allow only rational numbers whose denominator is less than some value. This section discusses the relationship between the best approximations under such a restriction and continued fractions.
+
+### Approximating real numbers by convergents
+
+First, from the error estimate for convergents we immediately get the following result:
+
+???+ note "Theorem (Dirichlet)"
+    For an irrational number $x$, there exist infinitely many irreducible fractions $\dfrac{p}{q}$ such that
+    
+    $$
+    \left|x-\dfrac{p}{q}\right| < \dfrac{1}{q^2} 
+    $$
+
+??? note "Proof"
+    By the error estimate for convergents, for the $k$-th convergent $x_k=\dfrac{p_k}{q_k}$ of the irrational number $x$,
+    
+    $$
+    \left|x-\dfrac{p_k}{q_k}\right|\le\frac{1}{q_k^2}.
+    $$
+    
+    Inspecting the proof of the error formula shows that for an irrational number $x$ equality never holds. Therefore, the numerators and denominators of all its convergents satisfy the requirement.
+
+This theorem can also be regarded as a corollary of [Dirichlet's approximation theorem](https://en.wikipedia.org/wiki/Dirichlet%27s_approximation_theorem). This is almost the best possible result. The exponent $2$ in the denominator on the right-hand side of the inequality cannot be improved, but the constant can. Hurwitz's theorem states that the right-hand side can be reduced to $\dfrac{1}{\sqrt{5}q^2}$, and that this is the best possible bound.
+
+???+ note "Hurwitz's theorem"
+    For an irrational number $x$, there exist infinitely many irreducible fractions $\dfrac{p}{q}$ such that
+    
+    $$
+    \left|x-\dfrac{p}{q}\right| < \dfrac{1}{\sqrt{5}q^2} 
+    $$
+    
+    and the $\sqrt{5}$ on the right-hand side of the inequality cannot be replaced by a larger real number.
+
+??? note "Proof (Borel)"
+    Borel actually proved that among any three consecutive convergents of an irrational number $x$, at least one satisfies the above condition. Since there are infinitely many convergents and they are all irreducible fractions, the first part of Hurwitz's theorem necessarily holds.
+    
+    We argue by contradiction. Suppose there exist an irrational number $x$ and its convergents $x_{k-1},x_k,x_{k+1}$ such that
+    
+    $$
+    \left|x-\dfrac{p_{k-1}}{q_{k-1}}\right|\ge\dfrac{1}{\sqrt{5}q_{k-1}^2},\ 
+    \left|x-\dfrac{p_{k}}{q_{k}}\right|\ge\dfrac{1}{\sqrt{5}q_{k}^2},\ 
+    \left|x-\dfrac{p_{k+1}}{q_{k+1}}\right|\ge\dfrac{1}{\sqrt{5}q_{k+1}^2}
+    $$
+    
+    Since adjacent convergents necessarily lie on opposite sides of $x$, the difference formula gives
+    
+    $$
+    \dfrac{1}{q_{k-1}q_{k}}=\left|\dfrac{p_{k-1}}{q_{k-1}}-\dfrac{p_{k}}{q_{k}}\right|=\left|x-\dfrac{p_{k-1}}{q_{k-1}}\right|+\left|x-\dfrac{p_{k}}{q_{k}}\right|\ge\dfrac{1}{\sqrt{5}q_{k-1}^2}+\dfrac{1}{\sqrt{5}q_{k}^2}.
+    $$
+    
+    This can be written as an inequality in the quotient $\dfrac{q_{k}}{q_{k-1}}$:
+    
+    $$
+    \dfrac{q_k}{q_{k-1}}+\dfrac{q_{k-1}}{q_k}\le\sqrt 5.
+    $$
+    
+    Since the left-hand side is rational and the right-hand side is irrational, equality cannot be attained. Moreover, since $q_k\ge q_{k-1}$, solving gives
+    
+    $$
+    1\le \dfrac{q_{k}}{q_{k-1}} < \dfrac{\sqrt{5}+1}{2}.
+    $$
+    
+    Similarly, one can show
+    
+    $$
+    1\le \dfrac{q_{k+1}}{q_{k}} < \dfrac{\sqrt{5}+1}{2}.
+    $$
+    
+    But by the recurrence formula and combining the two inequalities,
+    
+    $$
+    a_{k+1} = \frac{q_{k+1}}{q_k}-\frac{q_{k-1}}{q_k} < \dfrac{\sqrt{5}+1}{2}-\dfrac{\sqrt{5}-1}{2} = 1
+    $$
+    
+    which contradicts the definition of a simple continued fraction. Hence Borel's claim holds.
+    
+    To show that the bound obtained this way is the best possible, it suffices to find $x$ such that for every $C>\sqrt{5}$ there are only finitely many irreducible fractions $\dfrac{p}{q}$ satisfying the inequality
+    
+    $$
+    \left|x-\dfrac{p}{q}\right| < \dfrac{1}{Cq^2} 
+    $$
+    
+    We now prove that $\phi=\dfrac{\sqrt{5}+1}{2}$ is such an $x$.[^sqrt5]
+    
+    Let $\phi'=\dfrac{-\sqrt{5}+1}{2}$ be the conjugate root of $\phi$. Both are roots of the equation $x^2-x-1=0$. Therefore, for every real number $x$,
+    
+    $$
+    x^2-x-1 = (x-\phi)(x-\phi').
+    $$
+    
+    Substituting the irreducible fraction $\dfrac{p}{q}$, we get
+    
+    $$
+    \dfrac{1}{q^2}\le\frac{|p^2-pq-q^2|}{q^2}=\left|\dfrac{p}{q}-\phi\right|\left|\dfrac{p}{q}-\phi'\right|\le\left|\dfrac{p}{q}-\phi\right|\left(\left|\dfrac{p}{q}-\phi\right|+|\phi-\phi'|\right)<\dfrac{1}{Cq^2}\left(\dfrac{1}{Cq^2}+\sqrt{5}\right).
+    $$
+    
+    For $C>\sqrt{5}$, one can directly solve $q<\dfrac{1}{\sqrt{C(C-\sqrt{5})}}$, so there cannot be infinitely many solutions of the above inequality.
+
+The proofs of these theorems show that convergents provide rather good Diophantine approximations. However, these are not necessarily the best approximations. To discuss best approximations, one must specify the measure of approximation quality. There are usually two choices.
+
+???+ warning "Possible cases where the statements about best approximations fail"
+    The next two sections present some results about best approximations. These results may fail in some individual uninteresting cases. For example, both definitions of best approximation require a strict inequality, but for a half-integer $x=n+\dfrac12$ with $n\in\mathbf Z$, its continued fraction may take the form $[n,1,1]$. Then its first two convergents $x_0=n$ and $x_1=n+1$ both have denominator $1$ and are equally distant from $x$. This means that neither of them is a best approximation. When reading the statements in this section, the reader should assume that such cases have been excluded. If the reader does not care about the last few convergents, or only cares about approximating irrational numbers, these additional complications can be ignored.
+
+### Best approximation of the first kind: intermediate fractions
+
+A best approximation of the first kind measures the quality of approximation by
+
+$$
+\left|x-\dfrac{p}{q}\right|
+$$
+
+???+ abstract "Best approximation of the first kind"
+    For a real number $x$ and a rational number $\dfrac{p}{q}$, if for every $\dfrac{p'}{q'}\neq \dfrac{p}{q}$ with $0<q'\le q$ we have
+    
+    $$
+    \left|x-\dfrac{p}{q}\right|<\left|x-\dfrac{p'}{q'}\right|,
+    $$
+    
+    the rational number $\dfrac{p}{q}$ is called a **best approximation of the first kind** of the real number $x$.
+
+A best approximation of the first kind is not necessarily a convergent; it belongs to a broader class of fractions.
+
+???+ abstract "Intermediate fraction"
+    Let the real number $x$ have the convergent $x_{k+1}=[a_0,a_1,\ldots,a_k,a_{k+1}]$, and let the integer $t$ satisfy $0\le t\le a_{k+1}$[^semi-range]. Then the fraction $x_{k,t}=[a_0,a_1,\ldots,a_{k},t]$ is called an **intermediate fraction**, **semiconvergent**, or **secondary convergent** of $x$.[^semiconvergent]
+    
+    Similarly to the case of convergents, an intermediate fraction greater (smaller) than $x$ is called an **upper (lower) semiconvergent**.
+
+By the recurrence formula, an intermediate fraction can be written as
+
+$$
+x_{k,t} = \frac{tp_{k}+p_{k-1}}{tq_{k}+q_{k-1}}.
+$$
+
+It is necessarily an irreducible fraction and lies between the convergents $x_{k-1}$ and $x_{k+1}$. As $t$ increases, it gradually approaches $x_{k+1}$ (taking the case of even $k$ as an example):
+
+$$
+x_{k-1} = x_{k,0} < x_{k,1} < x_{k,2} < \cdots < x_{k,a_{k+1}} = x_{k+1}.
+$$
+
+Since the numerators and denominators of convergents are increasing, the numerator and denominator of the intermediate fraction $x_{k,t}$ ($t\neq 0$) fall between those of $x_{k}$ and $x_{k+1}$. If these fractions are arranged by the size of their denominators, the intermediate fractions are exactly the fractions located between adjacent convergents.
+
+All best approximations of the first kind are intermediate fractions, but not all intermediate fractions are best approximations of the first kind.
+
+???+ note "Theorem"
+    All best approximations of the first kind are intermediate fractions.
+
+??? note "Proof"
+    Since $a_0\le x\le a_0+1$, a best approximation of the first kind must lie between $x_{1,0}=a_0$ and $x_{0,1}=a_0+1$. All intermediate fractions can be arranged from smallest to largest as
+    
+    $$
+    x_{1,0}<x_{1,1}< \cdots < x_{1,a_2}=x_{3,0}<\cdots<x<\cdots<x_{2,0}=x_{0,a_1}<\cdots<x_{0,1}.
+    $$
+    
+    Intermediate fractions of the same order appear consecutively, and there are no gaps between intermediate fractions of different orders. This means that any rational number $\dfrac{p}{q}$ between $x_{1,0}=a_0$ and $x_{0,1}=a_0+1$ must fall between two intermediate fractions of the same order $x_{k,t}$ and $x_{k,t+1}$. Without loss of generality, suppose it is not an intermediate fraction and is smaller than $x$, so that
+    
+    $$
+    x_{k,t}<\dfrac{p}{q}<x_{k,t+1}<x.
+    $$
+    
+    Then, on the one hand,
+    
+    $$
+    \left|x_{k,t}-\dfrac{p}{q}\right| < \left|x_{k,t}-x_{k,t+1}\right| = \dfrac{1}{((t+1)q_k+q_{k-1})(tq_k+q_{k-1})}.
+    $$
+    
+    On the other hand,
+    
+    $$
+    \left|x_{k,t}-\dfrac{p}{q}\right| = \dfrac{|q(tp_k+p_{k-1})-p(tq_k+q_{k-1})|}{q(tq_k+q_{k-1})}\ge\dfrac{1}{q(tq_k+q_{k-1})}.
+    $$
+    
+    Therefore, necessarily
+    
+    $$
+    q>(t+1)q_k+q_{k-1}.
+    $$
+    
+    In other words, the denominator of the rational number $\dfrac{p}{q}$ must be greater than the denominator of $x_{k,t+1}$, yet it is not a better approximation:
+    
+    $$
+    \left|x-\dfrac{p}{q}\right|>\left|x-x_{k,t+1}\right|
+    $$
+    
+    Therefore, it cannot be a best approximation of the first kind. This shows that whatever is not an intermediate fraction is not a best approximation of the first kind; that is, all best approximations of the first kind are intermediate fractions.
+
+Conversely, one cannot claim that all intermediate fractions are best approximations of the first kind. However, one can indeed give conditions under which an intermediate fraction is a best approximation of the first kind.
+
+???+ note "Theorem"
+    All convergents are best approximations of the first kind. Apart from these, let $0<t<a_{k+1}$; then the intermediate fraction $x_{k,t}$ is a best approximation of the first kind if and only if $t>\dfrac{a_{k+1}}{2}$, or $t=\dfrac{a_{k+1}}{2}$ and $r_{k+2}>\dfrac{q_k}{q_{k-1}}$.
+
+??? note "Proof"
+    It will be shown below that all convergents are best approximations of the second kind, hence necessarily best approximations of the first kind. The key point is the intermediate fractions that are not convergents.
+    
+    As said before, the denominator of the intermediate fraction $x_{k,t}$ lies between those of $x_k$ and $x_{k+1}$ and increases with $t$, while $x_{k,t}$ gradually approaches $x_{k+1}$, hence gets closer to $x$. Taking $x_{k,t}<x$ as an example, its position relative to the neighboring intermediate fractions satisfies:
+    
+    $$
+    x_{k-1} < x_{k,t} < x_{k+1} < x < x_{k}.
+    $$
+    
+    Since the denominator of $x_k$ is smaller than that of $x_{k,t}$, a necessary condition for $x_{k,t}$ to be a best approximation of the first kind is that it is closer to $x$ than $x_k$. This is also a sufficient condition, because, as a convergent, there is nothing with a smaller denominator than $x_k$ that is closer, and those intermediate fractions with denominators larger than that of $x_k$ must be of the same order as $x_{k,t}$ but with smaller denominators, so they are necessarily farther from $x$. For the errors of the convergent and the intermediate fraction, a computation gives
+    
+    $$
+    \begin{aligned}
+    \left|x_k-x\right| &= \dfrac{1}{q_k(r_{k+1}q_k+q_{k-1})},\\
+    \left|x_{k,t}-x\right| &= \left|\dfrac{tp_{k}+p_{k-1}}{tq_{k}+q_{k-1}}-\dfrac{r_{k+1}p_{k}+p_{k-1}}{r_{k+1}q_{k}+q_{k-1}}\right| \\
+    &=\dfrac{r_{k+1}-t}{(tq_{k}+q_{k-1})(r_{k+1}q_{k}+q_{k-1})}.
+    \end{aligned}
+    $$
+    
+    Here we used $r_{k+1}\ge a_{k+1}>t$. Therefore, $x_{k,t}$ is closer to $x$ than $x_k$, and thus a best approximation of the first kind, if and only if
+    
+    $$
+    \dfrac{r_{k+1}-t}{tq_{k}+q_{k-1}}<\dfrac{1}{q_k} \iff r_{k+1}<2t+\dfrac{q_{k-1}}{q_k}.
+    $$
+    
+    Now there are three possible cases:
+    
+    1.  If $t<\dfrac{a_{k+1}}{2}$, then $2t<a_{k+1}$. Since both sides are integers, $2t\le a_{k+1}-1$, hence $2t+\dfrac{q_{k-1}}{q_k}\le 2t+1\le a_{k+1}\le r_{k+1}$. In this case $x_{k,t}$ is not a best approximation of the first kind;
+    2.  If $t>\dfrac{a_{k+1}}{2}$, then $2t>a_{k+1}$. Since both sides are integers, $2t\ge a_{k+1}+1>r_{k+1}$. In this case $x_{k,t}$ is a best approximation of the first kind;
+    3.  If $a_{k+1}$ is even, there is a third case, namely $t=\dfrac{a_{k+1}}{2}$. The above condition is equivalent to $\dfrac{1}{r_{k+2}}=r_{k+1}-a_{k+1}<\dfrac{q_{k-1}}{q_k}$, i.e. $r_{k+2}>\dfrac{q_k}{q_{k-1}}$.
+
+Therefore, if all best approximations of the first kind of a real number $x$ are arranged in increasing order of their denominators, they split into several segments according to their position relative to $x$. Each segment always consists of several (possibly zero) consecutive intermediate fractions of the same order and always ends with a convergent. Within a segment, the fractions stay on one side of the real number $x$, while the segments alternate between the two sides of $x$.
+
+??? example "Example: best approximations of the first kind of $\pi$"
+    Since $\pi=[3,7,15,1,292,\ldots]$, its first 15 best approximations of the first kind with the smallest denominators are:
+    
+    $$
+    \begin{aligned}
+    &x_0 = \dfrac{3}{1},\
+    x_{0,4} = \dfrac{13}{4},\
+    x_{0,5} = \dfrac{16}{5},\
+    x_{0,6} = \dfrac{19}{6},\
+    x_1 = \dfrac{22}{7},\\
+    &x_{1,8} = \dfrac{179}{57},\
+    x_{1,9} = \dfrac{201}{64},\
+    x_{1,10} = \dfrac{223}{71},\
+    x_{1,11} = \dfrac{245}{78},\
+    x_{1,12} = \dfrac{267}{85},\\
+    &x_{1,13} = \dfrac{289}{92},\ 
+    x_{1,14} = \dfrac{311}{99},\
+    x_2 = \dfrac{333}{106},\
+    x_3 = \dfrac{355}{113},\
+    x_{3,146} = \dfrac{52163}{16604}.
+    \end{aligned}
+    $$
+
+### Best approximation of the second kind
+
+A best approximation of the second kind measures the quality of approximation by $|qx-p|$.
+
+???+ abstract "Best approximation of the second kind"
+    For a real number $x$ and a rational number $\dfrac{p}{q}$, if for every $\dfrac{p'}{q'}\neq \dfrac{p}{q}$ with $0<q'\le q$ we have
+    
+    $$
+    \left|qx-p\right|<\left|q'x-p'\right|,
+    $$
+    
+    the rational number $\dfrac{p}{q}$ is called a **best approximation of the second kind** of the real number $x$.
+
+The condition for a best approximation of the second kind is equivalent to
+
+$$
+\left|x-\dfrac{p}{q}\right|<\dfrac{q'}{q}\left|x-\dfrac{p'}{q'}\right|.
+$$
+
+Since $q'\le q$, the condition for a best approximation of the second kind is stricter than that for the first kind.
+
+Best approximations of the second kind can be, and can only be, convergents.
+
+???+ note "Theorem"
+    Every best approximation of the second kind is a convergent, and every convergent is a best approximation of the second kind.
+
+??? note "Proof"
+    To prove the first part, since a best approximation of the second kind is also a best approximation of the first kind, it suffices to show that an intermediate fraction that is not a convergent cannot be a best approximation of the second kind. To this end, let $x_{k,t}=\dfrac{p}{q}$ be an intermediate fraction that is not a convergent; assuming $x_{k,t}<x$, we have
+    
+    $$
+    x_{k-1} < x_{k,t} < x_{k+1} < x < x_{k}.
+    $$
+    
+    Since the error between $x_{k,t}$ and $x$ satisfies
+    
+    $$
+    |x_{k,t}-x|\ge |x_{k,t}-x_{k+1}|=\left|\dfrac{p}{q}-\dfrac{p_{k+1}}{q_{k+1}}\right|=\dfrac{|pq_{k+1}-p_{k+1}q|}{qq_{k+1}}\ge\dfrac{1}{qq_{k+1}},
+    $$
+    
+    and using the error estimate for convergents, we always have
+    
+    $$
+    |qx_{k,t}-p| \ge \dfrac{1}{q_{k+1}} \ge |q_kx_k-p_k|,
+    $$
+    
+    i.e. the approximation quality of $x_{k,t}$ is no better than that of $x_k$, which has a smaller denominator, so it cannot be a best approximation of the second kind.
+    
+    Conversely, to prove the second part, namely that every convergent $x_k=\dfrac{p_k}{q_k}$ is a best approximation of the second kind, we need to show that for all fractions $\dfrac{p}{q}$ with $q\le q_k$, $|q_kx-p_k|<|qx-p|$. Ignoring the half-integer case, we may assume $k>0$. First, by the error estimate for approximating real numbers by convergents,
+    
+    $$
+    |q_{k-1} x-p_{k-1}| \ge \frac{1}{q_{k-1}+q_{k}} \ge \dfrac{1}{q_{k+1}}\ge |q_kx-p_k|.
+    $$
+    
+    Equality holds throughout if and only if $a_{k+1}=1$ and it is the last term of the continued fraction. Ignoring that case, $x_{k-1}=\dfrac{p_{k-1}}{q_{k-1}}$ is strictly worse than $x_k=\dfrac{p_k}{q_k}$.
+    
+    Take any fraction $\dfrac{p}{q}\neq x_k$ with $0<q\le q_k$. Because of the difference formula $p_{k}q_{k-1} - p_{k-1}q_{k} = (-1)^{k-1}$, Cramer's rule shows that the system of linear equations
+    
+    $$
+    \begin{cases}
+    \lambda p_k+\mu p_{k-1} = p,\\
+    \lambda q_k+\mu q_{k-1} = q
+    \end{cases}
+    $$
+    
+    must have a unique integer solution $(\lambda,\mu)$. If $\lambda\mu>0$, then $q>|\lambda|q_k\ge q_k$, a contradiction. Otherwise $\lambda\mu\le 0$, i.e. $\lambda$ and $\mu$ have opposite signs; since $q_{k-1}x-p_{k-1}$ and $q_kx-p_k$ also have opposite signs, $\lambda(q_{k-1}x-p_{k-1})$ and $\mu(q_kx-p_k)$ have the same sign, hence
+    
+    $$
+    |qx-p|=|\lambda||q_kx-p_k|+|\mu||q_{k-1}x-p_{k-1}|>|q_{k}x-p_{k}|.
+    $$
+    
+    The last inequality is strict because $x_{k-1}$ is strictly worse than $x_k$ and $\dfrac{p}{q}\neq x_k$. This shows that $x_k$ is a best approximation of the second kind.
+
+This property shows that convergents are indeed rather good Diophantine approximations.
+
+### Recognizing convergents
+
+Best approximations of the second kind provide a necessary and sufficient condition for deciding whether a fraction is a convergent. This means that one can decide whether a fraction is a convergent by checking the relative quality of its approximation. Legendre's criterion provides a way of recognizing convergents based on the absolute quality of the approximation. The original formulation of Legendre's criterion gives a necessary and sufficient condition, but its form is not practical. This section provides a simplified version of Legendre's criterion and shows that it does not miss too many convergents.
+
+???+ note "Theorem (Legendre)"
+    For a real number $x$ and a fraction $\dfrac{p}{q}$, if
+    
+    $$
+    \left|x-\dfrac{p}{q}\right|<\dfrac{1}{2q^2}
+    $$
+    
+    then $\dfrac{p}{q}$ must be a convergent of $x$.
+
+??? note "Proof"
+    Let $\epsilon\in\{-1,1\}$ and $\theta\in(0,1/2)$ be the constants such that
+    
+    $$
+    x-\dfrac{p}{q} = \dfrac{\epsilon\theta}{q^2}
+    $$
+    
+    Expand the rational number $\dfrac{p}{q}$ into a continued fraction $[a_0,a_1,\ldots,a_n]$. Here, a rational number has two continued fraction representations whose values of $n$ differ by exactly one, so we may choose the representation such that $(-1)^n=\epsilon$, and denote the convergents of this representation by $\dfrac{p_k}{q_k}$. Let the real number $\omega$ satisfy
+    
+    $$
+    x = \dfrac{\omega p_n+p_{n-1}}{\omega q_n+q_{n-1}}.
+    $$
+    
+    Then necessarily
+    
+    $$
+    \dfrac{\epsilon\theta}{q^2} = x-\dfrac{p}{q} = x-\dfrac{p_n}{q_n} = \dfrac{p_{n-1}q_n-p_nq_{n-1}}{(\omega q_n+q_{n-1})q_n} = \dfrac{(-1)^n}{(\omega q_n+q_{n-1})q_n}.
+    $$
+    
+    Hence
+    
+    $$
+    \theta = \dfrac{q_n}{\omega q_n+q_{n-1}}.
+    $$
+    
+    This shows that
+    
+    $$
+    \omega=\dfrac{1}{\theta}-\dfrac{q_{n-1}}{q_n}>1.
+    $$
+    
+    Expanding $\omega$ into a continued fraction $[b_0,b_1,\ldots]$ as well, we get
+    
+    $$
+    x = \dfrac{\omega p_n+p_{n-1}}{\omega q_n+q_{n-1}} = [a_0,a_1,\ldots,a_n,\omega] = [a_0,a_1,\ldots,a_n,b_0,b_1,\ldots].
+    $$
+    
+    This is a valid simple continued fraction, so $\dfrac{p}{q}$ is a convergent of $x$.
+    
+    This proof in fact shows that the necessary and sufficient condition for $\dfrac{p}{q}$ to be a convergent is $\omega>1$ in the above proof; this is exactly the original form of Legendre's criterion.
+
+This criterion shows that as long as the approximation is good enough, it must be a convergent. The next theorem shows that there are plenty of such good convergents: at least half of the convergents satisfy this condition.
+
+???+ note "Theorem (Vahlen)"
+    Of any two adjacent convergents of a real number $x$, at least one satisfies
+    
+    $$
+    \left|x-\dfrac{p}{q}\right|<\dfrac{1}{2q^2}.
+    $$
+
+??? note "Proof"
+    Suppose not. Then there is a real number $x$ with two adjacent convergents $x_k$ and $x_{k+1}$ satisfying
+    
+    $$
+    \left|x-\dfrac{p_k}{q_k}\right|\ge \dfrac{1}{2q_{k}^2},\ \left|x-\dfrac{p_{k+1}}{q_{k+1}}\right|\ge \dfrac{1}{2q_{k+1}^2}.
+    $$
+    
+    Since $x$ lies between $x_k$ and $x_{k+1}$,
+    
+    $$
+    \dfrac{1}{2q_{k}^2} + \dfrac{1}{2q_{k+1}^2} \le \left|x-\dfrac{p_k}{q_k}\right| + \left|x-\dfrac{p_{k+1}}{q_{k+1}}\right| = \left|\dfrac{p_k}{q_k}-\dfrac{p_{k+1}}{q_{k+1}}\right| = \dfrac{1}{q_kq_{k+1}}.
+    $$
+    
+    This implies $q_k=q_{k+1}$. Hence necessarily $k=0$ and $a_1=1$. Then the first two convergents are $x_0=a_0$ and $x_1=a_0+1$. Therefore the only counterexample to the statement is a half-integer, which, as explained above, this article does not consider.
+
+## Geometric interpretation
+
+The theory of continued fractions has a beautiful geometric interpretation.
+
+![](./images/continued-convergents-geometry.svg)
+
+As shown in the figure, for a real number $\xi>0$, the line $y=\xi x$ divides the lattice points of the first quadrant (including the points on the $x$- and $y$-axes but excluding the origin, and likewise below) into an upper and a lower part. In the case of a rational $\xi$, the points on the line $y=\xi x$ count both as points above the line and as points below the line. Consider the convex hulls of these two sets of points. Then the odd-indexed convergents are the vertices of the convex hull of the upper part, and the even-indexed convergents are the vertices of the convex hull of the lower part. The lattice points on the segments between two adjacent vertices of a hull are exactly the intermediate fractions. The figure shows the convergents and intermediate fractions (gray points) of $\xi=\dfrac{9}{7}$.
+
+Most of the earlier results about continued fractions have a corresponding geometric interpretation:
+
+??? note "Geometric interpretation"
+    -   Every fraction $\nu=\dfrac{p}{q}$ corresponds to a lattice point $\vec\nu=(q,p)$ in the first quadrant, and the value of the fraction corresponds to the slope of the line joining it to the origin.
+    -   The direction vector of the line $y=\xi x$ is $\vec\xi=(1,\xi)$. Using the notion of the [cross product](../linear-algebra/product.md#二维向量的情形) $(x_1,y_1)\times(x_2,y_2)=x_1y_2-x_2y_1$, one can decide whether a point lies above or below the line by the sign of $\vec\xi\times\vec\nu=p-q\xi$. Thus the points above the line correspond to fractions greater than or equal to $\xi$, and the points below the line correspond to fractions less than or equal to $\xi$. The absolute value of the cross product $|\vec\xi\times\vec\nu|$ is proportional to the distance from the point $\vec\nu$ to the line $y=\xi x$,
+    
+        $$
+        \dfrac{|p-q\xi|}{\sqrt{1+\xi^2}},
+        $$
+    
+        which corresponds to the quality of the approximation of the real number $\xi$ by the fraction $\nu$.
+    -   Denoting the point corresponding to the convergent $\xi_k=\dfrac{p_k}{q_k}$ by $\vec\xi_k=(q_k,p_k)$, the recurrence formula can be written as
+    
+        $$
+        \vec\xi_k = a_k\vec\xi_{k-1} + \vec\xi_{k-2}.
+        $$
+    
+        The starting points of the recursion are $\vec\xi_{-2} = (1,0)$ and $\vec\xi_{-1} = (0,1)$.
+    -   For an integer $t$ with $0\le t\le a_k$, the point
+    
+        $$
+        \vec\xi_{k-1,t} = t\vec\xi_{k-1} + \vec\xi_{k-2}
+        $$
+    
+        lies on the segment joining the points $\vec\xi_{k-2}$ and $\vec\xi_k$. These points correspond to the intermediate fractions $\xi_{k-1,t}$.
+    -   All convergents and intermediate fractions can be constructed geometrically. Start with the points $\vec\xi_{-2}=(1,0)$ and $\vec\xi_{-1}=(0,1)$, which lie on opposite sides of the line $y=\xi x$; this means that $\vec\xi\times\vec\xi_{-2}$ and $\vec\xi\times\vec\xi_{-1}$ have opposite signs. Add $\vec\xi_{-1}$ to $\vec\xi_{-2}$ by vector addition until it is no longer possible to continue without crossing the line $y=\xi x$; denote the result by $\vec\xi_0$, which is still on the opposite side from $\vec\xi_{-1}$. Then add $\vec\xi_0$ to $\vec\xi_{-1}$ until it is no longer possible to continue without crossing the line $y=\xi x$; denote the result by $\vec\xi_1$, which is still on the opposite side from $\vec\xi_0$. This process can continue indefinitely, unless within finitely many steps some $\vec\xi_n$ falls exactly on the line $y=\xi x$. The latter means that the vector $\vec\xi$ is collinear with $\vec\xi_n$, i.e. $\xi=\dfrac{p_n}{q_n}$ is a rational point. This process produces the picture in the figure above. Boris Delaunay vividly called this process the nose-stretching algorithm[^nose-stretching].
+    -   If one needs to quickly compute how many times $\vec\xi_{k-1}$ has to be added to $\vec\xi_{k-2}$ at each step, the cross product can help. Since $\vec\xi\times\vec\xi_{k-1}$ and $\vec\xi\times\vec\xi_{k-2}$ have opposite signs, if we denote by $\vec\xi_{k-1,t}=t\vec\xi_{k-1}+\vec\xi_{k-2}$ the result of adding $\vec\xi_{k-1}$ to $\vec\xi_{k-2}$ $t$ times, then $\vec\xi\times\vec\xi_{k-1,t}=t(\vec\xi\times\vec\xi_{k-1})+(\vec\xi\times\vec\xi_{k-2})$ not changing sign means that the line has not been crossed. Before the sign changes, the absolute value of $\vec\xi\times\vec\xi_{k-1,t}$ decreases gradually. Let
+    
+        $$
+        r_{k} = \left|\dfrac{\vec\xi\times\vec\xi_{k-2}}{\vec\xi\times\vec\xi_{k-1}}\right| = -\dfrac{\vec\xi\times\vec\xi_{k-2}}{\vec\xi\times\vec\xi_{k-1}}.
+        $$
+    
+        Then the maximum number of decreasing steps is
+    
+        $$
+        a_{k} = \lfloor r_{k}\rfloor = \left\lfloor\left|\dfrac{q_{k-1}\xi-p_{k-1}}{q_{k-2}\xi-p_{k-2}}\right|\right\rfloor.
+        $$
+    
+        This is the $k$-th term of the continued fraction expansion. Moreover, $r_k$ is the remainder of the continued fraction expansion, and it satisfies the relation:
+    
+        $$
+        r_k = -\dfrac{q_{k-1}\xi-p_{k-1}}{q_{k-2}\xi-p_{k-2}} \iff \xi = \dfrac{p_{k-1}r_k + p_{k-2}}{q_{k-1}r_k+q_{k-2}}.
+        $$
+    
+        This is the continued fraction relation $\xi = [a_0,a_1,\ldots,a_{k-1},r_k]$.
+    -   Since each added vector changes $\vec\xi\times\vec\xi_{k-1,t}$ by a step of $|\vec\xi\times\vec\xi_{k-1}|$, the remaining distance $|\vec\xi\times\vec\xi_k|$ at the end must be strictly smaller than $|\vec\xi\times\vec\xi_{k-1}|$. This shows that the quality of approximation of the convergents (measured by $|qx-p|$) strictly improves as $k$ increases.
+    -   Using the rules of the cross product,
+    
+        $$
+        \vec\xi_{k}\times\vec\xi_{k+1} = \vec\xi_{k}\times(a_{k+1}\vec\xi_k+\vec\xi_{k-1}) = \vec\xi_{k}\times\vec\xi_{k-1} = -\vec\xi_{k-1}\times\vec\xi_{k}.
+        $$
+    
+        By induction,
+    
+        $$
+        \vec\xi_{k}\times\vec\xi_{k+1} = (-1)^{k+2}\vec\xi_{k-2}\times\vec\xi_{k-1} = (-1)^{k}.
+        $$
+    
+        This is the difference formula for convergents $p_{k+1}q_k-p_kq_{k+1}=(-1)^k$.
+    -   The area between the upper and lower convex hulls can be partitioned into several (possibly infinitely many) triangles, each with vertices $\vec\xi_{k-2}$, $\vec\xi_k$ and $\vec 0$. The area of such a triangle is
+    
+        $$
+        \dfrac12|\vec\xi_{k-2}\times\vec\xi_k| = \dfrac12|\vec\xi_{k-2}\times(a_k\vec\xi_{k-1}+\vec\xi_{k-2})| = \dfrac{a_k}{2}|\vec\xi_{k-2}\times\vec\xi_{k-1}| = \dfrac{a_k}{2}.
+        $$
+    
+        By [Pick's theorem](../../geometry/pick.md), this means that if $I$ and $B$ denote the numbers of lattice points in the interior and on the boundary of the triangle, respectively, then
+    
+        $$
+        I + \dfrac{B}{2} - 1 = \dfrac{a_k}{2}.
+        $$
+    
+        We also know that the boundary of the triangle already contains the $a_k+2$ lattice points $\{\vec 0\}\cup\{\vec\xi_{k-1,t}:0\le t\le a_k\}$. This shows that necessarily $I=0$ and $B=a_k+2$. Therefore there are no further lattice points on the edges of the triangle, and no lattice points in its interior. In other words, $q_k$ and $p_k$ are coprime, the intermediate fractions are all the lattice points on the edge joining $\vec\xi_{k-2}$ and $\vec\xi_k$, and all lattice points of the first quadrant lie inside the upper or lower convex hull.
+
+The upper and lower convex hulls obtained this way are called Klein polygons. A similar definition can be made in higher-dimensional spaces, yielding the [Klein polyhedron](https://en.wikipedia.org/wiki/Klein_polyhedron), which generalizes the notion of continued fractions to higher dimensions.
+
+## The tree of continued fractions
+
+Main article: [Stern–Brocot tree and Farey sequence](./stern-brocot.md)
+
+The Stern–Brocot tree is a [binary search tree](../../ds/bst.md) that stores all fractions in $[0,\infty]$. A finite continued fraction in fact encodes the path in the Stern–Brocot tree from the root to the position of a fraction. That is, the continued fraction representation $[a_0,a_1,\ldots,a_{n-1},1]$ of a rational number $x$ means that, starting from the root $\dfrac{1}{1}$, one first moves to the right child $a_0$ times, then to the left child $a_1$ times, alternating directions, until one has moved $a_{n-1}$ times in some direction. Note that only the continued fraction representation ending in $1$ can be used here.
+
+Interpreting continued fraction representations as paths in the Stern–Brocot tree yields an algorithm for comparing continued fractions.
+
+???+ example "Comparing continued fractions"
+    Given continued fractions $\alpha=[\alpha_0,\alpha_1,\ldots,\alpha_n]$ and $\beta=[\beta_0,\beta_1,\ldots,\beta_m]$, compare them.
+
+??? note "Solution"
+    First convert both continued fraction representations into the form ending in $1$. Without loss of generality, assume the given continued fractions already have this form, i.e. $\alpha_n=\beta_m=1$. Since the even positions (indices starting from $0$) are the numbers of steps to the right and the odd positions are the numbers of steps to the left, $\alpha<\beta$ if and only if, comparing in [lexicographic order](../../string/basic.md#lexicographic-order),
+    
+    $$
+    (\alpha_0,-\alpha_1,\alpha_2,\ldots,(-1)^{n-1}\alpha_{n-1},0,\ldots)<(\beta_0,-\beta_1,\beta_2,\ldots,(-1)^{m-1}\beta_{m-1},0,\ldots).
+    $$
+    
+    Compared with the continued fraction representation, the signs are alternated, the trailing $1$ is removed, and the missing positions are padded with $0$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/compare.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/compare.py:core"
+        ```
+
+???+ example "Best inner point"
+    For $\dfrac{0}{1}\le\dfrac{p_0}{q_0}<\dfrac{p_1}{q_1}\le\dfrac{1}{0}$, find the rational number $\dfrac{p}{q}$ such that $\dfrac{p_0}{q_0}<\dfrac{p}{q}<\dfrac{p_1}{q_1}$ and $(q,p)$ is minimal.
+
+??? note "Solution"
+    Since the Stern–Brocot tree is both a binary search tree of the fractions in $[0,\infty]$ and a [Cartesian tree](../../ds/cartesian-tree.md) of the pairs $(q,p)$, the problem can almost be reduced to finding the LCA (lowest common ancestor) of two nodes in the Stern–Brocot tree. However, the LCA only handles the case of a closed interval, and the LCA may be one of the endpoints itself. To avoid extra case analysis, one can first construct $\dfrac{p_0}{q_0}+\varepsilon$ and $\dfrac{p_1}{q_1}-\varepsilon$ and then compute the LCA. Once the paths from the root to the nodes have been computed via continued fractions, the LCA is simply the longest common path.
+    
+    To construct $x\pm\varepsilon$, it suffices to first move right (left) once at the node $x$, and then move left (right) $\infty$ times. In the language of continued fractions, for a fraction $x=[a_0,a_1,\ldots,a_{n-1},1]$, we know that $x\pm\varepsilon$ must be $[a_0,a_1,\ldots,a_{n-1}+1,\infty]$ and $[a_0,a_1,\ldots,a_{n-1},1,\infty]$, so it suffices to compare these two continued fractions and define the larger (smaller) one as $x\pm\varepsilon$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/inner-point.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/inner-point.py:core"
+        ```
+
+???+ example "[GCJ 2019, Round 2 - New Elements: Part 2](https://github.com/google/coding-competitions-archive/blob/main/codejam/2019/round_2/new_elements_part_2/statement.pdf)"
+    Given $N$ pairs of positive integers $(C_i,J_i)$, find a pair of positive integers $(x,y)$ such that $\{C_ix+J_iy\}$ is strictly increasing. Among all pairs satisfying the requirement, output the lexicographically smallest one.
+
+??? note "Solution"
+    Let $A_i=C_i-C_{i-1}$ and $B_i=J_i-J_{i-1}$. The problem becomes finding $(x,y)$ such that all $A_ix+B_iy$ are positive. These pairs fall into four cases:
+    
+    1.  The case $A_i,B_i>0$ can be ignored, since we already assume $(x,y)>0$;
+    2.  In the case $A_i,B_i\le 0$, output "IMPOSSIBLE" directly;
+    3.  The case $A_i>0,B_i\le 0$ amounts to the constraint $\dfrac{y}{x}<\dfrac{A_i}{-B_i}$;
+    4.  The case $A_i\le 0,B_i>0$ amounts to the constraint $\dfrac{y}{x}>\dfrac{-A_i}{B_i}$.
+    
+    Therefore, let $\dfrac{p_0}{q_0}$ be the largest $\dfrac{-A_i}{B_i}$ among the fourth case, and let $\dfrac{p_1}{q_1}$ be the smallest $\dfrac{A_i}{-B_i}$ among the third case. The original problem becomes finding the lexicographically smallest $(q,p)$ such that $\dfrac{p_0}{q_0}<\dfrac{p}{q}<\dfrac{p_1}{q_1}$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/gcj-2019.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/gcj-2019.py:core"
+        ```
+
+For more properties and applications of the Stern–Brocot tree, refer to its main article.
+
+## Fractional linear transformations
+
+Another important concept related to continued fractions is the so-called fractional linear transformation.
+
+???+ abstract "Fractional linear transformation"
+    A **fractional linear transformation** is a function $L:\mathbf R\rightarrow\mathbf R$ such that
+    
+    $$
+    L(x) = \dfrac{ax+b}{cx+d},
+    $$
+    
+    where $a,b,c,d\in\mathbf R$ and $ad-bc\neq 0$.
+
+???+ info "About the condition $ad-bc\neq 0$"
+    It is easy to verify that when $ad-bc=0$, the function may be undefined or constant.
+
+Fractional linear transformations have the following properties:
+
+???+ note "Properties of fractional linear transformations"
+    Let $L_1,L_2,L_3$ be fractional linear transformations, and denote the matrix formed by the coefficients of $L_i$ by
+    
+    $$
+    M_i=\begin{pmatrix}a_i & b_i \\ c_i & d_i\end{pmatrix}
+    $$
+    
+    Then they have the following properties:[^pgl2]
+    
+    1.  The composition $L_1\circ L_2$ and the inverse $L_1^{-1}$ of fractional linear transformations are again fractional linear transformations, i.e. all fractional linear transformations form a [group](../algebra/basic.md#群);
+    2.  A fractional linear transformation is unchanged when all coefficients are multiplied by the same nonzero constant, i.e. for any $\lambda\neq 0$, if $M_2=\lambda M_1$ then $L_2=L_1$;
+    3.  The coefficient matrix of the composition of fractional linear transformations corresponds to the product of the coefficient matrices, i.e. if $M_1M_2=M_3$ then $L_1\circ L_2=L_3$;
+    4.  The coefficient matrix of the inverse of a fractional linear transformation corresponds to the inverse of the coefficient matrix, i.e. if $M_1^{-1}=M_2$ then $L_1^{-1}=L_2$.
+
+??? note "Proof"
+    Here we only give the forms of the composition and the inverse of fractional linear transformations. Once these forms are obtained, all properties are easy to verify.
+    
+    Composition of the fractional linear transformations $L_1$ and $L_2$:
+    
+    $$
+    \begin{aligned}
+    L_1\circ L_2 &= \dfrac{a_1\dfrac{a_2x+b_2}{c_2x+d_2}+b_1}{c_1\dfrac{a_2x+b_2}{c_2x+d_2}+d_1} = \dfrac{(a_1a_2+b_1c_2)x+(a_1b_2+b_1d_2)}{(c_1a_2+d_1c_2)x+(c_1b_2+d_1d_2)}.
+    \end{aligned}
+    $$
+    
+    Inverse of the fractional linear transformation $L_1(x)$:
+    
+    $$
+    y = L_1(x) = \dfrac{a_1x+b_1}{c_1x+d_1} \iff x = L_1^{-1}(y) = \dfrac{d_1y - b_1}{-c_1y + a_1}.
+    $$
+
+A finite continued fraction $[a_0,a_1,\ldots,a_n]$ can be viewed as the result of composing a series of fractional linear transformations. Let
+
+$$
+L_i(x) = \dfrac{a_ix+1}{x} = [a_i,x]. 
+$$
+
+Then the finite continued fraction
+
+$$
+[a_0,a_1,\ldots,a_n] = L_0\circ L_1\circ\cdots\circ L_n(\infty).
+$$
+
+Here, the value of the fractional linear transformation $L(x)=\dfrac{ax+b}{cx+d}$ at $x=\infty$ is $\dfrac{a}{c}$, which is the limit of the function as $x\rightarrow\pm\infty$.
+
+For a general continued fraction, let $r_{k+1}$ be the remainder of the real number $x$, i.e. $x=[a_0,\ldots,a_k,r_{k+1}]$; then
+
+$$
+x = L_0\circ L_1\circ\cdots\circ L_k(r_{k+1}) = \dfrac{p_kr_{k+1}+p_{k-1}}{q_kr_{k+1}+q_{k-1}}.
+$$
+
+This also gives the form of the fractional linear transformation $L_0\circ L_1\circ\cdots\circ L_k$.
+
+Of course, this expression can also be verified directly. At the very beginning,
+
+$$
+x=\dfrac{x+0}{0x+1}=\dfrac{p_{-1}x+p_{-2}}{q_{-1}x+q_{-2}}.
+$$
+
+Then, if $L_0\circ L_1\circ\cdots\circ L_{k-1}$ has the form
+
+$$
+\dfrac{p_{k-1}x+p_{k-2}}{q_{k-1}x+q_{k-2}}
+$$
+
+then by the composition formula for fractional linear transformations,
+
+$$
+L_0\circ L_1\circ\cdots\circ L_{k-1}\circ L_k = \dfrac{(p_{k-1}a_k+p_{k-2})x+p_{k-1}}{(q_{k-1}a_k+q_{k-2})x+q_{k-1}} = \dfrac{p_kx+p_{k-1}}{q_kx+q_{k-1}}.
+$$
+
+This yields the above form by induction. Fractional linear transformations also provide another perspective on the recurrence formula and its initial conditions.
+
+???+ example "[DMOPC '19 Contest 7 P4 - Bob and Continued Fractions](https://dmoj.ca/problem/dmopc19c7p4)"
+    Given an array of positive integers $a_1,\ldots,a_n$ and $m$ queries, each query gives $l\le r$ and asks for the value of $[a_l,\ldots,a_r]$.
+
+??? note "Solution"
+    Interpreting a continued fraction as the value at $x=\infty$ of the composition of a sequence of fractional linear transformations, it suffices to be able to query the composition over a range of fractional linear transformations many times. Since every fractional linear transformation is invertible, one can precompute prefix products and answer queries by differences, with complexity $O(n+m)$; if updates are needed, a segment tree or similar structure can be used for storage.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/flt-presum.cpp"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/flt-presum.py"
+        ```
+
+### Arithmetic operations on continued fractions
+
+Using fractional linear transformations, one can perform the four arithmetic operations on continued fractions. This algorithm was first proposed by Gosper.
+
+The cornerstone of the algorithm is computing a fractional linear transformation of a continued fraction. This section uses finite continued fractions as an example, but since the algorithm only needs to read finitely many terms of the continued fraction for each output term, it also applies to infinite continued fractions and can compute to arbitrary precision. Combined with the comparison algorithm for continued fractions above, one can exactly compare differences between real numbers to arbitrary precision.
+
+???+ example "Fractional linear transformation of a continued fraction"
+    Given a fractional linear transformation $L(x)=\dfrac{ax+b}{cx+d}$ and a continued fraction $\alpha=[\alpha_0,\alpha_1,\ldots,\alpha_n]$, find the continued fraction representation $[\beta_0,\beta_1,\ldots,\beta_m]$ of $\beta=L(\alpha)$.
+
+??? note "Solution"
+    The basic idea of the algorithm is to determine the values of $\beta_i$ one at a time. Let
+    
+    $$
+    L_\gamma(x) = \gamma+\dfrac{1}{x} = \dfrac{\gamma x+1}{x}.
+    $$
+    
+    Since the continued fraction
+    
+    $$
+    L(\alpha) = L\circ L_{\alpha_0}\circ L_{\alpha_1}\circ\cdots\circ L_{\alpha_n}(\infty),
+    $$
+    
+    one can compute the value of $L(\alpha)$ by successively composing $L_{\alpha_k}$ onto $L$. However, if we want the continued fraction representation of $L(\alpha)$, there is no need to compute the value of $L(\alpha)$ completely and then find its continued fraction representation. The values $\beta_0,\beta_1,\ldots$ can already be determined during the process of composing $L_{\alpha_i}$.
+    
+    For example, suppose we have currently computed
+    
+    $$
+    L\circ L_{\alpha_0}\circ L_{\alpha_1}\circ\cdots\circ L_{\alpha_k}(x) = \dfrac{a_kx+b_k}{c_kx+d_k}
+    $$
+    
+    and $c_k,d_k$ have the same sign. Then $L\circ L_{\alpha_0}\circ L_{\alpha_1}\circ\cdots\circ L_{\alpha_k}(x)$ is monotonic on $[0,\infty]$, and its value necessarily lies between $\dfrac{a_k}{c_k}$ and $\dfrac{b_k}{d_k}$. Therefore, if
+    
+    $$
+    \left\lfloor\dfrac{a_k}{c_k}\right\rfloor = \left\lfloor\dfrac{b_k}{d_k}\right\rfloor,
+    $$
+    
+    we can determine that this is the integer part $\beta_0$ of $L\circ L_{\alpha_0}\circ L_{\alpha_1}\circ\cdots\circ L_{\alpha_k}(x)$. Then, composing $L_{\beta_0}^{-1}$ on the left gives
+    
+    $$
+    L_{\beta_0}^{-1}\circ L\circ L_{\alpha_0}\circ L_{\alpha_1}\circ\cdots\circ L_{\alpha_k}.
+    $$
+    
+    Now, continuing to append $L_{\alpha_{k+1}},L_{\alpha_{k+2}},\ldots$ allows us to determine the new integer part, namely $\beta_1$. Continuing this computation determines all values $\beta_j$.
+    
+    The algorithm requires $c$ and $d$ to have the same sign in order to guarantee that the discontinuity of the function is not in the range $[0,\infty]$. This is always possible, because the definition of a simple continued fraction requires the coefficients (other than $\alpha_0$) to be positive integers. From this one can show that $c$ and $d$ must have the same sign within finitely many steps, and will keep the same sign afterwards.
+    
+    In a concrete implementation, it suffices to maintain the coefficient matrix $\begin{pmatrix}a&b\\c&d\end{pmatrix}$ of the current fractional linear transformation and check whether $c$ and $d$ have the same sign and whether $\dfrac{a}{c}$ and $\dfrac{b}{d}$ have the same integer part. Composing $L_{\alpha_i}$ on the right gives $\begin{pmatrix}a\alpha_i+b&a\\ c\alpha_i+d&c\end{pmatrix}$. If the two integer parts coincide and equal $\beta_j$, append $\beta_j$ to the resulting continued fraction and compose $L_{\beta_j}^{-1}$ on the left, which amounts to computing $\begin{pmatrix}c&d\\ a\bmod c & b \bmod d \end{pmatrix}$.
+
+Fractional linear transformations of continued fractions can already be used to perform arithmetic operations between fractions and continued fractions:
+
+$$
+\dfrac{p}{q}\pm x = \dfrac{\pm qx+p}{0x+q},\ \dfrac{p}{q}x = \dfrac{px+0}{0x+q},\ \frac{p}{q}/x = \dfrac{0x+p}{qx+0}.
+$$
+
+For arithmetic operations between general continued fractions, bilinear fractional transformations are needed:
+
+$$
+x+y = \dfrac{0xy+x+y+0}{0xy+0x+0y+1},\ xy = \dfrac{1xy+0x+0y+0}{0xy+0x+0y+1},\ \dfrac{x}{y} = \dfrac{0xy+x+0y+0}{0xy+0x+y+0}.
+$$
+
+???+ example "Bilinear fractional transformation of continued fractions"
+    Given a bilinear fractional transformation $L(x,y)=\dfrac{axy+bx+cy+d}{exy+fx+gy+h}$ and continued fractions $\alpha=[\alpha_0,\alpha_1,\ldots,\alpha_n]$ and $\beta=[\beta_0,\beta_1,\ldots,\beta_m]$, find the continued fraction representation $[\gamma_0,\gamma_1,\ldots,\gamma_\ell]$ of $\gamma=L(\alpha,\beta)$.
+
+??? note "Solution"
+    Similarly to the case of a single-variable fractional linear transformation, to determine the integer part it suffices to ensure that the integer part of the current fractional transformation stays constant on $(x,y)\in[0,\infty]\times[0,\infty]$, i.e. $e,f,g,h$ all have the same sign and
+    
+    $$
+    \left\lfloor\dfrac{a}{e}\right\rfloor = \left\lfloor\dfrac{b}{f}\right\rfloor = \left\lfloor\dfrac{c}{g}\right\rfloor = \left\lfloor\dfrac{d}{h}\right\rfloor.
+    $$
+    
+    Composition on the right is replaced by computing $L(x,y)\mapsto L(L_{\alpha_i}(x),y)$ and $L(x,y)\mapsto L(x,L_{\beta_j}(y))$, which are likewise expressed as linear transformations of the coefficients. Composition on the left is exactly the same as in the single-variable case; it suffices to compute remainders.
+    
+    Compared with the single-variable case, the two-variable case requires deciding whether to compose $L_{\alpha_i}$ or $L_{\beta_j}$ first. Since the order of composition does not affect the final result, the order can be chosen freely, for example by alternately composing $L_{\alpha_i}$ and $L_{\beta_j}$. Alternatively, one can use the heuristic of preferring the dimension with the larger gap between ratios: if $\left|\dfrac{b}{f}-\dfrac{d}{h}\right|>\left|\dfrac{c}{g}-\dfrac{d}{h}\right|$, compose $L_{\alpha_i}$ first; otherwise, compose $L_{\beta_j}$ first.
+
+## Periodic continued fractions
+
+Analogously to the notion of a repeating decimal, if the coefficients of a continued fraction form a repeating cycle, it is called a periodic continued fraction.
+
+???+ abstract "Periodic continued fraction"
+    Let $x=[a_0,a_1,a_2,\ldots]$ be a continued fraction, and suppose there exist a natural number $K$ and a positive integer $L$ such that for every $k\ge K$, $a_k=a_{k+L}$. Then the continued fraction $x$ is called a **periodic continued fraction**. The smallest $L$ satisfying this condition is called its minimal period, and the sequence $a_{k},\ldots,a_{k+L-1}$ that repeats in the continued fraction is called its repeating block. Using the repeating block, a periodic continued fraction can be written as $x=[a_0,\ldots,a_{k-1},\overline{a_k,\ldots,a_{k+L-1}}]$. If $K$ can be taken to be $0$, i.e. $x=[\overline{a_0,\ldots,a_{L-1}}]$, it is called a **purely periodic continued fraction**; otherwise it is called an **eventually periodic continued fraction**.
+
+### Quadratic irrationals
+
+A concept closely related to periodic continued fractions is the [(real) quadratic irrational](./quadratic.md), i.e. an irrational solution of a quadratic equation with integer coefficients. All quadratic irrationals can be written in the form
+
+$$
+a+b\sqrt D
+$$
+
+where $a,b$ are rational numbers and $D$ is a squarefree positive integer. All quadratic irrationals mentioned in this article are assumed to be real. Moreover, the conjugate of $a+b\sqrt D$ is $a-b\sqrt{D}$.
+
+Euler's result shows that all periodic continued fractions are quadratic irrationals.
+
+???+ note "Theorem (Euler)"
+    Every periodic continued fraction represents a quadratic irrational.
+
+??? note "Proof"
+    For a general periodic continued fraction $x=[a_0,\ldots,a_{k-1},\overline{a_k,\ldots,a_{k+L-1}}]$, let $y=[\overline{a_k,\ldots,a_{k+L-1}}]$; then
+    
+    $$
+    \begin{aligned}
+    x&=[a_0,\ldots,a_{k-1},y] = L_0(y),\\
+    y&=[a_k,\ldots,a_{k+L-1},y] = L_1(y),
+    \end{aligned}
+    $$
+    
+    where $L_0(\cdot)$ and $L_1(\cdot)$ are both fractional linear transformations. Thus we obtain the equation satisfied by $x$:
+    
+    $$
+    x = L_0\circ L_1\circ L_0^{-1}(x). 
+    $$
+    
+    Writing the fractional linear transformation as $L_0\circ L_1\circ L_0^{-1}(x) = \dfrac{ax+b}{cx+d}$, we get the equation satisfied by $x$:
+    
+    $$
+    cx^2+(d-a)x-b=0.
+    $$
+    
+    Therefore, every periodic continued fraction is a solution of a quadratic equation with integer coefficients. Since every infinite continued fraction is irrational, every periodic continued fraction represents a quadratic irrational.
+
+Lagrange's result shows that the converse also holds, so quadratic irrationals and periodic continued fractions are equivalent.
+
+???+ note "Theorem (Lagrange)"
+    Every quadratic irrational can be represented as a periodic continued fraction.
+
+??? note "Proof"
+    The idea is to show that the remainders repeat. Suppose the quadratic irrational $x$ can be written in the form
+    
+    $$
+    x = \dfrac{P_0+\sqrt{D}}{Q_0}
+    $$
+    
+    where $P_0,Q_0,D$ are all integers and $Q_0\mid D-P_0^2$. This is always possible; for example, a quadratic irrational $x$ can always be written as
+    
+    $$
+    a+b\sqrt{D'} = \dfrac{p_a}{q_a}+\dfrac{p_b}{q_b}\sqrt{D'} = \dfrac{p_aq_b+\sqrt{p_b^2q_a^2D'}}{q_aq_b} = \dfrac{p_aq_aq_b^2+\sqrt{(q_aq_b)^2p_b^2q_a^2D'}}{(q_aq_b)^2}
+    $$
+    
+    and then one sets $P=p_aq_aq_b^2$, $Q=(q_aq_b)^2$ and $D=Qp_b^2q_a^2D'$ (here we assume $b>0$; if $b<0$, simply negate both $P$ and $Q$).
+    
+    The advantage of writing it in this form is that one can show that all of its remainders have a similar form:
+    
+    $$
+    r_k=\dfrac{P_k+\sqrt D}{Q_k},
+    $$
+    
+    where $P_k,Q_k$ are integers and $Q_k\mid D-P_k^2$. The condition $Q_k\mid D-P_k^2$ guarantees that in the numerators of all remainders the coefficient in front of $\sqrt{D}$ is $1$.
+    
+    To obtain the form of the remainders, we use mathematical induction. For $k=0$ it is obvious. Suppose the form of $r_k$ has been established, and let $a_k=\lfloor r_k\rfloor$; then
+    
+    $$
+    r_k = a_k+\dfrac{1}{r_{k+1}}.
+    $$
+    
+    Suppose $r_{k+1}$ also has a similar form, and substitute it together with $r_k$ into the above:
+    
+    $$
+    \dfrac{P_k+\sqrt D}{Q_k} = a_k + \dfrac{Q_{k+1}}{P_{k+1}+\sqrt{D}} = a_k + \dfrac{Q_{k+1}P_{k+1}-Q_{k+1}\sqrt{D}}{P_{k+1}^2-D}.
+    $$
+    
+    Since the representation of a quadratic irrational as $a+b\sqrt{D}$ is unique, comparing coefficients on both sides gives
+    
+    $$
+    \dfrac{P_k}{Q_k} = a_k+\dfrac{Q_{k+1}P_{k+1}}{P_{k+1}^2-D},\ \dfrac{1}{Q_k}=-\dfrac{Q_{k+1}}{P_{k+1}^2-D}.
+    $$
+    
+    Substituting the second equation into the first, we can solve for $P_{k+1}$:
+    
+    $$
+    \dfrac{P_k}{Q_k} = a_k-\dfrac{P_{k+1}}{Q_k} \iff P_{k+1} = a_kQ_k-P_k.
+    $$
+    
+    Substituting back into the second equation, we can solve for $Q_{k+1}$:
+    
+    $$
+    Q_{k+1} = \dfrac{D-P_{k+1}^2}{Q_k} = \dfrac{D-(a_kQ_k-P_k)^2}{Q_k} = -a_k^2Q_k+2a_kP_k+\dfrac{D-P_k^2}{Q_k}.
+    $$
+    
+    By the induction hypothesis, $Q_k\mid D-P_k^2$, so indeed $P_{k+1}$ and $Q_{k+1}$ are both integers, i.e. $r_{k+1}$ also has the required form.
+    
+    Finally, we show that the remainders can take only finitely many values, so they must repeat. We have already found that the remainder
+    
+    $$
+    \dfrac{P_k+\sqrt{D}}{Q_k} = r_k = -\dfrac{q_{k-2}x-p_{k-2}}{q_{k-1}x-p_{k-1}}
+    $$
+    
+    and for an irrational number we always have $r_k>1$. At the same time, its conjugate
+    
+    $$
+    \dfrac{P_k-\sqrt{D}}{Q_k} = r_k^* = -\dfrac{q_{k-2}x^*-p_{k-2}}{q_{k-1}x^*-p_{k-1}} = -\dfrac{q_{k-2}}{q_{k-1}}\dfrac{x^*-\dfrac{p_{k-2}}{q_{k-2}}}{x^*-\dfrac{p_{k-1}}{q_{k-1}}}
+    $$
+    
+    must be less than $0$ for sufficiently large $k$, because
+    
+    $$
+    \dfrac{q_{k-2}}{q_{k-1}}>0,\ \lim_{k\rightarrow\infty}\dfrac{x^*-\dfrac{p_{k-2}}{q_{k-2}}}{x^*-\dfrac{p_{k-1}}{q_{k-1}}}=\dfrac{x^*-x}{x^*-x}=1.
+    $$
+    
+    This shows that
+    
+    $$
+    \dfrac{2\sqrt{D}}{Q_k} = r_k-r_k^*>1 \iff 0<Q_k\le 2\sqrt{D}.
+    $$
+    
+    Therefore $Q_k$ can take only finitely many values. Furthermore,
+    
+    $$
+    D-P_{k}^2=Q_kQ_{k-1}>0 \iff |P_k|<\sqrt{D},
+    $$
+    
+    so $P_k$ can also take only finitely many values. Hence the remainder $r_k$ has only finitely many possible values and must repeat among infinitely many terms.
+
+The proof of the theorem also provides a recurrence formula for computing the remainders of a quadratic irrational:
+
+???+ note "Recurrence formula for the remainders of a quadratic irrational"
+    A quadratic irrational can always be written in the form
+    
+    $$
+    x=\dfrac{P_0+\sqrt{D}}{Q_0}
+    $$
+    
+    with $Q_0\mid D-P^2_0$. In its remainders
+    
+    $$
+    r_{k}=\dfrac{P_k+\sqrt{D}}{Q_k}
+    $$
+    
+    $P_k,Q_k$ are integers satisfying the recurrence
+    
+    $$
+    \begin{aligned}
+    P_{k+1} &= a_kQ_k-P_k,\\
+    Q_{k+1} &= \dfrac{D-P_{k+1}^2}{Q_k}.
+    \end{aligned}
+    $$
+
+This recurrence can be used directly to compute the continued fraction of a quadratic irrational, and by the proof of the theorem, $|P_k|<\sqrt{D}$ and $Q_k\le 2\sqrt{D}$. The complexity of the algorithm depends on the length of the repeating block, which can be shown to be $O(\sqrt{D}\log D)$[^period-surd].
+
+???+ example "Quadratic irrational"
+    Given a quadratic irrational $\alpha=\dfrac{x+y\sqrt{n}}{z}$, find its continued fraction representation. Here $x,y,z,n\in\mathbf Z$ and $n>0$ is not a perfect square.
+
+??? note "Solution"
+    First write the quadratic irrational in the form above, then compute using the recurrence. The terms of the continued fraction are given by $a_k=\lfloor r_k\rfloor$. To find the repeating block, one needs to store the index of the first occurrence of each $(P_k,Q_k)$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/quadratic-irrational.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/quadratic-irrational.py:core"
+        ```
+
+???+ example "[Tavrida NU Akai Contest - Continued Fraction](https://timus.online/problem.aspx?space=1&num=1814)"
+    Given $x$ and $k$, where $x$ is not a perfect square and $0\le k\le 10^9$, find the $k$-th convergent $x_k$ of $\sqrt{x}$.
+
+??? note "Solution"
+    First find the period of $\sqrt{x}$ using the algorithm above, express the repeating block as a fractional linear transformation, and then use [binary exponentiation](../binary-exponentiation.md) to obtain the value of $x_k$. Of course, the part before entering the repeating block and the part shorter than one full period need to be handled separately.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/surd-convergent.cpp"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/surd-convergent.py"
+        ```
+
+### Purely periodic continued fractions
+
+Being a quadratic irrational is a necessary and sufficient condition for having a periodic continued fraction representation; the discussion in this section gives a necessary and sufficient condition for a real number to have a purely periodic continued fraction representation.
+
+First, since a purely periodic continued fraction has a form similar to a finite continued fraction, one can perform a "reversal" operation. Similarly to the reversal theorem, the continued fraction representation obtained this way has a definite relationship to the original one.
+
+???+ note "Theorem (Galois)"
+    For a purely periodic continued fraction
+    
+    $$
+    x = \left[\overline{a_0,a_1,\ldots,a_{\ell}}\right],
+    $$
+    
+    let
+    
+    $$
+    x' = \left[\overline{a_{\ell},\ldots,a_1,a_0}\right].
+    $$
+    
+    Then $x$ and $x'$ are each other's "negative reciprocal conjugate", i.e. the negative of the reciprocal of the conjugate of $x$ is $x'$.
+
+??? note "Proof"
+    Since $\ell+1$ is not required to be the minimal period, we may assume $\ell>0$. By the reversal theorem,
+    
+    $$
+    \begin{aligned}
+    \dfrac{p_\ell}{p_{\ell-1}} &= [a_\ell,\ldots,a_1,a_0] = \dfrac{p'_\ell}{q'_\ell},\\
+    \dfrac{q_\ell}{q_{\ell-1}} &= [a_\ell,\ldots,a_1] = \dfrac{p'_{\ell-1}}{q'_{\ell-1}}.
+    \end{aligned}
+    $$
+    
+    Since both sides of the equalities are irreducible fractions,
+    
+    $$
+    p'_\ell = p_\ell,\ q'_\ell = p_{\ell-1},\ p'_{\ell-1}=q_\ell,\ q'_{\ell-1} = q_{\ell-1}.
+    $$
+    
+    For the purely periodic continued fraction $x$, its $\ell+1$-th remainder is $x$ itself, so
+    
+    $$
+    x = \dfrac{xp_\ell+p_{\ell-1}}{xq_\ell+q_{\ell-1}}.
+    $$
+    
+    Therefore it satisfies the quadratic equation
+    
+    $$
+    q_\ell x^2+(q_{\ell-1}-p_\ell)x-p_{\ell-1} = 0.
+    $$
+    
+    Similarly, $x'$ satisfies the quadratic equation
+    
+    $$
+    q'_\ell(x')^2+(q'_{\ell-1}-p'_\ell)x'-p'_{\ell-1} = 0.
+    $$
+    
+    Using the relations between the coefficients, this equation can be written as
+    
+    $$
+    p_{\ell-1}(x')^2+(q_{\ell-1}-p_\ell)x'-q_\ell = 0.
+    $$
+    
+    Let $y=-\dfrac{1}{x'}$; then $x$ and $y$ satisfy the same equation. But $x>0>y$, so they are not the same root but conjugates of each other, which proves the original claim.
+
+Using this observation, Galois further gave a necessary and sufficient condition for a quadratic irrational to have a purely periodic continued fraction representation.
+
+???+ note "Theorem (Galois)"
+    A quadratic irrational $x$ can be represented as a purely periodic continued fraction if and only if $x>1$ and its conjugate satisfies $-1<x^*<0$.
+
+??? note "Proof"
+    If $x$ is a purely periodic continued fraction, then, using the notation above, $a_0=a_{\ell+1}\ge 1$, hence $x>1$. Also, since its negative reciprocal conjugate is also a periodic continued fraction, its conjugate $x^*$ satisfies $-\dfrac{1}{x^*}>1$, i.e. $-1<x^*<0$. This proves that every purely periodic continued fraction satisfies the condition.
+    
+    Conversely, let $x>1$ be a quadratic irrational with $-1<x^*<0$. For the remainders $r_k$ of $x$ we have the recurrence
+    
+    $$
+    r_k = a_k+\dfrac{1}{r_{k+1}}.
+    $$
+    
+    Both sides of the equation are quadratic irrationals; taking conjugates gives
+    
+    $$
+    r_{k}^* = a_k+\dfrac{1}{r_{k+1}^*}.
+    $$
+    
+    Using this recurrence, one can show that $-1<r_{k}^*<0$ holds for all $k\ge 0$.
+    
+    First, for $k=0$, $-1<r_0^*=x^*<0$ is obvious. For $k\ge 0$, by the definition of a simple continued fraction and $x>1$, $a_k\ge 1$. Hence, assuming $-1<r_k^*<0$, we have
+    
+    $$
+    -1<-\dfrac{1}{a_k}< r_{k+1}^* = \dfrac{1}{r_k^*-a_k} < -\dfrac{1}{1+a_k} < 0.
+    $$
+    
+    This proves by induction that $-1<r_{k}^*<0$ holds for all $k\ge 0$. Therefore,
+    
+    $$
+    a_k = -\dfrac{1}{r_{k+1}^*}+r_k^* = \left\lfloor-\dfrac{1}{r_{k+1}^*}\right\rfloor.
+    $$
+    
+    Since a quadratic irrational is necessarily a periodic continued fraction, there exist a positive integer $L$ and at least some sufficiently large $k$ with $r_{k}=r_{k+L}$. But then necessarily also
+    
+    $$
+    a_{k-1} = \left\lfloor-\dfrac{1}{r_{k}^*}\right\rfloor = \left\lfloor-\dfrac{1}{r_{k+L}^*}\right\rfloor = a_{k+L-1}.
+    $$
+    
+    Hence,
+    
+    $$
+    r_{k-1} = a_{k-1}+\dfrac{1}{r_k} = a_{k+L-1}+\dfrac{1}{r_{k+L}} = r_{k+L-1}.
+    $$
+    
+    This means that the smallest $k$ for which $r_{k}=r_{k+L}$ holds must be $0$. In other words, $x$ can be represented as a purely periodic continued fraction.
+
+Galois's theorem reveals the pattern of the continued fraction representation of pure quadratic surds, i.e. quadratic irrationals of the form $\sqrt{r}$.
+
+???+ note "Corollary"
+    For a rational number $r>1$, if $\sqrt{r}$ is irrational, then
+    
+    $$
+    \sqrt{r} = [\lfloor\sqrt{r}\rfloor,\overline{a_1,\ldots,a_{\ell},2\lfloor\sqrt{r}\rfloor}]
+    $$
+    
+    and for every $1\le k\le\ell$, $a_k = a_{\ell+1-k}$.
+
+??? note "Proof"
+    For the quadratic irrational $\sqrt{r}$, since $\lfloor\sqrt{r}\rfloor+\sqrt{r}>1$ and $-1<\lfloor\sqrt{r}\rfloor-\sqrt{r}<0$, $\lfloor\sqrt{r}\rfloor+\sqrt{r}$ is a purely periodic continued fraction:
+    
+    $$
+    \lfloor\sqrt{r}\rfloor+\sqrt{r} = [\overline{2\lfloor\sqrt{r}\rfloor,a_1,\ldots,a_\ell}].
+    $$
+    
+    By the theorem above, its negative reciprocal conjugate has the form
+    
+    $$
+    \dfrac{1}{\sqrt{r}-\lfloor\sqrt{r}\rfloor} = [\overline{a_\ell,\ldots,a_1,2\lfloor\sqrt{r}\rfloor}].
+    $$
+    
+    By the basic properties of continued fractions,
+    
+    $$
+    \sqrt{r}=\lfloor\sqrt{r}\rfloor+\dfrac{1}{\dfrac{1}{\sqrt{r}-\lfloor\sqrt{r}\rfloor}}=[\lfloor\sqrt{r}\rfloor,\overline{a_\ell,\ldots,a_1,2\lfloor\sqrt{r}\rfloor}].
+    $$
+    
+    But from the continued fraction representation of $\lfloor\sqrt{r}\rfloor+\sqrt{r}$ we also know that
+    
+    $$
+    \sqrt{r} = -\lfloor\sqrt{r}\rfloor+\left(\lfloor\sqrt{r}\rfloor+\sqrt{r}\right) = [\lfloor\sqrt{r}\rfloor,\overline{a_1,\ldots,a_\ell,2\lfloor\sqrt{r}\rfloor}].
+    $$
+    
+    Since the continued fraction representation of an irrational number is unique, comparing the middle coefficients shows that $a_k=a_{\ell+1-k}$ holds for all $1\le k\le\ell$.
+
+??? example "Example: continued fraction expansion of $\sqrt{74}$"
+    The continued fraction of $\sqrt{74}$ can be computed as follows (this is only for illustration; a program should use the recursive algorithm mentioned above):
+    
+    $$
+    \begin{aligned}
+    \sqrt{74}&=8+(-8)+\sqrt{74}=\left[8,\frac{8+\sqrt{74}}{10}\right]\\
+    &=\left[8,1+\frac{-2+\sqrt{74}}{10}\right]=\left[8,1,\frac{2+\sqrt{74}}{7}\right]\\
+    &=\left[8,1,1+\frac{-5+\sqrt{74}}{7}\right]=\left[8,1,1,\frac{5+\sqrt{74}}{7}\right]\\
+    &=\left[8,1,1,1+\frac{-2+\sqrt{74}}{7}\right]=\left[8,1,1,1,\frac{2+\sqrt{74}}{10}\right]\\
+    &=\left[8,1,1,1,1+\frac{-8+\sqrt{74}}{10}\right]=\left[8,1,1,1,1,8+\sqrt{74}\right]\\
+    &=\left[8,1,1,1,1,16+(-8)+\sqrt{74}\right]=\left[8,\overline{1,1,1,1,16}\right]
+    \end{aligned}
+    $$
+    
+    The remainders are, respectively:
+    
+    $$
+    \begin{alignedat}{3}
+    r_1&=\frac{8+\sqrt{74}}{10}&&=\left[\overline{1,1,1,1,16}\right]\\
+    r_2&=\frac{2+\sqrt{74}}{7}&&=\left[\overline{1,1,1,16,1}\right]\\
+    r_3&=\frac{5+\sqrt{74}}{7}&&=\left[\overline{1,1,16,1,1}\right]\\
+    r_4&=\frac{2+\sqrt{74}}{10}&&=\left[\overline{1,16,1,1,1}\right]\\
+    r_5&=8+\sqrt{74}&&=\left[\overline{16,1,1,1,1}\right]
+    \end{alignedat}
+    $$
+    
+    By Galois's result, the periodic parts of the remainders $r_k$ and $r_{L+1-k}$ are exactly reversed, so they are each other's negative reciprocal conjugates. If the length $L$ of the repeating block of $\sqrt{D}$ is odd, the middle term is its own negative reciprocal conjugate; if the length $L$ of the repeating block is even, there is no such term. The discussion in the section on Pell's equation will show that the parity of the length of the repeating block determines whether the equation $x^2-Dy^2=-1$ has a solution.
+
+The continued fraction expansion of the quadratic irrational $\sqrt{D}$ is mainly applied to solving [Pell's equation](./pell-equation.md).
+
+## Example problems
+
+After mastering the basic concepts, one needs to study some concrete example problems to understand how to apply continued fraction methods in competitive programming.
+
+???+ example "Convex hull under a line"
+    Given $r=[a_0,a_1,\ldots,a_n]$, find the convex hull of the set of lattice points $(x,y)$ satisfying $0\le x\le N$ and $0\le y\le rx$.
+
+??? note "Solution"
+    For the unbounded set $x\ge 0$, the upper hull is the line $y=rx$ itself. However, as shown in the figure below, if we additionally require $x\le N$, the upper hull eventually deviates from the line.
+    
+    ![](./images/lattice-hull.svg)
+    
+    Starting from $(0,0)$, all lattice points of the upper hull can be found from left to right. Suppose the last lattice point of the upper hull found so far is $(x,y)$. Now we want to find the next lattice point $(x',y')$. The vertex $(x',y')$ is to the upper right of $(x,y)$; denote their difference by $(\Delta x,\Delta y)=(x'-x,y'-y)$. Then necessarily
+    
+    $$
+    0<\Delta x\le N-x,\ 0\le \Delta y\le r\Delta x.
+    $$
+    
+    The second inequality holds because the condition $\Delta y>r\Delta x$ would contradict the fact that $(x,y)$ is already on the upper hull. Looking at the conditions that $(\Delta x,\Delta y)$ must satisfy, only the upper bound of $\Delta x$ changes for different points $(x,y)$. Therefore, as long as we can solve this subproblem, all lattice points of the original problem can be found recursively.
+    
+    Next, consider how to solve the subproblem. Compared with the original problem, the subproblem amounts to changing the upper bound of $x$ to $N'$ and finding the first lattice point of the upper hull adjacent to the origin. Denote the solution of the subproblem by $(q,p)$. Then $p$ and $q$ must be coprime (otherwise it is not the first lattice point), and the slope $\dfrac{p}{q}$ of the line joining it to the origin is the largest among all lattice points below the line $y=rx$ with abscissa not exceeding $N'$ (otherwise it is not on the convex hull). Combined with the earlier [geometric interpretation](#geometric-interpretation), such a point $(x,y)$ must correspond to a lower semiconvergent of $r$. Since lower semiconvergents with larger denominators are closer to $r$, the solution $(q,p)$ of the subproblem corresponds to the lower semiconvergent with the largest denominator among all those with denominators not exceeding $N'$.
+    
+    Of course, in the actual computation there is no need to recompute such a lower semiconvergent for every subproblem. One should first compute all convergents, which effectively provides a way to enumerate all lower semiconvergents. Then enumerate the lower semiconvergents in decreasing order of denominators, each time trying to add it to the previous lattice point $(x,y)$ until it can no longer be added, and only then move on to the next lower semiconvergent.
+    
+    There are some obvious optimizations here. First, for a lower semiconvergent $(q,p)$, there must exist an odd $k$ and $0\le t<a_{k+1}$ such that $(q,p)=(q_{k-1},p_{k-1})+t(q_k,p_k)$. It suffices to find the largest $t$ such that $q_{k-1}+tq_k+x\le N$ is satisfied, i.e. $t=\left\lfloor\dfrac{N-q_{k-1}-x}{q_k}\right\rfloor$. There is no need to worry about $t$ going out of range, because the larger lower convergent $(q_{k+1},p_{k+1})$ has already been fully added. And when determining the number of additions each time, one can directly compute $\left\lfloor\dfrac{N-x}{q}\right\rfloor$ instead of trying one by one.
+    
+    The complexity of the optimized algorithm is $O(n)$. Although there may be many lattice points corresponding to lower semiconvergents, not many of them actually become increments. We now show that among all lower semiconvergents $(q,p)=(q_{k-1},p_{k-1})+t(q_k,p_k)$ with $0\le t<a_{k+1}$, at most two increments occur. Suppose an increment does occur among these lower semiconvergents; then necessarily $q_{k-1}\le N-x<q_{k+1}$. Let $t=\left\lfloor\dfrac{N-q_{k-1}-x}{q_k}\right\rfloor$. If $t=0$, the increment has $\Delta x=q_{k-1}$, so after adding the increment, $N-x'<q_{k-1}$, and no new increment will occur among these lower semiconvergents; if $t>0$, then after adding the increment, necessarily $N-x'=(N-q_{k-1}-x)\bmod q_k<q_k$, so even if a new increment occurs within the same group of lower semiconvergents, next time only $t'=0$ is possible. Therefore, at most two increments can occur within such a group of lower semiconvergents. This shows that the total time complexity is $O(n)$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/hull-under-line.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/hull-under-line.py:core"
+        ```
+
+???+ example "[Timus - Crime and Punishment](https://timus.online/problem.aspx?space=1&num=1430)"
+    Given positive integers $A,B,N \le 2\times 10^9$, find $x,y\ge 0$ such that $Ax+By\le N$ and $Ax+By$ is as large as possible.
+
+??? note "Solution"
+    This problem has a solution with complexity $O(\sqrt N)$: assume $A\ge B$; since $A(B+x)+By=Ax+B(A+y)$, it suffices to search for the answer among $x\le\min\{N/A, B\}$. This is enough to pass the problem. However, if the continued fraction method is applied, the time complexity can be reduced to $O(\log N)$.
+    
+    For convenience of discussion, first change the sign of $x$ via the substitution $x\mapsto\left\lfloor N/A\right\rfloor-x$. Let $C=N\bmod A$ and $M=\left\lfloor N/A\right\rfloor$; then the original problem becomes finding the optimal $(x,y)$ maximizing $By-Ax$ subject to $0\le x\le M$ and $By-Ax\le C$. For each fixed $x$, the optimal value of $y$ is $\left\lfloor\dfrac{Ax+C}{B}\right\rfloor$.
+    
+    Next we show that this problem has a solution similar to the previous example. However, unlike the previous example, which used lower semiconvergents to move away from the line, this problem needs upper semiconvergents to approach the line. Specifically, the value of $C-(By-Ax)$ is proportional to the distance from the point $(x,y)$ to the line $By-Ax=C$. Maximizing $By-Ax$ is equivalent to minimizing this distance. The goal of the algorithm is to find the feasible lattice point below the line $By-Ax=C$ that is closest to it. The idea of the algorithm is to start from the leftmost point and search along the upper hull of these lattice points, gradually reducing the distance to the line, until the optimal solution is obtained.
+    
+    In the $(x,y)$ coordinate system, the algorithm starts from $(0,\lfloor C/B\rfloor)$ and recursively finds and adds the optimal increment $(\Delta x,\Delta y)$, ensuring that the point after the addition is closer to the line $By-Ax=C$ than before, but does not reach the other side of the line and does not let the abscissa exceed $M$. Let the point obtained so far be $(x,y)$; then the conditions satisfied by the increment $(\Delta x,\Delta y)$ are
+    
+    $$
+    0<B\Delta y-A\Delta x\le C-(By-Ax),\ 0<\Delta x\le M-x.
+    $$
+    
+    Following the idea of searching along the lower hull, it suffices to find, among the points satisfying these conditions, the one with the smallest $\Delta x$. Rewrite the first inequality as
+    
+    $$
+    \Delta y \le \dfrac{A}{B}\Delta x+\dfrac{C-(By-Ax)}{B}.
+    $$
+    
+    Combined with the earlier [geometric interpretation](#geometric-interpretation), as long as the trailing constant term is less than $1$, the lattice point $(\Delta x,\Delta y)$ with the smallest abscissa satisfying this inequality must correspond to some upper semiconvergent. This is because, among all fractions with denominators not exceeding its denominator, it approximates some real number from above best, which can only be an upper semiconvergent. And each time an increment is added, the upper bound on $\Delta y$ becomes tighter, which means that upper semiconvergents with larger denominators must be examined.
+    
+    Following the idea of the previous example: examine all upper semiconvergents in increasing order of denominators; if an upper semiconvergent can be found for which neither the abscissa nor the ordinate goes out of bounds, add it and update the corresponding upper bound. When all feasible upper semiconvergents have been added, the result is the optimal solution. Compared with before, this problem requires ensuring that both coordinates stay within bounds, which needs extra care. By an argument similar to that of the previous example, but this time using $B\Delta y-A\Delta x$ instead of $\Delta x$, one can show that the complexity of this algorithm is $O(\log\min\{A,B\})$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/closest-dio.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/closest-dio.py:core"
+        ```
+
+???+ example "[June Challenge 2017 - Euler Sum](https://www.codechef.com/problems/ES)"
+    Compute the value of $\sum\limits_{x=1}^N \lfloor \mathrm{e}x \rfloor$, where $\mathrm{e}$ is the base of the natural logarithm.
+    
+    Hint: $\mathrm{e} = [2,1,2,1,1,4,1,1,6,1,\ldots,1,2n,1, \ldots]$.[^continued-fraction-of-e]
+
+??? note "Solution"
+    This sum equals the number of lattice points in the set $\{(x,y):1\le x\le N,1\le y\le\mathrm{e}x\}$. After constructing the convex hull of the lattice points under the line $y=\mathrm{e}x$, the number of lattice points can be computed using [Pick's theorem](../../geometry/pick.md). The time complexity is $O(\log N)$.
+    
+    The original problem requires $N \le 10^{4000}$. The C++ code here is only illustrative and does not implement an arbitrary-precision class.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/sum-floor.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/sum-floor.py:core"
+        ```
+
+???+ example "[NAIPC 2019 - It's a Mod, Mod, Mod, Mod World](https://open.kattis.com/problems/itsamodmodmodmodworld)"
+    Given positive integers $p,q,n$, compute the value of $\sum\limits_{i=1}^n [pi \bmod q]$.
+
+??? note "Solution"
+    Since the sum can be rewritten as
+    
+    $$
+    \sum_{i=1}^n [pi \bmod q] 
+    =\sum_{i=1}^n\left(pi - q\left\lfloor\dfrac{pi}{q}\right\rfloor\right) = \dfrac{pn(n+1)}{2} - q\sum_{i=1}^n\left\lfloor\dfrac{p}{q}i\right\rfloor,
+    $$
+    
+    this problem can be reduced to the previous one by replacing $\mathrm{e}$ with $\dfrac{p}{q}$. The time complexity of a single query is $O(\log\min\{p,q\})$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/mod-mod-mod.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/mod-mod-mod.py:core"
+        ```
+
+???+ example "[Library Checker - Sum of Floor of Linear](https://judge.yosupo.jp/problem/sum_of_floor_of_linear)"
+    Given positive integers $N,M,A,B$, compute the value of $\displaystyle\sum_{i=0}^{N-1} \left\lfloor \dfrac{A \cdot i + B}{M} \right\rfloor$.
+
+??? note "Solution"
+    This is the most complex problem so far. It can be computed with the [Euclidean-like algorithm](./euclidean.md). Here we give an algorithm based on continued fractions with time complexity $O(\log\min\{A,M\})$.
+    
+    One can construct the convex hull of all lattice points below the line $y=\dfrac{Ax+B}{M}$ with $0\le x< N$ and count the lattice points using Pick's theorem. The case $B=0$ has already been solved. The general case can be handled in two steps. First, gradually approach the line by adding upper semiconvergents (i.e. the second example) until the point closest to the line is found, then gradually move away from the line by adding lower semiconvergents (i.e. the first example).
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/sum-floor-axbc.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/sum-floor-axbc.py:core"
+        ```
+
+???+ example "[OKC 2 - From Modular to Rational](https://codeforces.com/gym/102354/problem/I)"
+    There is an unknown rational number $\dfrac{p}{q}$ with $1\le p, q\le 10^9$, and you may query the value of $pq^{-1}$ modulo some prime $m\in[10^9,10^{12}]$. Determine the values of $p$ and $q$ in at most ten queries.
+    
+    This problem is equivalent to finding the $x$ in $[1,n]$ that minimizes $rx\bmod m$, where $r$ is the value of $pq^{-1}$ modulo $m$ and $n=10^9$.
+
+??? note "Solution"
+    By the [Chinese remainder theorem](./crt.md), querying the results modulo several primes is equivalent to querying the result modulo the product of these primes. Therefore, this problem can be viewed as querying a fraction modulo a sufficiently large modulus $m$ and asking to determine the numerator and denominator of the fraction.
+    
+    For a given modulus $m$, the pair $(p,q)$ satisfying $qr\equiv p\pmod m$ may not be unique. Suppose both $(p_1,q_1)$ and $(p_2,q_2)$ satisfy this equation; then necessarily $(p_1q_2-p_2q_1)r\equiv 0\pmod m$. By the construction of $r$, $r$ and $m$ are coprime, so $p_1q_2-p_2q_1\equiv 0\pmod m$, i.e. $m\mid(p_1q_2-p_2q_1)$. If $p_1q_2-p_2q_1$ is nonzero, its absolute value is at least $m$. The problem restricts $p,q\in[1,10^9]$, which means this difference should not exceed $10^{18}$, so taking $m>10^{18}$ guarantees that the computed $(p,q)$ is unique.
+    
+    The problem now reduces to the following: given a modulus $m$ and a remainder $r$, find a pair of positive integers $(p,q)$ not exceeding $n$ such that $qr\equiv p\pmod m$. Knowing that such a solution is unique, it actually suffices to find, among $q\in[1,n]$, the $q$ minimizing $qr\bmod m$, since then there is exactly one $q$ for which the remainder does not exceed $n$. This is exactly the equivalent formulation mentioned above.
+    
+    In the plane coordinate system of $(q,k)$, this amounts to finding, for $q\in[1,n]$, the lattice point below the line $qr-km=0$ that is closest to it, since the remainder $qr\bmod m$ is proportional to the distance from the lattice point to the line. Combined with the earlier [geometric interpretation](#geometric-interpretation), such a lattice point must correspond to some lower semiconvergent of the rational fraction $\dfrac{r}{m}$. The complexity of the algorithm is $O(\log\min\{r,m\})$.
+    
+    === "C++"
+        ```cpp
+        --8<-- "docs/math/code/continued-fraction/recover-fraction.cpp:core"
+        ```
+    
+    === "Python"
+        ```py
+        --8<-- "docs/math/code/continued-fraction/recover-fraction.py:core"
+        ```
+
+## Exercises
+
+-   [UVa OJ - Continued Fractions](https://onlinejudge.org/index.php?option=com_onlinejudge&Itemid=8&page=show_problem&problem=775)
+-   [ProjectEuler+ #64: Odd period square roots](https://www.hackerrank.com/contests/projecteuler/challenges/euler064/problem)
+-   [「LibreOJ NOI Round #2」单枪匹马 (Single-handed)](https://loj.ac/p/573)
+-   [Codeforces Round #184 (Div. 2) - Continued Fractions](https://codeforces.com/contest/305/problem/B)
+-   [Codeforces Round #201 (Div. 1) - Doodle Jump](https://codeforces.com/contest/346/problem/E)
+-   [Codeforces Round #325 (Div. 1) - Alice, Bob, Oranges and Apples](https://codeforces.com/contest/585/problem/C)
+-   [POJ Founder Monthly Contest 2008.03.16 - A Modular Arithmetic Challenge](http://poj.org/problem?id=3530)
+-   [2019 Multi-University Training Contest 5 - fraction](http://acm.hdu.edu.cn/showproblem.php?pid=6624)
+-   [SnackDown 2019 Elimination Round - Election Bait](https://www.codechef.com/SNCKEL19/problems/EBAIT)
+-   [Luogu P5179. Fraction](https://www.luogu.com.cn/problem/P5179)
+-   [Luogu P7739. \[NOI2021\] 密码箱 (Password Box)](https://www.luogu.com.cn/problem/P7739)
+
+## References and further reading
+
+-   Hardy, G. H., Wright, E. M., Heath-Brown, R., & Silverman, J. (2008). An Introduction to the Theory of Numbers. Oxford Mathematics.
+-   朱尧辰, 王连祥 《丢番图逼近引论》 (Zhu Yaochen, Wang Lianxiang, An Introduction to Diophantine Approximation)
+-   [FatFish 的博客 - 连分数入门 (FatFish's blog - Introduction to continued fractions)](https://chaoli.club/index.php/2756)
+-   [Simple continued fraction - Wikipedia](https://en.wikipedia.org/wiki/Simple_continued_fraction)
+-   [Periodic continued fraction - Wikipedia](https://en.wikipedia.org/wiki/Periodic_continued_fraction)
+-   [Gosper's original notes on continued fraction arithmetic algorithms](https://perl.plover.com/yak/cftalk/INFO/gosper.txt)
+-   [Understanding Bill Gosper's continued fraction arithmetic (implemented in Python)](https://hsinhaoyu.github.io/cont_frac/)
+
+**Most of the content of this page is translated from the article [Continued fractions](https://cp-algorithms.com/algebra/continued-fractions.html), licensed under CC-BY-SA 4.0, with modifications.**
+
+[^one-representation]: The natural number $1$ has only non-canonical representations: $1=[1]=[0,1]$.
+
+[^continuant]: The Chinese term comes from the translation of "Concrete Mathematics" (《具体数学》) by Zhang Mingyao and Zhang Fan, Section 6.7.
+
+[^heilbronn]: [H. Heilbronn, On the Average Length of a Class of Finite Continued Fractions, 1969.](https://link.springer.com/chapter/10.1007/978-1-4615-4819-5_7)
+
+[^sqrt5]: Here one must not assume in advance that the irreducible fraction $\dfrac{p}{q}$ is necessarily a convergent, although Legendre's theorem shows that $\dfrac{p}{q}$ can indeed only be some convergent. For the case of convergents, the claim can be proved starting from the error of approximating a real number by convergents.
+
+[^semi-range]: Different sources may differ on whether the range of values of $t$ here includes the endpoints.
+
+[^semiconvergent]: For $t=0$ this should be understood as a formal continued fraction, which corresponds to truncating the continued fraction at the second-to-last term.
+
+[^nose-stretching]: This name is not a technical term. It was probably translated from the Russian literature [ЦЕПНЫЕ ДРОБИ](https://old.mccme.ru/free-books/mmmf-lectures/book.14-full.pdf), section Алгоритм «вытягивания носов».
+
+[^pgl2]: These properties show that the group of all fractional linear transformations is isomorphic to the [projective linear group](https://en.wikipedia.org/wiki/Projective_linear_group)  $PGL_2(\mathbf R)$.
+
+[^period-surd]: The proof can be found in the references cited on the [Wikipedia page](https://en.wikipedia.org/wiki/Periodic_continued_fraction#Length_of_the_repeating_block).
+
+[^continued-fraction-of-e]: A proof of the continued fraction expansion of the base of the natural logarithm $\mathrm{e}$ can be found [here](https://proofwiki.org/wiki/Continued_Fraction_Expansion_of_Euler%27s_Number).

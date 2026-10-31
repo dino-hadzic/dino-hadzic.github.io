@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="hr" data-jezik="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OI Wiki – Evaluacija polinoma u više točaka | brza interpolacija</title>
+    <script>(function(){try{var j=localStorage.getItem('oiwiki-jezik');if(j==='en'||j==='hr'){document.documentElement.setAttribute('data-jezik',j);document.documentElement.lang=j;}}catch(e){}})();</script>
+    <script src="../../../assets/js/asset-errors.js"></script>
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../assets/css/pozadina.css">
+    <script defer src="../../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../../assets/css/joisc.css">
+    <link rel="stylesheet" href="../../../assets/css/oiwiki-pygments.css">
+    <link rel="stylesheet" href="../../../assets/css/oiwiki.css">
+    <script defer src="../../../assets/js/oiwiki.js"></script>
+</head>
+<body>
+    <p class="navigacija-analize"><a href="../../../oiwiki/index.html">← <span class="jezik jezik-hr" lang="hr">OI Wiki (prijevod)</span><span class="jezik jezik-en" lang="en">OI Wiki (translation)</span></a> · <a href="../../../index.html"><span class="jezik jezik-hr" lang="hr">Početna</span><span class="jezik jezik-en" lang="en">Home</span></a><span class="oiwiki-prebaci" role="group" aria-label="Jezik / Language"><button type="button" data-jezik="hr" lang="hr" aria-pressed="true">Hrvatski</button><button type="button" data-jezik="en" lang="en" aria-pressed="false">English</button></span></p>
+    <article class="analiza oiwiki">
+        <header>
+            <p class="nadnaslov"><span class="jezik jezik-hr" lang="hr">OI Wiki · prijevod · Matematika</span><span class="jezik jezik-en" lang="en">OI Wiki · translation · Mathematics</span></p>
+            <h1><span class="jezik jezik-hr" lang="hr">Evaluacija polinoma u više točaka | brza interpolacija</span><span class="jezik jezik-en" lang="en">Multipoint evaluation | fast interpolation</span></h1>
+            <p class="meta oiwiki-izvor"><span class="jezik jezik-hr" lang="hr">Prijevod stranice <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/math/poly/multipoint-eval-interpolation.md" rel="noopener">docs/math/poly/multipoint-eval-interpolation.md</a> iz repozitorija <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> (izvornik je na kineskom, stanje od 2026-10-04). Tekst je pod licencom <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.hr" rel="noopener">CC BY-SA 4.0</a>; kôd je nepromijenjen osim komentara.</span><span class="jezik jezik-en" lang="en">Translation of <a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/math/poly/multipoint-eval-interpolation.md" rel="noopener">docs/math/poly/multipoint-eval-interpolation.md</a> from the <a href="https://github.com/OI-wiki/OI-wiki" rel="noopener">OI-wiki/OI-wiki</a> repository (the original is in Chinese, as of 2026-10-04). Text is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/" rel="noopener">CC BY-SA 4.0</a>; code is unchanged except for comments.</span></p>
+            <p class="oiwiki-github"><a href="https://github.com/OI-wiki/OI-wiki/blob/6f424105bd24771d1b43d4844222157e64fa68a9/docs/math/poly/multipoint-eval-interpolation.md" rel="noopener"><span class="jezik jezik-hr" lang="hr">Izvornik na GitHubu</span><span class="jezik jezik-en" lang="en">Original on GitHub</span></a></p>
+        </header>
+        <div class="jezik jezik-hr oiwiki-tekst" lang="hr">
+<details class="oiwiki-sadrzaj"><summary>Sadržaj</summary><div class="toc">
+<ul>
+<li><a href="#evaluacija-polinoma-u-više-točaka">Evaluacija polinoma u više točaka</a><ul>
+<li><a href="#opis">Opis</a></li>
+<li><a href="#rješenje">Rješenje</a></li>
+</ul>
+</li>
+<li><a href="#brza-interpolacija-polinoma">Brza interpolacija polinoma</a><ul>
+<li><a href="#opis_1">Opis</a></li>
+<li><a href="#rješenje_1">Rješenje</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h2 id="evaluacija-polinoma-u-više-točaka">Evaluacija polinoma u više točaka</h2>
+<h3 id="opis">Opis</h3>
+<p>Zadan je polinom <span class="arithmatex">\(f\left(x\right)\)</span> i <span class="arithmatex">\(n\)</span> točaka <span class="arithmatex">\(x_{1},x_{2},\dots,x_{n}\)</span>; treba izračunati</p>
+<div class="arithmatex">\[
+f\left(x_{1}\right),f\left(x_{2}\right),\dots,f\left(x_{n}\right)
+\]</div>
+<h3 id="rješenje">Rješenje</h3>
+<p>Razmotrimo kako metodom podijeli pa vladaj (divide and conquer) veličinu problema smanjiti na pola.</p>
+<p>Zadane točke podijelimo na dva dijela:</p>
+<div class="arithmatex">\[
+\begin{aligned}
+    X_{0}&amp;=\left\{x_{1},x_{2},\dots,x_{\left\lfloor\frac{n}{2}\right\rfloor}\right\}\\
+    X_{1}&amp;=\left\{x_{\left\lfloor\frac{n}{2}\right\rfloor+1},x_{\left\lfloor\frac{n}{2}\right\rfloor+2},\dots,x_{n}\right\}
+\end{aligned}
+\]</div>
+<p>Konstruiramo polinom</p>
+<div class="arithmatex">\[
+g_{0}\left(x\right)=\prod_{x_{i}\in X_{0}}\left(x-x_{i}\right)
+\]</div>
+<p>Tada je <span class="arithmatex">\(\forall x\in X_{0}:g_{0}\left(x\right)=0\)</span>.</p>
+<p>Razmotrimo zapis <span class="arithmatex">\(f\left(x\right)\)</span> u obliku <span class="arithmatex">\(g_{0}\left(x\right)Q\left(x\right)+f_{0}\left(x\right)\)</span>, tj.:</p>
+<div class="arithmatex">\[
+f_{0}\left(x\right)\equiv f\left(x\right)\pmod{g_{0}\left(x\right)}
+\]</div>
+<p>Tada je <span class="arithmatex">\(\forall x\in X_{0}:f\left(x\right)=g_{0}\left(x\right)Q\left(x\right)+f_{0}\left(x\right)=f_{0}\left(x\right)\)</span>, a za <span class="arithmatex">\(X_{1}\)</span> vrijedi analogno.</p>
+<p>Time je veličina problema smanjena na pola, pa se problem može riješiti podjelom + računanjem ostatka pri dijeljenju polinoma.</p>
+<p>Vremenska složenost</p>
+<div class="arithmatex">\[
+T\left(n\right)=2T\left(\frac{n}{2}\right)+O\left(n\log{n}\right)=O\left(n\log^{2}{n}\right)
+\]</div>
+<h2 id="brza-interpolacija-polinoma">Brza interpolacija polinoma</h2>
+<h3 id="opis_1">Opis</h3>
+<p>Zadan je skup od <span class="arithmatex">\(n+1\)</span> točaka</p>
+<div class="arithmatex">\[
+X=\left\{\left(x_{0},y_{0}\right),\left(x_{1},y_{1}\right),\dots,\left(x_{n},y_{n}\right)\right\}
+\]</div>
+<p>Treba naći polinom <span class="arithmatex">\(f\left(x\right)\)</span> stupnja <span class="arithmatex">\(n\)</span> takav da vrijedi <span class="arithmatex">\(\forall\left(x,y\right)\in X:f\left(x\right)=y\)</span>.</p>
+<h3 id="rješenje_1">Rješenje</h3>
+<p>Razmotrimo Lagrangeovu interpolacijsku formulu</p>
+<div class="arithmatex">\[
+f(x) = \sum_{i=1}^{n} \prod_{j\neq i }\frac{x-x_j}{x_i-x_j} y_i
+\]</div>
+<p>Označimo polinom <span class="arithmatex">\(M(x) = \prod_{i=1}^n (x - x_i)\)</span>; prema L'Hôpitalovu pravilu vrijedi</p>
+<div class="arithmatex">\[
+\prod_{j\neq i} (x_i - x_j) = \lim_{x\rightarrow x_i} \frac{\prod_{j=1}^n (x - x_j)}{x - x_i} = M'(x_i)
+\]</div>
+<p>Stoga se polinom može zapisati kao</p>
+<div class="arithmatex">\[
+f(x) = \sum_{i = 1}^n \frac{y_i}{M'(x_i)}\prod_{j \neq i}(x - x_j)
+\]</div>
+<p>Najprije podjelom izračunamo koeficijente polinoma <span class="arithmatex">\(M(x)\)</span>, a zatim evaluacijom u više točaka u vremenu <span class="arithmatex">\(O(n\log^2 n)\)</span> izračunamo sve vrijednosti <span class="arithmatex">\(M'(x_i)\)</span>.</p>
+<p>Stavimo <span class="arithmatex">\(v_i = \frac{y_i}{M'(x_i)}\)</span> i razmotrimo kako izračunati <span class="arithmatex">\(f(x)\)</span>. Za <span class="arithmatex">\(n = 1\)</span> imamo <span class="arithmatex">\(f(x) = v_1, M(x) = x - x_1\)</span>. Inače stavimo</p>
+<div class="arithmatex">\[
+\begin{aligned}
+f_0(x) &amp; = \sum_{i = 1}^{\left\lfloor \frac n2 \right \rfloor} v_i\prod_{j \neq i \wedge j \le \left\lfloor \frac n2 \right \rfloor}(x - x_j)\\
+M_0(x) &amp; = \prod_{i = 1}^{\left\lfloor \frac n2 \right \rfloor} (x - x_i)\\
+f_1(x) &amp; = \sum_{i = \left\lfloor \frac n2 \right \rfloor+1}^n v_i\prod_{j \neq i \wedge \left\lfloor \frac n2 \right \rfloor &lt; j \le n}(x - x_j) \\
+M_1(x) &amp; = \prod_{i = \left\lfloor \frac n2 \right \rfloor+1}^n (x - x_i)
+\end{aligned}
+\]</div>
+<p>Dobivamo <span class="arithmatex">\(f(x) = f_0(x)M_1(x) + f_1(x)M_0(x), M(x) = M_0(x)M_1(x)\)</span>, pa se može računati podjelom; složenost ovog dijela također je <span class="arithmatex">\(O(n\log^2 n)\)</span>.</p>
+        </div>
+        <div class="jezik jezik-en oiwiki-tekst" lang="en">
+<details class="oiwiki-sadrzaj"><summary>Contents</summary><div class="toc">
+<ul>
+<li><a href="#en-multipoint-evaluation-of-polynomials">Multipoint evaluation of polynomials</a><ul>
+<li><a href="#en-description">Description</a></li>
+<li><a href="#en-solution">Solution</a></li>
+</ul>
+</li>
+<li><a href="#en-fast-polynomial-interpolation">Fast polynomial interpolation</a><ul>
+<li><a href="#en-description_1">Description</a></li>
+<li><a href="#en-solution_1">Solution</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</details>
+<h2 id="en-multipoint-evaluation-of-polynomials">Multipoint evaluation of polynomials</h2>
+<h3 id="en-description">Description</h3>
+<p>Given a polynomial <span class="arithmatex">\(f\left(x\right)\)</span> and <span class="arithmatex">\(n\)</span> points <span class="arithmatex">\(x_{1},x_{2},\dots,x_{n}\)</span>, compute</p>
+<div class="arithmatex">\[
+f\left(x_{1}\right),f\left(x_{2}\right),\dots,f\left(x_{n}\right)
+\]</div>
+<h3 id="en-solution">Solution</h3>
+<p>Consider using divide and conquer to halve the size of the problem.</p>
+<p>Split the given points into two parts:</p>
+<div class="arithmatex">\[
+\begin{aligned}
+    X_{0}&amp;=\left\{x_{1},x_{2},\dots,x_{\left\lfloor\frac{n}{2}\right\rfloor}\right\}\\
+    X_{1}&amp;=\left\{x_{\left\lfloor\frac{n}{2}\right\rfloor+1},x_{\left\lfloor\frac{n}{2}\right\rfloor+2},\dots,x_{n}\right\}
+\end{aligned}
+\]</div>
+<p>Construct the polynomial</p>
+<div class="arithmatex">\[
+g_{0}\left(x\right)=\prod_{x_{i}\in X_{0}}\left(x-x_{i}\right)
+\]</div>
+<p>Then <span class="arithmatex">\(\forall x\in X_{0}:g_{0}\left(x\right)=0\)</span>.</p>
+<p>Consider writing <span class="arithmatex">\(f\left(x\right)\)</span> in the form <span class="arithmatex">\(g_{0}\left(x\right)Q\left(x\right)+f_{0}\left(x\right)\)</span>, that is:</p>
+<div class="arithmatex">\[
+f_{0}\left(x\right)\equiv f\left(x\right)\pmod{g_{0}\left(x\right)}
+\]</div>
+<p>Then <span class="arithmatex">\(\forall x\in X_{0}:f\left(x\right)=g_{0}\left(x\right)Q\left(x\right)+f_{0}\left(x\right)=f_{0}\left(x\right)\)</span>, and similarly for <span class="arithmatex">\(X_{1}\)</span>.</p>
+<p>At this point the size of the problem has been halved, so it can be solved with divide and conquer + polynomial modulo.</p>
+<p>Time complexity</p>
+<div class="arithmatex">\[
+T\left(n\right)=2T\left(\frac{n}{2}\right)+O\left(n\log{n}\right)=O\left(n\log^{2}{n}\right)
+\]</div>
+<h2 id="en-fast-polynomial-interpolation">Fast polynomial interpolation</h2>
+<h3 id="en-description_1">Description</h3>
+<p>Given a set of <span class="arithmatex">\(n+1\)</span> points</p>
+<div class="arithmatex">\[
+X=\left\{\left(x_{0},y_{0}\right),\left(x_{1},y_{1}\right),\dots,\left(x_{n},y_{n}\right)\right\}
+\]</div>
+<p>find a polynomial <span class="arithmatex">\(f\left(x\right)\)</span> of degree <span class="arithmatex">\(n\)</span> such that <span class="arithmatex">\(\forall\left(x,y\right)\in X:f\left(x\right)=y\)</span>.</p>
+<h3 id="en-solution_1">Solution</h3>
+<p>Consider the Lagrange interpolation formula</p>
+<div class="arithmatex">\[
+f(x) = \sum_{i=1}^{n} \prod_{j\neq i }\frac{x-x_j}{x_i-x_j} y_i
+\]</div>
+<p>Denote the polynomial <span class="arithmatex">\(M(x) = \prod_{i=1}^n (x - x_i)\)</span>; by L'Hôpital's rule we have</p>
+<div class="arithmatex">\[
+\prod_{j\neq i} (x_i - x_j) = \lim_{x\rightarrow x_i} \frac{\prod_{j=1}^n (x - x_j)}{x - x_i} = M'(x_i)
+\]</div>
+<p>Therefore the polynomial can be written as</p>
+<div class="arithmatex">\[
+f(x) = \sum_{i = 1}^n \frac{y_i}{M'(x_i)}\prod_{j \neq i}(x - x_j)
+\]</div>
+<p>We first compute the coefficient representation of <span class="arithmatex">\(M(x)\)</span> by divide and conquer, and then all the values <span class="arithmatex">\(M'(x_i)\)</span> can be computed by multipoint evaluation in <span class="arithmatex">\(O(n\log^2 n)\)</span> time.</p>
+<p>Let <span class="arithmatex">\(v_i = \frac{y_i}{M'(x_i)}\)</span>, and next consider computing <span class="arithmatex">\(f(x)\)</span>. For the case <span class="arithmatex">\(n = 1\)</span> we have <span class="arithmatex">\(f(x) = v_1, M(x) = x - x_1\)</span>. Otherwise let</p>
+<div class="arithmatex">\[
+\begin{aligned}
+f_0(x) &amp; = \sum_{i = 1}^{\left\lfloor \frac n2 \right \rfloor} v_i\prod_{j \neq i \wedge j \le \left\lfloor \frac n2 \right \rfloor}(x - x_j)\\
+M_0(x) &amp; = \prod_{i = 1}^{\left\lfloor \frac n2 \right \rfloor} (x - x_i)\\
+f_1(x) &amp; = \sum_{i = \left\lfloor \frac n2 \right \rfloor+1}^n v_i\prod_{j \neq i \wedge \left\lfloor \frac n2 \right \rfloor &lt; j \le n}(x - x_j) \\
+M_1(x) &amp; = \prod_{i = \left\lfloor \frac n2 \right \rfloor+1}^n (x - x_i)
+\end{aligned}
+\]</div>
+<p>We get <span class="arithmatex">\(f(x) = f_0(x)M_1(x) + f_1(x)M_0(x), M(x) = M_0(x)M_1(x)\)</span>, so it can be computed by divide and conquer; the complexity of this part is likewise <span class="arithmatex">\(O(n\log^2 n)\)</span>.</p>
+        </div>
+        <nav class="oiwiki-susjedi"><a class="prethodna" href="newton.html">← <span class="jezik jezik-hr" lang="hr">Newtonova iteracija za polinome</span><span class="jezik jezik-en" lang="en">Newton iteration for polynomials</span></a><span></span><a class="sljedeca" href="elementary-func.html"><span class="jezik jezik-hr" lang="hr">Elementarne funkcije polinoma</span><span class="jezik jezik-en" lang="en">Elementary functions of polynomials</span> →</a></nav>
+    </article>
+</body>
+</html>

@@ -1,0 +1,136 @@
+---
+title: Chirp Z-transform
+---
+
+Similar to the discrete Fourier transform, the Chirp Z-transform is an algorithm that, given a polynomial $f(x) = \sum_{i = 0}^{m - 1} f_i x^i \in \mathbb{C}\lbrack x\rbrack$ and $q \in \mathbb{C} \setminus \{0\}$, computes $f(1), f(q), \dots, f(q^{n - 1})$; $q$ is not required to be a root of unity. It can also be used for the number-theoretic transform. Below we introduce the Chirp Z-transform and its inverse transform.
+
+## Chirp Z-transform
+
+By definition, the Chirp Z-transform can be written as
+
+$$
+\operatorname{\mathsf{CZT}}_n : \left(f(x), q\right) \mapsto
+\begin{bmatrix}
+f(1) & f(q) & \cdots & f\left(q^{n - 1}\right)
+\end{bmatrix}
+$$
+
+where $f(x) := \sum_{i = 0}^{m - 1} f_i x^i \in \mathbb{C}\lbrack x\rbrack$ and $q \in \mathbb{C} \setminus \{0\}$.
+
+### Bluestein's algorithm
+
+Consider
+
+$$
+ij = \binom{i}{2} + \binom{-j}{2} - \binom{i - j}{2}
+$$
+
+where $i, j \in \mathbb{Z}$; we can construct
+
+$$
+\begin{aligned}
+G(x) & := \sum_{i = -(m - 1)}^{n - 1} q^{-\binom{i}{2}}x^i, \\
+F(x) & := \sum_{i = 0}^{m - 1} f_i q^{\binom{-i}{2}}x^i.
+\end{aligned}
+$$
+
+Here $G(x) \in \mathbb{C}\left\lbrack x, x^{-1}\right\rbrack$, and for $i = 0, \dots, n - 1$ we have
+
+$$
+\begin{aligned}
+\left\lbrack x^i\right\rbrack\left(G(x)F(x)\right) &=
+\sum_{j = 0}^{m - 1}\left(\left(\left\lbrack x^{i - j}\right\rbrack G(x)\right)\left(\left\lbrack x^j\right\rbrack F(x)\right)\right) \\
+&= \sum_{j = 0}^{m - 1} f_j q^{\binom{-j}{2} - \binom{i - j}{2}} \\
+&= q^{-\binom{i}{2}} f\left(q^i\right)
+\end{aligned}
+$$
+
+Moreover, $q^{\binom{i + 1}{2}} = q^{\binom{i}{2}}\cdot q^i$ and $\binom{-i}{2} = \binom{i + 1}{2}$. The computation can thus be done with a single polynomial multiplication; this algorithm is called Bluestein's algorithm.
+
+??? note "Template ([P6800【模板】Chirp Z-Transform (template)](https://www.luogu.com.cn/problem/P6800))"
+    ```cpp
+    --8<-- "docs/math/code/poly/czt/czt_1.cpp:core"
+    ```
+
+## Inverse Chirp Z-transform
+
+The inverse Chirp Z-transform can be written as
+
+$$
+\operatorname{\mathsf{ICZT}}_n :
+\left(
+    \begin{bmatrix} f(1) & f(q) & \cdots & f\left(q^{n - 1}\right)
+    \end{bmatrix},q
+\right)
+\mapsto f(x)
+$$
+
+where $f(x) \in \mathbb{C}\left\lbrack x\right\rbrack_{< n}$ and $q \in \mathbb{C} \setminus \{0\}$, and $q^i \neq q^j$ holds for all $i \neq j$, which is the condition for polynomial interpolation.
+
+### Bostan–Schost algorithm
+
+Recall that the [Lagrange interpolation formula](../numerical/interp.md#lagrange-插值法) is
+
+$$
+f(x) = \sum_{i = 0}^{n - 1}\left(f\left(x_i\right)\prod_{0 \leq j < n \atop j \neq i} \frac{x - x_j}{x_i - x_j}\right)
+$$
+
+with $x_i \neq x_j$ for all $i \neq j$. As in [fast polynomial interpolation](./multipoint-eval-interpolation.md#fast-polynomial-interpolation), let $M(x) := \prod_{i = 0}^{n - 1}\left(x - x_i\right)$; by L'Hôpital's rule we have
+
+$$
+M'(x_i) = \lim_{x \to x_i} \frac{M(x)}{x - x_i} = \prod_{0 \leq j < n \atop j \neq i}\left(x_i - x_j\right)
+$$
+
+The **modified Lagrange interpolation formula** is
+
+$$
+f(x) = M(x)\left(\sum_{i = 0}^{n - 1}\frac{f\left(x_i\right)/M'(x_i)}{x - x_i}\right)
+$$
+
+So now we have
+
+$$
+f(x) = M(x)\left(\sum_{i = 0}^{n - 1}\frac{f\left(q^i\right)/M'\left(q^i\right)}{x - q^i}\right)
+$$
+
+where $M(x)=\prod_{j = 0}^{n - 1}\left(x - q^j\right)$. If we assume that $n$ is even and let $n = 2k$ and $H(x) := \prod_{j = 0}^{k - 1}\left(x - q^j\right)$, then
+
+$$
+M(x) = H(x) \cdot q^{k^2} \cdot H\left(\frac{x}{q^k}\right)
+$$
+
+which allows us to compute $M(x)$ quickly. Then we use Bluestein's algorithm to compute $M'(1), \dots, M'(q^{n - 1})$. Let $c_i := f\left(q^i\right)/M'\left(q^i\right)$; we have
+
+$$
+f(x) = M(x)\left(\sum_{i = 0}^{n - 1}\frac{c_i}{x - q^i}\right)
+$$
+
+Since $\deg f(x) < n$, we only need to compute $\sum_{i = 0}^{n - 1}\frac{c_i}{x - q^i}\bmod{x^n}$, where $\frac{c_i}{x - q^i} \in \mathbb{C}\left\lbrack\left\lbrack x\right\rbrack\right\rbrack$, that is,
+
+$$
+\begin{aligned}
+\sum_{i = 0}^{n - 1}\frac{c_i}{x - q^i} \bmod x^n &=
+-\sum_{i = 0}^{n - 1}\left(\sum_{j = 0}^{n - 1} c_i q^{-i(j+1)}x^j\right) \\
+&= -\sum_{j = 0}^{n - 1} C\left(q^{-j - 1}\right) x^j
+\end{aligned}
+$$
+
+where $C(x) = \sum_{i = 0}^{n - 1} c_i x^i$. We can use Bluestein's algorithm to compute $C\left(q^{-1}\right), \dots, C\left(q^{-n}\right)$.
+
+In short, we perform the following computations in turn:
+
+1.  compute $M(x)$ by decrease and conquer;
+2.  compute $M'(1), \dots, M'(q^{n - 1})$ with Bluestein's algorithm;
+3.  compute $C\left(q^{-1}\right), \dots, C\left(q^{-n}\right)$ with Bluestein's algorithm;
+4.  compute $f(x)$ with a single polynomial multiplication.
+
+The time complexity of each of these steps equals the time complexity of multiplying two polynomials of degree at most $n$.
+
+??? note "Template implementation"
+    ```cpp
+    --8<-- "docs/math/code/poly/czt/inv_czt_1.cpp:core"
+    ```
+
+## References
+
+1.  [Bostan, A. (2010). Fast algorithms for polynomials and matrices. JNCF 2010. Algorithms Project, INRIA.](https://specfun.inria.fr/bostan/publications/exposeJNCF.pdf)

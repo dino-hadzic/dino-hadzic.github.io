@@ -136,6 +136,8 @@ def upstream_url(key: str) -> str:
 
 def strip_comments(code: str, suffix: str) -> str:
     if suffix in (".py", ".sh"):
+        if suffix == ".py":
+            code = re.sub(r'("""|\'\'\')(?:(?!\1).)*\1', "", code, flags=re.S)
         code = re.sub(r"(?m)#.*$", "", code)
     else:
         code = re.sub(r"/\*.*?\*/", "", code, flags=re.S)
