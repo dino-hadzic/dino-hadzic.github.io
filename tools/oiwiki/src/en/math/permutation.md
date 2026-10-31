@@ -238,7 +238,7 @@ $$
 ??? note "Analysis"
     This is because any arrangement of $1\sim n$ can be split according to the cycle type into the corresponding cycle decomposition. However, the order among cycles of the same length does not affect the permutation, so the total must be divided by $\prod_k\alpha_k!$. Moreover, within a single cycle we actually have a circular arrangement, and the choice of the starting point does not affect the permutation either, so we must divide by $\prod_kk^{\alpha_k}$. This yields the formula above.
 
-If only the number $k$ of cycles into which the permutation decomposes is given, the number of distinct permutations is the [Stirling number of the first kind](./combinatorics/stirling.md#第一类斯特林数stirling-number) $\begin{bmatrix}n\\ k\end{bmatrix}$. The number of distinct cycle types is the [partition number](./combinatorics/partition.md) $p_n$ of $n$.
+If only the number $k$ of cycles into which the permutation decomposes is given, the number of distinct permutations is the [Stirling number of the first kind](./combinatorics/stirling.md#stirling-numbers-of-the-first-kind-stirling-number) $\begin{bmatrix}n\\ k\end{bmatrix}$. The number of distinct cycle types is the [partition number](./combinatorics/partition.md) $p_n$ of $n$.
 
 From the cycle type of a permutation, properties such as the order and parity of the permutation can be conveniently determined.
 

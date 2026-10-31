@@ -238,7 +238,7 @@ $$
 ??? note "Analiza"
     To je zato što se svaki razmještaj brojeva $1\sim n$ prema tipu permutacije može podijeliti na odgovarajući rastav na cikluse. No redoslijed ciklusa jednake duljine ne utječe na permutaciju, pa ukupan broj treba podijeliti s $\prod_k\alpha_k!$. Osim toga, unutar jednog ciklusa riječ je zapravo o kružnom razmještaju, pa ni izbor početne točke ne utječe na permutaciju, zbog čega treba podijeliti s $\prod_kk^{\alpha_k}$. Tako se dobiva gornja formula.
 
-Ako je zadan samo broj ciklusa $k$ na koje se permutacija rastavlja, broj različitih permutacija jednak je [Stirlingovu broju prve vrste](./combinatorics/stirling.md#第一类斯特林数stirling-number) $\begin{bmatrix}n\\ k\end{bmatrix}$. Broj različitih tipova jednak je [broju particija](./combinatorics/partition.md) $p_n$ broja $n$.
+Ako je zadan samo broj ciklusa $k$ na koje se permutacija rastavlja, broj različitih permutacija jednak je [Stirlingovu broju prve vrste](./combinatorics/stirling.md#stirlingovi-brojevi-prve-vrste-stirling-number) $\begin{bmatrix}n\\ k\end{bmatrix}$. Broj različitih tipova jednak je [broju particija](./combinatorics/partition.md) $p_n$ broja $n$.
 
 Iz tipa permutacije lako se određuju svojstva poput reda i parnosti permutacije.
 
