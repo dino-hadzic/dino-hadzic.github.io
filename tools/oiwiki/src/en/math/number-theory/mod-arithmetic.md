@@ -251,7 +251,7 @@ $$
 
 Since the modulus of the discrete logarithm equals the order $\delta_m(g)=2^{e-2}=m/4$, here we directly multiply the whole congruence by $4$ to ensure that the computation can be carried out in the residue classes modulo $m$. Thus, it suffices to precompute all $4L(2^d+1)$ for $1 < d < e$, and then the value of $4L(a)$ can be computed quickly.
 
-Conversely, from $L(a)$ it is easy to obtain the value of $g^{L(a)}\bmod{m}$. By the [binomial theorem](../combinatorics/combination.md#二项式定理), for $1 < d < e$ we have
+Conversely, from $L(a)$ it is easy to obtain the value of $g^{L(a)}\bmod{m}$. By the [binomial theorem](../combinatorics/combination.md#binomial-theorem), for $1 < d < e$ we have
 
 $$
 \begin{aligned}

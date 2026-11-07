@@ -12,7 +12,7 @@ $$
 \binom{n}{k} = \dfrac{n!}{k!(n-k)!}.
 $$
 
-Kada veličina problema nije velika, binomni se koeficijent može izračunati [rekurzivnom formulom](../combinatorics/combination.md#组合数性质--二项式推论) u vremenskoj složenosti $O(nk)$; po dovoljno velikom prostom modulu $p>n$ može se izračunati i u vremenu $O(n)$ računanjem faktorijela u brojniku i nazivniku. No kada je veličina problema vrlo velika ($n\sim 10^{18}$), te metode više nisu primjenjive.
+Kada veličina problema nije velika, binomni se koeficijent može izračunati [rekurzivnom formulom](../combinatorics/combination.md#svojstva-binomnih-koeficijenata--posljedice-binomnog-teorema) u vremenskoj složenosti $O(nk)$; po dovoljno velikom prostom modulu $p>n$ može se izračunati i u vremenu $O(n)$ računanjem faktorijela u brojniku i nazivniku. No kada je veličina problema vrlo velika ($n\sim 10^{18}$), te metode više nisu primjenjive.
 
 Na temelju Lucasova teorema i njegova poopćenja u ovom se članku razmatra metoda kojom se binomni koeficijent može izračunati kada modul nije prevelik ($m \sim 10^6$). Preciznije, metoda se može primijeniti čim je zbroj svih potencija prostih brojeva u jedinstvenom rastavu modula $m=\prod p_i^{e_i}$ (tj. $\sum p_i^{e_i}$) reda veličine $10^6$, jer pretprocesiranje algoritma odgovara otprilike toj veličini.
 
@@ -42,7 +42,7 @@ Najprije razmotrimo slučaj u kojem je modul prost broj $p$. Tada vrijedi Lucaso
     \binom{p}{n} \equiv [n=0\lor n=p] \pmod p.
     $$
     
-    Neka je $f(x) = ax^n + bx^m$. Općenito, prema [binomnom teoremu](../combinatorics/combination.md#二项式定理) i [malom Fermatovu teoremu](./fermat.md#mali-fermatov-teorem) vrijedi
+    Neka je $f(x) = ax^n + bx^m$. Općenito, prema [binomnom teoremu](../combinatorics/combination.md#binomni-teorem) i [malom Fermatovu teoremu](./fermat.md#mali-fermatov-teorem) vrijedi
     
     $$
     \begin{aligned}
