@@ -12,7 +12,7 @@ Permutacije i razmještaji (arrangements) pojmovi su koji se vrlo često pojavlj
 
 ## Definicija
 
-Bijekcija (tj. obostrano jednoznačno preslikavanje) $\sigma$ skupa $X$ na samog sebe naziva se **permutacija** (permutation) skupa $X$. Ako na skupu $X$ postoji i relacija [totalnog uređaja](./order-theory.md#二元关系), tada se njegova permutacija često naziva i **(potpuni) razmještaj** (arrangement). Taj totalni uređaj naziva se prirodnim poretkom na skupu.
+Bijekcija (tj. obostrano jednoznačno preslikavanje) $\sigma$ skupa $X$ na samog sebe naziva se **permutacija** (permutation) skupa $X$. Ako na skupu $X$ postoji i relacija [totalnog uređaja](./order-theory.md#binarna-relacija), tada se njegova permutacija često naziva i **(potpuni) razmještaj** (arrangement). Taj totalni uređaj naziva se prirodnim poretkom na skupu.
 
 ??? info "„Permutacija” i „razmještaj”"
     U kineskom kontekstu „permutacija” (置换) obično označava promjenu redoslijeda elemenata, a „razmještaj” (排列) obično označava slaganje elemenata u niz. Kad među elementima postoji prirodan poredak, ta su dva pojma jedno te isto: „razmještaj” se može shvatiti kao rezultat „permutacije”, a u odnosu na prirodan poredak elemenata redoslijed elemenata u „razmještaju” određuje „permutaciju”. Budući da se u ovom članku pri uporabi riječi „razmještaj” uvijek pretpostavlja da na skupu postoji prirodan poredak, ta se dva pojma u ovom članku ne razlikuju posebno.
@@ -207,7 +207,7 @@ Drugim riječima, kompozicija dviju permutacija iste parnosti parna je permutaci
 
 Posebno, jedna transpozicija nužno mijenja parnost permutacije. To upravo objašnjava zašto je, iako način rastava na transpozicije nije jedinstven, parnost broja potrebnih transpozicija određena.
 
-Predznak permutacije pojavljuje se u [Leibnizovoj formuli za determinantu](./linear-algebra/determinant.md#全排列方法定义).
+Predznak permutacije pojavljuje se u [Leibnizovoj formuli za determinantu](./linear-algebra/determinant.md#definicija-pomoću-permutacija).
 
 ### Red permutacije
 

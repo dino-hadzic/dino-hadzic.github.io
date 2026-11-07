@@ -154,7 +154,7 @@ Operacija $\det$ na matrici $A$ $n$-tog reda naziva se determinantom ako zadovol
     \det I = 1
     $$
 
-Pomoću svojstava determinante vezanih uz elementarne transformacije mogu se ručno lako računati determinante višeg reda. [Računanje determinante Gaussovom eliminacijom](../numerical/gauss.md#行列式计算) također koristi ta svojstva, uz vremensku složenost $O(n^3)$.
+Pomoću svojstava determinante vezanih uz elementarne transformacije mogu se ručno lako računati determinante višeg reda. [Računanje determinante Gaussovom eliminacijom](../numerical/gauss.md#računanje-determinante) također koristi ta svojstva, uz vremensku složenost $O(n^3)$.
 
 Iz gornjih svojstava slijedi i nekoliko posljedica:
 

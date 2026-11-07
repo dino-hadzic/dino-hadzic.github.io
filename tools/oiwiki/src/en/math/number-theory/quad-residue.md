@@ -351,7 +351,7 @@ Cipolla's algorithm solves the congruence $y^2\equiv a\pmod p$, where $p$ is an 
 In this section we consider arithmetic in $\mathbf{F}_p\lbrack x\rbrack /(x^2-g)$, where $g \in \mathbf{F}_p$.
 
 ??? note "How to compute"
-    Readers unfamiliar with [polynomial rings](../algebra/ring-theory.md#多项式环) can simply think of it this way: the elements of this set all have the form $a_0+a_1x$ with $a_0,a_1\in\mathbf F_p$, and they obey the following arithmetic rules:
+    Readers unfamiliar with [polynomial rings](../algebra/ring-theory.md#polynomial-rings) can simply think of it this way: the elements of this set all have the form $a_0+a_1x$ with $a_0,a_1\in\mathbf F_p$, and they obey the following arithmetic rules:
     
     $$
     \begin{aligned}

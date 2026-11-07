@@ -152,7 +152,7 @@ Malo izmijenjen obrat osnovne leme aritmetike daje još jednu definiciju prostog
     Za cijeli broj $p\ne 0,\pm 1$, ako za sve cijele brojeve $a_1,a_2$ koji zadovoljavaju $p\mid a_1a_2$ vrijedi $p\mid a_1$ ili $p\mid a_2$, kažemo da je $p$ prost broj.
 
 ??? tip "Savjet"
-    Motivacija za ovu definiciju može se pronaći u članku o [prostim idealima](../algebra/ring-theory.md#素理想).
+    Motivacija za ovu definiciju može se pronaći u članku o [prostim idealima](../algebra/ring-theory.md#prosti-ideali).
 
 ???+ note "Osnovni teorem aritmetike (teorem o jedinstvenoj faktorizaciji)"
     Neka je $a$ pozitivan cijeli broj. Tada nužno postoji prikaz
@@ -191,7 +191,7 @@ $b$ u kongruenciji ostatak je od $a$ modulo $m$; taj se pojam potpuno podudara s
 
 Svojstva kongruencije:
 
--   Kongruencija je [relacija ekvivalencije](../order-theory.md#二元关系), tj. kongruencija ima svojstva
+-   Kongruencija je [relacija ekvivalencije](../order-theory.md#binarna-relacija), tj. kongruencija ima svojstva
     -   refleksivnosti: $a\equiv a\pmod m$;
     -   simetričnosti: ako je $a\equiv b\pmod m$, tada je $b\equiv a\pmod m$;
     -   tranzitivnosti: ako je $a\equiv b\pmod m,b\equiv c\pmod m$, tada je $a\equiv c\pmod m$.
@@ -240,7 +240,7 @@ Lako se vidi:
 -   za svaki cijeli broj $a$ vrijedi $a+\mathbf{Z}_m=\mathbf{Z}_m$;
 -   za svaki cijeli broj $b$ relativno prost s $m$ vrijedi $b\mathbf{Z}_m=\mathbf{Z}_m$.
 
-Iz definicije [kvocijentne grupe](../algebra/group-theory.md#商群) slijedi $\mathbf{Z}_m=\mathbf{Z}/m\mathbf{Z}$, pa se $\mathbf{Z}_m$ ponekad označava i sa $\mathbf{Z}/m\mathbf{Z}$.
+Iz definicije [kvocijentne grupe](../algebra/group-theory.md#kvocijentne-grupe) slijedi $\mathbf{Z}_m=\mathbf{Z}/m\mathbf{Z}$, pa se $\mathbf{Z}_m$ ponekad označava i sa $\mathbf{Z}/m\mathbf{Z}$.
 
 Iz [Dirichletova principa](../combinatorics/drawer-principle.md) slijedi:
 
@@ -526,7 +526,7 @@ Više svojstava i primjena funkcija pod i strop može se pogledati na sljedećim
 -   Dokaz [zakona kvadratnog reciprociteta](./quad-residue.md#kvadratni-zakon-reciprociteta) pomoću Gaussove leme.
 -   [Blokovsko dijeljenje po cjelobrojnom kvocijentu](./sqrt-decomposition.md), osobito dio s dokazima njegovih svojstava.
 -   [Legendreova formula](./factorial.md#legendreova-formula) za računanje eksponenta prostog faktora u faktorijelu.
--   [Beattyjevi nizovi](../game-theory/impartial-game.md#wythoff-游戏), Rayleighov teorem i Wythoffova igra.
+-   [Beattyjevi nizovi](../game-theory/impartial-game.md#wythoffova-igra), Rayleighov teorem i Wythoffova igra.
 
 ## Literatura i napomene
 

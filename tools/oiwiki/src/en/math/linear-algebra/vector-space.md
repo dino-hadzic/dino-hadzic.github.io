@@ -8,7 +8,7 @@ Prerequisites: Abelian group, field.
 
 Informally, a set that is closed under some operation and satisfies associativity, has an identity element and inverse elements forms a group. If commutativity also holds, it forms an Abelian group.
 
-If a set is closed under the four arithmetic operations, it forms a field. See [Basic concepts of abstract algebra](../algebra/basic.md#域) for the relevant definitions.
+If a set is closed under the four arithmetic operations, it forms a field. See [Basic concepts of abstract algebra](../algebra/basic.md#fields) for the relevant definitions.
 
 ## Definition
 

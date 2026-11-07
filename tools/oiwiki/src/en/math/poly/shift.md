@@ -93,7 +93,7 @@ The result is the same as with the method above.
 
 ### Lagrange interpolation formula method
 
-Consider the [Lagrange interpolation formula](../numerical/interp.md#lagrange-插值法)
+Consider the [Lagrange interpolation formula](../numerical/interp.md#lagrange-interpolation)
 
 $$
 \begin{aligned}
@@ -401,7 +401,7 @@ In the more general case, similar to the fast factorial algorithm above, what ki
     Given the coefficients of all $P_k$ and $a_0,a_1,\dots,a_{m-1}$, compute $a_n$.
     The answer is taken modulo $998244353$. $n\le6\times10^8$, $1\le m,d\le7$, time limit $7s$.
 
-To describe the construction of the matrices in the examples above more systematically, we introduce the concept of a [$\lambda$-matrix](../linear-algebra/jordan.md#lambda-%E7%9F%A9%E9%98%B5).
+To describe the construction of the matrices in the examples above more systematically, we introduce the concept of a [$\lambda$-matrix](../linear-algebra/jordan.md#lambda-matrices).
 
 To implement recurrences with polynomial coefficients, we should note that in the fast factorial algorithm the point values we maintain are actually not $n!$ but $\prod_{i=0}^{T-1}(aT+i)$, i.e. **the ratio between a pair of point values**.
 

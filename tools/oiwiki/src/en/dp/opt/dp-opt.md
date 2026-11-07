@@ -136,7 +136,7 @@ $$
 f(n) = F^n(f(0))
 $$
 
-which gives the final answer. Since a single operation $F$ can often be written as a matrix, this technique is usually called matrix exponentiation optimization of DP. In fact, any transformation that satisfies associativity (i.e. any element of a [monoid](../../math/algebra/basic.md#群)) can be sped up with this technique.
+which gives the final answer. Since a single operation $F$ can often be written as a matrix, this technique is usually called matrix exponentiation optimization of DP. In fact, any transformation that satisfies associativity (i.e. any element of a [monoid](../../math/algebra/basic.md#groups)) can be sped up with this technique.
 
 Exercises:
 
@@ -158,7 +158,7 @@ Exercises:
 
 ### Lagrange interpolation optimization of DP
 
-Related page: [Lagrange interpolation](../../math/numerical/interp.md#lagrange-插值法)
+Related page: [Lagrange interpolation](../../math/numerical/interp.md#lagrange-interpolation)
 
 In some DP problems the state function $f(i,j)$ is a polynomial of degree $k$ in $j$. Then we can compute its values at $k+1$ points by brute force, obtain an expression for $f(i,\cdot)$ by Lagrange interpolation, and thus optimize the transition or even obtain the answer directly.
 

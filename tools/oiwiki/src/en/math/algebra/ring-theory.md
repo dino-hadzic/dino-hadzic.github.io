@@ -37,7 +37,7 @@ Analogously to the case of groups, the concepts of subrings and ring homomorphis
 ???+ example "Example: the ring of integers $\mathbf Z$ (continued)"
     The map of reduction modulo any nonzero integer $n$, that is, $\pi:\mathbf Z\rightarrow\mathbf Z/n\mathbf Z$ with $\pi(a)=\bar a$, is a ring homomorphism.
 
-The [discussion](./group-theory.md#群同态) of the kernel and image of a group homomorphism can be carried over here almost verbatim. The (relative) size of the image of a homomorphism determines whether the homomorphism is surjective, while the triviality or not of the kernel of a homomorphism determines whether the homomorphism is injective. The kernel of a ring homomorphism is defined as follows:
+The [discussion](./group-theory.md#group-homomorphisms) of the kernel and image of a group homomorphism can be carried over here almost verbatim. The (relative) size of the image of a homomorphism determines whether the homomorphism is surjective, while the triviality or not of the kernel of a homomorphism determines whether the homomorphism is injective. The kernel of a ring homomorphism is defined as follows:
 
 ???+ abstract "Kernel of a homomorphism"
     The **kernel** of a homomorphism $\pi:R\rightarrow S$ from the ring $R$ to the ring $S$ is $\{r\in R:\pi(r)=0\}$, denoted by $\ker\pi$, where $0$ is the additive identity of $S$.
@@ -223,7 +223,7 @@ First, the relevant concepts of the theory of divisibility of integers are gener
 ???+ abstract "Associates"
     Let the commutative ring $R$ have elements $a,b\in R$. If they differ only by an invertible element, that is, there exists an invertible element $u\in R$ such that $a=bu$, then $a$ and $b$ are said to be **associates**.
 
-The divisibility relation is a [partial order](../order-theory.md#二元关系) on the ring, and the associate relation is an equivalence relation on the ring. From the point of view of ideals, $a\mid b$ is equivalent to $(b)\subseteq (a)$, and $a$ and $b$ being associates is equivalent to $(a)=(b)$. Therefore, when discussing elements of a ring, one usually does not care about the difference between associates. Similarly to the case of integers, the greatest common divisor of $a$ and $b$ in a commutative ring is defined as the infimum of $\{a,b\}$.
+The divisibility relation is a [partial order](../order-theory.md#binary-relations) on the ring, and the associate relation is an equivalence relation on the ring. From the point of view of ideals, $a\mid b$ is equivalent to $(b)\subseteq (a)$, and $a$ and $b$ being associates is equivalent to $(a)=(b)$. Therefore, when discussing elements of a ring, one usually does not care about the difference between associates. Similarly to the case of integers, the greatest common divisor of $a$ and $b$ in a commutative ring is defined as the infimum of $\{a,b\}$.
 
 ???+ abstract "Greatest common divisor"
     For a commutative ring $R$ and its elements $a,b\in R$, if there exists a nonzero element $d\in R$ satisfying $d\mid a$ and $d\mid b$, and such that $d'\mid d$ holds for any $d'$ satisfying $d'\mid a$ and $d'\mid b$, then $d$ is called a **greatest common divisor** of $a$ and $b$, written $\gcd(a,b)$.
@@ -568,7 +568,7 @@ The concept of a root can be generalized to the case of multiple roots.
 ??? note "Proof"
     It suffices to note that $F[x]$ is a unique factorization domain.
 
-Although the unique factorization theorem holds for polynomials over a field, there is no general method to determine whether a given polynomial is reducible. The cases of small degree are relatively easy. For example, all polynomials of degree one are irreducible. Over special fields, all irreducible polynomials are of degree one. Such fields are called [algebraically closed fields](./field-theory.md#代数闭域). Over such a field, every polynomial of degree greater than zero has a root, so every polynomial of degree greater than one can be factored further. One such example is the field of complex numbers $\mathbf C$. Over the field of real numbers $\mathbf R$, on the other hand, there exist irreducible polynomials of degree two; over the field of rational numbers $\mathbf Q$, the structure of irreducible polynomials is even more complicated. The [Field theory](./field-theory.md) page has more discussion of polynomials over the field of rational numbers and over finite fields.
+Although the unique factorization theorem holds for polynomials over a field, there is no general method to determine whether a given polynomial is reducible. The cases of small degree are relatively easy. For example, all polynomials of degree one are irreducible. Over special fields, all irreducible polynomials are of degree one. Such fields are called [algebraically closed fields](./field-theory.md#algebraically-closed-fields). Over such a field, every polynomial of degree greater than zero has a root, so every polynomial of degree greater than one can be factored further. One such example is the field of complex numbers $\mathbf C$. Over the field of real numbers $\mathbf R$, on the other hand, there exist irreducible polynomials of degree two; over the field of rational numbers $\mathbf Q$, the structure of irreducible polynomials is even more complicated. The [Field theory](./field-theory.md) page has more discussion of polynomials over the field of rational numbers and over finite fields.
 
 The results above all concern polynomials over a field. Polynomials over more general integral domains can often be reduced to this case.
 
@@ -688,7 +688,7 @@ In the case of rings with unity, if we consider the principal ideals $(a)$ and $
 
 ### Application: Lagrange interpolation formula
 
-Related reading: [Lagrange interpolation](../numerical/interp.md#lagrange-插值法), [Fast polynomial interpolation](../poly/multipoint-eval-interpolation.md#fast-polynomial-interpolation)
+Related reading: [Lagrange interpolation](../numerical/interp.md#lagrange-interpolation), [Fast polynomial interpolation](../poly/multipoint-eval-interpolation.md#fast-polynomial-interpolation)
 
 The interpolation problem is: given a sequence of point values $\{(x_i,y_i)\}_{i=1}^n$, find a polynomial $f(x)$ over a field $F$ such that $f(x_i)=y_i$ holds for all $i=1,\cdots,n$. Of course, all $x_i$ are assumed to be pairwise distinct. The Lagrange interpolation formula gives the general solution to this kind of problem.
 
@@ -731,7 +731,7 @@ In general, by generalizing this method, one can also derive the [Hermite interp
 
 ### Application: multiplicative group of integers modulo n
 
-Related reading: [Primitive roots](../number-theory/primitive-root.md), [Fundamental theorem of finitely generated abelian groups](./group-theory.md#分类定理)
+Related reading: [Primitive roots](../number-theory/primitive-root.md), [Fundamental theorem of finitely generated abelian groups](./group-theory.md#classification-theorem)
 
 As an application of the Chinese remainder theorem and of material from group theory, here we discuss the structure of the multiplicative group of integers modulo $n$. In this section, the bar notation for congruence classes is omitted.
 

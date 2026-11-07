@@ -120,7 +120,7 @@ The case where the modulus is a power of $2$ is somewhat special. To handle this
     
         Combining them gives the general solution of the original equation.
 
-This completely settles the problem of deciding $k$-th residues for different moduli. The Legendre symbol and the law of quadratic reciprocity from the theory of quadratic residues can also be generalized to higher-order residues, but this is not easy and requires concepts such as [cyclotomic fields](../algebra/field-theory.md#分圆域). In algebraic number theory, the law of quadratic reciprocity is ultimately generalized to the [Artin reciprocity law](https://en.wikipedia.org/wiki/Artin_reciprocity).
+This completely settles the problem of deciding $k$-th residues for different moduli. The Legendre symbol and the law of quadratic reciprocity from the theory of quadratic residues can also be generalized to higher-order residues, but this is not easy and requires concepts such as [cyclotomic fields](../algebra/field-theory.md#cyclotomic-fields). In algebraic number theory, the law of quadratic reciprocity is ultimately generalized to the [Artin reciprocity law](https://en.wikipedia.org/wiki/Artin_reciprocity).
 
 ## Roots of unity
 
@@ -222,7 +222,7 @@ The discussion above concerns the general case. Only in the case where a primiti
     
     having a solution. Raising $g$ to the powers in this condition, we get $a^x\equiv b\pmod{m}$, that is, $b$ can be expressed as a power of $a$.
 
-This theorem shows that, when a primitive root exists, all $k$-th roots of unity have the structure of a [cyclic group](../algebra/group-theory.md#循环群), and the $k$-th primitive roots of unity are the generators of this cyclic group. We will see later that the Tonelli–Shanks algorithm exploits exactly this point to speed up the discrete logarithm part of root extraction.
+This theorem shows that, when a primitive root exists, all $k$-th roots of unity have the structure of a [cyclic group](../algebra/group-theory.md#cyclic-groups), and the $k$-th primitive roots of unity are the generators of this cyclic group. We will see later that the Tonelli–Shanks algorithm exploits exactly this point to speed up the discrete logarithm part of root extraction.
 
 ## Root extraction in modular arithmetic
 

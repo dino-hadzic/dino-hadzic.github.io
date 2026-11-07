@@ -32,7 +32,7 @@ Najprije usmjerimo sve bridove. Dogovorimo da brid ide od vrha manjeg stupnja pr
     
     Dakle nakon usmjeravanja graf sigurno nema ciklusa.
     
-    Zapravo, prema gornjem pravilu usmjeravanja može se konstruirati [parcijalni uređaj](../math/order-theory.md#二元关系), pa je graf konstruiran po tom pravilu (tj. [Hasseov dijagram](../math/order-theory.md#偏序集的可视化表示hasse-图) tog parcijalnog uređaja) nužno DAG.
+    Zapravo, prema gornjem pravilu usmjeravanja može se konstruirati [parcijalni uređaj](../math/order-theory.md#binarna-relacija), pa je graf konstruiran po tom pravilu (tj. [Hasseov dijagram](../math/order-theory.md#vizualizacija-parcijalno-uređenog-skupa-hasseov-dijagram) tog parcijalnog uređaja) nužno DAG.
 
 Prolazimo po $u$ i po vrhovima $v$ na koje $u$ pokazuje, zatim po vrhovima $w$ na koje pokazuje $v$, i provjerimo je li $u$ spojen s $w$.
 

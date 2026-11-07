@@ -336,7 +336,7 @@ In addition, an independent and more general algebraic proof can be given:
     \end{aligned}
     $$
     
-    By the [theorem on linear maps](./linear-mapping.md#线性映射的核空间与像空间), $\dim H = \dim\pi(H)+\dim\ker\pi = \dim(U+W)+\dim(U\cap W)$.
+    By the [theorem on linear maps](./linear-mapping.md#kernel-and-image-of-a-linear-mapping), $\dim H = \dim\pi(H)+\dim\ker\pi = \dim(U+W)+\dim(U\cap W)$.
     
     The first few columns of a matrix in row echelon form still form a matrix in row echelon form, so the number of rows with $c_k\neq 0$ is exactly the row rank of $\alpha\cup\beta$, i.e. $\dim(U+W)$; moreover, the set of $c_k$ in these rows forms a basis of $U+W$. The remaining nonzero rows number exactly $\dim(U\cap W)$ and all satisfy $c_k=0$. For the $d_k$ in these rows, since $(0,d_k)\in\ker\pi$, we have $d_k\in U\cap W$; moreover, the $(0,d_k)$, being rows of a matrix in row echelon form, are necessarily linearly independent, which shows that these $d_k$ are linearly independent. Putting it all together, these $d_k$ form a linearly independent set of size $\dim(U\cap W)$ in the intersection space $U\cap W$, so they must also be a basis of that space.
 

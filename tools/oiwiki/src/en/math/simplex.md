@@ -10,7 +10,7 @@ In algorithm competitions, the simplex method is often used to solve linear prog
 
 ## Basic concepts
 
-Suppose we want to solve the following linear programming problem in [standard form](./linear-programming.md#标准形式) with $n$ decision variables and $m+n$ constraints:
+Suppose we want to solve the following linear programming problem in [standard form](./linear-programming.md#standard-form) with $n$ decision variables and $m+n$ constraints:
 
 $$
 \begin{aligned}
@@ -238,7 +238,7 @@ Let the entering variable be $x_i$ and the leaving variable be $x_{i'}$. After t
 
 The simplex method is the process of starting from a basic feasible solution and pivoting repeatedly. The discussion of pivoting in the previous section was not complete: it ignored some special cases. Some of these special cases correspond to termination of the algorithm, while others require extra handling.
 
-First, the entering variable may not exist, i.e., $\tilde c\ge 0$. In this case there is no way to further improve the optimal value, which means the current basic feasible solution is optimal, and the algorithm terminates. To prove this rigorously, we need the [complementary slackness conditions](./linear-programming.md#互补松弛条件). Let $y=(A_B^{-1})^Tc_B$. Note that throughout the algorithm, $x$ always remains a feasible solution and the complementary slackness conditions hold, i.e.,
+First, the entering variable may not exist, i.e., $\tilde c\ge 0$. In this case there is no way to further improve the optimal value, which means the current basic feasible solution is optimal, and the algorithm terminates. To prove this rigorously, we need the [complementary slackness conditions](./linear-programming.md#complementary-slackness-conditions). Let $y=(A_B^{-1})^Tc_B$. Note that throughout the algorithm, $x$ always remains a feasible solution and the complementary slackness conditions hold, i.e.,
 
 $$
 x^T(c-A^Ty) = \tilde c^Tx = \tilde c_B^Tx_B + \tilde c_N^Tx_N = 0.
@@ -445,7 +445,7 @@ Besides implementing the simplex method with a simplex tableau, one can also use
 
 This section introduces the geometric background of the simplex method.
 
-The [analysis](./linear-programming.md#可行域与问题的解) of the feasible region of a linear programming problem
+The [analysis](./linear-programming.md#feasible-region-and-solutions-of-the-problem) of the feasible region of a linear programming problem
 
 $$
 \mathcal D = \{x\in\mathbf R^n : Ax = b,~ x\ge 0\}
@@ -458,7 +458,7 @@ shows that:
 
 It is easy to see that the concept of a vertex solution coincides with the basic feasible solution defined earlier. Therefore, it suffices to find the best one among all basic feasible solutions to obtain an optimal solution of the original problem. Although this greatly simplifies the problem, the number of vertices of the feasible region may be exponential, so exhaustive enumeration is not realistic.
 
-To overcome this difficulty, we can move along the [edges](./linear-programming.md#可行域与问题的解) of the feasible region, from one vertex to an adjacent vertex. Since adjacent vertices necessarily lie on the same edge, they satisfy at least $n-1$ common tight constraints. In other words, the tight constraints of adjacent vertices can and must differ in exactly one constraint. Therefore, for a basic feasible solution $x$, replacing one of its basic variables with a nonbasic variable yields an **adjacent** basic feasible solution $x'$. This is exactly the pivot operation.
+To overcome this difficulty, we can move along the [edges](./linear-programming.md#feasible-region-and-solutions-of-the-problem) of the feasible region, from one vertex to an adjacent vertex. Since adjacent vertices necessarily lie on the same edge, they satisfy at least $n-1$ common tight constraints. In other words, the tight constraints of adjacent vertices can and must differ in exactly one constraint. Therefore, for a basic feasible solution $x$, replacing one of its basic variables with a nonbasic variable yields an **adjacent** basic feasible solution $x'$. This is exactly the pivot operation.
 
 Hence, the process in which the simplex method starts from a basic feasible solution and keeps pivoting to improve the objective function is in fact the process of starting from a vertex of the corresponding feasible region and repeatedly moving to adjacent vertices, improving the objective function along the way.
 
@@ -479,7 +479,7 @@ With the simplex tableau, we can already solve many linear programming problems.
 
 ### Slack form
 
-The [method](./linear-programming.md#标准形式) of converting a linear programming problem from general form into standard form has already been discussed. However, to conveniently solve it with the simplex method, we also need to ensure that the coefficient matrix $A$ has full rank. Although it is feasible to first convert to standard form and then eliminate linearly dependent constraints, for simplicity the following strategy is usually adopted:
+The [method](./linear-programming.md#standard-form) of converting a linear programming problem from general form into standard form has already been discussed. However, to conveniently solve it with the simplex method, we also need to ensure that the coefficient matrix $A$ has full rank. Although it is feasible to first convert to standard form and then eliminate linearly dependent constraints, for simplicity the following strategy is usually adopted:
 
 1.  Convert the linear programming problem into **inequality form**, i.e., the form $\min\{c^Tx : Ax \le b,~ x \ge 0\}$;
 2.  By adding slack variables $s$, convert the problem into standard form: $\min\{c^Tx : Ax + s = b,~ x\ge 0,~ s \ge 0\}$.
@@ -651,7 +651,7 @@ This section provides a reference implementation of the two-phase simplex method
     \end{cases}
     $$
     
-    The original problem has no obvious initial feasible solution. Therefore, consider its [dual problem](./linear-programming.md#对偶问题):
+    The original problem has no obvious initial feasible solution. Therefore, consider its [dual problem](./linear-programming.md#dual-problem):
     
     $$
     \begin{align*}

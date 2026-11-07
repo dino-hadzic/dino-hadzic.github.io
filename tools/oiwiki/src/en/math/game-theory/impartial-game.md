@@ -4,7 +4,7 @@ title: Impartial games
 
 Prerequisites: [Introduction to game theory](./intro.md)
 
-This article discusses [impartial games](./intro.md#公平组合博弈).
+This article discusses [impartial games](./intro.md#impartial-combinatorial-games).
 
 Among impartial games, the most basic and most important one is normal Nim. The Sprague–Grundy theorem states that every impartial game under the normal play rule is equivalent to a single-pile Nim game. From this, the concepts of the Sprague–Grundy function and nimbers can be developed, which completely characterize an impartial game under the normal play rule. Therefore, this article first establishes the results on normal Nim and the Sprague–Grundy theory. After that, it discusses some impartial games that commonly appear in algorithm competitions.
 
@@ -156,7 +156,7 @@ The lesson of this observation is that the properties of a game can be studied b
 ???+ abstract "Equivalence relation of games"
     If for all games $H$ the games $G_1+H$ and $G_2+H$ are both losing states or both winning states, then the games $G_1$ and $G_2$ are called **equivalent**, denoted $G_1\approx G_2$.
 
-It is easy to verify that $\approx$ defined this way is indeed an [equivalence relation](../order-theory.md#二元关系) on the set of all impartial games.
+It is easy to verify that $\approx$ defined this way is indeed an [equivalence relation](../order-theory.md#binary-relations) on the set of all impartial games.
 
 ### Sprague–Grundy function
 
@@ -291,7 +291,7 @@ Every impartial game corresponds to a unique nimber. The set of (finite) nimbers
     -   the Nim-sum $a\oplus b=\operatorname{mex}(\{a'\oplus b:a'<a,~a'\in\mathbf N\}\cup\{a\oplus b':b'<b,~b'\in\mathbf N\})$,
     -   the Nim-product $a\otimes b=\operatorname{mex}(\{(a'\otimes b)\oplus(a\otimes b')\oplus(a'\otimes b'):a'<a,~b'<b,~a',b'\in\mathbf N\})$.
 
-The set of all nimbers under the operations $\oplus$ and $\otimes$ forms a [field](../algebra/basic.md#域) of characteristic $2$. Moreover, these operations and their inverses are closed on the first $2^{2^n}$ nimbers; this yields a family of [finite fields](../algebra/field-theory.md#有限域) $\mathbf F_{2^{2^n}}$ of size $2^{2^n}$.
+The set of all nimbers under the operations $\oplus$ and $\otimes$ forms a [field](../algebra/basic.md#fields) of characteristic $2$. Moreover, these operations and their inverses are closed on the first $2^{2^n}$ nimbers; this yields a family of [finite fields](../algebra/field-theory.md#finite-fields) $\mathbf F_{2^{2^n}}$ of size $2^{2^n}$.
 
 ## Common impartial games
 

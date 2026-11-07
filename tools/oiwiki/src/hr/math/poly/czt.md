@@ -69,7 +69,7 @@ gdje je $f(x) \in \mathbb{C}\left\lbrack x\right\rbrack_{< n}$ i $q \in \mathbb{
 
 ### Bostan–Schostov algoritam
 
-Podsjetimo se da [Lagrangeova interpolacijska formula](../numerical/interp.md#lagrange-插值法) glasi
+Podsjetimo se da [Lagrangeova interpolacijska formula](../numerical/interp.md#lagrangeova-interpolacija) glasi
 
 $$
 f(x) = \sum_{i = 0}^{n - 1}\left(f\left(x_i\right)\prod_{0 \leq j < n \atop j \neq i} \frac{x - x_j}{x_i - x_j}\right)

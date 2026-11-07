@@ -32,7 +32,7 @@ First orient all edges. We direct each edge from the vertex of smaller degree to
     
     Hence after orientation the graph certainly has no cycles.
     
-    In fact, the orientation rule above defines a [partial order](../math/order-theory.md#二元关系), so the graph built by this rule (i.e. the [Hasse diagram](../math/order-theory.md#偏序集的可视化表示hasse-图) of that partial order) is necessarily a DAG.
+    In fact, the orientation rule above defines a [partial order](../math/order-theory.md#binary-relations), so the graph built by this rule (i.e. the [Hasse diagram](../math/order-theory.md#visualizing-posets-hasse-diagrams) of that partial order) is necessarily a DAG.
 
 Enumerate $u$ and the vertices $v$ that $u$ points to, then enumerate $w$ among the vertices $v$ points to, and check whether $u$ is connected to $w$.
 

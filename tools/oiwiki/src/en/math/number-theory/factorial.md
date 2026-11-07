@@ -54,7 +54,7 @@ Wilson's theorem can be generalized to the case of a general modulus.
     Moreover, the remainder $\pm 1$ equals $-1$ if and only if [a primitive root exists](./primitive-root.md#primitive-root-existence-theorem) modulo $m$, i.e. when $m=2,4,p^\alpha,2p^\alpha$, where $p$ is an odd prime and $\alpha$ is a positive integer.
 
 ??? note "Proof"
-    This theorem can be proved simply via the structure of the [multiplicative group of integers modulo $m$](../algebra/ring-theory.md#应用整数同余类的乘法群). Here we give a proof with a similar idea but more elementary.
+    This theorem can be proved simply via the structure of the [multiplicative group of integers modulo $m$](../algebra/ring-theory.md#application-multiplicative-group-of-integers-modulo-n). Here we give a proof with a similar idea but more elementary.
     
     For $m=2$, we have $1!=1\equiv -1\pmod{2}$. For the other cases where a primitive root exists, let $g$ be a primitive root; then every positive integer $k$ less than $m$ and coprime to it can be uniquely written in the form $g^i\bmod m$, where $0\le i<\varphi(m)$ and $\varphi(m)$ is [Euler's totient function](./euler-totient.md). By direct verification, $\varphi(m)$ is necessarily even. Since $g^i$ and $g^{\varphi(m)-i}$ are multiplicative inverses of each other, pairing them up in the product gives
     

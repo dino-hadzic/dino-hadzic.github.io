@@ -351,7 +351,7 @@ Cipolla algoritam služi za rješavanje kongruencije $y^2\equiv a\pmod p$, gdje 
 U ovom odjeljku razmatramo računanje u $\mathbf{F}_p\lbrack x\rbrack /(x^2-g)$, gdje je $g \in \mathbf{F}_p$.
 
 ??? note "Način računanja"
-    Čitatelji koji nisu upoznati s [prstenima polinoma](../algebra/ring-theory.md#多项式环) mogu to jednostavno shvatiti ovako: elementi tog skupa imaju oblik $a_0+a_1x$ s $a_0,a_1\in\mathbf F_p$ i podliježu sljedećim pravilima računanja:
+    Čitatelji koji nisu upoznati s [prstenima polinoma](../algebra/ring-theory.md#prsten-polinoma) mogu to jednostavno shvatiti ovako: elementi tog skupa imaju oblik $a_0+a_1x$ s $a_0,a_1\in\mathbf F_p$ i podliježu sljedećim pravilima računanja:
     
     $$
     \begin{aligned}

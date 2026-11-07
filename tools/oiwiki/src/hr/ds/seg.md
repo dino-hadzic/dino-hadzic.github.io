@@ -31,7 +31,7 @@ Općenito, **informacija o intervalu** funkcija je $\varphi:\mathcal I\rightarro
 
 Ta svojstva jamče da je za upit o informaciji intervala $I$ dovoljno pronaći niz čvorova čiji intervali čine particiju od $I$; informacija o $I$ tada se dobiva spajanjem informacija pohranjenih u tim čvorovima.
 
-Informacije o intervalima mogu se spajati, spajanje je asocijativno i postoji neutralni element. Ta svojstva znače da prostor informacija $M$ s operacijom spajanja $\circ$ čini [monoid](../math/algebra/basic.md#群).[^monoid]
+Informacije o intervalima mogu se spajati, spajanje je asocijativno i postoji neutralni element. Ta svojstva znače da prostor informacija $M$ s operacijom spajanja $\circ$ čini [monoid](../math/algebra/basic.md#grupa).[^monoid]
 
 ???+ info "Dogovor"
     U referentnim implementacijama operacija segment treea u ovom članku pretpostavljamo da su elementi prostora informacija $M$ pohranjeni u strukturi `Info`, čiji zadani konstruktor daje neutralni element i koja preopterećuje operator zbrajanja za spajanje informacija.
@@ -182,7 +182,7 @@ Da bi se intervalne izmjene ispravno zabilježile, treba razumjeti svojstva koja
 2.  Izmjena mora biti kompatibilna sa spajanjem informacija. Drugim riječima, ako se informacija o intervalu može dobiti spajanjem informacija o podintervalima, onda se i rezultat izmjene tog intervala može dobiti spajanjem rezultata izmjene informacija o podintervalima; tj. za $m_1,m_2\in M$ uvijek vrijedi $\pi(m_1\circ m_2) = \pi(m_1)\circ\pi(m_2)$.
 3.  Posebno, informacija praznog intervala nakon izmjene ostaje informacija praznog intervala, tj. $\pi(e)=e$.[^endo]
 
-To znači da je izmjena [endomorfizam](../math/algebra/group-theory.md#群同态) monoida $M$. Nadalje, promotrimo skup $\Pi$ svih takvih izmjena: ako je zatvoren na kompoziciju, onda je, budući da je kompozicija asocijativna i identiteta je neutralni element, i $\Pi$ monoid.
+To znači da je izmjena [endomorfizam](../math/algebra/group-theory.md#homomorfizmi-grupa) monoida $M$. Nadalje, promotrimo skup $\Pi$ svih takvih izmjena: ako je zatvoren na kompoziciju, onda je, budući da je kompozicija asocijativna i identiteta je neutralni element, i $\Pi$ monoid.
 
 ???+ info "Dogovor"
     U referentnim implementacijama operacija segment treea u ovom članku pretpostavljamo da su izmjene pohranjene u strukturi `Transform`, čiji zadani konstruktor daje identitetu, koja preopterećuje operator zbrajanja za kompoziciju operacija i operator poziva (zagrade) za izmjenu informacije o intervalu. Radi lakše provjere je li lijena oznaka prazna (tj. ne mijenja ništa), preopterećena je i eksplicitna pretvorba u `bool`.

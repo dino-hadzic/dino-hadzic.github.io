@@ -43,7 +43,7 @@ The corresponding truth tables (from [Wikipedia](https://commons.wikimedia.org/w
 
 ![](./images/logical-connectives-table.svg)
 
-The corresponding Venn diagrams and [Hasse diagram](./order-theory.md#偏序集的可视化表示hasse-图) (with set inclusion $\subseteq$ as the partial order; from [Wikipedia](https://en.wikipedia.org/wiki/File:Logical_connectives_Hasse_diagram.svg)):
+The corresponding Venn diagrams and [Hasse diagram](./order-theory.md#visualizing-posets-hasse-diagrams) (with set inclusion $\subseteq$ as the partial order; from [Wikipedia](https://en.wikipedia.org/wiki/File:Logical_connectives_Hasse_diagram.svg)):
 
 ![](./images/logical-connectives-hasse-diagram.svg)
 
@@ -105,8 +105,8 @@ Below are the common minimal functionally complete operator sets[^vaughan1942com
 
 First, properties related to algebraic structures:
 
--   AND and OR each form a [commutative monoid](./algebra/basic.md#群) on $\mathbf{B}$. That is, AND and OR are both commutative and associative and have an identity element ($x\land 1=x\lor 0=x$).
--   XOR and XNOR each form a [group](./algebra/basic.md#群) on $\mathbf{B}$. That is, XOR and XNOR are both commutative and associative, have an identity element ($x\oplus 0=x\odot 1=x$), and have inverse elements ($x\oplus x=0$, $x\odot x=1$).
+-   AND and OR each form a [commutative monoid](./algebra/basic.md#groups) on $\mathbf{B}$. That is, AND and OR are both commutative and associative and have an identity element ($x\land 1=x\lor 0=x$).
+-   XOR and XNOR each form a [group](./algebra/basic.md#groups) on $\mathbf{B}$. That is, XOR and XNOR are both commutative and associative, have an identity element ($x\oplus 0=x\odot 1=x$), and have inverse elements ($x\oplus x=0$, $x\odot x=1$).
 -   NAND and NOR are not associative, so they do not form a semigroup.
 
 For $\land$ and $\lor$, we have

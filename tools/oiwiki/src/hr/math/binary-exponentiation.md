@@ -167,7 +167,7 @@ Druga je implementacija nerekurzivna. Tijekom petlje potencije koje odgovaraju b
 
 ### Računanje Fibonaccijevih brojeva
 
-Prema rekurziji Fibonaccijeva niza $F_n = F_{n-1} + F_{n-2}$ možemo sastaviti matricu $2\times 2$ koja opisuje prijelaz iz $F_i,F_{i+1}$ u $F_{i+1},F_{i+2}$. Pri računanju $n$-te potencije te matrice primjenjujemo ideju brzog potenciranja i rezultat dobivamo u vremenu $\Theta(\log n)$. Više pojedinosti vidi u [Fibonaccijev niz](./combinatorics/fibonacci.md), a implementaciju brzog potenciranja matrica u [Ubrzavanje rekurzija matricama](../math/linear-algebra/matrix.md#矩阵加速递推).
+Prema rekurziji Fibonaccijeva niza $F_n = F_{n-1} + F_{n-2}$ možemo sastaviti matricu $2\times 2$ koja opisuje prijelaz iz $F_i,F_{i+1}$ u $F_{i+1},F_{i+2}$. Pri računanju $n$-te potencije te matrice primjenjujemo ideju brzog potenciranja i rezultat dobivamo u vremenu $\Theta(\log n)$. Više pojedinosti vidi u [Fibonaccijev niz](./combinatorics/fibonacci.md), a implementaciju brzog potenciranja matrica u [Ubrzavanje rekurzija matricama](../math/linear-algebra/matrix.md#ubrzavanje-rekurzija-matricama).
 
 ### Višestruka primjena permutacije
 
@@ -190,14 +190,14 @@ Dovoljno je permutaciju potencirati na $k$-tu potenciju i zatim je primijeniti n
     
     Postoji i posebna operacija koja neki niz operacija ponavlja $k$ puta (Repeat); operacije Repeat mogu biti ugniježđene. Ispišite koordinate svake točke nakon završetka svih operacija.
 
-Prema sadržaju stranice [Vektori i matrice](./linear-algebra/vector.md#向量与矩阵), svaka se operacija može prikazati matricom transformacije, a niz uzastopnih transformacija umnoškom matrica. Jedna operacija Repeat odgovara $k$-toj potenciji matrice. Tako u vremenu $O(m \log k)$ možemo izračunati matricu koju na kraju tvori cijeli niz transformacija. Na kraju je primijenimo na $n$ točaka; ukupna složenost je $O(n + m \log k)$.
+Prema sadržaju stranice [Vektori i matrice](./linear-algebra/vector.md#vektori-i-matrice), svaka se operacija može prikazati matricom transformacije, a niz uzastopnih transformacija umnoškom matrica. Jedna operacija Repeat odgovara $k$-toj potenciji matrice. Tako u vremenu $O(m \log k)$ možemo izračunati matricu koju na kraju tvori cijeli niz transformacija. Na kraju je primijenimo na $n$ točaka; ukupna složenost je $O(n + m \log k)$.
 
 ### Prebrojavanje puteva fiksne duljine
 
 ???+ note "Opis problema"
     Zadan je usmjereni graf (težine bridova su 1); za svaki par vrhova $u,v$ odredite broj puteva duljine $k$ od $u$ do $v$.
 
-Matricu susjedstva $M$ tog grafa potenciramo na $k$-tu potenciju; tada $M_{i,j}$ predstavlja broj puteva duljine $k$ od $i$ do $j$. Složenost tog algoritma je $O(n^3 \log k)$. Pojedinosti o algoritmu vidi na stranici [Matrice](./linear-algebra/matrix.md#定长路径统计).
+Matricu susjedstva $M$ tog grafa potenciramo na $k$-tu potenciju; tada $M_{i,j}$ predstavlja broj puteva duljine $k$ od $i$ do $j$. Složenost tog algoritma je $O(n^3 \log k)$. Pojedinosti o algoritmu vidi na stranici [Matrice](./linear-algebra/matrix.md#prebrojavanje-putova-zadane-duljine).
 
 ### Modularno množenje cijelih brojeva
 

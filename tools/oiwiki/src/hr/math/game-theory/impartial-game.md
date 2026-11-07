@@ -4,7 +4,7 @@ title: Nepristrane kombinatorne igre
 
 Preduvjeti: [Uvod u teoriju igara](./intro.md)
 
-U ovom članku raspravljamo o [nepristranim kombinatornim igrama](./intro.md#公平组合博弈) (impartial games).
+U ovom članku raspravljamo o [nepristranim kombinatornim igrama](./intro.md#nepristrane-kombinatorne-igre) (impartial games).
 
 Među nepristranim kombinatornim igrama najosnovnija i najvažnija jest normalna Nim igra. Sprague–Grundyjev teorem kaže da je svaka nepristrana kombinatorna igra s normalnim pravilom ekvivalentna Nim igri s jednom hrpom. Iz toga se mogu razviti pojmovi Sprague–Grundyjeve funkcije i Nim-brojeva, koji potpuno opisuju nepristranu kombinatornu igru s normalnim pravilom. Zato u ovom članku najprije izvodimo rezultate o normalnoj Nim igri i Sprague–Grundyjevu teoriju. Nakon toga raspravljamo o nekim nepristranim kombinatornim igrama koje se često pojavljuju na algoritamskim natjecanjima.
 
@@ -156,7 +156,7 @@ Pouka tog opažanja jest da se svojstva neke igre mogu proučavati promatranjem 
 ???+ abstract "Relacija ekvivalencije igara"
     Ako su za sve igre $H$ igre $G_1+H$ i $G_2+H$ obje gubitnička stanja ili obje pobjednička stanja, kažemo da su igre $G_1$ i $G_2$ **ekvivalentne** (equivalent) i pišemo $G_1\approx G_2$.
 
-Lako je provjeriti da je tako definirana relacija $\approx$ doista [relacija ekvivalencije](../order-theory.md#二元关系) na skupu svih nepristranih igara.
+Lako je provjeriti da je tako definirana relacija $\approx$ doista [relacija ekvivalencije](../order-theory.md#binarna-relacija) na skupu svih nepristranih igara.
 
 ### Sprague–Grundyjeva funkcija
 
@@ -291,7 +291,7 @@ Svakoj nepristranoj igri jedinstveno odgovara jedan Nim-broj. Skup (konačnih) N
     -   Nim-zbroj $a\oplus b=\operatorname{mex}(\{a'\oplus b:a'<a,~a'\in\mathbf N\}\cup\{a\oplus b':b'<b,~b'\in\mathbf N\})$,
     -   Nim-produkt $a\otimes b=\operatorname{mex}(\{(a'\otimes b)\oplus(a\otimes b')\oplus(a'\otimes b'):a'<a,~b'<b,~a',b'\in\mathbf N\})$.
 
-Skup svih Nim-brojeva uz operacije $\oplus$ i $\otimes$ čini [polje](../algebra/basic.md#域) karakteristike $2$. Štoviše, te operacije i njihove inverzne operacije zatvorene su na prvih $2^{2^n}$ Nim-brojeva; tako se dobiva niz [konačnih polja](../algebra/field-theory.md#有限域) $\mathbf F_{2^{2^n}}$ veličine $2^{2^n}$.
+Skup svih Nim-brojeva uz operacije $\oplus$ i $\otimes$ čini [polje](../algebra/basic.md#polje) karakteristike $2$. Štoviše, te operacije i njihove inverzne operacije zatvorene su na prvih $2^{2^n}$ Nim-brojeva; tako se dobiva niz [konačnih polja](../algebra/field-theory.md#konačna-polja) $\mathbf F_{2^{2^n}}$ veličine $2^{2^n}$.
 
 ## Uobičajene nepristrane igre
 

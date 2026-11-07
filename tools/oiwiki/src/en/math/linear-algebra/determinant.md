@@ -154,7 +154,7 @@ An operation $\det$ on a matrix $A$ of order $n$ is called a determinant if it s
     \det I = 1
     $$
 
-Using the properties of the determinant related to elementary operations, determinants of higher order can be conveniently computed by hand. [Computing determinants by Gaussian elimination](../numerical/gauss.md#行列式计算) also uses these properties, with time complexity $O(n^3)$.
+Using the properties of the determinant related to elementary operations, determinants of higher order can be conveniently computed by hand. [Computing determinants by Gaussian elimination](../numerical/gauss.md#computing-the-determinant) also uses these properties, with time complexity $O(n^3)$.
 
 The properties above also have several corollaries:
 

@@ -51,11 +51,11 @@ Pri primjeni ovog algoritma na konkretne zadatke obično se koriste sljedeći po
 
     Pritom $a_{s\to t}$ označava potez koji stanje $s$ prevodi u stanje $t$; ako takvih poteza ima više, uzima se onaj s najvećom isplatom $w(a)$.
 
--   Nepristrane kombinatorne igre sve su sekvencijalne igre nulte sume: dovoljno je isplatu pobjednika postaviti na $+1$, a isplatu gubitnika na $-1$. Tada je rekurzija za funkciju isplate $V(\cdot)$ zapravo upravo [lema](./impartial-game.md#博弈图和状态) kojom se određuju pobjedničke i gubitničke pozicije.
+-   Nepristrane kombinatorne igre sve su sekvencijalne igre nulte sume: dovoljno je isplatu pobjednika postaviti na $+1$, a isplatu gubitnika na $-1$. Tada je rekurzija za funkciju isplate $V(\cdot)$ zapravo upravo [lema](./impartial-game.md#graf-igre-i-stanja) kojom se određuju pobjedničke i gubitničke pozicije.
 
     Česta je varijanta ovakvih zadataka pitanje koliko najmanje poteza treba pobjedniku, odnosno koliko se najviše poteza gubitnik može održati. Za to je dovoljno primijetiti da, kad od završnih stanja krenemo BFS-om i prema lemi određujemo pobjedničke i gubitničke pozicije, broj sloja BFS-a u kojem je pozicija određena kao pobjednička ili gubitnička upravo je traženi broj poteza. Razlog je sljedeći: da bi pozicija bila određena kao pobjednička, dovoljno je da je jedan njezin sljedbenik gubitnička pozicija, pa ona uvijek nastaje iz gubitničkog sljedbenika s najmanjim brojem sloja; a da bi pozicija bila određena kao gubitnička, svi njezini sljedbenici moraju biti pobjedničke pozicije, pa ona uvijek nastaje iz pobjedničkog sljedbenika s najvećim brojem sloja.
 
-    Ta se metoda jednako može poopćiti na općenite [igre na usmjerenim grafovima](./impartial-game.md#有向图游戏).
+    Ta se metoda jednako može poopćiti na općenite [igre na usmjerenim grafovima](./impartial-game.md#igra-na-usmjerenom-grafu).
 
 ### Primjer zadatka
 
@@ -150,7 +150,7 @@ $$
 w_+ = \min_{a_2\in A_2}\max_{a_1\in A_1} v(a_1,a_2)
 $$
 
-Budući da je potez igrača $2$ jednostrano vidljiv igraču $1$, to bi trebao biti najbolji ishod koji igrač $1$ može postići. Igrač $1$ trebao bi očekivati da će u stvarnoj igri ostvariti isplatu $w\in[w_-,w_+]$. Iako nejednakost $w_-\le w_+$ uvijek vrijedi (dokaz vidi u [teoremu o slaboj dualnosti](../linear-programming.md#对偶原理)), jednakost ne mora vrijediti, pa se isključivo sredstvima analize sekvencijalnih igara ishod igre općenito ne može jednoznačno odrediti.
+Budući da je potez igrača $2$ jednostrano vidljiv igraču $1$, to bi trebao biti najbolji ishod koji igrač $1$ može postići. Igrač $1$ trebao bi očekivati da će u stvarnoj igri ostvariti isplatu $w\in[w_-,w_+]$. Iako nejednakost $w_-\le w_+$ uvijek vrijedi (dokaz vidi u [teoremu o slaboj dualnosti](../linear-programming.md#princip-dualnosti)), jednakost ne mora vrijediti, pa se isključivo sredstvima analize sekvencijalnih igara ishod igre općenito ne može jednoznačno odrediti.
 
 ???+ example "Primjer (nastavak)"
     U igri kamen-škare-papir, ako se potezi povlače jedan za drugim, prvi igrač sigurno gubi, a drugi sigurno pobjeđuje. Prevedeno na matematički jezik, to je sljedeća nejednakost:
@@ -217,7 +217,7 @@ Nakon uvođenja mješovitih strategija rezultati ideje maksimina i ideje minimak
     \end{aligned}
     $$
     
-    Taj je problem očito dopustiv, a ciljna je funkcija ograničena, pa optimalno rješenje postoji. Prema [principu dualnosti](../linear-programming.md#对偶原理) njegova je optimalna vrijednost jednaka optimalnoj vrijednosti dualnog problema:
+    Taj je problem očito dopustiv, a ciljna je funkcija ograničena, pa optimalno rješenje postoji. Prema [principu dualnosti](../linear-programming.md#princip-dualnosti) njegova je optimalna vrijednost jednaka optimalnoj vrijednosti dualnog problema:
     
     $$
     (D) \qquad

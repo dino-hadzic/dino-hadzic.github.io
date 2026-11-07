@@ -43,7 +43,7 @@ Pripadne tablice istinitosti (izvor: [Wikipedia](https://commons.wikimedia.org/w
 
 ![](./images/logical-connectives-table.svg)
 
-Pripadni Vennovi dijagrami i [Hasseov dijagram](./order-theory.md#偏序集的可视化表示hasse-图) (s relacijom inkluzije skupova $\subseteq$ kao parcijalnim uređajem; izvor: [Wikipedia](https://en.wikipedia.org/wiki/File:Logical_connectives_Hasse_diagram.svg)):
+Pripadni Vennovi dijagrami i [Hasseov dijagram](./order-theory.md#vizualizacija-parcijalno-uređenog-skupa-hasseov-dijagram) (s relacijom inkluzije skupova $\subseteq$ kao parcijalnim uređajem; izvor: [Wikipedia](https://en.wikipedia.org/wiki/File:Logical_connectives_Hasse_diagram.svg)):
 
 ![](./images/logical-connectives-hasse-diagram.svg)
 
@@ -105,8 +105,8 @@ Slijede uobičajeni minimalni funkcionalno potpuni skupovi operatora[^vaughan194
 
 Najprije svojstva vezana uz algebarske strukture:
 
--   I i ili na $\mathbf{B}$ čine [komutativni monoid](./algebra/basic.md#群). Dakle, operacije i i ili komutativne su, asocijativne i imaju neutralni element ($x\land 1=x\lor 0=x$).
--   Isključivo ili i isključivo nili na $\mathbf{B}$ čine [grupu](./algebra/basic.md#群). Dakle, operacije isključivo ili i isključivo nili komutativne su, asocijativne, imaju neutralni element ($x\oplus 0=x\odot 1=x$) i inverzni element ($x\oplus x=0$, $x\odot x=1$).
+-   I i ili na $\mathbf{B}$ čine [komutativni monoid](./algebra/basic.md#grupa). Dakle, operacije i i ili komutativne su, asocijativne i imaju neutralni element ($x\land 1=x\lor 0=x$).
+-   Isključivo ili i isključivo nili na $\mathbf{B}$ čine [grupu](./algebra/basic.md#grupa). Dakle, operacije isključivo ili i isključivo nili komutativne su, asocijativne, imaju neutralni element ($x\oplus 0=x\odot 1=x$) i inverzni element ($x\oplus x=0$, $x\odot x=1$).
 -   NAND i NOR nisu asocijativni, pa ne čine polugrupu.
 
 Za $\land$ i $\lor$ vrijedi

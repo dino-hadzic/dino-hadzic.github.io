@@ -265,7 +265,7 @@ Tada vrijedi:
 
 Dokaz je konstruktivan, pa se iz dobivenog najvećeg sparivanja lako konstruira odgovarajući najmanji pokrivač putovima. Štoviše, konstrukcija pokazuje da za opće usmjerene grafove ovo svođenje više ne vrijedi, upravo zato što sparivanje u bipartitnom grafu može odgovarati ciklusu u usmjerenom grafu.
 
-Posebno, za skup $X$ i relaciju parcijalnog uređaja $P$ na njemu možemo napraviti usmjereni aciklički graf $G=(X,P)$. Prema [Dilworthovu teoremu](../../math/order-theory.md#dilworth-定理与-mirsky-定理), veličina najmanjeg pokrivača putovima grafa $G$ tada je jednaka duljini najduljeg antilanca, tj. širini parcijalno uređenog skupa $(X,P)$. Dakle ovaj odjeljak zapravo daje učinkovit način računanja širine proizvoljnog parcijalno uređenog skupa.
+Posebno, za skup $X$ i relaciju parcijalnog uređaja $P$ na njemu možemo napraviti usmjereni aciklički graf $G=(X,P)$. Prema [Dilworthovu teoremu](../../math/order-theory.md#dilworthov-i-mirskyjev-teorem), veličina najmanjeg pokrivača putovima grafa $G$ tada je jednaka duljini najduljeg antilanca, tj. širini parcijalno uređenog skupa $(X,P)$. Dakle ovaj odjeljak zapravo daje učinkovit način računanja širine proizvoljnog parcijalno uređenog skupa.
 
 ## Primjeri zadataka
 

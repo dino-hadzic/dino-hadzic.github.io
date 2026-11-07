@@ -8,7 +8,7 @@ Predznanje: Abelova grupa, polje.
 
 Jednostavno rečeno, skup koji je zatvoren s obzirom na neku operaciju te zadovoljava asocijativnost, ima neutralni element i inverzne elemente čini grupu. Ako k tome vrijedi i komutativnost, čini Abelovu grupu.
 
-Ako je skup zatvoren s obzirom na četiri osnovne računske operacije, čini polje. Pripadne definicije potražite u [Osnovni pojmovi apstraktne algebre](../algebra/basic.md#域).
+Ako je skup zatvoren s obzirom na četiri osnovne računske operacije, čini polje. Pripadne definicije potražite u [Osnovni pojmovi apstraktne algebre](../algebra/basic.md#polje).
 
 ## Definicija
 

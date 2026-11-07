@@ -10,7 +10,7 @@ U algoritamskim natjecanjima simpleks metoda (simplex method) često se koristi 
 
 ## Osnovni pojmovi
 
-Pretpostavimo da treba riješiti sljedeći problem linearnog programiranja u [standardnom obliku](./linear-programming.md#标准形式) s $n$ varijabli odlučivanja i $m+n$ ograničenja:
+Pretpostavimo da treba riješiti sljedeći problem linearnog programiranja u [standardnom obliku](./linear-programming.md#standardni-oblik) s $n$ varijabli odlučivanja i $m+n$ ograničenja:
 
 $$
 \begin{aligned}
@@ -238,7 +238,7 @@ Neka je ulazna varijabla $x_i$, a izlazna $x_{i'}$. Nakon pivotiranja bazne su v
 
 Simpleks metoda je postupak koji polazi od jednog baznog dopustivog rješenja i neprestano pivotira. Rasprava o pivotiranju u prethodnom odjeljku nije potpuna: zanemarila je neke posebne slučajeve. Neki od njih odgovaraju završetku algoritma, a neki zahtijevaju dodatnu obradu.
 
-Prvo, ulazna varijabla ne mora postojati, tj. $\tilde c\ge 0$. Tada nema načina za daljnje poboljšanje optimalne vrijednosti, što znači da je trenutačno bazno dopustivo rješenje optimalno i algoritam završava. Za strogi dokaz te tvrdnje potrebni su [uvjeti komplementarne labavosti](./linear-programming.md#互补松弛条件). Neka je $y=(A_B^{-1})^Tc_B$. Primijetimo da je tijekom cijelog algoritma $x$ uvijek dopustivo rješenje i da vrijede uvjeti komplementarne labavosti, tj.
+Prvo, ulazna varijabla ne mora postojati, tj. $\tilde c\ge 0$. Tada nema načina za daljnje poboljšanje optimalne vrijednosti, što znači da je trenutačno bazno dopustivo rješenje optimalno i algoritam završava. Za strogi dokaz te tvrdnje potrebni su [uvjeti komplementarne labavosti](./linear-programming.md#uvjeti-komplementarnosti). Neka je $y=(A_B^{-1})^Tc_B$. Primijetimo da je tijekom cijelog algoritma $x$ uvijek dopustivo rješenje i da vrijede uvjeti komplementarne labavosti, tj.
 
 $$
 x^T(c-A^Ty) = \tilde c^Tx = \tilde c_B^Tx_B + \tilde c_N^Tx_N = 0.
@@ -445,7 +445,7 @@ Osim implementacije simpleks metode pomoću simpleks tablice, može se koristiti
 
 U ovom odjeljku predstavljamo geometrijsku pozadinu simpleks metode.
 
-[Analiza](./linear-programming.md#可行域与问题的解) dopustivog područja problema linearnog programiranja
+[Analiza](./linear-programming.md#dopustivo-područje-i-rješenja-problema) dopustivog područja problema linearnog programiranja
 
 $$
 \mathcal D = \{x\in\mathbf R^n : Ax = b,~ x\ge 0\}
@@ -458,7 +458,7 @@ pokazuje:
 
 Lako se vidi da se pojam vršnog rješenja podudara s ranije definiranim baznim dopustivim rješenjem. Stoga je dovoljno među svim baznim dopustivim rješenjima pronaći najbolje da bismo dobili optimalno rješenje polaznog problema. Iako to znatno pojednostavljuje problem, broj vrhova dopustivog područja može biti eksponencijalan, pa iscrpno pretraživanje nije realno.
 
-Da bismo riješili tu poteškoću, možemo se kretati duž [bridova](./linear-programming.md#可行域与问题的解) dopustivog područja, s jednog vrha na njemu susjedni vrh. Budući da susjedni vrhovi nužno leže na istom bridu, oni zadovoljavaju barem $n-1$ zajedničkih aktivnih ograničenja. Drugim riječima, aktivna ograničenja susjednih vrhova mogu se i moraju razlikovati u točno jednom. Stoga, za bazno dopustivo rješenje $x$, dovoljno je jednu njegovu baznu varijablu zamijeniti nebaznom pa dobiti **susjedno** (adjacent) bazno dopustivo rješenje $x'$. To je upravo pivotiranje.
+Da bismo riješili tu poteškoću, možemo se kretati duž [bridova](./linear-programming.md#dopustivo-područje-i-rješenja-problema) dopustivog područja, s jednog vrha na njemu susjedni vrh. Budući da susjedni vrhovi nužno leže na istom bridu, oni zadovoljavaju barem $n-1$ zajedničkih aktivnih ograničenja. Drugim riječima, aktivna ograničenja susjednih vrhova mogu se i moraju razlikovati u točno jednom. Stoga, za bazno dopustivo rješenje $x$, dovoljno je jednu njegovu baznu varijablu zamijeniti nebaznom pa dobiti **susjedno** (adjacent) bazno dopustivo rješenje $x'$. To je upravo pivotiranje.
 
 Dakle, postupak u kojem simpleks metoda polazi od jednog baznog dopustivog rješenja i neprestanim pivotiranjem poboljšava ciljnu funkciju zapravo je postupak u kojem se na pripadnom dopustivom području polazi od jednog vrha i neprestano prelazi na susjedne vrhove, poboljšavajući ciljnu funkciju.
 
@@ -479,7 +479,7 @@ Pomoću simpleks tablice već možemo riješiti mnoge probleme linearnog program
 
 ### Kanonski oblik
 
-[Postupak](./linear-programming.md#标准形式) pretvaranja problema linearnog programiranja iz općeg oblika u standardni već je obrađen. No da bi rješavanje simpleks metodom bilo jednostavno, treba još osigurati da matrica koeficijenata $A$ bude punog ranga. Iako je izvedivo najprije prijeći na standardni oblik pa zatim ukloniti linearno zavisna ograničenja, radi jednostavnijeg rješavanja obično se primjenjuje sljedeća strategija:
+[Postupak](./linear-programming.md#standardni-oblik) pretvaranja problema linearnog programiranja iz općeg oblika u standardni već je obrađen. No da bi rješavanje simpleks metodom bilo jednostavno, treba još osigurati da matrica koeficijenata $A$ bude punog ranga. Iako je izvedivo najprije prijeći na standardni oblik pa zatim ukloniti linearno zavisna ograničenja, radi jednostavnijeg rješavanja obično se primjenjuje sljedeća strategija:
 
 1.  Problem linearnog programiranja pretvori se u **oblik s nejednakostima** (inequality form), tj. oblik $\min\{c^Tx : Ax \le b,~ x \ge 0\}$;
 2.  Dodavanjem dopunskih varijabli $s$ problem se pretvori u standardni oblik: $\min\{c^Tx : Ax + s = b,~ x\ge 0,~ s \ge 0\}$.
@@ -651,7 +651,7 @@ U ovom odjeljku dajemo referentnu implementaciju simpleks metode dviju faza teme
     \end{cases}
     $$
     
-    Polazni problem nema očito početno dopustivo rješenje. Zato promotrimo njegov [dualni problem](./linear-programming.md#对偶问题):
+    Polazni problem nema očito početno dopustivo rješenje. Zato promotrimo njegov [dualni problem](./linear-programming.md#dualni-problem):
     
     $$
     \begin{align*}

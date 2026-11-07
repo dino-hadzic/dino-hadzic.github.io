@@ -37,7 +37,7 @@ Analogno slučaju grupa, mogu se uvesti pojmovi potprstena i homomorfizma prsten
 ???+ example "Primjer: prsten cijelih brojeva $\mathbf Z$ (nastavak)"
     Preslikavanje redukcije modulo proizvoljan nenul cijeli broj $n$, tj. $\pi:\mathbf Z\rightarrow\mathbf Z/n\mathbf Z$, gdje je $\pi(a)=\bar a$, homomorfizam je prstena.
 
-[Rasprava](./group-theory.md#群同态) o jezgri i slici homomorfizma grupa može se gotovo doslovno prenijeti ovamo. (Relativna) veličina slike homomorfizma određuje je li homomorfizam surjekcija, a trivijalnost jezgre homomorfizma određuje je li homomorfizam injekcija. Jezgra homomorfizma prstena definira se ovako:
+[Rasprava](./group-theory.md#homomorfizmi-grupa) o jezgri i slici homomorfizma grupa može se gotovo doslovno prenijeti ovamo. (Relativna) veličina slike homomorfizma određuje je li homomorfizam surjekcija, a trivijalnost jezgre homomorfizma određuje je li homomorfizam injekcija. Jezgra homomorfizma prstena definira se ovako:
 
 ???+ abstract "Jezgra homomorfizma"
     **Jezgra** (kernel) homomorfizma $\pi:R\rightarrow S$ iz prstena $R$ u prsten $S$ skup je $\{r\in R:\pi(r)=0\}$, u oznaci $\ker\pi$, gdje je $0$ neutralni element zbrajanja u $S$.
@@ -223,7 +223,7 @@ Najprije ovdje poopćavamo odgovarajuće pojmove iz teorije djeljivosti cijelih 
 ???+ abstract "Asociranost"
     Neka komutativan prsten $R$ ima elemente $a,b\in R$. Ako se oni razlikuju samo za invertibilni element, tj. ako postoji invertibilni element $u\in R$ takav da je $a=bu$, kažemo da su $a$ i $b$ **asocirani** (associate).
 
-Relacija djeljivosti relacija je [parcijalnog uređaja](../order-theory.md#二元关系) na prstenu, a relacija asociranosti relacija je ekvivalencije na prstenu. Gledano preko ideala, $a\mid b$ ekvivalentno je s $(b)\subseteq (a)$, a asociranost elemenata $a$ i $b$ ekvivalentna je s $(a)=(b)$. Stoga se pri raspravi o elementima prstena obično ne obazire na razliku među asociranim elementima. Slično kao kod cijelih brojeva, najveći zajednički djelitelj elemenata $a$ i $b$ komutativnog prstena definira se kao infimum skupa $\{a,b\}$.
+Relacija djeljivosti relacija je [parcijalnog uređaja](../order-theory.md#binarna-relacija) na prstenu, a relacija asociranosti relacija je ekvivalencije na prstenu. Gledano preko ideala, $a\mid b$ ekvivalentno je s $(b)\subseteq (a)$, a asociranost elemenata $a$ i $b$ ekvivalentna je s $(a)=(b)$. Stoga se pri raspravi o elementima prstena obično ne obazire na razliku među asociranim elementima. Slično kao kod cijelih brojeva, najveći zajednički djelitelj elemenata $a$ i $b$ komutativnog prstena definira se kao infimum skupa $\{a,b\}$.
 
 ???+ abstract "Najveći zajednički djelitelj"
     Za komutativan prsten $R$ i njegove elemente $a,b\in R$, ako postoji nenul element $d\in R$ koji zadovoljava $d\mid a$ i $d\mid b$ te za svaki $d'$ koji zadovoljava $d'\mid a$ i $d'\mid b$ vrijedi $d'\mid d$, kažemo da je $d$ **najveći zajednički djelitelj** (greatest common divisor) elemenata $a$ i $b$ i pišemo $\gcd(a,b)$.
@@ -568,7 +568,7 @@ Pojam korijena može se poopćiti na višestruke korijene.
 ??? note "Dokaz"
     Dovoljno je uočiti da je $F[x]$ faktorijalni prsten.
 
-Iako za polinome nad poljem vrijedi teorem o jedinstvenom rastavu, ne postoji opći način da se utvrdi je li zadani polinom reducibilan. Slučajevi malog stupnja razmjerno su laki. Primjerice, svi polinomi prvog stupnja ireducibilni su. Nad posebnim poljima svi su ireducibilni polinomi prvog stupnja. Takva se polja nazivaju [algebarski zatvorenim poljima](./field-theory.md#代数闭域). Nad takvim poljem svaki polinom stupnja većeg od nula ima korijen, pa se svaki polinom stupnja većeg od jedan može dalje rastaviti. Jedan je takav primjer polje kompleksnih brojeva $\mathbf C$. Nad poljem realnih brojeva $\mathbf R$ pak postoje ireducibilni polinomi drugog stupnja; nad poljem racionalnih brojeva $\mathbf Q$ struktura ireducibilnih polinoma još je složenija. Stranica [Teorija polja](./field-theory.md) sadrži više rasprave o polinomima nad poljem racionalnih brojeva i nad konačnim poljima.
+Iako za polinome nad poljem vrijedi teorem o jedinstvenom rastavu, ne postoji opći način da se utvrdi je li zadani polinom reducibilan. Slučajevi malog stupnja razmjerno su laki. Primjerice, svi polinomi prvog stupnja ireducibilni su. Nad posebnim poljima svi su ireducibilni polinomi prvog stupnja. Takva se polja nazivaju [algebarski zatvorenim poljima](./field-theory.md#algebarski-zatvorena-polja). Nad takvim poljem svaki polinom stupnja većeg od nula ima korijen, pa se svaki polinom stupnja većeg od jedan može dalje rastaviti. Jedan je takav primjer polje kompleksnih brojeva $\mathbf C$. Nad poljem realnih brojeva $\mathbf R$ pak postoje ireducibilni polinomi drugog stupnja; nad poljem racionalnih brojeva $\mathbf Q$ struktura ireducibilnih polinoma još je složenija. Stranica [Teorija polja](./field-theory.md) sadrži više rasprave o polinomima nad poljem racionalnih brojeva i nad konačnim poljima.
 
 Svi gornji rezultati odnose se na polinome nad poljem. Polinomi nad općenitijim integralnim domenama često se mogu svesti na taj slučaj.
 
@@ -688,7 +688,7 @@ U slučaju prstena s jedinicom, promatramo li glavne ideale $(a)$ i $(b)$, taj j
 
 ### Primjena: Lagrangeova interpolacijska formula
 
-Povezano štivo: [Lagrangeova interpolacija](../numerical/interp.md#lagrange-插值法), [Brza interpolacija polinoma](../poly/multipoint-eval-interpolation.md#brza-interpolacija-polinoma)
+Povezano štivo: [Lagrangeova interpolacija](../numerical/interp.md#lagrangeova-interpolacija), [Brza interpolacija polinoma](../poly/multipoint-eval-interpolation.md#brza-interpolacija-polinoma)
 
 Problem interpolacije (interpolation) glasi: za zadani niz točaka $\{(x_i,y_i)\}_{i=1}^n$ naći polinom $f(x)$ nad poljem $F$ takav da $f(x_i)=y_i$ vrijedi za sve $i=1,\cdots,n$. Naravno, pretpostavlja se da su svi $x_i$ međusobno različiti. Lagrangeova interpolacijska formula daje opće rješenje te vrste problema.
 
@@ -731,7 +731,7 @@ Općenito, poopćenjem te metode može se izvesti i [Hermiteova interpolacijska 
 
 ### Primjena: multiplikativna grupa klasa ostataka cijelih brojeva
 
-Povezano štivo: [Primitivni korijen](../number-theory/primitive-root.md), [Osnovni teorem o konačno generiranim Abelovim grupama](./group-theory.md#分类定理)
+Povezano štivo: [Primitivni korijen](../number-theory/primitive-root.md), [Osnovni teorem o konačno generiranim Abelovim grupama](./group-theory.md#teorem-o-klasifikaciji)
 
 Kao primjenu kineskog teorema o ostatcima i sadržaja iz teorije grupa ovdje raspravljamo o strukturi multiplikativne grupe cijelih brojeva modulo $n$. U ovom odjeljku izostavljamo crtu iznad oznaka klasa ostataka.
 

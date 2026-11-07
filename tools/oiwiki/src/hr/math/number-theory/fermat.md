@@ -86,7 +86,7 @@ Obrat malog Fermatova teorema ne vrijedi. Čak i ako za sve $a$ relativno proste
     
     Ponavljajući prethodni argument i kratimo $\prod_{r\in R}r$, dobivamo $a^{\varphi(m)}\equiv 1\pmod m$.
 
-Za prost broj $p$ vrijedi $\varphi(p)=p-1$, pa je mali Fermatov teorem poseban slučaj Eulerova teorema. Osim toga, eksponent $\varphi(m)$ u Eulerovu teoremu općenito nije najmanji eksponent za koji ta kongruencija vrijedi. Može se poboljšati na $\lambda(m)$, gdje je $\lambda(\cdot)$ [Carmichaelova funkcija](./primitive-root.md#carmichaelova-funkcija). Za algebarsku pozadinu srodnih rezultata vidi odjeljak [Multiplikativna grupa klasa ostataka cijelih brojeva](../algebra/ring-theory.md#应用整数同余类的乘法群).
+Za prost broj $p$ vrijedi $\varphi(p)=p-1$, pa je mali Fermatov teorem poseban slučaj Eulerova teorema. Osim toga, eksponent $\varphi(m)$ u Eulerovu teoremu općenito nije najmanji eksponent za koji ta kongruencija vrijedi. Može se poboljšati na $\lambda(m)$, gdje je $\lambda(\cdot)$ [Carmichaelova funkcija](./primitive-root.md#carmichaelova-funkcija). Za algebarsku pozadinu srodnih rezultata vidi odjeljak [Multiplikativna grupa klasa ostataka cijelih brojeva](../algebra/ring-theory.md#primjena-multiplikativna-grupa-klasa-ostataka-cijelih-brojeva).
 
 ## Prošireni Eulerov teorem
 

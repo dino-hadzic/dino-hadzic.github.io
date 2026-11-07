@@ -93,7 +93,7 @@ Dobiveni rezultat isti je kao kod gornje metode.
 
 ### Metoda Lagrangeove interpolacijske formule
 
-Promotrimo [Lagrangeovu interpolacijsku formulu](../numerical/interp.md#lagrange-插值法)
+Promotrimo [Lagrangeovu interpolacijsku formulu](../numerical/interp.md#lagrangeova-interpolacija)
 
 $$
 \begin{aligned}
@@ -401,7 +401,7 @@ Kakav bismo algoritam, slično kao u gornjem primjeru brzog algoritma za faktori
     Zadani su koeficijenti svih $P_k$ te $a_0,a_1,\dots,a_{m-1}$; izračunajte $a_n$.
     Rezultat je modulo $998244353$. $n\le6\times10^8$, $1\le m,d\le7$, vremensko ograničenje $7s$.
 
-Da bismo sustavnije opisali konstrukciju matrica iz gornjih primjera, uvodimo pojam [$\lambda$-matrice](../linear-algebra/jordan.md#lambda-%E7%9F%A9%E9%98%B5).
+Da bismo sustavnije opisali konstrukciju matrica iz gornjih primjera, uvodimo pojam [$\lambda$-matrice](../linear-algebra/jordan.md#lambda-matrice).
 
 Za implementaciju rekurzije s polinomnim koeficijentima trebamo uočiti da u brzom algoritmu za faktorijel vrijednosti koje održavamo zapravo nisu $n!$, nego $\prod_{i=0}^{T-1}(aT+i)$, tj. **odnos (množitelj) između para vrijednosti**.
 

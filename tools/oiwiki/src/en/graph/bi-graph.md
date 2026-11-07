@@ -65,4 +65,4 @@ Because of their simple structure, many graph optimization problems can be solve
 -   [minimum vertex cover](./graph-matching/bigraph-match.md#minimum-vertex-cover-in-bipartite-graphs)
 -   [maximum independent set](./graph-matching/bigraph-match.md#maximum-independent-set-in-bipartite-graphs)
 -   [maximum weight matching](./graph-matching/bigraph-weight-match.md)
--   [bipartite graph games](../math/game-theory/impartial-game.md#二分图博弈)
+-   [bipartite graph games](../math/game-theory/impartial-game.md#bipartite-graph-game)

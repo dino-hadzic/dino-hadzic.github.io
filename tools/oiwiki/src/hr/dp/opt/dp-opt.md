@@ -136,7 +136,7 @@ $$
 f(n) = F^n(f(0))
 $$
 
-kojim dobivamo konačni odgovor. Budući da se jedna operacija $F$ često može zapisati kao matrica, ova se metoda obično naziva optimizacija DP-a brzim potenciranjem matrica. Zapravo se njome može ubrzati bilo koja transformacija koja zadovoljava asocijativnost (tj. bilo koji element [monoida](../../math/algebra/basic.md#群)).
+kojim dobivamo konačni odgovor. Budući da se jedna operacija $F$ često može zapisati kao matrica, ova se metoda obično naziva optimizacija DP-a brzim potenciranjem matrica. Zapravo se njome može ubrzati bilo koja transformacija koja zadovoljava asocijativnost (tj. bilo koji element [monoida](../../math/algebra/basic.md#grupa)).
 
 Zadaci:
 
@@ -158,7 +158,7 @@ Zadaci:
 
 ### Optimizacija DP-a Lagrangeovom interpolacijom
 
-Povezana stranica: [Lagrangeova interpolacija](../../math/numerical/interp.md#lagrange-插值法)
+Povezana stranica: [Lagrangeova interpolacija](../../math/numerical/interp.md#lagrangeova-interpolacija)
 
 U nekim je DP zadacima funkcija stanja $f(i,j)$ polinom stupnja $k$ u varijabli $j$. Tada možemo grubom silom izračunati njezine vrijednosti u $k+1$ točaka, Lagrangeovom interpolacijom dobiti izraz za $f(i,\cdot)$ i time optimizirati prijelaz ili čak izravno dobiti odgovor.
 

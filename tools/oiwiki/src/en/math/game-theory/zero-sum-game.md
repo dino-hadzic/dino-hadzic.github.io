@@ -51,11 +51,11 @@ When applying this algorithm to actual problems, the following concrete approach
 
     Here $a_{s\to t}$ denotes the action that moves the state from $s$ to $t$; if there are several such actions, the one with the highest payoff $w(a)$ is taken.
 
--   Impartial combinatorial games are all sequential zero-sum games: it suffices to set the payoffs of the winner and the loser to $+1$ and $-1$ respectively. Then the recurrence for the payoff function $V(\cdot)$ is in fact exactly the [lemma](./impartial-game.md#博弈图和状态) that determines winning and losing positions.
+-   Impartial combinatorial games are all sequential zero-sum games: it suffices to set the payoffs of the winner and the loser to $+1$ and $-1$ respectively. Then the recurrence for the payoff function $V(\cdot)$ is in fact exactly the [lemma](./impartial-game.md#game-graph-and-states) that determines winning and losing positions.
 
     A common variant of such problems asks for the minimum number of moves the winner needs, or the maximum number of moves the loser can hold out. For this, it suffices to note that when we run a BFS from the terminal states and determine winning and losing positions according to the lemma, the BFS layer in which a position is determined to be winning or losing is exactly the required number of moves. This is because a position is determined to be winning as soon as one of its successors is a losing position, so it is always derived from the losing successor with the smallest layer number; while a position is determined to be losing only when all of its successors are winning positions, so it is always derived from the winning successor with the largest layer number.
 
-    This method can likewise be generalized to general [directed graph games](./impartial-game.md#有向图游戏).
+    This method can likewise be generalized to general [directed graph games](./impartial-game.md#games-on-directed-graphs).
 
 ### Example problem
 
@@ -150,7 +150,7 @@ $$
 w_+ = \min_{a_2\in A_2}\max_{a_1\in A_1} v(a_1,a_2)
 $$
 
-Since the action of player $2$ is one-sidedly visible to player $1$, this should be the best outcome player $1$ can obtain. Player $1$ should expect to obtain a payoff $w\in[w_-,w_+]$ when the game is actually played. Although the inequality $w_-\le w_+$ always holds (for a proof see the [weak duality theorem](../linear-programming.md#对偶原理)), equality need not hold, so using only the analysis tools of sequential games, the outcome of the game generally cannot be uniquely determined.
+Since the action of player $2$ is one-sidedly visible to player $1$, this should be the best outcome player $1$ can obtain. Player $1$ should expect to obtain a payoff $w\in[w_-,w_+]$ when the game is actually played. Although the inequality $w_-\le w_+$ always holds (for a proof see the [weak duality theorem](../linear-programming.md#duality-principle)), equality need not hold, so using only the analysis tools of sequential games, the outcome of the game generally cannot be uniquely determined.
 
 ???+ example "Example (continued)"
     In rock-paper-scissors, if the moves are made one after the other, the first player always loses and the second player always wins. In mathematical language, this is the following inequality:
@@ -217,7 +217,7 @@ Once mixed strategies are introduced, the results of the maximin idea and the mi
     \end{aligned}
     $$
     
-    This problem is clearly feasible and its objective function is bounded, so an optimal solution exists. By the [duality principle](../linear-programming.md#对偶原理), its optimal value equals the optimal value of the dual problem:
+    This problem is clearly feasible and its objective function is bounded, so an optimal solution exists. By the [duality principle](../linear-programming.md#duality-principle), its optimal value equals the optimal value of the dual problem:
     
     $$
     (D) \qquad

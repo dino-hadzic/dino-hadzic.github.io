@@ -16,7 +16,7 @@ Izgradnja takvog statičnog segment treea zahtijeva $O(n\log{n})$ spajanja, ali 
 
 Pri obradi informacija sa skupim spajanjem, poput množenja matrica, cat tree smanjuje složenost jednog upita s $O(k^3 \log n)$ na $O(k^3)$.
 
-Napomena: za statične upite o linearnoj bazi (linear basis) intervala, iako cat tree može poboljšati složenost implementacije običnim segment treeom, postoji pristup bolji i vremenski i prostorno: [prefiksna linearna baza](../math/linear-algebra/basis.md#拓展前缀线性基). Osim toga, obični segment tree može rješavati dinamičke upite o linearnoj bazi intervala, dok je za statične upite cat tree ne samo složeniji za implementaciju i neoptimalan, nego nema ni funkcionalnih prednosti.
+Napomena: za statične upite o linearnoj bazi (linear basis) intervala, iako cat tree može poboljšati složenost implementacije običnim segment treeom, postoji pristup bolji i vremenski i prostorno: [prefiksna linearna baza](../math/linear-algebra/basis.md#proširenje-prefiksna-linearna-baza). Osim toga, obični segment tree može rješavati dinamičke upite o linearnoj bazi intervala, dok je za statične upite cat tree ne samo složeniji za implementaciju i neoptimalan, nego nema ni funkcionalnih prednosti.
 
 ## Načelo
 

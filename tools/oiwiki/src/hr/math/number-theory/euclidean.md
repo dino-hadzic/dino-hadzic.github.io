@@ -366,7 +366,7 @@ Dakako, pri takvoj definiciji treba razmotriti niz posebnih slučajeva:
 
 Ako je nešto u geometrijskom opisu nejasno, za lakše razumijevanje može se pogledati gornja algebarska definicija. Geometrijski opis pomaže u razumijevanju tijeka algoritma u nastavku.
 
-Osnovna je ideja univerzalnog Euklidova algoritma da se $U$ i $R$ u nizu operacija shvate kao elementi nekog [monoida](../algebra/basic.md#群), cijeli niz operacija kao umnožak elemenata monoida, a konačni je odgovor problema povezan s tim umnoškom.
+Osnovna je ideja univerzalnog Euklidova algoritma da se $U$ i $R$ u nizu operacija shvate kao elementi nekog [monoida](../algebra/basic.md#grupa), cijeli niz operacija kao umnožak elemenata monoida, a konačni je odgovor problema povezan s tim umnoškom.
 
 Primjerice, u ovom zadatku možemo definirati vektor stanja $v = (1,y,\sum y)$ koji predstavlja trenutačno stanje nakon što smo od ishodišta prešli određeni broj linija mreže prema gore i udesno. Prva je komponenta konstanta, druga je ordinata $y$, a treća je tražena suma. Na početku je $v=(1,0,0)$. Svaki prijelaz linije mreže prema gore povećava ordinatu za jedan, što odgovara množenju vektora stanja zdesna matricom
 

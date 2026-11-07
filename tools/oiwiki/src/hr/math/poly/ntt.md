@@ -18,7 +18,7 @@ Za učenje teorijsko-brojevne transformacije potrebno je predznanje: diskretna F
 
 ### Teorijsko-brojevna transformacija
 
-U matematici je NTT diskretna Fourierova transformacija (DFT) nad proizvoljnim [prstenom](../algebra/basic.md#环). U slučaju konačnog polja obično se naziva teorijsko-brojevnom transformacijom (NTT).
+U matematici je NTT diskretna Fourierova transformacija (DFT) nad proizvoljnim [prstenom](../algebra/basic.md#prsten). U slučaju konačnog polja obično se naziva teorijsko-brojevnom transformacijom (NTT).
 
 **Teorijsko-brojevna transformacija** (NTT) dobiva se prenošenjem diskretne Fourierove transformacije u $F={\mathbb {Z}/p}$, cijele brojeve modulo prost broj $p$. To je **konačno polje**, i čim $n$ dijeli $p-1$, postoji primitivni $n$-ti korijen jedinice, pa imamo $p=\xi n+1$ za neki pozitivan cijeli broj $ξ$. Konkretno, za prost broj $p=qn+1, (n=2^m)$ primitivni korijen $g$ zadovoljava $g^{qn} \equiv 1 \pmod p$; promatramo li $g_n=g^q\pmod p$ kao ekvivalent od $\omega_n$, on zadovoljava slična svojstva, npr. $g_n^n \equiv 1 \pmod p, g_n^{n/2} \equiv -1 \pmod p$.
 

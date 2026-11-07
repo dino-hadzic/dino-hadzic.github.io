@@ -336,7 +336,7 @@ Osim toga, možemo dati i neovisan, općenitiji algebarski dokaz:
     \end{aligned}
     $$
     
-    Prema [teoremu o linearnim preslikavanjima](./linear-mapping.md#线性映射的核空间与像空间) vrijedi $\dim H = \dim\pi(H)+\dim\ker\pi = \dim(U+W)+\dim(U\cap W)$.
+    Prema [teoremu o linearnim preslikavanjima](./linear-mapping.md#jezgra-i-slika-linearnog-preslikavanja) vrijedi $\dim H = \dim\pi(H)+\dim\ker\pi = \dim(U+W)+\dim(U\cap W)$.
     
     Prvih nekoliko stupaca matrice u ešelonskom obliku i dalje čini matricu u ešelonskom obliku, pa je broj redaka s $c_k\neq 0$ upravo jednak rangu po retcima skupa $\alpha\cup\beta$, tj. $\dim(U+W)$; štoviše, skup komponenata $c_k$ tih redaka čini bazu prostora $U+W$. Preostalih redaka različitih od nule ima točno $\dim(U\cap W)$ i svi zadovoljavaju $c_k=0$. Za komponente $d_k$ tih redaka vrijedi $(0,d_k)\in\ker\pi$, pa je $d_k\in U\cap W$; k tome su $(0,d_k)$, kao retci matrice u ešelonskom obliku, nužno linearno nezavisni, pa su i ti $d_k$ linearno nezavisni. Sve zajedno, ti $d_k$ čine linearno nezavisan skup veličine $\dim(U\cap W)$ u presjeku $U\cap W$, pa su nužno i baza tog prostora.
 
