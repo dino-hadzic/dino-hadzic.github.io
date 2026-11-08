@@ -120,7 +120,7 @@ Slučaj modula koji je potencija broja $2$ nešto je posebniji. Za obradu tog sl
     
         Njihovim spajanjem dobiva se opće rješenje polazne jednadžbe.
 
-Time je problem određivanja $k$-tih ostataka za različite module potpuno riješen. Legendreov simbol i zakon kvadratnog reciprociteta iz teorije kvadratnih ostataka također se mogu poopćiti na ostatke višeg reda, ali to nije jednostavno i zahtijeva pojmove poput [ciklotomskih polja](../algebra/field-theory.md#分圆域). U algebarskoj teoriji brojeva zakon kvadratnog reciprociteta u konačnici se poopćuje do [Artinova zakona reciprociteta](https://en.wikipedia.org/wiki/Artin_reciprocity).
+Time je problem određivanja $k$-tih ostataka za različite module potpuno riješen. Legendreov simbol i zakon kvadratnog reciprociteta iz teorije kvadratnih ostataka također se mogu poopćiti na ostatke višeg reda, ali to nije jednostavno i zahtijeva pojmove poput [ciklotomskih polja](../algebra/field-theory.md#ciklotomska-polja). U algebarskoj teoriji brojeva zakon kvadratnog reciprociteta u konačnici se poopćuje do [Artinova zakona reciprociteta](https://en.wikipedia.org/wiki/Artin_reciprocity).
 
 ## Korijeni jedinice
 
@@ -222,7 +222,7 @@ Dosad smo razmatrali opći slučaj. Samo u slučaju kad primitivni korijen posto
     
     ima rješenje. Potenciramo li $g$ tim uvjetom, dobivamo $a^x\equiv b\pmod{m}$, odnosno $b$ se može prikazati kao potencija od $a$.
 
-Taj teorem pokazuje da, kad primitivni korijen postoji, svi $k$-ti korijeni jedinice imaju strukturu [cikličke grupe](../algebra/group-theory.md#循环群), a $k$-ti primitivni korijeni jedinice generatori su te cikličke grupe. Kasnije ćemo vidjeti da upravo to iskorištava Tonelli–Shanksov algoritam kako bi ubrzao računanje diskretnog logaritma pri vađenju korijena.
+Taj teorem pokazuje da, kad primitivni korijen postoji, svi $k$-ti korijeni jedinice imaju strukturu [cikličke grupe](../algebra/group-theory.md#cikličke-grupe), a $k$-ti primitivni korijeni jedinice generatori su te cikličke grupe. Kasnije ćemo vidjeti da upravo to iskorištava Tonelli–Shanksov algoritam kako bi ubrzao računanje diskretnog logaritma pri vađenju korijena.
 
 ## Vađenje korijena u modularnoj aritmetici
 

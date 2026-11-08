@@ -31,7 +31,7 @@ In general, **interval information** is a function $\varphi:\mathcal I\rightarro
 
 These properties guarantee that, to query the information of an interval $I$, it suffices to find a sequence of nodes whose intervals form a partition of $I$; the information of $I$ can then be merged from the information stored in these nodes.
 
-Interval information can be merged, merging is associative, and an identity element exists. These properties mean that the information space $M$ together with the merge operation $\circ$ forms a [monoid](../math/algebra/basic.md#群).[^monoid]
+Interval information can be merged, merging is associative, and an identity element exists. These properties mean that the information space $M$ together with the merge operation $\circ$ forms a [monoid](../math/algebra/basic.md#groups).[^monoid]
 
 ???+ info "Convention"
     In the reference implementations of segment tree operations in this article, we assume that the elements of the information space $M$ are stored in a struct `Info`, whose default constructor yields the identity element and which overloads the addition operator to implement merging.
@@ -182,7 +182,7 @@ To record range updates correctly, one must understand the properties such opera
 2.  The update must be compatible with merging. That is, if the information of an interval can be obtained by merging the information of its subintervals, then the result of updating that interval can still be obtained by merging the results of updating the subintervals; i.e. for $m_1,m_2\in M$ we always have $\pi(m_1\circ m_2) = \pi(m_1)\circ\pi(m_2)$.
 3.  In particular, the information of the empty interval remains the information of the empty interval after an update, i.e. $\pi(e)=e$.[^endo]
 
-This says that an update is an [endomorphism](../math/algebra/group-theory.md#群同态) of the monoid $M$. Moreover, consider the set $\Pi$ of such updates: as long as it is closed under composition, since composition is associative and the identity map is the identity element, $\Pi$ is also a monoid.
+This says that an update is an [endomorphism](../math/algebra/group-theory.md#group-homomorphisms) of the monoid $M$. Moreover, consider the set $\Pi$ of such updates: as long as it is closed under composition, since composition is associative and the identity map is the identity element, $\Pi$ is also a monoid.
 
 ???+ info "Convention"
     In the reference implementations of segment tree operations in this article, we assume that updates are stored in a struct `Transform`, whose default constructor yields the identity operation, which overloads the addition operator to implement composition of operations, and which overloads the call operator (parentheses) to modify interval information. To make it easy to check whether a lazy tag is empty (i.e. modifies nothing), an explicit conversion to `bool` is also overloaded.

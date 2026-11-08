@@ -203,7 +203,7 @@ Osim gornjeg osnovnog oblika, Möbiusova inverzija ima i nekoliko čestih proši
     
     To je potpuno dualno izvodu osnovnog oblika.
 
-Drugo, Möbiusova inverzija nije ograničena na zbrajanje; ona zapravo vrijedi za operaciju u bilo kojoj [Abelovoj grupi](../algebra/basic.md#群). Primjerice, ima sljedeći multiplikativni oblik:
+Drugo, Möbiusova inverzija nije ograničena na zbrajanje; ona zapravo vrijedi za operaciju u bilo kojoj [Abelovoj grupi](../algebra/basic.md#grupa). Primjerice, ima sljedeći multiplikativni oblik:
 
 ???+ note "Proširenje 2"
     Neka su $f(n),g(n)$ dvije aritmetičke funkcije. Tada vrijedi

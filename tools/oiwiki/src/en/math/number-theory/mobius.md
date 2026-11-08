@@ -203,7 +203,7 @@ Besides the basic form above, Möbius inversion has several common extended form
     
     This is completely dual to the derivation of the basic form.
 
-Second, Möbius inversion is not limited to addition; it actually holds for the operation of any [abelian group](../algebra/basic.md#群). For example, it has the following multiplicative form:
+Second, Möbius inversion is not limited to addition; it actually holds for the operation of any [abelian group](../algebra/basic.md#groups). For example, it has the following multiplicative form:
 
 ???+ note "Extension 2"
     Let $f(n),g(n)$ be two arithmetic functions. Then

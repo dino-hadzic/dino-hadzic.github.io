@@ -371,7 +371,7 @@ Složenost računanja gornjeg izraza jest $O(n^2)$.
 
 ## Min-max uključivanje-isključivanje
 
-Za niz $\{x_i\}$ koji zadovoljava relaciju [potpunog uređaja](../order-theory.md#偏序集) i čiji se elementi mogu zbrajati i oduzimati, neka je njegova duljina $n$ i neka je $S=\{1,2,3,\cdots,n\}$; tada vrijedi:
+Za niz $\{x_i\}$ koji zadovoljava relaciju [potpunog uređaja](../order-theory.md#parcijalno-uređen-skup) i čiji se elementi mogu zbrajati i oduzimati, neka je njegova duljina $n$ i neka je $S=\{1,2,3,\cdots,n\}$; tada vrijedi:
 
 $$
 \max_{i\in S}{x_i}=\sum_{T\subseteq S}{(-1)^{|T|-1}\min_{j\in T}{x_j}}

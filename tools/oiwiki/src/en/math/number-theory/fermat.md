@@ -86,7 +86,7 @@ The converse of Fermat's little theorem does not hold. Even if $a^{n-1}\equiv 1\
     
     Repeating the previous argument and canceling $\prod_{r\in R}r$, we obtain $a^{\varphi(m)}\equiv 1\pmod m$.
 
-For a prime $p$, we have $\varphi(p)=p-1$, so Fermat's little theorem is a special case of Euler's theorem. Moreover, the exponent $\varphi(m)$ in Euler's theorem is in general not the smallest exponent for which the congruence holds. It can be improved to $\lambda(m)$, where $\lambda(\cdot)$ is the [Carmichael function](./primitive-root.md#carmichael-function). For the algebraic background of the related results, see the section [Multiplicative group of integers modulo n](../algebra/ring-theory.md#应用整数同余类的乘法群).
+For a prime $p$, we have $\varphi(p)=p-1$, so Fermat's little theorem is a special case of Euler's theorem. Moreover, the exponent $\varphi(m)$ in Euler's theorem is in general not the smallest exponent for which the congruence holds. It can be improved to $\lambda(m)$, where $\lambda(\cdot)$ is the [Carmichael function](./primitive-root.md#carmichael-function). For the algebraic background of the related results, see the section [Multiplicative group of integers modulo n](../algebra/ring-theory.md#application-multiplicative-group-of-integers-modulo-n).
 
 ## Extended Euler's theorem
 

@@ -4,7 +4,7 @@ title: Multiplicative order & primitive root
 
 Prerequisites: [Fermat's little theorem](./fermat.md#fermats-little-theorem), [Euler's theorem](./fermat.md#eulers-theorem), [Lagrange's theorem](./congruence-equation.md#congruences-modulo-a-prime)
 
-The multiplicative order and the primitive root are important tools for understanding the multiplicative structure of the [reduced residue system](./basic.md#congruence-classes-and-residue-systems) $\mathbf Z_m^*$ modulo $m$. Concepts such as the [discrete logarithm](./discrete-logarithm.md) are defined on top of them. A more general discussion can be found in the relevant sections of the [group theory](../algebra/group-theory.md#阶) and [ring theory](../algebra/ring-theory.md#应用整数同余类的乘法群) pages of the abstract algebra part.
+The multiplicative order and the primitive root are important tools for understanding the multiplicative structure of the [reduced residue system](./basic.md#congruence-classes-and-residue-systems) $\mathbf Z_m^*$ modulo $m$. Concepts such as the [discrete logarithm](./discrete-logarithm.md) are defined on top of them. A more general discussion can be found in the relevant sections of the [group theory](../algebra/group-theory.md#order) and [ring theory](../algebra/ring-theory.md#application-multiplicative-group-of-integers-modulo-n) pages of the abstract algebra part.
 
 ## Order
 
@@ -16,7 +16,7 @@ For $n\in\mathbf Z$, the powers $a^n\bmod m$ exhibit a cyclic structure. The min
     For $a\in\mathbf Z,m\in\mathbf N_+$ with $a\perp m$, the smallest positive integer $n$ satisfying the congruence $a^n \equiv 1 \pmod m$ is called **the order of $a$ modulo $m$**, denoted by $\delta_m(a)$ or $\operatorname{ord}_m(a)$.
 
 ???+ tip "Note"
-    In [abstract algebra](../algebra/group-theory.md#阶), the "order" here is exactly the order of the element $a$ in the group formed by the reduced residue system modulo $m$ under multiplication. The notation $\delta$ for the order is used only for this particular group. Many of the properties below generalize directly to properties of the order of a group element in abstract algebra.
+    In [abstract algebra](../algebra/group-theory.md#order), the "order" here is exactly the order of the element $a$ in the group formed by the reduced residue system modulo $m$ under multiplication. The notation $\delta$ for the order is used only for this particular group. Many of the properties below generalize directly to properties of the order of a group element in abstract algebra.
     
     There is also the concept of the "half-order", denoted by $\delta^-$ in number theory. It is the smallest positive integer satisfying the congruence $a^n \equiv -1 \pmod m$. The half-order is not a concept of group theory. The order always exists, while the half-order does not necessarily exist.
 
@@ -213,7 +213,7 @@ Primitive roots are special elements – their order equals the number of elemen
 Not every positive integer $m$ has a primitive root modulo $m$. By [Property 1](#cyclic-structure-of-powers) above, if a primitive root $g$ modulo $m$ exists, then the congruence classes of $g,g^2,\cdots,g^{\varphi(m)}$ are pairwise distinct and form the reduced residue system modulo $m$. In particular, for a prime $p$, the residues $g^i\bmod p$ for $i=1,2,\cdots,p-1$ are pairwise distinct.
 
 ???+ tip "Note"
-    In [abstract algebra](../algebra/ring-theory.md#应用整数同余类的乘法群), a primitive root is a generator of a cyclic group. This concept bears the name "primitive root" only in the group formed by the reduced residue system modulo $m$ under multiplication; in general cyclic groups it is called a "generator". Not every group formed by the reduced residue system modulo $m$ under multiplication is cyclic: the existence of a primitive root indicates that it is isomorphic to a cyclic group, and the non-existence indicates that it is not.
+    In [abstract algebra](../algebra/ring-theory.md#application-multiplicative-group-of-integers-modulo-n), a primitive root is a generator of a cyclic group. This concept bears the name "primitive root" only in the group formed by the reduced residue system modulo $m$ under multiplication; in general cyclic groups it is called a "generator". Not every group formed by the reduced residue system modulo $m$ under multiplication is cyclic: the existence of a primitive root indicates that it is isomorphic to a cyclic group, and the non-existence indicates that it is not.
 
 When the modulus is $1$, the multiplicative group of integers modulo $1$ is $\{0\}$. It is obviously cyclic, so the primitive root is $0$.
 

@@ -54,7 +54,7 @@ Wilsonov se teorem može poopćiti na slučaj općeg modula.
     Štoviše, ostatak $\pm 1$ jednak je $-1$ ako i samo ako [postoji primitivni korijen](./primitive-root.md#teorem-o-postojanju-primitivnog-korijena) po modulu $m$, tj. kada je $m=2,4,p^\alpha,2p^\alpha$, gdje je $p$ neparan prost broj, a $\alpha$ prirodan broj.
 
 ??? note "Dokaz"
-    Ovaj se teorem može jednostavno dokazati pomoću strukture [multiplikativne grupe cijelih brojeva po modulu $m$](../algebra/ring-theory.md#应用整数同余类的乘法群). Ovdje dajemo dokaz slične ideje, ali elementarniji.
+    Ovaj se teorem može jednostavno dokazati pomoću strukture [multiplikativne grupe cijelih brojeva po modulu $m$](../algebra/ring-theory.md#primjena-multiplikativna-grupa-klasa-ostataka-cijelih-brojeva). Ovdje dajemo dokaz slične ideje, ali elementarniji.
     
     Za $m=2$ vrijedi $1!=1\equiv -1\pmod{2}$. Za ostale slučajeve u kojima postoji primitivni korijen, neka je $g$ primitivni korijen; tada se svaki prirodan broj $k$ manji od $m$ i relativno prost s njim može jednoznačno prikazati u obliku $g^i\bmod m$, gdje je $0\le i<\varphi(m)$, a $\varphi(m)$ je [Eulerova funkcija](./euler-totient.md). Izravnom provjerom vidi se da je $\varphi(m)$ nužno paran. Budući da su $g^i$ i $g^{\varphi(m)-i}$ međusobno multiplikativni inverzi, uparivanjem u umnošku dobivamo
     

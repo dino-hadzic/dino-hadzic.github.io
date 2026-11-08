@@ -69,7 +69,7 @@ where $f(x) \in \mathbb{C}\left\lbrack x\right\rbrack_{< n}$ and $q \in \mathbb{
 
 ### Bostan–Schost algorithm
 
-Recall that the [Lagrange interpolation formula](../numerical/interp.md#lagrange-插值法) is
+Recall that the [Lagrange interpolation formula](../numerical/interp.md#lagrange-interpolation) is
 
 $$
 f(x) = \sum_{i = 0}^{n - 1}\left(f\left(x_i\right)\prod_{0 \leq j < n \atop j \neq i} \frac{x - x_j}{x_i - x_j}\right)

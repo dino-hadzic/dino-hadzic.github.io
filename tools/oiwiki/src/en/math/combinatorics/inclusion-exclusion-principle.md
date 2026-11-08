@@ -371,7 +371,7 @@ The complexity of computing the formula above is $O(n^2)$.
 
 ## Min-max inclusion–exclusion
 
-For a sequence $\{x_i\}$ satisfying a [total order](../order-theory.md#偏序集) relation whose elements can be added and subtracted, let its length be $n$ and let $S=\{1,2,3,\cdots,n\}$; then:
+For a sequence $\{x_i\}$ satisfying a [total order](../order-theory.md#partially-ordered-sets) relation whose elements can be added and subtracted, let its length be $n$ and let $S=\{1,2,3,\cdots,n\}$; then:
 
 $$
 \max_{i\in S}{x_i}=\sum_{T\subseteq S}{(-1)^{|T|-1}\min_{j\in T}{x_j}}

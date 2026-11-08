@@ -167,7 +167,7 @@ The second implementation is non-recursive. During the loop, it multiplies the p
 
 ### Computing Fibonacci numbers
 
-From the recurrence of the Fibonacci sequence $F_n = F_{n-1} + F_{n-2}$, we can build a $2\times 2$ matrix representing the transition from $F_i,F_{i+1}$ to $F_{i+1},F_{i+2}$. Then, when computing the $n$-th power of this matrix, we use the idea of binary exponentiation and obtain the result in $\Theta(\log n)$ time. For more details see [Fibonacci sequence](./combinatorics/fibonacci.md); for the implementation of matrix exponentiation see the implementation in [Accelerating recurrences with matrices](../math/linear-algebra/matrix.md#矩阵加速递推).
+From the recurrence of the Fibonacci sequence $F_n = F_{n-1} + F_{n-2}$, we can build a $2\times 2$ matrix representing the transition from $F_i,F_{i+1}$ to $F_{i+1},F_{i+2}$. Then, when computing the $n$-th power of this matrix, we use the idea of binary exponentiation and obtain the result in $\Theta(\log n)$ time. For more details see [Fibonacci sequence](./combinatorics/fibonacci.md); for the implementation of matrix exponentiation see the implementation in [Accelerating recurrences with matrices](../math/linear-algebra/matrix.md#speeding-up-recurrences-with-matrices).
 
 ### Applying a permutation multiple times
 
@@ -190,14 +190,14 @@ Simply raise the permutation to the $k$-th power and then apply it to the sequen
     
     There is also a special operation that repeats a sequence of operations $k$ times (Repeat); Repeat operations can be nested. Output the coordinates of every point after all operations are finished.
 
-Referring to [Vectors and matrices](./linear-algebra/vector.md#向量与矩阵), each kind of operation can be represented by a transformation matrix, and a series of consecutive transformations can be represented by a product of matrices. A Repeat operation amounts to taking the $k$-th power of a matrix. In this way the matrix formed by the whole sequence of transformations can be computed in $O(m \log k)$ time. Finally, apply it to the $n$ points; the total complexity is $O(n + m \log k)$.
+Referring to [Vectors and matrices](./linear-algebra/vector.md#vectors-and-matrices), each kind of operation can be represented by a transformation matrix, and a series of consecutive transformations can be represented by a product of matrices. A Repeat operation amounts to taking the $k$-th power of a matrix. In this way the matrix formed by the whole sequence of transformations can be computed in $O(m \log k)$ time. Finally, apply it to the $n$ points; the total complexity is $O(n + m \log k)$.
 
 ### Counting paths of fixed length
 
 ???+ note "Problem statement"
     Given a directed graph (with edge weights 1), for any two vertices $u,v$ find the number of paths of length $k$ from $u$ to $v$.
 
-We raise the adjacency matrix $M$ of the graph to the $k$-th power; then $M_{i,j}$ represents the number of paths of length $k$ from $i$ to $j$. The complexity of this algorithm is $O(n^3 \log k)$. For details of this algorithm see the [Matrix](./linear-algebra/matrix.md#定长路径统计) page.
+We raise the adjacency matrix $M$ of the graph to the $k$-th power; then $M_{i,j}$ represents the number of paths of length $k$ from $i$ to $j$. The complexity of this algorithm is $O(n^3 \log k)$. For details of this algorithm see the [Matrix](./linear-algebra/matrix.md#counting-paths-of-fixed-length) page.
 
 ### Modular integer multiplication
 

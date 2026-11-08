@@ -6,7 +6,7 @@ title: String basics
 
 ### Alphabet
 
-An **alphabet** (character set) $\Sigma$ is a set equipped with a [total order](../math/order-theory.md#偏序集), which means that any two distinct elements $\alpha$ and $\beta$ of $\Sigma$ can be compared: either $\alpha<\beta$ or $\beta<\alpha$. The elements of the alphabet $\Sigma$ are called characters.
+An **alphabet** (character set) $\Sigma$ is a set equipped with a [total order](../math/order-theory.md#partially-ordered-sets), which means that any two distinct elements $\alpha$ and $\beta$ of $\Sigma$ can be compared: either $\alpha<\beta$ or $\beta<\alpha$. The elements of the alphabet $\Sigma$ are called characters.
 
 ### String
 

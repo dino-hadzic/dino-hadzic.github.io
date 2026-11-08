@@ -4,7 +4,7 @@ title: Discretization
 
 ## Introduction
 
-Discretization is a data-processing technique that can essentially be viewed as a kind of [hashing](../string/hash.md#the-idea-of-hashing) which guarantees that the data still preserves its original [total/partial order](../math/order-theory.md#偏序集) after hashing.
+Discretization is a data-processing technique that can essentially be viewed as a kind of [hashing](../string/hash.md#the-idea-of-hashing) which guarantees that the data still preserves its original [total/partial order](../math/order-theory.md#partially-ordered-sets) after hashing.
 
 Put simply, when some data cannot conveniently be used directly as array indices, either because the values are very large or because their type does not support it, and only the relative order between elements affects the final result, we can process the problem using the ranks of the original data instead; this is discretization.
 

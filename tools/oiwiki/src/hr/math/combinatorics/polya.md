@@ -16,7 +16,7 @@ Pólyin teorem prebrojavanja (Pólya enumeration theorem) obično se koristi za 
 
 ## Burnsideova lema
 
-Povezano štivo: [Burnsideova lema](../algebra/group-theory.md#burnside-引理)
+Povezano štivo: [Burnsideova lema](../algebra/group-theory.md#burnsideova-lema)
 
 Pólyin teorem prebrojavanja primjena je i poopćenje Burnsideove leme. Prije uvođenja Pólyina teorema prebrojavanja potrebno je kratko ponoviti sadržaj Burnsideove leme.
 
@@ -129,7 +129,7 @@ Analiza iz primjera može se poopćiti na opći slučaj.
     
     Ovdje je $X^g=\{x\in X:gx=x\}$ skup fiksnih točaka pod djelovanjem $g\in G$.
 
-Njezin dokaz gotovo doslovno ponavlja analizu iz gornjeg primjera. No u primjeru smo upotrijebili opažanje da rezultat djelovanja grupe $G$ na pojedini element $x$ ima neku „periodičnost”, pa je broj ponavljanja tog perioda jednak broju operacija koje preslikavaju $x$ u njega samog. To je opažanje točno i u općem slučaju, ali budući da struktura grupe $G$ može biti vrlo složena, njezina „periodičnost” nije nužno tako izravna kao u primjeru. Za strogu formulaciju tog opažanja potreban je [teorem o orbiti i stabilizatoru (orbit-stabilizer theorem)](../algebra/group-theory.md#稳定化子) iz teorije grupa.
+Njezin dokaz gotovo doslovno ponavlja analizu iz gornjeg primjera. No u primjeru smo upotrijebili opažanje da rezultat djelovanja grupe $G$ na pojedini element $x$ ima neku „periodičnost”, pa je broj ponavljanja tog perioda jednak broju operacija koje preslikavaju $x$ u njega samog. To je opažanje točno i u općem slučaju, ali budući da struktura grupe $G$ može biti vrlo složena, njezina „periodičnost” nije nužno tako izravna kao u primjeru. Za strogu formulaciju tog opažanja potreban je [teorem o orbiti i stabilizatoru (orbit-stabilizer theorem)](../algebra/group-theory.md#stabilizatori) iz teorije grupa.
 
 U primjenama je dovoljno nabrojiti sve operacije simetrije i za svaku navesti broj fiksnih točaka da bi se riješio odgovarajući zadatak prebrojavanja. Slijedi nešto složenija primjena.
 
@@ -310,7 +310,7 @@ Ovaj primjer pokazuje da je raspon zadataka koje težinska inačica Pólyina teo
 
 ## Uobičajene grupe simetrija
 
-Jedna od teškoća u zadacima vezanima uz Pólyino prebrojavanje jest analiza strukture grupe permutacija. Ovdje kratko raspravljamo o strukturi uobičajenih grupa simetrija i opisujemo ih njihovim cikličkim indeksima. Treba imati na umu da za grupu simetrija iste strukture, ako se razlikuje skup objekata na koje djeluje, razlikuje se i odgovarajuće [djelovanje grupe](../algebra/group-theory.md#群作用), pa se razlikuju i njihovi permutacijski prikazi. Primjerice, djelovanja grupe simetrija kocke na njezine vrhove, bridove i strane odgovaraju redom grupi permutacija vrhova, grupi permutacija bridova i grupi permutacija strana kocke; brojevi vrhova, bridova i strana međusobno se razlikuju, pa se, naravno, razlikuju i te grupe permutacija i odgovarajući ciklički indeksi. Zato se pri rješavanju konkretnih zadataka ne smije zanemariti na koje objekte grupa djeluje.
+Jedna od teškoća u zadacima vezanima uz Pólyino prebrojavanje jest analiza strukture grupe permutacija. Ovdje kratko raspravljamo o strukturi uobičajenih grupa simetrija i opisujemo ih njihovim cikličkim indeksima. Treba imati na umu da za grupu simetrija iste strukture, ako se razlikuje skup objekata na koje djeluje, razlikuje se i odgovarajuće [djelovanje grupe](../algebra/group-theory.md#djelovanja-grupa), pa se razlikuju i njihovi permutacijski prikazi. Primjerice, djelovanja grupe simetrija kocke na njezine vrhove, bridove i strane odgovaraju redom grupi permutacija vrhova, grupi permutacija bridova i grupi permutacija strana kocke; brojevi vrhova, bridova i strana međusobno se razlikuju, pa se, naravno, razlikuju i te grupe permutacija i odgovarajući ciklički indeksi. Zato se pri rješavanju konkretnih zadataka ne smije zanemariti na koje objekte grupa djeluje.
 
 ??? info "Odnos grupe simetrija i grupe permutacija"
     Iako su ta dva pojma vrlo slična, oni nipošto nisu isti objekt. Jezikom teorije grupa: za zadanu grupu simetrija $G$ i njezino djelovanje na skupu $X$ permutacijski prikaz djelovanja grupe zapravo daje homomorfizam $\varphi$ iz grupe $G$ u simetričnu grupu $S_X$, a taj je permutacijski prikaz u kontekstu kombinatornog prebrojavanja obično vjeran, tj. $\ker\varphi=\{e\}$, pa je homomorfizam $\varphi$ zapravo ulaganje grupe $G$ u grupu $S_X$. Grupa permutacija u ovom članku slika je tog ulaganja, tj. $\varphi(G)$, i izomorfna je samoj grupi simetrija $G$. Stoga je za grupu simetrija $G$ iste strukture, ako se djelovanja grupe odaberu različito, ona izomorfna različitim grupama permutacija $\varphi(G)$, pa ima i različite cikličke indekse (ciklički indeksi izomorfnih grupa permutacija ne moraju biti jednaki).
@@ -322,7 +322,7 @@ Za zadanu strukturu njezina grupa simetrija skup je svih operacija koje je presl
 -   postoji identična operacija simetrije, tj. i to da zadana struktura ostane nepromijenjena smatra se operacijom;
 -   svaka operacija ima inverznu operaciju koja poništava učinak zadane operacije.
 
-[Grupa](../algebra/basic.md#群) je apstrakcija svih pojmova koji zadovoljavaju te uvjete. Rasprava o strukturi grupa glavni je predmet proučavanja [teorije grupa](../algebra/group-theory.md). Ovdje se analiza uglavnom usredotočuje na grupe simetrija, a rasprava o njihovoj strukturi uglavnom koristi geometrijsko gledište. Navedeni su uobičajeni primjeri iz kojih bi čitatelj trebao usvojiti uobičajene načine razmišljanja pri analizi ovakvih zadataka.
+[Grupa](../algebra/basic.md#grupa) je apstrakcija svih pojmova koji zadovoljavaju te uvjete. Rasprava o strukturi grupa glavni je predmet proučavanja [teorije grupa](../algebra/group-theory.md). Ovdje se analiza uglavnom usredotočuje na grupe simetrija, a rasprava o njihovoj strukturi uglavnom koristi geometrijsko gledište. Navedeni su uobičajeni primjeri iz kojih bi čitatelj trebao usvojiti uobičajene načine razmišljanja pri analizi ovakvih zadataka.
 
 ### Ciklička grupa
 

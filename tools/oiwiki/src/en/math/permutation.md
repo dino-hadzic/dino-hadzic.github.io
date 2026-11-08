@@ -12,7 +12,7 @@ Permutations and arrangements are concepts that appear very frequently in all ki
 
 ## Definition
 
-A bijection (i.e. one-to-one correspondence) $\sigma$ from a set $X$ to itself is called a **permutation** of $X$. If the set $X$ also carries a [total order](./order-theory.md#二元关系), then a permutation of it is often also called a **(full) arrangement**. This total order is called the natural order on the set.
+A bijection (i.e. one-to-one correspondence) $\sigma$ from a set $X$ to itself is called a **permutation** of $X$. If the set $X$ also carries a [total order](./order-theory.md#binary-relations), then a permutation of it is often also called a **(full) arrangement**. This total order is called the natural order on the set.
 
 ??? info "“Permutation” and “arrangement”"
     In the Chinese context, "permutation" (置换) usually refers to changing the order of elements, while "arrangement" (排列) usually refers to lining elements up in a row. When there is a natural order among the elements, these two concepts are one and the same: an "arrangement" can be viewed as the result of a "permutation", and relative to the natural order of the elements, the order of the elements in the "arrangement" specifies the "permutation". Since whenever this article uses the word "arrangement" it always assumes that a natural order exists on the set, this article does not specifically distinguish between the two concepts.
@@ -207,7 +207,7 @@ In other words, the composition of two permutations of the same parity is an eve
 
 In particular, a single transposition necessarily changes the parity of a permutation. This is exactly why, although the decomposition into transpositions is not unique, the parity of the number of transpositions needed is determined.
 
-The sign of a permutation appears in the [Leibniz formula for the determinant](./linear-algebra/determinant.md#全排列方法定义).
+The sign of a permutation appears in the [Leibniz formula for the determinant](./linear-algebra/determinant.md#definition-via-permutations).
 
 ### Order of a permutation
 

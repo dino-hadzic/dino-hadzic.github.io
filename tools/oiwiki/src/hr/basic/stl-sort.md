@@ -179,9 +179,9 @@ std::sort(da + 1, da + 1 + 10, cmp);  // usporedba funkcijom cmp, silazno
 
 ### Strogi slabi uređaj
 
-Vidi i: [Primjena u C++-u – Teorija uređaja](../math/order-theory.md#c-中的应用)
+Vidi i: [Primjena u C++-u – Teorija uređaja](../math/order-theory.md#primjena-u-c-u)
 
-Operator po kojem se sortira mora zadovoljavati [strogi slabi uređaj](../math/order-theory.md#二元关系), inače nastaju nepredvidive situacije (npr. greške pri izvođenju, netočno sortiranje).
+Operator po kojem se sortira mora zadovoljavati [strogi slabi uređaj](../math/order-theory.md#binarna-relacija), inače nastaju nepredvidive situacije (npr. greške pri izvođenju, netočno sortiranje).
 
 Česte pogreške:
 

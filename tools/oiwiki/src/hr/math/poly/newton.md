@@ -223,7 +223,7 @@ Ovaj odjeljak proširuje prethodni tekst: jezikom apstraktne algebre dokazujemo 
 ### Dokaz postojanja rješenja
 
 ???+ note "Lema 1"
-    Neka [integralna domena](../algebra/ring-theory.md#整环) $R$ ima polinom ili [formalni red potencija](../algebra/ring-theory.md#形式幂级数环) $f(X) = \sum_{i\geq 0}a_iX^i$ te $r,p\in R$ takve da je $f(r)\in Rp$ (tj. $r$ je korijen od $f(X)$ modulo $p$) i da je $f'(r)\in R$ invertibilan modulo $p$. Ovdje je $f'(X) := \sum_{i\geq 0}(i+1)a_{i+1}X^i$ **formalna derivacija** od $f(X)$. Tada je $f\left(r-\dfrac{f(r)}{f'(r)}\right) \equiv 0\pmod {p^2}$.
+    Neka [integralna domena](../algebra/ring-theory.md#integralne-domene) $R$ ima polinom ili [formalni red potencija](../algebra/ring-theory.md#prsten-formalnih-redova-potencija) $f(X) = \sum_{i\geq 0}a_iX^i$ te $r,p\in R$ takve da je $f(r)\in Rp$ (tj. $r$ je korijen od $f(X)$ modulo $p$) i da je $f'(r)\in R$ invertibilan modulo $p$. Ovdje je $f'(X) := \sum_{i\geq 0}(i+1)a_{i+1}X^i$ **formalna derivacija** od $f(X)$. Tada je $f\left(r-\dfrac{f(r)}{f'(r)}\right) \equiv 0\pmod {p^2}$.
 
 ??? note "Dokaz"
     Za svaki $s\in R$,
@@ -255,7 +255,7 @@ Za početni uvjet udvostručavanja dovoljno je da postoji $f_1\in k$ takav da je
 ### Dokaz da se dobivaju sva rješenja
 
 ???+ note "Lema 2"
-    Neka je $R$ [UFD](../algebra/ring-theory.md#唯一分解整环), a $f,r,p$ definirani kao u lemi 1. Tada je $r-\dfrac{f(r)}{f'(r)}$ iz leme 1 jedinstvena vrijednost $x$ modulo $p^{2}$ koja zadovoljava sljedeća dva uvjeta:
+    Neka je $R$ [UFD](../algebra/ring-theory.md#faktorijalni-prsteni), a $f,r,p$ definirani kao u lemi 1. Tada je $r-\dfrac{f(r)}{f'(r)}$ iz leme 1 jedinstvena vrijednost $x$ modulo $p^{2}$ koja zadovoljava sljedeća dva uvjeta:
     
     -   $f(x)\in Rp^{2}$
     -   $x-r\in Rp$

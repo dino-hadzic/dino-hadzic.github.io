@@ -65,4 +65,4 @@ Zbog jednostavne strukture mnogi se optimizacijski problemi teorije grafova na b
 -   [minimalni vršni pokrivač](./graph-matching/bigraph-match.md#najmanji-vršni-pokrivač-bipartitnog-grafa)
 -   [maksimalni nezavisni skup](./graph-matching/bigraph-match.md#najveći-nezavisni-skup-bipartitnog-grafa)
 -   [maksimalno težinsko sparivanje](./graph-matching/bigraph-weight-match.md)
--   [igre na bipartitnim grafovima](../math/game-theory/impartial-game.md#二分图博弈)
+-   [igre na bipartitnim grafovima](../math/game-theory/impartial-game.md#igra-na-bipartitnom-grafu)

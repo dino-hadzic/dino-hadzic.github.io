@@ -366,7 +366,7 @@ Of course, such a definition still needs to consider a series of special cases:
 
 If anything in the geometric description is unclear, the algebraic definition above can be consulted to aid understanding. The geometric description helps in understanding the algorithm procedure below.
 
-The basic idea of the universal Euclidean algorithm is to regard $U$ and $R$ in the operation sequence as elements of some [monoid](../algebra/basic.md#群), to regard the whole operation sequence as a product of elements of the monoid, and the final answer to the problem is related to this product.
+The basic idea of the universal Euclidean algorithm is to regard $U$ and $R$ in the operation sequence as elements of some [monoid](../algebra/basic.md#groups), to regard the whole operation sequence as a product of elements of the monoid, and the final answer to the problem is related to this product.
 
 For example, in this problem we can define the state vector $v = (1,y,\sum y)$, representing the current state after crossing a number of grid lines upward and to the right starting from the origin. Here the first component is a constant, the second component is the ordinate $y$, and the third component is the required sum. Initially, $v=(1,0,0)$. Every time we cross a grid line upward, the ordinate increases by one, which corresponds to multiplying the state vector on the right by the matrix
 

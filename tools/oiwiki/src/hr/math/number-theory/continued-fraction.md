@@ -1004,7 +1004,7 @@ Većina prethodnih zaključaka o verižnim razlomcima ima odgovarajuću geometri
 
 ??? note "Geometrijska interpretacija"
     -   Svakom razlomku $\nu=\dfrac{p}{q}$ odgovara cjelobrojna točka $\vec\nu=(q,p)$ u prvom kvadrantu, a veličini razlomka odgovara nagib spojnice s ishodištem.
-    -   Vektor smjera pravca $y=\xi x$ jest $\vec\xi=(1,\xi)$. Pomoću pojma [vektorskog produkta](../linear-algebra/product.md#二维向量的情形) $(x_1,y_1)\times(x_2,y_2)=x_1y_2-x_2y_1$ po predznaku od $\vec\xi\times\vec\nu=p-q\xi$ može se odrediti leži li točka iznad ili ispod pravca. Stoga točkama iznad pravca odgovaraju razlomci veći ili jednaki $\xi$, a točkama ispod pravca razlomci manji ili jednaki $\xi$. Apsolutna vrijednost produkta $|\vec\xi\times\vec\nu|$ proporcionalna je udaljenosti točke $\vec\nu$ od pravca $y=\xi x$
+    -   Vektor smjera pravca $y=\xi x$ jest $\vec\xi=(1,\xi)$. Pomoću pojma [vektorskog produkta](../linear-algebra/product.md#slučaj-dvodimenzionalnih-vektora) $(x_1,y_1)\times(x_2,y_2)=x_1y_2-x_2y_1$ po predznaku od $\vec\xi\times\vec\nu=p-q\xi$ može se odrediti leži li točka iznad ili ispod pravca. Stoga točkama iznad pravca odgovaraju razlomci veći ili jednaki $\xi$, a točkama ispod pravca razlomci manji ili jednaki $\xi$. Apsolutna vrijednost produkta $|\vec\xi\times\vec\nu|$ proporcionalna je udaljenosti točke $\vec\nu$ od pravca $y=\xi x$
     
         $$
         \dfrac{|p-q\xi|}{\sqrt{1+\xi^2}},
@@ -1175,7 +1175,7 @@ Razlomljene linearne transformacije imaju sljedeća svojstva:
     
     Tada vrijede sljedeća svojstva:[^pgl2]
     
-    1.  Kompozicija $L_1\circ L_2$ i inverz $L_1^{-1}$ razlomljenih linearnih transformacija opet su razlomljene linearne transformacije, tj. sve razlomljene linearne transformacije čine [grupu](../algebra/basic.md#群);
+    1.  Kompozicija $L_1\circ L_2$ i inverz $L_1^{-1}$ razlomljenih linearnih transformacija opet su razlomljene linearne transformacije, tj. sve razlomljene linearne transformacije čine [grupu](../algebra/basic.md#grupa);
     2.  Razlomljena linearna transformacija ne mijenja se ako se svi koeficijenti pomnože istom konstantom različitom od nule, tj. za svaki $\lambda\neq 0$, ako je $M_2=\lambda M_1$, tada je $L_2=L_1$;
     3.  Matrica koeficijenata kompozicije razlomljenih linearnih transformacija odgovara umnošku matrica koeficijenata, tj. ako je $M_1M_2=M_3$, tada je $L_1\circ L_2=L_3$;
     4.  Matrica koeficijenata inverza razlomljene linearne transformacije odgovara inverzu matrice koeficijenata, tj. ako je $M_1^{-1}=M_2$, tada je $L_1^{-1}=L_2$.

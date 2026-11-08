@@ -152,7 +152,7 @@ A slightly modified converse of the fundamental lemma of arithmetic also gives a
     For an integer $p\ne 0,\pm 1$, if for all integers $a_1,a_2$ satisfying $p\mid a_1a_2$ we have $p\mid a_1$ or $p\mid a_2$, then $p$ is called a prime.
 
 ??? tip "Tip"
-    The motivation for this definition can be found in [prime ideals](../algebra/ring-theory.md#素理想).
+    The motivation for this definition can be found in [prime ideals](../algebra/ring-theory.md#prime-ideals).
 
 ???+ note "Fundamental theorem of arithmetic (unique factorization theorem)"
     Let $a$ be a positive integer. Then there necessarily exists a representation
@@ -191,7 +191,7 @@ The $b$ in the congruence is a residue of $a$ modulo $m$; this concept coincides
 
 Properties of congruence:
 
--   Congruence is an [equivalence relation](../order-theory.md#二元关系), i.e. congruence is
+-   Congruence is an [equivalence relation](../order-theory.md#binary-relations), i.e. congruence is
     -   reflexive: $a\equiv a\pmod m$;
     -   symmetric: if $a\equiv b\pmod m$, then $b\equiv a\pmod m$;
     -   transitive: if $a\equiv b\pmod m,b\equiv c\pmod m$, then $a\equiv c\pmod m$.
@@ -240,7 +240,7 @@ It is easy to see that:
 -   for every integer $a$, $a+\mathbf{Z}_m=\mathbf{Z}_m$;
 -   for every integer $b$ coprime to $m$, $b\mathbf{Z}_m=\mathbf{Z}_m$.
 
-By the definition of a [quotient group](../algebra/group-theory.md#商群), $\mathbf{Z}_m=\mathbf{Z}/m\mathbf{Z}$, so sometimes we also write $\mathbf{Z}/m\mathbf{Z}$ for $\mathbf{Z}_m$.
+By the definition of a [quotient group](../algebra/group-theory.md#quotient-groups), $\mathbf{Z}_m=\mathbf{Z}/m\mathbf{Z}$, so sometimes we also write $\mathbf{Z}/m\mathbf{Z}$ for $\mathbf{Z}_m$.
 
 By the [pigeonhole principle](../combinatorics/drawer-principle.md):
 
@@ -526,7 +526,7 @@ More properties and applications of the floor and ceiling functions can be found
 -   Proving the [law of quadratic reciprocity](./quad-residue.md#law-of-quadratic-reciprocity) using Gauss's lemma.
 -   [Floor-division blocks](./sqrt-decomposition.md), especially the part proving its properties.
 -   [Legendre's formula](./factorial.md#legendres-formula) for computing the exponent of a prime factor in a factorial.
--   [Beatty sequences](../game-theory/impartial-game.md#wythoff-游戏), Rayleigh's theorem and Wythoff's game.
+-   [Beatty sequences](../game-theory/impartial-game.md#wythoffs-game), Rayleigh's theorem and Wythoff's game.
 
 ## References and notes
 

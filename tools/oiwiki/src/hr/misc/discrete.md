@@ -4,7 +4,7 @@ title: Diskretizacija
 
 ## Uvod
 
-Diskretizacija je tehnika obrade podataka koja se u suštini može promatrati kao vrsta [hasha](../string/hash.md#ideja-hashiranja) koja jamči da podaci nakon hashiranja i dalje zadržavaju izvorni [potpuni/parcijalni uređaj](../math/order-theory.md#偏序集).
+Diskretizacija je tehnika obrade podataka koja se u suštini može promatrati kao vrsta [hasha](../string/hash.md#ideja-hashiranja) koja jamči da podaci nakon hashiranja i dalje zadržavaju izvorni [potpuni/parcijalni uređaj](../math/order-theory.md#parcijalno-uređen-skup).
 
 Jednostavno rečeno, kad se neki podaci, zato što su sami po sebi veliki ili zato što im tip to ne podržava, ne mogu izravno upotrijebiti kao indeksi niza radi praktične obrade, a na konačan rezultat utječu samo odnosi relativne veličine među elementima, možemo problem obraditi tako da izvorne podatke zamijenimo njihovim rangom, što se zove diskretizacija.
 

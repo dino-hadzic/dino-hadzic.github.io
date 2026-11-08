@@ -102,7 +102,7 @@ The Dirichlet convolution has a series of algebraic properties.
     
     This can be used to compute the values $g(n)$ recursively. Therefore, the inverse $g$ exists if and only if $f(1)\neq 0$.
 
-In the language of abstract algebra, these algebraic properties show that all arithmetic functions, under (pointwise) addition and Dirichlet convolution, form a [commutative ring](../algebra/basic.md#环), and its invertible elements are exactly the functions that are nonzero at $n=1$. This ring is called the **Dirichlet ring**.
+In the language of abstract algebra, these algebraic properties show that all arithmetic functions, under (pointwise) addition and Dirichlet convolution, form a [commutative ring](../algebra/basic.md#rings), and its invertible elements are exactly the functions that are nonzero at $n=1$. This ring is called the **Dirichlet ring**.
 
 Multiplicative functions are a special class of arithmetic functions. They are closed under both Dirichlet convolution and Dirichlet inverse.
 
@@ -144,7 +144,7 @@ Multiplicative functions are a special class of arithmetic functions. They are c
     
     Here the second equality uses the induction hypothesis, namely that for $\ell_1\ell_2 < n_1n_2$ with $\ell_1\perp\ell_2$ the condition $g(\ell_1\ell_2)=g(\ell_1)g(\ell_2)$ holds.
 
-In the language of abstract algebra, all multiplicative functions under Dirichlet convolution form a [subgroup](../algebra/group-theory.md#子群) of the multiplicative group of the Dirichlet ring.
+In the language of abstract algebra, all multiplicative functions under Dirichlet convolution form a [subgroup](../algebra/group-theory.md#subgroups) of the multiplicative group of the Dirichlet ring.
 
 Even more special are completely multiplicative functions.
 
@@ -208,7 +208,7 @@ Even more special are completely multiplicative functions.
     
     So the induction step holds, and the original claim is proved.
 
-In the language of abstract algebra, if $\alpha$ is completely multiplicative, the map $f\mapsto \alpha f$ is an [endomorphism](../algebra/ring-theory.md#理想) of the Dirichlet ring.
+In the language of abstract algebra, if $\alpha$ is completely multiplicative, the map $f\mapsto \alpha f$ is an [endomorphism](../algebra/ring-theory.md#ideals) of the Dirichlet ring.
 
 ## Dirichlet generating function
 

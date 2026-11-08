@@ -1004,7 +1004,7 @@ Most of the earlier results about continued fractions have a corresponding geome
 
 ??? note "Geometric interpretation"
     -   Every fraction $\nu=\dfrac{p}{q}$ corresponds to a lattice point $\vec\nu=(q,p)$ in the first quadrant, and the value of the fraction corresponds to the slope of the line joining it to the origin.
-    -   The direction vector of the line $y=\xi x$ is $\vec\xi=(1,\xi)$. Using the notion of the [cross product](../linear-algebra/product.md#二维向量的情形) $(x_1,y_1)\times(x_2,y_2)=x_1y_2-x_2y_1$, one can decide whether a point lies above or below the line by the sign of $\vec\xi\times\vec\nu=p-q\xi$. Thus the points above the line correspond to fractions greater than or equal to $\xi$, and the points below the line correspond to fractions less than or equal to $\xi$. The absolute value of the cross product $|\vec\xi\times\vec\nu|$ is proportional to the distance from the point $\vec\nu$ to the line $y=\xi x$,
+    -   The direction vector of the line $y=\xi x$ is $\vec\xi=(1,\xi)$. Using the notion of the [cross product](../linear-algebra/product.md#the-case-of-two-dimensional-vectors) $(x_1,y_1)\times(x_2,y_2)=x_1y_2-x_2y_1$, one can decide whether a point lies above or below the line by the sign of $\vec\xi\times\vec\nu=p-q\xi$. Thus the points above the line correspond to fractions greater than or equal to $\xi$, and the points below the line correspond to fractions less than or equal to $\xi$. The absolute value of the cross product $|\vec\xi\times\vec\nu|$ is proportional to the distance from the point $\vec\nu$ to the line $y=\xi x$,
     
         $$
         \dfrac{|p-q\xi|}{\sqrt{1+\xi^2}},
@@ -1175,7 +1175,7 @@ Fractional linear transformations have the following properties:
     
     Then they have the following properties:[^pgl2]
     
-    1.  The composition $L_1\circ L_2$ and the inverse $L_1^{-1}$ of fractional linear transformations are again fractional linear transformations, i.e. all fractional linear transformations form a [group](../algebra/basic.md#群);
+    1.  The composition $L_1\circ L_2$ and the inverse $L_1^{-1}$ of fractional linear transformations are again fractional linear transformations, i.e. all fractional linear transformations form a [group](../algebra/basic.md#groups);
     2.  A fractional linear transformation is unchanged when all coefficients are multiplied by the same nonzero constant, i.e. for any $\lambda\neq 0$, if $M_2=\lambda M_1$ then $L_2=L_1$;
     3.  The coefficient matrix of the composition of fractional linear transformations corresponds to the product of the coefficient matrices, i.e. if $M_1M_2=M_3$ then $L_1\circ L_2=L_3$;
     4.  The coefficient matrix of the inverse of a fractional linear transformation corresponds to the inverse of the coefficient matrix, i.e. if $M_1^{-1}=M_2$ then $L_1^{-1}=L_2$.

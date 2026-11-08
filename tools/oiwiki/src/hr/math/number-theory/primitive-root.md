@@ -4,7 +4,7 @@ title: Red elementa & primitivni korijen
 
 Predznanje: [mali Fermatov teorem](./fermat.md#mali-fermatov-teorem), [Eulerov teorem](./fermat.md#eulerov-teorem), [Lagrangeov teorem](./congruence-equation.md#kongruencije-po-prostom-modulu)
 
-Red elementa i primitivni korijen važni su alati za razumijevanje multiplikativne strukture [reduciranog sustava ostataka](./basic.md#klase-kongruencije-i-sustavi-ostataka) $\mathbf Z_m^*$ modulo $m$. Na njima se temelje pojmovi poput [diskretnog logaritma](./discrete-logarithm.md). Općenitija rasprava može se naći u odgovarajućim poglavljima stranica o [teoriji grupa](../algebra/group-theory.md#阶) i [teoriji prstena](../algebra/ring-theory.md#应用整数同余类的乘法群) u dijelu o apstraktnoj algebri.
+Red elementa i primitivni korijen važni su alati za razumijevanje multiplikativne strukture [reduciranog sustava ostataka](./basic.md#klase-kongruencije-i-sustavi-ostataka) $\mathbf Z_m^*$ modulo $m$. Na njima se temelje pojmovi poput [diskretnog logaritma](./discrete-logarithm.md). Općenitija rasprava može se naći u odgovarajućim poglavljima stranica o [teoriji grupa](../algebra/group-theory.md#red) i [teoriji prstena](../algebra/ring-theory.md#primjena-multiplikativna-grupa-klasa-ostataka-cijelih-brojeva) u dijelu o apstraktnoj algebri.
 
 ## Red
 
@@ -16,7 +16,7 @@ Za $n\in\mathbf Z$ potencije $a^n\bmod m$ pokazuju cikličku strukturu. Najmanja
     Za $a\in\mathbf Z,m\in\mathbf N_+$ takve da je $a\perp m$, najmanji pozitivni cijeli broj $n$ koji zadovoljava kongruenciju $a^n \equiv 1 \pmod m$ naziva se **red elementa $a$ modulo $m$** (engl. the order of $a$ modulo $m$) i označava se $\delta_m(a)$ ili $\operatorname{ord}_m(a)$.
 
 ???+ tip "Napomena"
-    U [apstraktnoj algebri](../algebra/group-theory.md#阶) ovaj je „red” upravo red elementa $a$ u grupi koju reducirani sustav ostataka modulo $m$ tvori s obzirom na množenje. Oznaka $\delta$ za red koristi se samo za tu posebnu grupu. Mnoga od svojstava u nastavku mogu se izravno poopćiti na svojstva reda elementa grupe u apstraktnoj algebri.
+    U [apstraktnoj algebri](../algebra/group-theory.md#red) ovaj je „red” upravo red elementa $a$ u grupi koju reducirani sustav ostataka modulo $m$ tvori s obzirom na množenje. Oznaka $\delta$ za red koristi se samo za tu posebnu grupu. Mnoga od svojstava u nastavku mogu se izravno poopćiti na svojstva reda elementa grupe u apstraktnoj algebri.
     
     Postoji i pojam „polureda” (half-order), koji se u teoriji brojeva označava $\delta^-$. To je najmanji pozitivni cijeli broj koji zadovoljava kongruenciju $a^n \equiv -1 \pmod m$. Polured nije pojam iz teorije grupa. Red uvijek postoji, a polured ne mora postojati.
 
@@ -213,7 +213,7 @@ Primitivni korijeni posebni su elementi – njihov je red jednak broju elemenata
 Primitivni korijen modulo $m$ ne postoji za svaki pozitivni cijeli broj $m$. Prema gornjem [svojstvu 1](#ciklička-struktura-potencija), ako primitivni korijen $g$ modulo $m$ postoji, tada su klase kongruencije kojima pripadaju $g,g^2,\cdots,g^{\varphi(m)}$ međusobno različite i tvore reducirani sustav ostataka modulo $m$. Posebno, za prost broj $p$ ostatci $g^i\bmod p$ za $i=1,2,\cdots,p-1$ međusobno su različiti.
 
 ???+ tip "Napomena"
-    U [apstraktnoj algebri](../algebra/ring-theory.md#应用整数同余类的乘法群) primitivni korijen upravo je generator cikličke grupe. Taj pojam nosi naziv „primitivni korijen” samo u grupi koju reducirani sustav ostataka modulo $m$ tvori s obzirom na množenje; u općim cikličkim grupama govori se o „generatoru”. Nije svaka grupa koju reducirani sustav ostataka modulo $m$ tvori s obzirom na množenje ciklička: postojanje primitivnog korijena znači da je ona izomorfna cikličkoj grupi, a nepostojanje da nije.
+    U [apstraktnoj algebri](../algebra/ring-theory.md#primjena-multiplikativna-grupa-klasa-ostataka-cijelih-brojeva) primitivni korijen upravo je generator cikličke grupe. Taj pojam nosi naziv „primitivni korijen” samo u grupi koju reducirani sustav ostataka modulo $m$ tvori s obzirom na množenje; u općim cikličkim grupama govori se o „generatoru”. Nije svaka grupa koju reducirani sustav ostataka modulo $m$ tvori s obzirom na množenje ciklička: postojanje primitivnog korijena znači da je ona izomorfna cikličkoj grupi, a nepostojanje da nije.
 
 Kada je modul $1$, multiplikativna grupa cijelih brojeva modulo $1$ jest $\{0\}$. Ona je očito ciklička, pa je primitivni korijen $0$.
 

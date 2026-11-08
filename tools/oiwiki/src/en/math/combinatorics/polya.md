@@ -16,7 +16,7 @@ The Pólya enumeration theorem is usually used to solve counting problems that i
 
 ## Burnside's lemma
 
-Related reading: [Burnside's lemma](../algebra/group-theory.md#burnside-引理)
+Related reading: [Burnside's lemma](../algebra/group-theory.md#burnsides-lemma)
 
 The Pólya enumeration theorem is an application and generalization of Burnside's lemma. Before introducing the Pólya enumeration theorem, we need to briefly review the content of Burnside's lemma.
 
@@ -129,7 +129,7 @@ The analysis in the example can be generalized to the general case.
     
     Here $X^g=\{x\in X:gx=x\}$ is the set of fixed points under the action of $g\in G$.
 
-Its proof is almost a verbatim copy of the analysis in the example above. However, the example used an observation, namely that the result of the action of the group $G$ on a single element $x$ has a certain "periodicity", so that the number of repetitions of this period equals the number of operations mapping $x$ to itself. This observation is correct in the general case, but because the structure of the group $G$ may be very complicated, its "periodicity" is not necessarily as direct as it appears in the example. Stating this observation rigorously requires the [orbit-stabilizer theorem](../algebra/group-theory.md#稳定化子) from group theory.
+Its proof is almost a verbatim copy of the analysis in the example above. However, the example used an observation, namely that the result of the action of the group $G$ on a single element $x$ has a certain "periodicity", so that the number of repetitions of this period equals the number of operations mapping $x$ to itself. This observation is correct in the general case, but because the structure of the group $G$ may be very complicated, its "periodicity" is not necessarily as direct as it appears in the example. Stating this observation rigorously requires the [orbit-stabilizer theorem](../algebra/group-theory.md#stabilizers) from group theory.
 
 In applications, as long as one can list all the symmetry operations and give the number of fixed points of each symmetry operation, the corresponding counting problem can be solved. Below is a slightly more complicated application.
 
@@ -310,7 +310,7 @@ This example shows that the problems the weighted version of the Pólya enumerat
 
 ## Common symmetry groups
 
-One of the difficulties in problems related to Pólya enumeration lies in analyzing the structure of the permutation group. Here we briefly discuss the structure of common symmetry groups and describe them by their cycle indices. Note that for the symmetry group of the same structure, if the set of objects acted on is different, the corresponding [group action](../algebra/group-theory.md#群作用) is also different, and hence so are their permutation representations. For instance, the actions of the symmetry group of a cube on its vertices, edges and faces correspond respectively to the vertex permutation group, edge permutation group and face permutation group of the cube; the numbers of vertices, edges and faces are all different, so of course these permutation groups and the corresponding cycle indices are also all different. Therefore, when solving concrete problems, one must not neglect specifying the objects acted on by the group.
+One of the difficulties in problems related to Pólya enumeration lies in analyzing the structure of the permutation group. Here we briefly discuss the structure of common symmetry groups and describe them by their cycle indices. Note that for the symmetry group of the same structure, if the set of objects acted on is different, the corresponding [group action](../algebra/group-theory.md#group-actions) is also different, and hence so are their permutation representations. For instance, the actions of the symmetry group of a cube on its vertices, edges and faces correspond respectively to the vertex permutation group, edge permutation group and face permutation group of the cube; the numbers of vertices, edges and faces are all different, so of course these permutation groups and the corresponding cycle indices are also all different. Therefore, when solving concrete problems, one must not neglect specifying the objects acted on by the group.
 
 ??? info "Relationship between symmetry groups and permutation groups"
     Although the two concepts are very similar, they are by no means the same object. In the language of group theory, given a symmetry group $G$ and its group action on a set $X$, the permutation representation of the group action actually provides a homomorphism $\varphi$ from the group $G$ to the symmetric group $S_X$, and in the context of combinatorial counting this permutation representation is usually faithful, i.e. $\ker\varphi=\{e\}$, so the homomorphism $\varphi$ is actually an embedding of the group $G$ into the group $S_X$. The permutation group in this article is the image of this embedding, i.e. $\varphi(G)$, which is isomorphic to the symmetry group $G$ itself. Therefore, for the symmetry group $G$ of the same structure, if the group actions are chosen differently, it is isomorphic to different permutation groups $\varphi(G)$ and thus has different cycle indices (isomorphic permutation groups do not necessarily have the same cycle index).
@@ -322,7 +322,7 @@ Given a structure, its symmetry group is the set of all operations that map it o
 -   there is an identity symmetry operation, i.e. leaving the given structure unchanged is itself regarded as an operation;
 -   every operation has an inverse operation that cancels the effect of the given operation.
 
-A [group](../algebra/basic.md#群) is the abstraction of all concepts satisfying these conditions. The discussion of the structure of groups is the main subject of [group theory](../algebra/group-theory.md). The analysis here focuses mainly on symmetry groups, and the discussion of their structure mainly uses a geometric point of view. Common examples are given here, from which readers should pick up the usual ways of thinking for analyzing such problems.
+A [group](../algebra/basic.md#groups) is the abstraction of all concepts satisfying these conditions. The discussion of the structure of groups is the main subject of [group theory](../algebra/group-theory.md). The analysis here focuses mainly on symmetry groups, and the discussion of their structure mainly uses a geometric point of view. Common examples are given here, from which readers should pick up the usual ways of thinking for analyzing such problems.
 
 ### Cyclic group
 

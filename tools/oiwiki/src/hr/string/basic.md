@@ -6,7 +6,7 @@ title: Osnove stringova
 
 ### Abeceda
 
-**Abeceda** (skup znakova) $\Sigma$ skup je na kojem je zadan [totalni uređaj](../math/order-theory.md#偏序集), što znači da se bilo koja dva različita elementa $\alpha$ i $\beta$ iz $\Sigma$ mogu usporediti: vrijedi ili $\alpha<\beta$ ili $\beta<\alpha$. Elementi abecede $\Sigma$ zovu se znakovi.
+**Abeceda** (skup znakova) $\Sigma$ skup je na kojem je zadan [totalni uređaj](../math/order-theory.md#parcijalno-uređen-skup), što znači da se bilo koja dva različita elementa $\alpha$ i $\beta$ iz $\Sigma$ mogu usporediti: vrijedi ili $\alpha<\beta$ ili $\beta<\alpha$. Elementi abecede $\Sigma$ zovu se znakovi.
 
 ### String
 

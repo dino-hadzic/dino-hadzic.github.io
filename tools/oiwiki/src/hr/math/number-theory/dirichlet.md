@@ -102,7 +102,7 @@ Dirichletova konvolucija ima niz algebarskih svojstava.
     
     To se može upotrijebiti za rekurzivno računanje vrijednosti $g(n)$. Stoga inverz $g$ postoji ako i samo ako je $f(1)\neq 0$.
 
-Jezikom apstraktne algebre, ova algebarska svojstva pokazuju da sve aritmetičke funkcije s (točkovnim) zbrajanjem i Dirichletovom konvolucijom čine [komutativni prsten](../algebra/basic.md#环), a njegovi invertibilni elementi upravo su funkcije koje u $n=1$ poprimaju vrijednost različitu od nule. Taj se prsten naziva **Dirichletov prsten** (Dirichlet ring).
+Jezikom apstraktne algebre, ova algebarska svojstva pokazuju da sve aritmetičke funkcije s (točkovnim) zbrajanjem i Dirichletovom konvolucijom čine [komutativni prsten](../algebra/basic.md#prsten), a njegovi invertibilni elementi upravo su funkcije koje u $n=1$ poprimaju vrijednost različitu od nule. Taj se prsten naziva **Dirichletov prsten** (Dirichlet ring).
 
 Multiplikativne funkcije poseban su razred aritmetičkih funkcija. Zatvorene su i na Dirichletovu konvoluciju i na Dirichletov inverz.
 
@@ -144,7 +144,7 @@ Multiplikativne funkcije poseban su razred aritmetičkih funkcija. Zatvorene su 
     
     Pritom druga jednakost koristi pretpostavku indukcije, tj. da za $\ell_1\ell_2 < n_1n_2$ i $\ell_1\perp\ell_2$ vrijedi $g(\ell_1\ell_2)=g(\ell_1)g(\ell_2)$.
 
-Jezikom apstraktne algebre, sve multiplikativne funkcije s Dirichletovom konvolucijom čine [podgrupu](../algebra/group-theory.md#子群) multiplikativne grupe Dirichletova prstena.
+Jezikom apstraktne algebre, sve multiplikativne funkcije s Dirichletovom konvolucijom čine [podgrupu](../algebra/group-theory.md#podgrupe) multiplikativne grupe Dirichletova prstena.
 
 Još su posebnije potpuno multiplikativne funkcije.
 
@@ -208,7 +208,7 @@ Još su posebnije potpuno multiplikativne funkcije.
     
     Time je korak indukcije dokazan, a time i izvorna tvrdnja.
 
-Jezikom apstraktne algebre, ako je $\alpha$ potpuno multiplikativna funkcija, preslikavanje $f\mapsto \alpha f$ jest [endomorfizam](../algebra/ring-theory.md#理想) Dirichletova prstena.
+Jezikom apstraktne algebre, ako je $\alpha$ potpuno multiplikativna funkcija, preslikavanje $f\mapsto \alpha f$ jest [endomorfizam](../algebra/ring-theory.md#ideali) Dirichletova prstena.
 
 ## Dirichletova funkcija izvodnica
 

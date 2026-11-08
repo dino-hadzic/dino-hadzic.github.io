@@ -223,7 +223,7 @@ This section extends the preceding text: in the language of abstract algebra we 
 ### Proof that a solution exists
 
 ???+ note "Lemma 1"
-    Let an [integral domain](../algebra/ring-theory.md#整环) $R$ have a polynomial or [formal power series](../algebra/ring-theory.md#形式幂级数环) $f(X) = \sum_{i\geq 0}a_iX^i$ and $r,p\in R$ such that $f(r)\in Rp$ (that is, $r$ is a root of $f(X)$ modulo $p$) and $f'(r)\in R$ is invertible modulo $p$. Here $f'(X) := \sum_{i\geq 0}(i+1)a_{i+1}X^i$ is the **formal derivative** of $f(X)$. Then $f\left(r-\dfrac{f(r)}{f'(r)}\right) \equiv 0\pmod {p^2}$.
+    Let an [integral domain](../algebra/ring-theory.md#integral-domains) $R$ have a polynomial or [formal power series](../algebra/ring-theory.md#ring-of-formal-power-series) $f(X) = \sum_{i\geq 0}a_iX^i$ and $r,p\in R$ such that $f(r)\in Rp$ (that is, $r$ is a root of $f(X)$ modulo $p$) and $f'(r)\in R$ is invertible modulo $p$. Here $f'(X) := \sum_{i\geq 0}(i+1)a_{i+1}X^i$ is the **formal derivative** of $f(X)$. Then $f\left(r-\dfrac{f(r)}{f'(r)}\right) \equiv 0\pmod {p^2}$.
 
 ??? note "Proof"
     For every $s\in R$,
@@ -255,7 +255,7 @@ For the initial condition of the doubling it suffices to have $f_1\in k$ such th
 ### Proof that all solutions are obtained
 
 ???+ note "Lemma 2"
-    Let $R$ be a [UFD](../algebra/ring-theory.md#唯一分解整环), with $f,r,p$ defined as in Lemma 1. Then the $r-\dfrac{f(r)}{f'(r)}$ given by Lemma 1 is the unique value of $x$ modulo $p^{2}$ satisfying the following two conditions:
+    Let $R$ be a [UFD](../algebra/ring-theory.md#unique-factorization-domains), with $f,r,p$ defined as in Lemma 1. Then the $r-\dfrac{f(r)}{f'(r)}$ given by Lemma 1 is the unique value of $x$ modulo $p^{2}$ satisfying the following two conditions:
     
     -   $f(x)\in Rp^{2}$
     -   $x-r\in Rp$

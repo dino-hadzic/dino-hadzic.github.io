@@ -265,7 +265,7 @@ Then we have the following:
 
 The proof is constructive, so a corresponding minimum path cover is easily built from the maximum matching obtained. Moreover, the construction shows that for general directed graphs this reduction no longer holds, precisely because a matching in the bipartite graph may correspond to a cycle in the directed graph.
 
-In particular, for a set $X$ with a partial order $P$ on it, we can build the directed acyclic graph $G=(X,P)$. By [Dilworth's theorem](../../math/order-theory.md#dilworth-定理与-mirsky-定理), the size of a minimum path cover of $G$ then equals the length of its longest antichain, i.e. the width of the poset $(X,P)$. Hence this section actually gives an efficient way to compute the width of an arbitrary poset.
+In particular, for a set $X$ with a partial order $P$ on it, we can build the directed acyclic graph $G=(X,P)$. By [Dilworth's theorem](../../math/order-theory.md#dilworths-theorem-and-mirskys-theorem), the size of a minimum path cover of $G$ then equals the length of its longest antichain, i.e. the width of the poset $(X,P)$. Hence this section actually gives an efficient way to compute the width of an arbitrary poset.
 
 ## Example problems
 
