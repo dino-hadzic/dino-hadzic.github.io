@@ -22,6 +22,17 @@ U bloku analiza posebna oznaka
   </slajdovi>
 pretvara se u interaktivni klizač slajdova; <slajd n="7">natpis</slajd> je
 jedan slajd. Natpisi su prijevod teksta sa slajda.
+
+Noviji format (blok "@@ editorial" umjesto rjesenje/trener/analiza): cijeli
+prijevod službene prezentacije kao jedan članak. Dodatne oznake u tom bloku:
+  <info naslov="...">...</info>        gumb (i) koji otvara karticu s dodatnim objašnjenjem
+  <dodatak>...</dodatak>               tekst kojeg nema u izvorniku (dopuna prevoditelja)
+  <skica>SVG...<natpis>...</natpis></skica>          jedna skica (crtež iz slajda, prevedene oznake)
+  <okviri naslov="..." vrsta="koraci">                 niz skica koje se mijenjaju -> prikaz slajdova
+      <okvir>SVG...<natpis>...</natpis></okvir> ...
+  </okviri>
+Zadatak s blokom "editorial" nema trenerski mod; tab "Rješenje" vodi izravno
+na stranicu s člankom.
 """
 import html
 import json
@@ -147,6 +158,8 @@ def head(title, depth, extra_css=(), mathjax=True, coach=True, joisc_js=True):
         ]
     for c in css:
         parts.append(f'    <link rel="stylesheet" href="{rel}assets/css/{c}">')
+        if c == 'pozadina.css':
+            parts.append(f'    <script defer src="{rel}assets/js/pozadina.js"></script>')
     if coach:
         parts.append(f'    <script src="{rel}assets/js/coach-mode.js"></script>')
     if joisc_js:
@@ -250,6 +263,104 @@ def expand_slides(text, year, slug):
     return text
 
 
+# ---------- komponente članka (novi format) ----------
+
+INFO_RE = re.compile(r'<info\b([^>]*)>(.*?)</info>', re.S)
+DODATAK_RE = re.compile(r'<dodatak\b([^>]*)>(.*?)</dodatak>', re.S)
+SKICA_RE = re.compile(r'<skica\b([^>]*)>(.*?)</skica>', re.S)
+OKVIRI_RE = re.compile(r'<okviri\b([^>]*)>(.*?)</okviri>', re.S)
+OKVIR_RE = re.compile(r'<okvir\b[^>]*>(.*?)</okvir>', re.S)
+NATPIS_RE = re.compile(r'<natpis>(.*?)</natpis>', re.S)
+
+
+def split_natpis(body):
+    m = NATPIS_RE.search(body)
+    if not m:
+        return body.strip(), ''
+    return NATPIS_RE.sub('', body).strip(), m.group(1).strip()
+
+
+def render_info(a, body):
+    naslov = a.get('naslov', 'Više o tome')
+    # Kartica stoji unutar <p>, pa u njoj ne smije biti blokovskih elemenata
+    # (HTML parser bi zatvorio vanjski odlomak). Odlomci postaju <span class="odlomak">.
+    if re.search(r'<(ul|ol|li|div|h[1-6]|pre|table|blockquote)\b', body):
+        raise ValueError(f'info "{naslov}": blokovski element unutar <info> nije dopušten (koristi <p> i <br>)')
+    body = re.sub(r'<p\b[^>]*>', '<span class="odlomak">', body).replace('</p>', '</span>')
+    # <details> bi unutar <p> zatvorio odlomak, zato gumb + span koje otvara joisc.js.
+    return (f'<span class="info">'
+            f'<button type="button" class="info-gumb" aria-expanded="false" title="{esc(naslov)}" aria-label="Više informacija: {esc(naslov)}">i</button>'
+            f'<span class="info-sadrzaj" role="note"><span class="info-naslov">{naslov}</span>{body.strip()}</span>'
+            f'</span>')
+
+
+def render_dodatak(a, body):
+    naslov = a.get('naslov', '')
+    cls = 'dodatak'
+    head_html = f'<p class="dodatak-naslov">{naslov}</p>' if naslov else ''
+    return f'<div class="{cls}">{head_html}{body.strip()}</div>'
+
+
+def render_skica(a, body):
+    svg, cap = split_natpis(body)
+    sirina = a.get('sirina', '')
+    style = f' style="max-width:{esc(sirina)}"' if sirina else ''
+    out = [f'<figure class="skica"{style}>', svg]
+    if cap:
+        out.append(f'<figcaption>{cap}</figcaption>')
+    out.append('</figure>')
+    return '\n'.join(out)
+
+
+def render_okviri(a, body):
+    vrsta = a.get('vrsta', 'skice')
+    naslov = a.get('naslov', '')
+    frames = [split_natpis(b) for b in OKVIR_RE.findall(body)]
+    if not frames:
+        raise ValueError('okviri bez okvira')
+    count = len(frames)
+    oznaka = 'Koraci algoritma' if vrsta == 'koraci' else 'Skice'
+    out = [f'<div class="slajdovi okviri" data-vrsta="{esc(vrsta)}" role="group" aria-roledescription="prikaz skica"'
+           f' aria-label="{esc(naslov or oznaka)}">']
+    out.append('    <div class="slajdovi-naslov">')
+    out.append(f'        <span class="oznaka">{oznaka}</span>')
+    if naslov:
+        out.append(f'        <span class="naslov-slajdova">{naslov}</span>')
+    out.append(f'        <span class="brojac">{count} {"skica" if count % 10 == 1 and count % 100 != 11 else "skice" if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14) else "skica"}</span>')
+    out.append('    </div>')
+    out.append('    <ol class="slajd-popis">')
+    for i, (svg, cap) in enumerate(frames, 1):
+        out.append('        <li class="slajd">')
+        out.append('            <figure>')
+        out.append(svg)
+        out.append(f'                <figcaption><span class="broj-slajda">{i}</span>{cap}</figcaption>')
+        out.append('            </figure>')
+        out.append('        </li>')
+    out.append('    </ol>')
+    if count > 1:
+        out.append('    <div class="kontrole">')
+        out.append('        <button type="button" class="prethodni" aria-label="Prethodna skica">◀</button>')
+        out.append('        <input type="range" min="0" max="1" value="0" step="1" aria-label="Odabir skice">')
+        out.append('        <button type="button" class="sljedeci" aria-label="Sljedeća skica">▶</button>')
+        if vrsta == 'koraci':
+            out.append('        <button type="button" class="animiraj" aria-pressed="false">▶ Animiraj</button>')
+        out.append('        <span class="tipkovnica">← → tipke ili klik na skicu</span>')
+        out.append('    </div>')
+    out.append('</div>')
+    return '\n'.join(out)
+
+
+def expand_components(text):
+    text = OKVIRI_RE.sub(lambda m: render_okviri(attrs(m.group(1)), m.group(2)), text)
+    text = SKICA_RE.sub(lambda m: render_skica(attrs(m.group(1)), m.group(2)), text)
+    text = DODATAK_RE.sub(lambda m: render_dodatak(attrs(m.group(1)), m.group(2)), text)
+    text = INFO_RE.sub(lambda m: render_info(attrs(m.group(1)), m.group(2)), text)
+    for tag in ('info', 'dodatak', 'skica', 'okviri', 'okvir', 'natpis'):
+        if re.search(rf'</?{tag}\b', text):
+            raise ValueError(f'neobrađena oznaka <{tag}> u članku')
+    return text
+
+
 # ---------- stranice ----------
 
 def problem_page(year, entry, meta, blocks, score, ordinal, day_label):
@@ -290,19 +401,35 @@ def problem_page(year, entry, meta, blocks, score, ordinal, day_label):
     p.append('        </ul>')
     p.append('    </header>')
 
-    p.append('    <nav class="tabovi" role="tablist" aria-label="Dijelovi zadatka">')
-    p.append('        <a href="#zadatak" role="tab" class="tab-zadatak" aria-selected="true" aria-controls="zadatak" id="tab-zadatak">Zadatak</a>')
-    p.append('        <a href="#rjesenje" role="tab" class="tab-rjesenje" aria-selected="false" aria-controls="rjesenje" id="tab-rjesenje">Rješenje</a>')
-    p.append('        <a href="#trener" role="tab" class="tab-trener" aria-selected="false" aria-controls="trener" id="tab-trener">Trenerski mod</a>')
-    p.append('    </nav>')
+    full = 'editorial' in blocks
+    if full:
+        p.append('    <nav class="tabovi" aria-label="Dijelovi zadatka">')
+        p.append('        <a href="#zadatak" class="tab-zadatak" aria-current="page">Zadatak</a>')
+        p.append(f'        <a href="{slug}-editorial.html" class="tab-rjesenje">Rješenje (editorial) →</a>')
+        p.append('    </nav>')
+    else:
+        p.append('    <nav class="tabovi" role="tablist" aria-label="Dijelovi zadatka">')
+        p.append('        <a href="#zadatak" role="tab" class="tab-zadatak" aria-selected="true" aria-controls="zadatak" id="tab-zadatak">Zadatak</a>')
+        p.append('        <a href="#rjesenje" role="tab" class="tab-rjesenje" aria-selected="false" aria-controls="rjesenje" id="tab-rjesenje">Rješenje</a>')
+        p.append('        <a href="#trener" role="tab" class="tab-trener" aria-selected="false" aria-controls="trener" id="tab-trener">Trenerski mod</a>')
+        p.append('    </nav>')
 
     # --- Zadatak
     p.append('    <section id="zadatak" class="tab-panel" role="tabpanel" aria-labelledby="tab-zadatak">')
     p.append('        <h2 class="naslov-sekcije">Zadatak</h2>')
     p.append('        <div class="zadatak">')
     p.append(blocks['zadatak'])
+    if full:
+        p.append(f'            <a class="kartica-analize" href="{slug}-editorial.html">')
+        p.append('                <span class="ikona" aria-hidden="true">📖</span>')
+        p.append('                <span>Rješenje: cijeli editorial'
+                 f'<small>Potpun prijevod službene analize rješenja ({SLIDES[f"{year}/{slug}"]["n"]} slajdova), podzadatak po podzadatak, s prevedenim skicama.</small></span>')
+        p.append('            </a>')
     p.append('        </div>')
     p.append('    </section>')
+
+    if full:
+        return finish_problem_page(p, year, entry)
 
     # --- Rješenje
     p.append('    <section id="rjesenje" class="tab-panel" role="tabpanel" aria-labelledby="tab-rjesenje">')
@@ -328,6 +455,10 @@ def problem_page(year, entry, meta, blocks, score, ordinal, day_label):
     p.append('        </div>')
     p.append('    </section>')
 
+    return finish_problem_page(p, year, entry)
+
+
+def finish_problem_page(p, year, entry):
     # --- Izvor
     p.append('    <section class="izvor">')
     p.append('        <h3>Izvor</h3>')
@@ -350,7 +481,11 @@ def editorial_page(year, entry, meta, blocks, score, day_label):
     title_en = meta.get('engleski', '')
     n = SLIDES[f'{year}/{slug}']['n']
     autor = meta.get('autor_analize', '')
-    body = expand_slides(blocks['analiza'], year, slug)
+    full = 'editorial' in blocks
+    if full:
+        body = expand_components(blocks['editorial'])
+    else:
+        body = expand_slides(blocks['analiza'], year, slug)
 
     p = [head(f'JOISC {year} — {title_hr}: analiza rješenja', 3)]
     p.append('<body>')
@@ -372,17 +507,25 @@ def editorial_page(year, entry, meta, blocks, score, day_label):
     p.append('        </header>')
     p.append('        <div class="uvodnik">')
     p.append('            <h3>O ovom članku</h3>')
-    p.append('            <p>Tekst je prijevod službene japanske prezentacije rješenja, preoblikovan u članak. '
-             'Slajdovi su ugrađeni kao slike; natpis pod svakim slajdom je prijevod teksta na njemu. '
-             'Dijelovi označeni kao <b>trenerska napomena</b> nisu u izvornoj prezentaciji — dodani su da popune '
-             'korake koje slajdovi preskaču ili samo skiciraju.</p>')
+    if full:
+        p.append('            <p>Potpun prijevod službene japanske prezentacije rješenja: tekst slajdova preveden je u cijelosti i '
+                 'istim redoslijedom, podzadatak po podzadatak; skice su precrtane s prevedenim oznakama. '
+                 'Gumb <span class="info-gumb-primjer" aria-hidden="true">i</span> otvara karticu s dodatnim objašnjenjem pojma. '
+                 'Dijelovi označeni kao <b>dopuna</b> nisu u izvornoj prezentaciji — dodani su ondje gdje izvornik nešto preskače '
+                 'ili ostavlja bez dokaza.</p>')
+    else:
+        p.append('            <p>Tekst je prijevod službene japanske prezentacije rješenja, preoblikovan u članak. '
+                 'Slajdovi su ugrađeni kao slike; natpis pod svakim slajdom je prijevod teksta na njemu. '
+                 'Dijelovi označeni kao <b>trenerska napomena</b> nisu u izvornoj prezentaciji — dodani su da popune '
+                 'korake koje slajdovi preskaču ili samo skiciraju.</p>')
     p.append('        </div>')
     p.append(body)
     p.append('        <footer>')
     p.append(f'            Izvor: <a href="{esc(entry["review_url"])}">službena prezentacija rješenja (PDF)</a> · '
              f'<a href="{esc(entry["en_url"])}">tekst zadatka (PDF)</a> · '
              f'<a href="{esc(YEAR_INFO[year][1])}">{esc(YEAR_INFO[year][0])}</a>. '
-             'Slike slajdova pripadaju Japanskom informatičkom olimpijskom komitetu (JOI); ovdje su prikazane u obrazovne svrhe.')
+             + ('Skice su precrtane prema izvornoj prezentaciji Japanskog informatičkog olimpijskog komiteta (JOI).' if full else
+                'Slike slajdova pripadaju Japanskom informatičkom olimpijskom komitetu (JOI); ovdje su prikazane u obrazovne svrhe.'))
     p.append('        </footer>')
     p.append('    </article>')
     p.append('</body>')
@@ -473,7 +616,8 @@ def main():
                 print(f'  ! nedostaje sadržaj {year}/{slug}', file=sys.stderr)
                 continue
             blocks = parse_content(path)
-            for k in ('zadatak', 'rjesenje', 'trener', 'analiza'):
+            needed = ('zadatak',) if 'editorial' in blocks else ('zadatak', 'rjesenje', 'trener', 'analiza')
+            for k in needed:
                 if k not in blocks:
                     raise SystemExit(f'{path}: nedostaje blok @@ {k}')
             meta = blocks['meta']
