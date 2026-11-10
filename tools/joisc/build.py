@@ -191,7 +191,7 @@ def head_map(title, depth):
 
 SLIDES_RE = re.compile(r'<slajdovi\b([^>]*)>(.*?)</slajdovi>', re.S)
 SLIDE_RE = re.compile(r'<slajd\b([^>]*)>(.*?)</slajd>', re.S)
-ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
+ATTR_RE = re.compile(r'([\w-]+)\s*=\s*"([^"]*)"')
 CAPTION_RE = re.compile(r'<s\s+n="(\d+)"\s*>(.*?)</s>', re.S)
 
 
