@@ -1,7 +1,7 @@
 @@ meta
 naslov = Uiro
 engleski = Uiro
-oznake = greedy s priority queue (zamjena najvećeg oduzetog), konkavan DP i max-plus konvolucija, kompozicija funkcija na segmentnom stablu (A≤2), exchange argument: prag po vrijednosti, monotoni pragovi, RMQ nad 100 prefiksnih nizova, binarna pretraga
+oznake = pohlepni algoritam, konkavni DP, max-plus konvolucija, segmentno stablo, argument zamjene, RMQ
 autor_analize = Nishimoto Masaki (maspy)
 
 @@ zadatak
@@ -32,127 +32,794 @@ autor_analize = Nishimoto Masaki (maspy)
 </div>
 <p>$[1,3]$: $0\to3\to7\to0$ (jedno oduzimanje).</p>
 
-@@ rjesenje
-<h2>Greedy za jedan interval</h2>
-<p>Stanje: $x$ i multiskup $S$ vrijednosti dosad oduzetih; dopuštamo „pokajanje” (oduzeto pretvori u zbrojeno). Za $a=A_i$:</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–2</span></h2>
+<p>Službenu analizu rješenja zadatka „Uiro” pripremio je <b>Nishimoto Masaki</b> (maspy) za 4. dan (Day 4) proljetnog trening-kampa JOI/JOIG 2024/2025. JOIG je ženska kategorija japanske informatičke olimpijade; ovaj zadatak ondje ima drukčiju raspodjelu bodova, pa slajdovi uz svaki podzadatak navode bodove i za JOI i za JOIG.</p>
+
+<h3>Tekst zadatka</h3>
 <ul>
-    <li>$a\le x$: oduzmi, $S\cup\{a\}$;</li>
-    <li>$a\gt x$ i $b=\max S\gt a$: pokaj $b$ i oduzmi $a$: $x\leftarrow x+2b-a$, $S\leftarrow S-\{b\}+\{a\}$ (isti rezultat, veći $x$);</li>
-    <li>inače zbroji.</li>
+    <li>Varijabla $x$ inicijalizirana je na $x=0$.</li>
+    <li>Redom za $i=1,2,\dots,N$, uz oznaku $a=A[i]$, izvodi se jedna od sljedećih dviju operacija:
+        <ul>
+            <li>$x:=x+a$;</li>
+            <li>ako je $x\ge a$: $x:=x-a$, čime se osvaja $1$ bod.</li>
+        </ul>
+    </li>
+    <li>Koliko se najviše bodova može osvojiti?</li>
+    <li>To treba riješiti za $Q$ intervala.</li>
 </ul>
-<p>Priority queue: $O(N\log N)$ po upitu. DP-pogled: $f(\text{rezultat})=\max x$ je konkavna funkcija, a korak je max-plus konvolucija s $\{a$ na $0$, $-a$ na $1\}$ — umetanje jednog nagiba; greedy je upravo to.</p>
+<dodatak>
+<p>U izvornom tekstu zadatka $x$ je broj na ploči, $A[i]$ su brojevi na kartama, a bod je jedan pojedeni uiro. Svaki od $Q$ upita zadaje interval $[L,R]$ i igra se samo kartama $A[L],\dots,A[R]$; slajdovi, kad govore o jednom intervalu, njegove karte označavaju s $1,\dots,N$.</p>
+<p>U kasnijim dopunama koristi se i ovo, ekvivalentno gledište: svakoj karti intervala biramo predznak $+$ (zbrajanje) ili $-$ (oduzimanje). Izbor je <em>dopušten</em> ako nijedan <em>međurezultat</em> (vrijednost $x$ nakon neke karte, tj. prefiksni zbroj s odabranim predznacima) nije negativan — to je isto što i uvjet $x\ge a$ prije svakog oduzimanja. Traži se dopušten izbor s najviše minusa.</p>
+</dodatak>
 
-<h2>$A_i\le2$: kompozicija funkcija</h2>
-<p>Iz $S$ treba samo broj dvojki $y$. Stanje $(x,y)$, a uz $z=x+4y$: $A=1$: $z\ge1\Rightarrow z-1$, $z=0\Rightarrow1$; $A=2$: $z\mapsto z+2$. Kompozicije su jednostavne funkcije ($O(1)$ opisa) — segmentno stablo, $O(N+Q\log N)$. Rezultat iz konačnog stanja: $\text{uira}=(\text{zbroj}-x)/2-y$.</p>
+<h2>Podzadatak 1 <span class="bodovi">3</span> <span class="slajd-ref">slajd 3</span></h2>
+<h3>Potpuna pretraga ($N\le20$, $Q\le20$, $A\le100$)</h3>
+<p>Nizova operacija ima najviše $2^N$. Sve ih pretražimo (potpuna pretraga).</p>
+<p>Primjeri pristupa implementaciji:</p>
+<ul>
+    <li>simulacija za svaku od $2^N$ mogućnosti;</li>
+    <li>DFS koji napreduje potez po potez.</li>
+</ul>
+<p>Složenost: $O(Q\times N\cdot2^N)$ ili $O(Q+N\cdot2^N)$, jer je</p>
+\[
+\sum_{L,R}(R-L)\,2^{R-L}=O(N\cdot2^N).
+\]
+<p>Podzadatak 1: JOI $3$ boda, JOIG $7$ bodova.</p>
+<dodatak naslov="Odakle dvije ocjene složenosti">
+<p>Prva ocjena je izravna: za svaki od $Q$ upita isprobamo sve nizove operacija (najviše $2^N$) i svaki simuliramo u $O(N)$. Druga ocjena odgovara pristupu u kojem se odgovori unaprijed izračunaju za <em>sve</em> intervale $[L,R]$, a upiti zatim samo čitaju iz tablice. Intervala s $R-L=d$ ima $N-d$, pa uz zamjenu $e=N-d$ vrijedi</p>
+\[
+\sum_{L\le R}(R-L)\,2^{R-L}=\sum_{d=0}^{N-1}(N-d)\,d\,2^{d}\le N\cdot2^{N}\sum_{e\ge1}\frac{e}{2^{e}}=2N\cdot2^{N}.
+\]
+<p>(Interval zapravo ima $R-L+1$ karata, što ocjenu mijenja samo za konstantni faktor.)</p>
+</dodatak>
 
-<h2>Puno rješenje: pragovi po vrijednosti</h2>
-<p>Exchange argumenti daju optimum sa strukturom:</p>
+<h2>Podzadatak 2 <span class="bodovi">5</span> <span class="slajd-ref">slajd 4</span></h2>
+<h3>DP po vrijednosti $x$ ($N\le300$, $Q\le20$, $A\le100$)</h3>
+<p>U izravnoj (naivnoj) simulaciji zadržimo samo one informacije koje su nužne.</p>
+<p>Povijest niza operacija nije potrebna; važni su samo $x$ i broj osvojenih bodova.</p>
+<p><b>$\mathrm{dp}[i]$: najveći broj osvojenih bodova ako je u nekom trenutku $x=i$.</b> Takvu tablicu ažuriramo potez po potez.</p>
+<ul>
+    <li>Može se napraviti i tablica $\mathrm{dp}[i][j]$: najveći broj osvojenih bodova ako je nakon $i$ obrađenih karata $x=j$. No time rastu i vrijeme i memorija, a povećava se i broj indeksa s kojima treba baratati, pa to osobno ne preporučujem.</li>
+</ul>
+<p>Složenost: $O(Q\times N^2A)$.</p>
+<p>Podzadaci $1+2$: JOI $8$ bodova, JOIG $18$ bodova.</p>
+<dodatak naslov="Prijelaz napisan do kraja">
+<p>Nedostižne vrijednosti $x$ imaju $\mathrm{dp}=-\infty$; na početku intervala je $\mathrm{dp}[0]=0$. Karta $a$ pretvara tablicu $\mathrm{dp}$ u novu tablicu $\mathrm{dp}'$:</p>
+\[
+\mathrm{dp}'[i]=\max\big(\mathrm{dp}[i-a],\ \mathrm{dp}[i+a]+1\big).
+\]
+<p>Prvi član je zbrajanje iz $x=i-a$ (postoji samo za $i\ge a$), a drugi oduzimanje iz $x=i+a$, koje je uvijek dopušteno jer je $i+a\ge a$. Odgovor na upit je najveća vrijednost u tablici nakon zadnje karte. Budući da je $x\le NA$, jedna karta stoji $O(NA)$, a jedan upit $O(N^2A)$.</p>
+</dodatak>
+
+<h2>Podzadatak 3 <span class="bodovi">7</span> <span class="slajd-ref">slajdovi 5–6</span></h2>
+<h3>DP po broju bodova ($N\le5000$, $Q\le20$, $A\le100$)</h3>
+<p>Kao i prije: u izravnoj simulaciji zadržimo samo nužne informacije. Povijest niza operacija nije potrebna; važni su samo $x$ i broj osvojenih bodova.</p>
+<p>Raspon vrijednosti $x$: $[0,NA]$. Raspon broja osvojenih bodova: $[0,N]$.</p>
+<p><b>$\mathrm{dp}[i]$: najveća moguća vrijednost $x$ ako je u nekom trenutku broj osvojenih bodova jednak $i$.</b></p>
+<p>Složenost: $O(Q\times N^2)$.</p>
+<p>Podzadaci $1+2+3$: JOI $15$ bodova, JOIG $33$ boda.</p>
+<dodatak naslov="Zašto je dovoljno pamtiti najveći x">
+<p>Raspon bodova je $A$ puta uži od raspona vrijednosti $x$, pa se isplati zamijeniti uloge indeksa i vrijednosti. To je ispravno jer je uz isti broj bodova veći $x$ uvijek barem jednako dobar: ako neki nastavak (izbor zbrajanja i oduzimanja za preostale karte) iz stanja s manjim $x$ ne spušta $x$ ispod nule, onda ga ni iz stanja s većim $x$ ne spušta, a donosi jednako bodova.</p>
+<p>Prijelaz za kartu $a$ (polja za nedostižan broj bodova ne postoje, tj. imaju vrijednost $-\infty$; na početku je $\mathrm{dp}[0]=0$):</p>
+\[
+\mathrm{dp}'[i]=\max\big(\mathrm{dp}[i]+a,\ \mathrm{dp}[i-1]-a\big),
+\]
+<p>pri čemu se drugi član (oduzimanje) uzima samo ako je $\mathrm{dp}[i-1]\ge a$. Odgovor na upit je najveći $i$ za koji polje $\mathrm{dp}[i]$ na kraju postoji. Tablica ima najviše $N+1$ polja, pa jedna karta stoji $O(N)$, a jedan upit $O(N^2)$.</p>
+</dodatak>
+
+<h2>Podzadatak 4 <span class="bodovi">15</span> <span class="slajd-ref">slajdovi 7–12</span></h2>
+<h3>Pohlepni algoritam s „optimalnim stanjem” ($N\le2\times10^5$, $Q\le20$, $A\le100$)</h3>
+<p>Metodama koje se svode na potpunu pretragu (uključujući DP) ovo je, mislim, teško.</p>
+<p>Razmotrimo prikladan pohlepni algoritam.</p>
+<p>Napredujući redom $i=1,2,3,\dots$ održavamo „optimalno stanje u tom trenutku”.</p>
+<p>Kao stanje držimo:</p>
+<ul>
+    <li>vrijednost $x$;</li>
+    <li>multiskup $S$: multiskup vrijednosti koje su dosad iskorištene za oduzimanje.</li>
+</ul>
+<p>„Optimalno stanje” neka znači stanje iz kojeg se dobiva optimalno rješenje što god došlo nakon njega.</p>
+<p>Pritom, međutim, dopuštamo operaciju <b>„vrijednost koju smo dosad iskoristili za oduzimanje ipak pretvaramo u zbrajanje”</b>.</p>
+<p>Uz oznaku $a=A[i]$ ispravan je sljedeći pohlepni algoritam:</p>
+<ul>
+    <li>ako je $a\le x$: $x:=x-a$, $S:=S\cup\{a\}$;</li>
+    <li>ako je $a\gt x$ i $b=\max S\gt a$: $x:=x+2\times b-a$, $S:=S-\{b\}\cup\{a\}$;</li>
+    <li>ako je $a\gt x$ i $b\le a$: $x:=x+a$.</li>
+</ul>
+<p>Implementiramo li dohvat $\max S$ prioritetnim redom (priority queue), vrijeme je $O(N\log N)$.</p>
+<dodatak naslov="Što radi drugo pravilo">
+<p>Drugo pravilo je upravo dopušteno „predomišljanje”: vrijednost $b$ koju smo ranije oduzeli naknadno proglasimo zbrojenom, čime $x$ naraste za $2b$ (umjesto $-b$ sada stoji $+b$), a zatim oduzmemo $a$. Rezultat je $x+2b-a$, broj oduzimanja ostaje isti, a u $S$ umjesto $b$ stoji $a$. Takva izmjena daje dopušten izbor predznaka: pretvaranje ranijeg oduzimanja u zbrajanje povećava sve kasnije međurezultate, a prije oduzimanja karte $a$ vrijedi $x+2b\ge a$ jer je $b\gt a$. Da smo kartu $a$ jednostavno zbrojili, dobili bismo isti broj bodova uz manji $x$ (naime $x+a\lt x+2b-a$).</p>
+<p>Ako je $S$ prazan, $\max S$ ne postoji i primjenjuje se treće pravilo. Odgovor na upit je $|S|$ nakon zadnje karte intervala. Dokaz da je algoritam optimalan nalazi se u dopuni na kraju ovog podzadatka.</p>
+</dodatak>
+
+<h3>Veza s dp-tablicom</h3>
+<p>Napomenimo da ovaj pohlepni algoritam odgovara dp-tablici opisanoj u podzadatku 3.</p>
+<skica sirina="460px">
+<svg viewBox="0 0 400 258" role="img" aria-label="Lijevo stanje pohlepnog algoritma: x i S = {a, b, c}. Desno graf dp[n]: četiri točke, padovi redom 2a, 2b, 2c, a zadnja točka je na visini x">
+  <rect class="cvor" x="8" y="100" width="122" height="62"/>
+  <text class="tekst" x="69" y="124" text-anchor="middle"><tspan font-style="italic">x</tspan></text>
+  <text class="tekst" x="69" y="148" text-anchor="middle"><tspan font-style="italic">S</tspan> = {<tspan font-style="italic">a</tspan>, <tspan font-style="italic">b</tspan>, <tspan font-style="italic">c</tspan>}</text>
+  <line class="brid" x1="192" y1="232" x2="192" y2="20"/>
+  <path d="M192 20 L195.0 26.3 L189.0 26.3 z" fill="#1b2a3a"/>
+  <line class="brid" x1="192" y1="232" x2="348" y2="232"/>
+  <path d="M348 232 L341.7 235.0 L341.7 229.0 z" fill="#1b2a3a"/>
+  <polyline class="brid" points="192,48 238,74 286,128 332,208"/>
+  <circle cx="192" cy="48" r="4.5" fill="#1b2a3a"/>
+  <circle cx="238" cy="74" r="4.5" fill="#1b2a3a"/>
+  <circle cx="286" cy="128" r="4.5" fill="#1b2a3a"/>
+  <circle cx="332" cy="208" r="4.5" fill="#1b2a3a"/>
+  <text class="tekst" x="184" y="24" text-anchor="end">dp[<tspan font-style="italic">n</tspan>]</text>
+  <text class="tekst" x="348" y="251" text-anchor="middle"><tspan font-style="italic">n</tspan></text>
+  <line class="brid" style="stroke-width:1.2" x1="364" y1="50" x2="364" y2="72"/>
+  <path d="M364 72 L361.9 67.5 L366.1 67.5 z" fill="#1b2a3a"/>
+  <path d="M364 50 L366.1 54.5 L361.9 54.5 z" fill="#1b2a3a"/>
+  <text class="tekst" x="373" y="66">2<tspan font-style="italic">a</tspan></text>
+  <line class="brid" style="stroke-width:1.2" x1="364" y1="76" x2="364" y2="126"/>
+  <path d="M364 126 L361.9 121.5 L366.1 121.5 z" fill="#1b2a3a"/>
+  <path d="M364 76 L366.1 80.5 L361.9 80.5 z" fill="#1b2a3a"/>
+  <text class="tekst" x="373" y="106">2<tspan font-style="italic">b</tspan></text>
+  <line class="brid" style="stroke-width:1.2" x1="364" y1="130" x2="364" y2="206"/>
+  <path d="M364 206 L361.9 201.5 L366.1 201.5 z" fill="#1b2a3a"/>
+  <path d="M364 130 L366.1 134.5 L361.9 134.5 z" fill="#1b2a3a"/>
+  <text class="tekst" x="373" y="173">2<tspan font-style="italic">c</tspan></text>
+  <line class="brid" style="stroke-width:1.2" x1="364" y1="210" x2="364" y2="230"/>
+  <path d="M364 230 L361.9 225.5 L366.1 225.5 z" fill="#1b2a3a"/>
+  <path d="M364 210 L366.1 214.5 L361.9 214.5 z" fill="#1b2a3a"/>
+  <text class="tekst" x="373" y="225"><tspan font-style="italic">x</tspan></text>
+</svg>
+<natpis>Skica sa slajda 10. Lijevo: stanje pohlepnog algoritma, vrijednost $x$ i multiskup $S=\{a,b,c\}$. Desno: tablica $\mathrm{dp}[n]$ iz podzadatka 3 kao graf nad brojem bodova $n$; uzastopni padovi iznose $2a$, $2b$ i $2c$, a zadnja točka je na visini $x$.</natpis>
+</skica>
+<p>Ažuriranje dp-tablice iz podzadatka 3 ima sljedeći oblik:</p>
+\[
+g(x)=\max\big(f(x)+a,\ f(x-1)-a\big).
+\]
+<p>No ako bi ispalo $g(x)\lt0$, potrebna je korekcija.</p>
+<p>Prva od tih dviju operacija je <b>max-plus konvolucija</b> (max plus convolution)<info naslov="Max-plus konvolucija"><p>Za dvije funkcije $f$ i $h$ na cijelim brojevima (izvan domene imaju vrijednost $-\infty$) max-plus konvolucija je $g(x)=\max_{y+z=x}\big(f(y)+h(z)\big)$ — obična konvolucija u kojoj je zbrajanje zamijenjeno maksimumom, a množenje zbrajanjem.</p><p>Ako su $f$ i $h$ konkavne (razlike susjednih vrijednosti ne rastu) i domene im počinju u $0$, onda je i $g$ konkavna, vrijedi $g(0)=f(0)+h(0)$, a niz razlika funkcije $g$ dobiva se <em>spajanjem</em> (merge) nizova razlika funkcija $f$ i $h$ u nerastući poredak — jednako kao kod Minkowskijeva zbroja konveksnih poligona. Zato se takva konvolucija računa u linearnom, a ne u kvadratnom vremenu.</p></info>:</p>
+\[
+g(x)=\max_{y+z=x}\big(f(y)+h(z)\big),\qquad
+h(x):=\begin{cases}
+a & (x=0),\\
+-a & (x=1),\\
+-\infty & (\text{inače}).
+\end{cases}
+\]
+<dodatak>
+<p>U ovim formulama $x$ <em>nije</em> varijabla iz zadatka, nego argument funkcije — broj bodova, tj. indeks tablice iz podzadatka 3: $f(x)=\mathrm{dp}[x]$ prije karte $a$, a $g(x)=\mathrm{dp}'[x]$ nakon nje. „Korekcija” je uvjet iz podzadatka 3: član $f(x-1)-a$ smije se upotrijebiti samo ako je $f(x-1)\ge a$; vrijednost $g(x)\lt0$ značila bi nedopušteno oduzimanje, pa se takvo polje briše.</p>
+</dodatak>
+<p>Tablica dp uvijek je konkavna.</p>
+<p>Max-plus konvolucija konkavnih funkcija je spajanje (merge) skupova nagiba (u ovom slučaju umetanje jednog nagiba).</p>
+<p>U zadacima tipa „dp-tablica je zapravo konkavna” razlog se često može objasniti max-plus konvolucijom.</p>
+<p>Tko je vješt u radu s konveksnim funkcijama, može rješenje podzadatka 4 dobiti i izravno, kao ubrzanje DP-a iz podzadatka 3.</p>
+<p>Podzadaci $1+2+3+4$: JOI $30$ bodova, JOIG $57$ bodova.</p>
+<dodatak naslov="Dokaz ispravnosti pohlepnog algoritma preko dp-tablice">
+<p>Neka je $S=\{s_1\le s_2\le\dots\le s_m\}$, $m=|S|$. Tvrdimo da nakon svake karte stanje $(x,S)$ opisuje cijelu tablicu iz podzadatka 3, točno kao na skici sa slajda 10: tablica ima polja $0,1,\dots,m$ i</p>
+\[
+\mathrm{dp}[m]=x,\qquad \mathrm{dp}[i-1]-\mathrm{dp}[i]=2s_i\quad(1\le i\le m).
+\]
+<p>Padovi $2s_1\le2s_2\le\dots\le2s_m$ ne opadaju, pa je tablica konkavna. Tvrdnju dokazujemo indukcijom po kartama; na početku je $x=0$, $S=\emptyset$ i $\mathrm{dp}[0]=0$.</p>
+<p><b>Konvolucija umeće jedan nagib.</b> Neka tvrdnja vrijedi prije karte $a$, neka je $f=\mathrm{dp}$ i neka je $r$ broj elemenata multiskupa $S$ koji su $\le a$. Vrijedi $f(i)+a\ge f(i-1)-a$ točno kad je $s_i\le a$, tj. kad je $i\le r$. Zato je $g(i)=f(i)+a$ za $i\le r$ i $g(i)=f(i-1)-a$ za $i\gt r$, pa su padovi funkcije $g$ redom $2s_1,\dots,2s_r$, zatim $2a$, zatim $2s_{r+1},\dots,2s_m$: u sortirani niz umetnut je $a$. Funkcija $g$ ima polja $0,\dots,m+1$, a zadnje je $g(m+1)$, jednako $f(m)-a=x-a$.</p>
+<p><b>Korekcija dira samo zadnje polje.</b> Za $i\le m$: ako je $f(i-1)\lt a$, onda je $f(i-1)-a\lt0$, dok je $f(i)+a\gt0$, pa zabranjeni član ionako nije maksimum. Jedino polje koje može biti nedopušteno je $g(m+1)=x-a$, i to točno kad je $x\lt a$.</p>
+<ul>
+    <li>$a\le x$: zadnje polje ostaje. Novo stanje je $x-a$, $S\cup\{a\}$ — prvo pravilo.</li>
+    <li>$a\gt x$: zadnje polje se briše, tj. iz niza padova uklanja se zadnji, najveći pad, onaj koji pripada najvećem elementu od $S\cup\{a\}$. Ako je $b=\max S\gt a$, uklanja se $b$: novi multiskup je $S-\{b\}\cup\{a\}$, a novo zadnje polje $g(m)$ iznosi $(x-a)+2b$ — drugo pravilo. Ako je $b\le a$ ili je $S$ prazan, uklanja se upravo umetnuti $a$: multiskup ostaje $S$, a novo zadnje polje $g(m)$ iznosi $(x-a)+2a$, tj. $x+a$ — treće pravilo.</li>
+</ul>
+<p>U sva tri slučaja novo stanje pohlepnog algoritma opisuje novu tablicu, čime je indukcija gotova. Odgovor na upit je najveći indeks za koji polje tablice postoji, a to je $|S|$ nakon zadnje karte.</p>
+</dodatak>
+
+<h2>Podzadatak 5 <span class="bodovi">21</span> <span class="slajd-ref">slajdovi 13–18</span></h2>
+<h3>Kompozicija funkcija u segmentnom stablu ($N\le2\times10^5$, $Q\le2\times10^5$, $A\le2$)</h3>
+<p>Odavde nadalje $Q$ je velik.</p>
+<p>U podzadatku 5 vrijedi $A\le2$ i moguće je pomalo posebno rješenje.</p>
+<p>Promotrimo li pohlepni algoritam iz podzadatka 4, od sadržaja prioritetnog reda dovoljno je pamtiti samo broj dvojki $y$.</p>
+<p>Stanje se može zapisati kao par cijelih brojeva $(x,y)$ ($0\le x\lt4$), a svaki element niza je funkcija koja djeluje na to stanje.</p>
+<p><b>Stavimo kompoziciju funkcija u segmentno stablo.</b><info naslov="Segmentno stablo nad kompozicijom funkcija"><p>Svaki list segmentnog stabla čuva funkciju $f_i$ (ovdje: kako karta $i$ mijenja stanje), a svaki unutarnji čvor kompoziciju funkcija svojeg intervala, redom slijeva nadesno. Kompozicija funkcija je asocijativna, pa se funkcija cijelog intervala $[L,R]$ dobiva slaganjem $O(\log N)$ čvorova; treba samo paziti na redoslijed, jer kompozicija općenito nije komutativna.</p><p>Da bi to bilo učinkovito, sve funkcije koje mogu nastati kompozicijom moraju imati kratak zapis, a zapis kompozicije mora se iz zapisa dviju funkcija računati u $O(1)$.</p></info></p>
+<p>Dovoljno je da se funkcije koje nastaju kompozicijom mogu zapisati kao podatak veličine $O(1)$.</p>
+<p>Ovisno o tome je li $A[i]=1$ ili $A[i]=2$, funkcije imaju sljedeći oblik.</p>
+<p>$A[i]=1$:</p>
+<ul>
+    <li>ako je $1\le x\lt4$: $(x,y)\longmapsto(x-1,y)$;</li>
+    <li>ako je $x=0$ i $y\ge1$: $(x,y)\longmapsto(3,y-1)$;</li>
+    <li>ako je $x=0$ i $y=0$: $(x,y)\longmapsto(1,0)$.</li>
+</ul>
+<p>$A[i]=2$:</p>
+<ul>
+    <li>ako je $0\le x\le1$: $(x,y)\longmapsto(x+2,y)$;</li>
+    <li>ako je $x\ge2$: $(x,y)\longmapsto(x-2,y+1)$.</li>
+</ul>
+<dodatak naslov="Odakle ta pravila i zašto je x manji od 4">
+<p>To su pravila sa slajda 9 za $a\in\{1,2\}$. Drugo pravilo ($a\gt x$ i $\max S\gt a$) moguće je samo za $a=1$, $x=0$ i multiskup $S$ koji sadrži dvojku; tada je $x:=0+2\cdot2-1=3$, a jedna dvojka u $S$ zamjenjuje se jedinicom, pa se $y$ smanji za $1$. Broj jedinica u $S$ ne utječe ni na jedan prijelaz i zato ga ne treba pamtiti. Za $A[i]=2$: ako je $x\ge2$, oduzimamo i $y$ raste za $1$; ako je $x\le1$, zbrajamo, jer u $S$ nema ničeg većeg od $2$.</p>
+<p>Vrijednost $x$ nikad ne prelazi $3$: zbraja se samo kad je $x\lt a\le2$, pa je nakon zbrajanja $x\le3$, a predomišljanje daje točno $x=3$.</p>
+</dodatak>
+<p>Uz $z:=x+4y$ sve postaje znatno jednostavnije.</p>
+<p>$A[i]=1$:</p>
+<ul>
+    <li>ako je $1\le z$: $z\longmapsto z-1$;</li>
+    <li>ako je $z=0$: $z\longmapsto1$.</li>
+</ul>
+<p>$A[i]=2$:</p>
+<ul>
+    <li>$z\longmapsto z+2$.</li>
+</ul>
+<p>Na kraju se dobivaju funkcije otprilike ovakvog oblika.</p>
+<skica sirina="460px">
+<svg viewBox="0 0 400 252" role="img" aria-label="Graf funkcije f(z): lijevo cik-cak koji se izmjenjuje između dviju susjednih vrijednosti, desno pravac nagiba 1">
+  <line class="brid" x1="48" y1="225" x2="48" y2="18"/>
+  <path d="M48 18 L51.0 24.3 L45.0 24.3 z" fill="#1b2a3a"/>
+  <line class="brid" x1="48" y1="225" x2="388" y2="225"/>
+  <path d="M388 225 L381.7 228.0 L381.7 222.0 z" fill="#1b2a3a"/>
+  <circle cx="64" cy="170" r="1.6" fill="#1b2a3a"/>
+  <circle cx="74" cy="170" r="1.6" fill="#1b2a3a"/>
+  <circle cx="84" cy="170" r="1.6" fill="#1b2a3a"/>
+  <circle cx="94" cy="170" r="1.6" fill="#1b2a3a"/>
+  <circle cx="104" cy="170" r="1.6" fill="#1b2a3a"/>
+  <polyline class="brid" style="stroke-width:1.5" points="124,170 150,144 176,170 202,144 228,170 254,144 280,170 384,66"/>
+  <text class="tekst" x="40" y="22" text-anchor="end"><tspan font-style="italic">f</tspan>(<tspan font-style="italic">z</tspan>)</text>
+  <text class="tekst" x="388" y="244" text-anchor="middle"><tspan font-style="italic">z</tspan></text>
+</svg>
+<natpis>Skica sa slajda 17: graf funkcije $f(z)$ koja nastaje kompozicijom. Za male $z$ funkcija se cik-cak izmjenjuje između dviju susjednih vrijednosti (točkice lijevo znače da se uzorak nastavlja), a od određenog mjesta nadalje je pravac nagiba $1$.</natpis>
+</skica>
+<dodatak naslov="Točan oblik tih funkcija i njihova kompozicija">
+<p>Obje osnovne funkcije imaju kratak zapis: karta $A[i]=1$ je $z\mapsto|z-1|$, a karta $A[i]=2$ je $z\mapsto z+2$ (za $z\ge0$). Svaka kompozicija takvih funkcija ima oblik sa skice i opisana je s dva cijela broja $(c,t)$, $t\ge0$, $t+c\ge0$:</p>
+\[
+F_{c,t}(z)=\begin{cases}
+z+c & (z\ge t),\\
+t+c+\big((t-z)\bmod2\big) & (z\lt t).
+\end{cases}
+\]
+<p>Desno od praga $t$ to je pravac nagiba $1$, a lijevo od praga funkcija naizmjence poprima vrijednosti $t+c$ i $t+c+1$. Karta $A[i]=1$ je $F_{-1,1}$, karta $A[i]=2$ je $F_{2,0}$, identiteta je $F_{0,0}$, a kompozicija „najprije $F_{c_1,t_1}$, zatim $F_{c_2,t_2}$” glasi</p>
+\[
+F_{c_2,t_2}\circ F_{c_1,t_1}=F_{\,c_1+c_2,\ \max(t_1,\ t_2-c_1)}.
+\]
+<p class="dokaz"><em>(Dokaz.)</em> Najmanja vrijednost prve funkcije je $m_1=t_1+c_1$. Ako je $m_1\ge t_2$, sve vrijednosti prve funkcije su desno od praga druge, pa druga samo dodaje $c_2$: rezultat je $F_{c_1+c_2,\,t_1}$, a zbog $t_2-c_1\le t_1$ to se slaže s formulom.</p>
+<p class="dokaz">Neka je $m_1\lt t_2$. Označimo s $w$ vrijednost prve funkcije i s</p>
+\[
+E(z)=t_2+c_2+\big((t_2-c_1-z)\bmod2\big)
+\]
+<p class="dokaz">vrijednost koju treba dobiti za $z\lt t_2-c_1$. Donji redak definicije druge funkcije,</p>
+\[
+t_2+c_2+\big((t_2-w)\bmod2\big),
+\]
+<p class="dokaz">točan je i u samom pragu $w=t_2$, pa ga smijemo koristiti za sve $w\le t_2$.</p>
+<ul>
+    <li>Za $z\ge t_2-c_1$ (što je veće od $t_1$) je $w=z+c_1\ge t_2$, pa je rezultat $z+c_1+c_2$.</li>
+    <li>Za $t_1\le z\lt t_2-c_1$ je $w=z+c_1\lt t_2$ i $t_2-w=t_2-c_1-z$, pa je rezultat $E(z)$.</li>
+    <li>Za $z\lt t_1$ je $w=m_1+\varepsilon$ uz $\varepsilon=(t_1-z)\bmod2$, što je najviše $m_1+1\le t_2$. Broj $t_2-w$ iste je parnosti kao $t_2-m_1-(t_1-z)$, a taj je jednak $t_2-c_1-2t_1+z$, što je iste parnosti kao $t_2-c_1-z$. Rezultat je opet $E(z)$.</li>
+</ul>
+<p class="dokaz">Dakle, kompozicija je $F_{c_1+c_2,\,t_2-c_1}$. Uvjet $t+c\ge0$ ostaje sačuvan: nova najmanja vrijednost jednaka je većem od brojeva $t_1+c_1+c_2$ i $t_2+c_2$, dakle iznosi barem $t_2+c_2\ge0$.</p>
+<p>Čvor segmentnog stabla čuva par $(c,t)$, a dva se čvora spajaju u $O(1)$.</p>
+</dodatak>
+<p>Stavimo li to u segmentno stablo, zadatak je riješen. Vrijeme: $O(N+Q\log N)$.</p>
+<p>Može se razmišljati i o tome da se pamti po jedna funkcija za svaki od slučajeva $x=0,1,2,3$, ali mislim da bi implementacija bila složenija nego gornjim načinom.</p>
+<p>Podzadaci $1+2+3+4+5$: JOI $51$ bod, JOIG $78$ bodova.</p>
+<dodatak naslov="Kako iz z očitati odgovor">
+<p>Za upit $[L,R]$ segmentno stablo vraća kompoziciju $F_{c,t}$ funkcija karata $L,\dots,R$. Početno stanje je $(x,y)=(0,0)$, tj. $z=0$, pa je završno stanje $z=F_{c,t}(0)$, odakle je $x=z\bmod4$ i $y=\lfloor z/4\rfloor$.</p>
+<p>Broj bodova je $|S|=n_1+y$, gdje je $n_1$ broj jedinica u $S$, koji nismo pamtili. Može se, međutim, izračunati. Neka je $T=A[L]+\dots+A[R]$ (prefiksne sume). Svaka oduzeta vrijednost $s$ smanjuje završni $x$ za $2s$ u odnosu na $T$, a zbroj elemenata multiskupa $S$ je $n_1+2y$. Zato je $x=T-2(n_1+2y)$, dakle $n_1=\frac{T-x}{2}-2y$ i</p>
+\[
+\text{odgovor}=n_1+y=\frac{T-x}{2}-y.
+\]
+</dodatak>
+
+<h2>Podzadaci 6 i 7 — puni bodovi <span class="bodovi">49</span> <span class="slajd-ref">slajdovi 19–27</span></h2>
+<h3>Drukčiji pohlepni algoritam ($N\le2\times10^5$, $Q\le2\times10^5$, $A\le100$)</h3>
+<p>Ograničenja podzadataka $6$ i $7$ ne razlikuju se bitno, pa ih objašnjavamo zajedno.</p>
+<p>S pohlepnim algoritmom iz podzadatka 4 obrazaca međustanja ima previše, pa mislim da je to teško.</p>
+<p>Razmotrimo potpuno drukčiji pohlepni algoritam.</p>
+<p>Obratimo pozornost na to da je broj različitih vrijednosti $A$ malen.</p>
+<p>Pokušajmo do odgovora doći računom u $100$ koraka, u kojem nešto računamo redom za $A=1,2,\dots,100$.</p>
+
+<h3>Za svaku vrijednost: najprije zbrajanja, zatim oduzimanja</h3>
+<p>Fiksirajmo $k$. Može li se odrediti strategija za sve $i$ za koje je $A[i]=k$?</p>
+<p>Smijemo pretpostaviti da postoji $p$ sa sljedećim svojstvom:</p>
+<ul>
+    <li><b>ako je $i\lt p$, onda se $A[i]=k$ koristi za zbrajanje;</b></li>
+    <li><b>ako je $p\le i$, onda se $A[i]=k$ koristi za oduzimanje.</b></li>
+</ul>
+<p>Dokaz je jednostavan <b>argument zamjene</b> (exchange argument)<info naslov="Argument zamjene (exchange argument)"><p>Uobičajena tehnika dokazivanja pohlepnih algoritama. Uzme se proizvoljno (optimalno) rješenje koje nema željeno svojstvo i pokaže se lokalna izmjena — zamjena dvaju izbora — koja rješenje ne pogoršava, a približava ga željenom obliku.</p><p>Ako se takve izmjene ne mogu ponavljati unedogled (jer neka omeđena veličina pri svakoj izmjeni strogo raste), nakon konačno mnogo koraka dobiva se jednako dobro rješenje koje ima željeno svojstvo. Zato se smije pretpostaviti da optimalno rješenje ima to svojstvo i tražiti ga samo među takvim rješenjima.</p></info>.</p>
+<p><b>Argument zamjene:</b> ako postoji rješenje koje ne zadovoljava (svojstvo), ovakvom zamjenom rješenje se ne pogoršava. Ponavljamo li zamjenu dokle god je moguće, dolazimo do rješenja koje zadovoljava (svojstvo). Dakle, postoji optimalno rješenje koje zadovoljava (svojstvo).</p>
+<skica sirina="460px">
+<svg viewBox="0 0 400 150" role="img" aria-label="Karte vrijednosti k prije i poslije zamjene: raniji minus i kasniji plus zamijene mjesta, pa su nakon zamjene svi plusevi ispred svih minusa">
+  <text class="tekst" x="6" y="29"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> = <tspan font-style="italic">k</tspan></tspan></text>
+  <rect class="cvor" x="62" y="12" width="24" height="24"/><text class="oznaka-cvora" x="74" y="24">+</text>
+  <rect class="cvor" x="86" y="12" width="24" height="24"/><text class="oznaka-cvora" x="98" y="24">+</text>
+  <rect class="cvor" x="134" y="12" width="24" height="24"/><text class="oznaka-cvora" x="146" y="24">+</text>
+  <rect class="cvor" x="182" y="12" width="24" height="24"/><text class="oznaka-cvora" x="194" y="24">+</text>
+  <rect class="cvor-plavi" x="206" y="12" width="24" height="24"/><text class="oznaka-cvora" x="218" y="24">−</text>
+  <rect class="cvor-istaknut" x="278" y="12" width="24" height="24"/><text class="oznaka-cvora" x="290" y="24">+</text>
+  <rect class="cvor" x="302" y="12" width="24" height="24"/><text class="oznaka-cvora" x="314" y="24">−</text>
+  <rect class="cvor" x="374" y="12" width="24" height="24"/><text class="oznaka-cvora" x="386" y="24">−</text>
+  <line class="brid" style="stroke-width:5" x1="242" y1="50" x2="242" y2="84"/>
+  <path d="M242 100 L230 82 L254 82 z" fill="#1b2a3a"/>
+  <text class="tekst" x="6" y="131"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> = <tspan font-style="italic">k</tspan></tspan></text>
+  <rect class="cvor" x="62" y="114" width="24" height="24"/><text class="oznaka-cvora" x="74" y="126">+</text>
+  <rect class="cvor" x="86" y="114" width="24" height="24"/><text class="oznaka-cvora" x="98" y="126">+</text>
+  <rect class="cvor" x="134" y="114" width="24" height="24"/><text class="oznaka-cvora" x="146" y="126">+</text>
+  <rect class="cvor" x="182" y="114" width="24" height="24"/><text class="oznaka-cvora" x="194" y="126">+</text>
+  <rect class="cvor-istaknut" x="206" y="114" width="24" height="24"/><text class="oznaka-cvora" x="218" y="126">+</text>
+  <rect class="cvor-plavi" x="278" y="114" width="24" height="24"/><text class="oznaka-cvora" x="290" y="126">−</text>
+  <rect class="cvor" x="302" y="114" width="24" height="24"/><text class="oznaka-cvora" x="314" y="126">−</text>
+  <rect class="cvor" x="374" y="114" width="24" height="24"/><text class="oznaka-cvora" x="386" y="126">−</text>
+</svg>
+<natpis>Skica sa slajda 21: karte s $A_i=k$ poredane po položaju, prije zamjene (gore) i poslije nje (dolje). Raniji minus (plavo polje) i kasniji plus (narančasto polje) zamijene mjesta; nakon zamjene svi plusevi stoje ispred svih minusa.</natpis>
+</skica>
+<dodatak naslov="Argument zamjene, korak po korak">
+<p>Neka u nekom dopuštenom rješenju postoje $i\lt j$ s $A[i]=A[j]=k$ takvi da se $A[i]$ oduzima, a $A[j]$ zbraja. Zamijenimo im uloge: $A[i]$ se zbraja, $A[j]$ se oduzima. Međurezultati nakon karata $i,\dots,j-1$ povećaju se za $2k$, a svi ostali ostaju isti. Zato nijedan međurezultat ne postaje negativan (rješenje ostaje dopušteno), a broj oduzimanja se ne mijenja.</p>
+<p>Svaka zamjena pomiče jedan minus udesno, pa zbroj položaja svih minusa strogo raste. Taj je zbroj omeđen, pa postupak staje nakon konačno mnogo zamjena, a tada među kartama vrijednosti $k$ nijedan minus nije ispred plusa.</p>
+</dodatak>
+
+<h3>Granice su monotone</h3>
+<p>Potpuno jednako kao gore vidi se da za optimalno rješenje smijemo pretpostaviti sljedeće:</p>
+<ul>
+    <li>ako je $a\gt b$, $A[i]=a$, $A[j]=b$: ako se $A[j]$ koristi za zbrajanje, onda se i $A[i]$ koristi za zbrajanje.</li>
+</ul>
+<p>Stoga su <b>položaji granica monotoni</b>. Skica rješenja je: sve te granice odrediti redom za $k=1,2,\dots,100$.</p>
+<skica sirina="460px">
+<svg viewBox="0 0 400 162" role="img" aria-label="Tri retka za vrijednosti 1, 2 i 3 duž osi i: u svakom retku lijevo područje plus, desno područje minus; granica je to desnije što je vrijednost veća">
+  <line class="brid" style="stroke-width:1.2" x1="62" y1="18" x2="370" y2="18"/>
+  <path d="M370 18 L364.6 20.5 L364.6 15.5 z" fill="#1b2a3a"/>
+  <text class="tekst" x="385" y="23" text-anchor="middle"><tspan font-style="italic">i</tspan></text>
+  <rect class="cvor-plavi" style="stroke:#1b2a3a;stroke-width:1.2" x="62" y="40" width="118" height="28"/>
+  <rect class="cvor-istaknut" style="stroke:#1b2a3a;stroke-width:1.2" x="180" y="40" width="190" height="28"/>
+  <text class="oznaka-cvora" x="121" y="54">+</text>
+  <text class="oznaka-cvora" x="275" y="54">−</text>
+  <text class="tekst" x="6" y="59"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> = 1</tspan></text>
+  <rect class="cvor-plavi" style="stroke:#1b2a3a;stroke-width:1.2" x="62" y="68" width="166" height="28"/>
+  <rect class="cvor-istaknut" style="stroke:#1b2a3a;stroke-width:1.2" x="228" y="68" width="142" height="28"/>
+  <text class="oznaka-cvora" x="145" y="82">+</text>
+  <text class="oznaka-cvora" x="299" y="82">−</text>
+  <text class="tekst" x="6" y="87"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> = 2</tspan></text>
+  <rect class="cvor-plavi" style="stroke:#1b2a3a;stroke-width:1.2" x="62" y="96" width="213" height="28"/>
+  <rect class="cvor-istaknut" style="stroke:#1b2a3a;stroke-width:1.2" x="275" y="96" width="95" height="28"/>
+  <text class="oznaka-cvora" x="168.5" y="110">+</text>
+  <text class="oznaka-cvora" x="322.5" y="110">−</text>
+  <text class="tekst" x="6" y="115"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> = 3</tspan></text>
+  <circle cx="30" cy="135" r="1.6" fill="#1b2a3a"/>
+  <circle cx="30" cy="143" r="1.6" fill="#1b2a3a"/>
+  <circle cx="30" cy="151" r="1.6" fill="#1b2a3a"/>
+</svg>
+<natpis>Skica sa slajda 22: os položaja $i$ i po jedan redak za $A_i=1$, $A_i=2$, $A_i=3$, … U svakom retku lijevo je područje zbrajanja ($+$), desno područje oduzimanja ($-$); što je vrijednost veća, granica je desnije.</natpis>
+</skica>
+<dodatak naslov="Preciznije o monotonosti granica">
+<p>Tvrdnju sa slajda treba čitati uz $i\lt j$, kako je i nacrtano: ako se manja vrijednost $A[j]=b$ zbraja, onda se zbraja i svaka veća vrijednost $A[i]=a$ koja je <em>lijevo</em> od nje. Dokaz je ista zamjena. Neka je $i\lt j$, $a\gt b$, i neka se $A[i]$ oduzima, a $A[j]$ zbraja. Nakon zamjene uloga međurezultati nakon karata $i,\dots,j-1$ povećaju se za $2a$, a oni nakon karata $j,j+1,\dots$ za $2(a-b)\gt0$. Rješenje ostaje dopušteno, broj oduzimanja je isti, a minus se opet pomaknuo udesno, pa i ovdje postupak staje.</p>
+<p>Obje vrste zamjena zajedno daju optimalno rješenje u kojem ne postoje $i\lt j$ s $A[i]\ge A[j]$ takvi da se $A[i]$ oduzima, a $A[j]$ zbraja. Za upit $[L,R]$ to znači da postoje pragovi</p>
+\[
+L-1\le p_1\le p_2\le\dots\le p_{100}\le R
+\]
+<p>takvi da se karta $i$ zbraja točno onda kad je $i\le p_{A[i]}$: za $p_k$ se uzme položaj zadnje zbrojene karte vrijednosti najviše $k$ (odnosno $L-1$ ako takve karte nema).</p>
+</dodatak>
+
+<h3>Broj zbrajanja najmanje vrijednosti smije se minimizirati</h3>
+<p>Granice određujemo redom za $k=1,2,3,\dots$</p>
+<p>Za $k=1$ može se dokazati sljedeće:</p>
+<ul>
+    <li><b>Broj korištenja $A[i]=1$ za zbrajanje smije se minimizirati.</b> Točnije: ako je, u slučaju da se sve karte s $A[i]\gt1$ zbrajaju, najmanji mogući broj zbrajanja jedinica jednak $n$, onda postoji optimalno rješenje u kojem je broj zbrajanja jedinica jednak $n$.</li>
+</ul>
+<p>I to se može dokazati argumentom zamjene (zamjena zbrajanja najmanje vrijednosti i prvog oduzimanja vrijednosti koja nije najmanja).</p>
+<skica sirina="460px">
+<svg viewBox="0 0 400 100" role="img" aria-label="Gornji redak: karte veće od 1 – četiri plusa pa prvi minus (istaknut). Donji redak: jedinice – plusevi, zadnji plus istaknut, zatim minusi. Istaknuti plus jedinice lijevo je od istaknutog minusa veće vrijednosti">
+  <text class="tekst" x="6" y="27"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> &gt; 1</tspan></text>
+  <text class="tekst" x="6" y="83"><tspan font-style="italic">A</tspan><tspan dy="4" font-size="10">i</tspan><tspan dy="-4"> = 1</tspan></text>
+  <rect class="cvor" x="110" y="10" width="24" height="24"/><text class="oznaka-cvora" x="122" y="22">+</text>
+  <rect class="cvor" x="158" y="10" width="24" height="24"/><text class="oznaka-cvora" x="170" y="22">+</text>
+  <rect class="cvor" x="254" y="10" width="24" height="24"/><text class="oznaka-cvora" x="266" y="22">+</text>
+  <rect class="cvor" x="302" y="10" width="24" height="24"/><text class="oznaka-cvora" x="314" y="22">+</text>
+  <rect class="cvor-istaknut" x="326" y="10" width="24" height="24"/><text class="oznaka-cvora" x="338" y="22">−</text>
+  <rect class="cvor" x="62" y="66" width="24" height="24"/><text class="oznaka-cvora" x="74" y="78">+</text>
+  <rect class="cvor" x="86" y="66" width="24" height="24"/><text class="oznaka-cvora" x="98" y="78">+</text>
+  <rect class="cvor" x="134" y="66" width="24" height="24"/><text class="oznaka-cvora" x="146" y="78">+</text>
+  <rect class="cvor" x="182" y="66" width="24" height="24"/><text class="oznaka-cvora" x="194" y="78">+</text>
+  <rect class="cvor-plavi" x="206" y="66" width="24" height="24"/><text class="oznaka-cvora" x="218" y="78">+</text>
+  <rect class="cvor" x="230" y="66" width="24" height="24"/><text class="oznaka-cvora" x="242" y="78">−</text>
+  <rect class="cvor" x="278" y="66" width="24" height="24"/><text class="oznaka-cvora" x="290" y="78">−</text>
+  <circle cx="360" cy="22" r="1.5" fill="#1b2a3a"/>
+  <circle cx="368" cy="22" r="1.5" fill="#1b2a3a"/>
+  <circle cx="376" cy="22" r="1.5" fill="#1b2a3a"/>
+  <circle cx="384" cy="22" r="1.5" fill="#1b2a3a"/>
+  <circle cx="392" cy="22" r="1.5" fill="#1b2a3a"/>
+  <circle cx="360" cy="78" r="1.5" fill="#1b2a3a"/>
+  <circle cx="368" cy="78" r="1.5" fill="#1b2a3a"/>
+  <circle cx="376" cy="78" r="1.5" fill="#1b2a3a"/>
+  <circle cx="384" cy="78" r="1.5" fill="#1b2a3a"/>
+  <circle cx="392" cy="78" r="1.5" fill="#1b2a3a"/>
+</svg>
+<natpis>Skica sa slajda 23: gornji redak su karte s $A_i\gt1$, donji karte s $A_i=1$, obje poredane po položaju. Zamjenjuju se zadnje zbrajanje jedinice (plavo polje) i prvo oduzimanje veće vrijednosti (narančasto polje), koje je desno od njega.</natpis>
+</skica>
+<dodatak naslov="Dokaz argumentom zamjene">
+<p>Nazovimo <em>referentnim</em> rješenje u kojem se sve vrijednosti veće od $1$ zbrajaju, prvih $n$ jedinica se zbraja, a ostale jedinice se oduzimaju. Po definiciji broja $n$ ono je dopušteno (zbrojene jedinice smiju se uzeti kao prvih $n$ zbog svojstva sa slajda 20).</p>
+<p>Uzmimo optimalno rješenje sa svojstvima sa slajdova 20 i 22 i neka ono zbraja $n'$ jedinica — prvih $n'$.</p>
+<ul>
+    <li><b>$n'\ge n$.</b> Pretvorimo li u njemu sva oduzimanja vrijednosti većih od $1$ u zbrajanja, međurezultati samo rastu, pa dobivamo dopušteno rješenje u kojem se sve veće vrijednosti zbrajaju, a jedinica se zbraja $n'$. Po minimalnosti broja $n$ je $n'\ge n$.</li>
+    <li><b>Ako je $n'\gt n$, može se smanjiti za 1.</b> Neka je $q$ položaj zadnje zbrojene jedinice (plavo polje na skici), a $r$ položaj prvog oduzimanja vrijednosti veće od $1$ (narančasto polje). Takav $r$ postoji: inače bi se sve veće vrijednosti zbrajale, pa bi referentno rješenje imalo $n'-n$ oduzimanja više, suprotno optimalnosti. Po svojstvu sa slajda 22 sve vrijednosti veće od $1$ lijevo od $q$ se zbrajaju, pa je $q\lt r$. Zamijenimo uloge: jedinicu na položaju $q$ oduzimamo, a $A[r]$ zbrajamo. Broj oduzimanja ostaje isti. Međurezultati nakon karata $r,r+1,\dots$ povećaju se za $2(A[r]-1)\gt0$. Međurezultati nakon karata $q,\dots,r-1$ smanje se za $2$, ali ostaju nenegativni: do karte $r-1$ novo rješenje zbraja sve vrijednosti veće od $1$ i prvih $n'-1\ge n$ jedinica, pa su mu međurezultati ondje barem toliki kao u referentnom rješenju.</li>
+</ul>
+<p>Novo rješenje je opet optimalno, zbraja jednu jedinicu manje i zadržava svojstva sa slajdova 20 i 22: novo zbrojena karta $r$ bila je prvo oduzimanje među svim većim vrijednostima, a novo oduzeta jedinica bila je zadnja zbrojena. Ponavljanjem dolazimo do optimalnog rješenja s točno $n$ zbrojenih jedinica.</p>
+</dodatak>
+
+<h3>Sažetak rješenja</h3>
+<p>Sažmemo li rješenje, dobivamo sljedeće.</p>
+<p>Među svim $i$ s $A[i]=1$ nađemo mjesto $p$ zadnjeg koji se zbraja.</p>
+<ul>
+    <li>To je najveći $p$ takav da, ako se od tog mjesta nadalje sve oduzima, nastaje proturječje.</li>
+</ul>
+<p>Do mjesta $p$ sve je (uključujući $A[i]\ge2$) određeno kao zbrajanje. Od mjesta $p$ nadalje za $A[i]=1$ sve je određeno kao oduzimanje.</p>
+<p>Od mjesta $p$ nadalje rješavamo problem određivanja strategije za $A[i]\ge2$. Granicu za mjesta s $A[i]=2$ odredimo na isti način i tako nastavljamo rekurzivno.</p>
+<skica sirina="460px">
+<svg viewBox="0 0 400 166" role="img" aria-label="Tri retka plus/minus s monotonim granicama. Crveni okvir obuhvaća cijeli problem, a crvena crta je granica prvog retka; plavi okvir obuhvaća dio desno od te granice od drugog retka nadolje, a plava crta je granica drugog retka">
+  <rect class="cvor-plavi" style="stroke:#1b2a3a;stroke-width:1.2" x="18" y="19" width="140" height="28"/>
+  <rect class="cvor-istaknut" style="stroke:#1b2a3a;stroke-width:1.2" x="158" y="19" width="224" height="28"/>
+  <rect class="cvor-plavi" style="stroke:#1b2a3a;stroke-width:1.2" x="18" y="47" width="196" height="28"/>
+  <rect class="cvor-istaknut" style="stroke:#1b2a3a;stroke-width:1.2" x="214" y="47" width="168" height="28"/>
+  <rect class="cvor-plavi" style="stroke:#1b2a3a;stroke-width:1.2" x="18" y="75" width="251" height="28"/>
+  <rect class="cvor-istaknut" style="stroke:#1b2a3a;stroke-width:1.2" x="269" y="75" width="113" height="28"/>
+  <text class="oznaka-cvora" x="88" y="33">+</text>
+  <text class="oznaka-cvora" x="269" y="33">−</text>
+  <text class="oznaka-cvora" x="115" y="61">+</text>
+  <text class="oznaka-cvora" x="297" y="61">−</text>
+  <text class="oznaka-cvora" x="143" y="89">+</text>
+  <text class="oznaka-cvora" x="326" y="89">−</text>
+  <line class="brid-tezak" x1="158" y1="19" x2="158" y2="47"/>
+  <line x1="214" y1="47" x2="214" y2="75" stroke="#1f618d" stroke-width="4"/>
+  <rect x="4" y="5" width="392" height="155" rx="22" fill="none" stroke="#c0392b" stroke-width="2"/>
+  <rect x="151" y="40" width="238" height="112" rx="16" fill="none" stroke="#1f618d" stroke-width="2"/>
+</svg>
+<natpis>Skica sa slajda 25 (slajd sadrži samo crtež): reci su vrijednosti $1$, $2$, $3$ s područjima $+$ i $-$. Crveni okvir je cijeli problem, a crvena crta granica $p$ za vrijednost $1$. Plavi okvir je potproblem koji preostaje — dio desno od $p$ za vrijednosti $\ge2$ — a plava crta je granica za vrijednost $2$, koja se u njemu određuje na isti način.</natpis>
+</skica>
+<dodatak naslov="Zašto se isti korak smije ponavljati">
+<p>Na slajdu 24 „sve” se odnosi na karte s $A[i]=1$, a „proturječje” znači da neki međurezultat postaje negativan: $p$ je položaj $n$-te jedinice, jer oduzimanje svih jedinica od $n$-te nadalje ostavlja samo $n-1$ zbrojenih, što nije dopušteno, a za svaku kasniju jedinicu jest (ako je $n=0$, nijedna se jedinica ne zbraja i granica ostaje na početku). Sve karte lijevo od $p$ se zbrajaju: jedinice po svojstvu sa slajda 20, a veće vrijednosti po svojstvu sa slajda 22.</p>
+<p>U fazi $k$ već je odlučeno o svim kartama do dosadašnje granice $p$ i o svim kartama vrijednosti manje od $k$ (one se desno od $p$ oduzimaju). Pritom vrijedi invarijanta:</p>
+<ul>
+    <li>(a) postoji optimalno rješenje sa svojstvima sa slajdova 20 i 22 koje se slaže sa svim dosadašnjim odlukama;</li>
+    <li>(b) dopušteno je rješenje koje se slaže s dosadašnjim odlukama, a desno od $p$ zbraja sve karte vrijednosti $\ge k$ (dobiva se iz (a) pretvaranjem oduzimanja u zbrajanja).</li>
+</ul>
+<p>Dokaz tvrdnje sa slajda 23 prenosi se doslovno: umjesto jedinica gledamo karte vrijednosti $k$ desno od $p$, umjesto vrijednosti većih od $1$ vrijednosti veće od $k$, a već odlučeni dio jednak je u svim rješenjima koja se uspoređuju. Nova granica je položaj zadnje zbrojene karte vrijednosti $k$ (ili ostaje stara ako se nijedna ne zbraja). Sve karte većih vrijednosti lijevo od nje zbrajaju se po svojstvu sa slajda 22, pa je nakon faze opet odlučeno o svemu do granice i invarijanta vrijedi za $k+1$. Nakon faze $k=100$ odlučeno je o svim kartama, pa je dobiveno rješenje optimalno.</p>
+</dodatak>
+
+<h3>Što se računa u svakoj fazi</h3>
+<p>U svakoj fazi rješavamo problem: uz pretpostavku „sve manje od $k$ se oduzima, sve od $k+1$ naviše se zbraja”, koliko se karata vrijednosti $k$ može oduzeti?</p>
+<p>Za svaki $k$ držimo po jednu strukturu podataka koja to omogućuje.</p>
+<p>Kad se potrebni računi srede, vidi se da je dovoljan <b>range minimum query</b> (RMQ)<info naslov="RMQ (range minimum query)"><p>Upit najmanjeg elementa na intervalu: za niz $a_1,\dots,a_n$ i par $(l,r)$ treba vratiti $\min\{a_l,\dots,a_r\}$. Ako se niz ne mijenja (statički niz), upiti se mogu rješavati segmentnim stablom ($O(n)$ izgradnja i memorija, $O(\log n)$ po upitu) ili sparse tablicom ($O(n\log n)$ izgradnja i memorija, $O(1)$ po upitu).</p><p>Ovdje treba po jedan niz za svaki $k$, dakle $100$ nizova duljine $N$. Sto sparse tablica zauzelo bi oko $100\cdot2\cdot10^5\cdot18$ brojeva, tj. oko $1{,}4$ GB uz 32-bitne brojeve, što je više od memorijskog ograničenja zadatka ($1024$ MB); sto segmentnih stabala s po $2N$ čvorova zauzima oko $160$ MB.</p></info> nad statičkim nizom.</p>
+<p>Na primjer, segmentnim stablom zadatak se rješava u $O(AN+QA\log N)$ vremena.</p>
+<p>Podzadaci $1+2+3+4+5+6$: JOI $80$ bodova, JOIG $92$ boda.</p>
+<p>Podzadaci $1+2+3+4+5+6+7$: JOI $100$ bodova, JOIG $100$ bodova.</p>
+<dodatak naslov="Sređeni račun: jedan RMQ po fazi">
+<p>Za svaki $k=0,1,\dots,100$ neka je $P_k$ statički niz prefiksnih zbrojeva u kojima se vrijednosti $\le k$ oduzimaju, a veće zbrajaju:</p>
+\[
+P_k(t)=\sum_{i=1}^{t}\varepsilon_k(i)\,A[i],\qquad
+\varepsilon_k(i)=\begin{cases}-1 & (A[i]\le k),\\ +1 & (A[i]\gt k).\end{cases}
+\]
+<p>Za upit $[L,R]$ kroz faze $k=1,2,\dots,100$ održavamo granicu $p$ (na početku $p=L-1$) i vrijednost $C$ varijable $x$ nakon karte $p$ (na početku $C=0$). Faza $k$, ako je $p\lt R$:</p>
 <ol>
-    <li>Za svaku vrijednost $k$ postoji prag $p_k$: pojave $k$ prije $p_k$ zbrajamo, od $p_k$ oduzimamo (rano oduzimanje ↔ kasno zbrajanje: zamjena samo povećava međuvrijednosti).</li>
-    <li>Pragovi su monotoni: $p_1\le p_2\le\dots\le p_{100}$ (ako se manja vrijednost zbraja, veća se zbraja).</li>
-    <li>Broj zbrajanja najmanje vrijednosti smije se minimizirati (zamijeni zbrajanje minimuma i prvo oduzimanje nečeg većeg).</li>
+    <li>Pokusno oduzmemo <em>sve</em> karte vrijednosti $k$ desno od $p$; manje vrijednosti ondje se već oduzimaju, a veće se zbrajaju. Međurezultat nakon karte $t$ tada je
+    \[
+    Y(t)=C+P_k(t)-P_k(p),
+    \]
+    a najmanji među njima,
+    \[
+    m=C-P_k(p)+\min_{p\lt t\le R}P_k(t),
+    \]
+    dobiva se jednim RMQ-om nad nizom $P_k$.</li>
+    <li>Najmanji broj karata vrijednosti $k$ koje treba zbrojiti je
+    \[
+    n=\max\Big(0,\ \Big\lceil\frac{-m}{2k}\Big\rceil\Big).
+    \]</li>
+    <li>Ako je $n\gt0$, nova granica $p'$ je položaj $n$-te karte vrijednosti $k$ desno od $p$, a $C$ se poveća za $P_{k-1}(p')-P_{k-1}(p)$ (na dijelu $(p,p']$ vrijednosti manje od $k$ se oduzimaju, a sve ostale zbrajaju). Ako je $n=0$, granica i $C$ ostaju isti. Karte vrijednosti $k$ desno od (nove) granice se oduzimaju; njihov broj pribrajamo odgovoru.</li>
 </ol>
-<p>Algoritam po upitu, $k=1,2,\dots,100$: uz pretpostavku „vrijednosti $\lt k$ oduzete (u sufiksu od $p_{k-1}$), $\gt k$ zbrojene”, nađi najmanji $p_k\ge p_{k-1}$ takav da je oduzimanje svih $k$-ova od $p_k$ nadalje izvedivo ($x\ge0$ uvijek); izvedivost je monotona u $p_k$ (pomicanje udesno pretvara oduzimanje u zbrajanje), pa binarna pretraga. Provjera: 100 statičkih prefiksnih nizova $P_k$ (predznak $-$ za vrijednosti $\le k$, $+$ inače) i RMQ minimuma na sufiksu intervala: uvjet je $C+\min_{t\in[p_k,R]}(P_k(t)-P_k(p_k-1))\ge0$, gdje je $C$ vrijednost $x$ neposredno prije $p_k$ (iz ranijih pragova). Ukupno $O(AN+QA\log N)$ sa segmentnim stablima (100 sparse tablica ne stane u memoriju). Ako je pretijesno: obradi upite paralelno po $k$ (jedno stablo), ili offline RMQ s DSU-om.</p>
+<p class="dokaz"><em>(Zašto je formula za $n$ točna.)</em> Neka se zbraja prvih $j$ karata vrijednosti $k$ desno od $p$ i neka je $c(t)$ broj takvih karata na položajima $p+1,\dots,t$. Svako pretvaranje oduzimanja u zbrajanje povećava kasnije međurezultate za $2k$, pa je međurezultat nakon karte $t$ jednak $Y(t)+2k\cdot\min(j,c(t))$.</p>
+<ul>
+    <li><em>Nužnost.</em> Na mjestu $t^\ast$ na kojem je $Y(t^\ast)=m$ međurezultat je najviše $m+2kj$, pa mora biti $m+2kj\ge0$, tj. $j\ge\frac{-m}{2k}$.</li>
+    <li><em>Dovoljnost.</em> Neka je $m+2kj\ge0$. Za $t$ s $c(t)\ge j$ međurezultat je $Y(t)+2kj$, a to je barem $m+2kj\ge0$. Za $t$ s $c(t)\lt j$ sve karte vrijednosti $k$ do mjesta $t$ se zbrajaju, pa je međurezultat isti kao u rješenju iz invarijante (b), koje je dopušteno.</li>
+</ul>
+<p>Najmanji dopušteni $j$ je dakle $n$. Zbrajanje svih karata vrijednosti $k$ dopušteno je po (b), pa $n$ nije veći od njihova broja desno od $p$ i položaj $p'$ postoji. Dobiveno rješenje (prvih $n$ zbrojeno, ostale oduzete, veće vrijednosti zbrojene) upravo je rješenje iz invarijante (b) za sljedeću fazu.</p>
+<p>Položaj $n$-te karte vrijednosti $k$ desno od $p$ čita se iz popisa položaja karata vrijednosti $k$ i broja takvih karata do mjesta $p$ — taj je broj $\frac{P_{k-1}(p)-P_k(p)}{2k}$ ili se čita iz prefiksnih brojača. Jedina operacija koja nije $O(1)$ je RMQ, pa $100$ nizova i struktura za RMQ stoji $O(AN)$, a svaki upit $O(A\log N)$ — ukupno $O(AN+QA\log N)$, kao na slajdu.</p>
+</dodatak>
+<dodatak naslov="Primjer: faze na nizu 2, 1, 1, 1, 2, 3, 2, 1, 3">
+<p>Jedan upit nad cijelim nizom $A=(2,1,1,1,2,3,2,1,3)$. Plava polja su već odlučena zbrajanja, narančasta već odlučena oduzimanja, siva su pokusna oduzimanja u trenutnoj fazi, a bijela su veće vrijednosti, koje se zasad zbrajaju. Ispod svake karte je međurezultat $x$ nakon nje.</p>
+<okviri naslov="Određivanje granica redom za k = 1, 2, 3" vrsta="koraci">
+<okvir>
+<svg style="max-width:480px" viewBox="0 0 330 170" role="img" aria-label="Faza k = 1: sve jedinice pokusno oduzete; međurezultati 2, 1, 0, −1, 1, 4, 6, 5, 8">
+  <text class="tekst-mali" x="6" y="15"><tspan font-style="italic">i</tspan></text>
+  <text class="tekst" x="6" y="33"><tspan font-style="italic">A</tspan>[<tspan font-style="italic">i</tspan>]</text>
+  <text class="tekst" x="6" y="92"><tspan font-style="italic">x</tspan></text>
+  <text class="tekst-mali" x="53.5" y="15" text-anchor="middle">1</text>
+  <text class="tekst" x="53.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor" x="40" y="42" width="27" height="27"/><text class="oznaka-cvora" x="53.5" y="55.5">+</text>
+  <text class="tekst" x="53.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="85.5" y="15" text-anchor="middle">2</text>
+  <text class="tekst" x="85.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-sivi" x="72" y="42" width="27" height="27"/><text class="oznaka-cvora" x="85.5" y="55.5">−</text>
+  <text class="tekst" x="85.5" y="92" text-anchor="middle">1</text>
+  <text class="tekst-mali" x="117.5" y="15" text-anchor="middle">3</text>
+  <text class="tekst" x="117.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-sivi" x="104" y="42" width="27" height="27"/><text class="oznaka-cvora" x="117.5" y="55.5">−</text>
+  <text class="tekst" x="117.5" y="92" text-anchor="middle">0</text>
+  <text class="tekst-mali" x="149.5" y="15" text-anchor="middle">4</text>
+  <text class="tekst" x="149.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-sivi" x="136" y="42" width="27" height="27"/><text class="oznaka-cvora" x="149.5" y="55.5">−</text>
+  <text class="tekst-naglasen" x="149.5" y="92" text-anchor="middle">−1</text>
+  <text class="tekst-mali" x="181.5" y="15" text-anchor="middle">5</text>
+  <text class="tekst" x="181.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor" x="168" y="42" width="27" height="27"/><text class="oznaka-cvora" x="181.5" y="55.5">+</text>
+  <text class="tekst" x="181.5" y="92" text-anchor="middle">1</text>
+  <text class="tekst-mali" x="213.5" y="15" text-anchor="middle">6</text>
+  <text class="tekst" x="213.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor" x="200" y="42" width="27" height="27"/><text class="oznaka-cvora" x="213.5" y="55.5">+</text>
+  <text class="tekst" x="213.5" y="92" text-anchor="middle">4</text>
+  <text class="tekst-mali" x="245.5" y="15" text-anchor="middle">7</text>
+  <text class="tekst" x="245.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor" x="232" y="42" width="27" height="27"/><text class="oznaka-cvora" x="245.5" y="55.5">+</text>
+  <text class="tekst" x="245.5" y="92" text-anchor="middle">6</text>
+  <text class="tekst-mali" x="277.5" y="15" text-anchor="middle">8</text>
+  <text class="tekst" x="277.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-sivi" x="264" y="42" width="27" height="27"/><text class="oznaka-cvora" x="277.5" y="55.5">−</text>
+  <text class="tekst" x="277.5" y="92" text-anchor="middle">5</text>
+  <text class="tekst-mali" x="309.5" y="15" text-anchor="middle">9</text>
+  <text class="tekst" x="309.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor" x="296" y="42" width="27" height="27"/><text class="oznaka-cvora" x="309.5" y="55.5">+</text>
+  <text class="tekst" x="309.5" y="92" text-anchor="middle">8</text>
+  <text class="tekst" x="8" y="138">Pokus: sve jedinice oduzete.</text>
+  <text class="tekst" x="8" y="159">k = 1:  C = 0,  m = −1,  n = ⌈1/2⌉ = 1</text>
+</svg>
+<natpis>Faza $k=1$: $p=0$, $C=0$. Uz sve jedinice oduzete međurezultati su $2,1,0,-1,1,4,6,5,8$, dakle $m=-1$ i $n=\lceil1/2\rceil=1$. Zbraja se prva jedinica (položaj $2$), ostale tri se oduzimaju.</natpis>
+</okvir>
+<okvir>
+<svg style="max-width:480px" viewBox="0 0 330 170" role="img" aria-label="Faza k = 2: granica p = 2; dvojke desno od p pokusno oduzete; međurezultati 2, 3, 2, 1, −1, 2, 0, −1, 2">
+  <text class="tekst-mali" x="6" y="15"><tspan font-style="italic">i</tspan></text>
+  <text class="tekst" x="6" y="33"><tspan font-style="italic">A</tspan>[<tspan font-style="italic">i</tspan>]</text>
+  <text class="tekst" x="6" y="92"><tspan font-style="italic">x</tspan></text>
+  <text class="tekst-mali" x="53.5" y="15" text-anchor="middle">1</text>
+  <text class="tekst" x="53.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-plavi" x="40" y="42" width="27" height="27"/><text class="oznaka-cvora" x="53.5" y="55.5">+</text>
+  <text class="tekst" x="53.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="85.5" y="15" text-anchor="middle">2</text>
+  <text class="tekst" x="85.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-plavi" x="72" y="42" width="27" height="27"/><text class="oznaka-cvora" x="85.5" y="55.5">+</text>
+  <text class="tekst" x="85.5" y="92" text-anchor="middle">3</text>
+  <text class="tekst-mali" x="117.5" y="15" text-anchor="middle">3</text>
+  <text class="tekst" x="117.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="104" y="42" width="27" height="27"/><text class="oznaka-cvora" x="117.5" y="55.5">−</text>
+  <text class="tekst" x="117.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="149.5" y="15" text-anchor="middle">4</text>
+  <text class="tekst" x="149.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="136" y="42" width="27" height="27"/><text class="oznaka-cvora" x="149.5" y="55.5">−</text>
+  <text class="tekst" x="149.5" y="92" text-anchor="middle">1</text>
+  <text class="tekst-mali" x="181.5" y="15" text-anchor="middle">5</text>
+  <text class="tekst" x="181.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-sivi" x="168" y="42" width="27" height="27"/><text class="oznaka-cvora" x="181.5" y="55.5">−</text>
+  <text class="tekst-naglasen" x="181.5" y="92" text-anchor="middle">−1</text>
+  <text class="tekst-mali" x="213.5" y="15" text-anchor="middle">6</text>
+  <text class="tekst" x="213.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor" x="200" y="42" width="27" height="27"/><text class="oznaka-cvora" x="213.5" y="55.5">+</text>
+  <text class="tekst" x="213.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="245.5" y="15" text-anchor="middle">7</text>
+  <text class="tekst" x="245.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-sivi" x="232" y="42" width="27" height="27"/><text class="oznaka-cvora" x="245.5" y="55.5">−</text>
+  <text class="tekst" x="245.5" y="92" text-anchor="middle">0</text>
+  <text class="tekst-mali" x="277.5" y="15" text-anchor="middle">8</text>
+  <text class="tekst" x="277.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="264" y="42" width="27" height="27"/><text class="oznaka-cvora" x="277.5" y="55.5">−</text>
+  <text class="tekst-naglasen" x="277.5" y="92" text-anchor="middle">−1</text>
+  <text class="tekst-mali" x="309.5" y="15" text-anchor="middle">9</text>
+  <text class="tekst" x="309.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor" x="296" y="42" width="27" height="27"/><text class="oznaka-cvora" x="309.5" y="55.5">+</text>
+  <text class="tekst" x="309.5" y="92" text-anchor="middle">2</text>
+  <line class="brid-tezak" style="stroke-width:3" x1="101.5" y1="4" x2="101.5" y2="98"/>
+  <text class="tekst-naglasen" x="101.5" y="114" text-anchor="middle"><tspan font-style="italic">p</tspan> = 2</text>
+  <text class="tekst" x="8" y="138">Pokus: sve dvojke desno od p oduzete.</text>
+  <text class="tekst" x="8" y="159">k = 2:  C = 3,  m = −1,  n = ⌈1/4⌉ = 1</text>
+</svg>
+<natpis>Faza $k=2$: $p=2$, $C=3$. Uz dvojke desno od $p$ oduzete međurezultati desno od $p$ su $2,1,-1,2,0,-1,2$, dakle $m=-1$ i $n=\lceil1/4\rceil=1$. Zbraja se prva dvojka desno od $p$ (položaj $5$), a dvojka na položaju $7$ se oduzima.</natpis>
+</okvir>
+<okvir>
+<svg style="max-width:480px" viewBox="0 0 330 170" role="img" aria-label="Faza k = 3: granica p = 5; trojke desno od p pokusno oduzete; međurezultati 2, 3, 2, 1, 3, 0, −2, −3, −6">
+  <text class="tekst-mali" x="6" y="15"><tspan font-style="italic">i</tspan></text>
+  <text class="tekst" x="6" y="33"><tspan font-style="italic">A</tspan>[<tspan font-style="italic">i</tspan>]</text>
+  <text class="tekst" x="6" y="92"><tspan font-style="italic">x</tspan></text>
+  <text class="tekst-mali" x="53.5" y="15" text-anchor="middle">1</text>
+  <text class="tekst" x="53.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-plavi" x="40" y="42" width="27" height="27"/><text class="oznaka-cvora" x="53.5" y="55.5">+</text>
+  <text class="tekst" x="53.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="85.5" y="15" text-anchor="middle">2</text>
+  <text class="tekst" x="85.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-plavi" x="72" y="42" width="27" height="27"/><text class="oznaka-cvora" x="85.5" y="55.5">+</text>
+  <text class="tekst" x="85.5" y="92" text-anchor="middle">3</text>
+  <text class="tekst-mali" x="117.5" y="15" text-anchor="middle">3</text>
+  <text class="tekst" x="117.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="104" y="42" width="27" height="27"/><text class="oznaka-cvora" x="117.5" y="55.5">−</text>
+  <text class="tekst" x="117.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="149.5" y="15" text-anchor="middle">4</text>
+  <text class="tekst" x="149.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="136" y="42" width="27" height="27"/><text class="oznaka-cvora" x="149.5" y="55.5">−</text>
+  <text class="tekst" x="149.5" y="92" text-anchor="middle">1</text>
+  <text class="tekst-mali" x="181.5" y="15" text-anchor="middle">5</text>
+  <text class="tekst" x="181.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-plavi" x="168" y="42" width="27" height="27"/><text class="oznaka-cvora" x="181.5" y="55.5">+</text>
+  <text class="tekst" x="181.5" y="92" text-anchor="middle">3</text>
+  <text class="tekst-mali" x="213.5" y="15" text-anchor="middle">6</text>
+  <text class="tekst" x="213.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor-sivi" x="200" y="42" width="27" height="27"/><text class="oznaka-cvora" x="213.5" y="55.5">−</text>
+  <text class="tekst" x="213.5" y="92" text-anchor="middle">0</text>
+  <text class="tekst-mali" x="245.5" y="15" text-anchor="middle">7</text>
+  <text class="tekst" x="245.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-istaknut" x="232" y="42" width="27" height="27"/><text class="oznaka-cvora" x="245.5" y="55.5">−</text>
+  <text class="tekst" x="245.5" y="92" text-anchor="middle">−2</text>
+  <text class="tekst-mali" x="277.5" y="15" text-anchor="middle">8</text>
+  <text class="tekst" x="277.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="264" y="42" width="27" height="27"/><text class="oznaka-cvora" x="277.5" y="55.5">−</text>
+  <text class="tekst" x="277.5" y="92" text-anchor="middle">−3</text>
+  <text class="tekst-mali" x="309.5" y="15" text-anchor="middle">9</text>
+  <text class="tekst" x="309.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor-sivi" x="296" y="42" width="27" height="27"/><text class="oznaka-cvora" x="309.5" y="55.5">−</text>
+  <text class="tekst-naglasen" x="309.5" y="92" text-anchor="middle">−6</text>
+  <line class="brid-tezak" style="stroke-width:3" x1="197.5" y1="4" x2="197.5" y2="98"/>
+  <text class="tekst-naglasen" x="197.5" y="114" text-anchor="middle"><tspan font-style="italic">p</tspan> = 5</text>
+  <text class="tekst" x="8" y="138">Pokus: sve trojke desno od p oduzete.</text>
+  <text class="tekst" x="8" y="159">k = 3:  C = 3,  m = −6,  n = ⌈6/6⌉ = 1</text>
+</svg>
+<natpis>Faza $k=3$: $p=5$, $C=3$. Uz trojke desno od $p$ oduzete međurezultati desno od $p$ su $0,-2,-3,-6$, dakle $m=-6$ i $n=\lceil6/6\rceil=1$. Zbraja se trojka na položaju $6$, a ona na položaju $9$ se oduzima.</natpis>
+</okvir>
+<okvir>
+<svg style="max-width:480px" viewBox="0 0 330 170" role="img" aria-label="Konačno rješenje: predznaci + + − − + + − − −; međurezultati 2, 3, 2, 1, 3, 6, 4, 3, 0; pet oduzimanja">
+  <text class="tekst-mali" x="6" y="15"><tspan font-style="italic">i</tspan></text>
+  <text class="tekst" x="6" y="33"><tspan font-style="italic">A</tspan>[<tspan font-style="italic">i</tspan>]</text>
+  <text class="tekst" x="6" y="92"><tspan font-style="italic">x</tspan></text>
+  <text class="tekst-mali" x="53.5" y="15" text-anchor="middle">1</text>
+  <text class="tekst" x="53.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-plavi" x="40" y="42" width="27" height="27"/><text class="oznaka-cvora" x="53.5" y="55.5">+</text>
+  <text class="tekst" x="53.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="85.5" y="15" text-anchor="middle">2</text>
+  <text class="tekst" x="85.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-plavi" x="72" y="42" width="27" height="27"/><text class="oznaka-cvora" x="85.5" y="55.5">+</text>
+  <text class="tekst" x="85.5" y="92" text-anchor="middle">3</text>
+  <text class="tekst-mali" x="117.5" y="15" text-anchor="middle">3</text>
+  <text class="tekst" x="117.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="104" y="42" width="27" height="27"/><text class="oznaka-cvora" x="117.5" y="55.5">−</text>
+  <text class="tekst" x="117.5" y="92" text-anchor="middle">2</text>
+  <text class="tekst-mali" x="149.5" y="15" text-anchor="middle">4</text>
+  <text class="tekst" x="149.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="136" y="42" width="27" height="27"/><text class="oznaka-cvora" x="149.5" y="55.5">−</text>
+  <text class="tekst" x="149.5" y="92" text-anchor="middle">1</text>
+  <text class="tekst-mali" x="181.5" y="15" text-anchor="middle">5</text>
+  <text class="tekst" x="181.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-plavi" x="168" y="42" width="27" height="27"/><text class="oznaka-cvora" x="181.5" y="55.5">+</text>
+  <text class="tekst" x="181.5" y="92" text-anchor="middle">3</text>
+  <text class="tekst-mali" x="213.5" y="15" text-anchor="middle">6</text>
+  <text class="tekst" x="213.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor-plavi" x="200" y="42" width="27" height="27"/><text class="oznaka-cvora" x="213.5" y="55.5">+</text>
+  <text class="tekst" x="213.5" y="92" text-anchor="middle">6</text>
+  <text class="tekst-mali" x="245.5" y="15" text-anchor="middle">7</text>
+  <text class="tekst" x="245.5" y="33" text-anchor="middle" font-weight="700">2</text>
+  <rect class="cvor-istaknut" x="232" y="42" width="27" height="27"/><text class="oznaka-cvora" x="245.5" y="55.5">−</text>
+  <text class="tekst" x="245.5" y="92" text-anchor="middle">4</text>
+  <text class="tekst-mali" x="277.5" y="15" text-anchor="middle">8</text>
+  <text class="tekst" x="277.5" y="33" text-anchor="middle" font-weight="700">1</text>
+  <rect class="cvor-istaknut" x="264" y="42" width="27" height="27"/><text class="oznaka-cvora" x="277.5" y="55.5">−</text>
+  <text class="tekst" x="277.5" y="92" text-anchor="middle">3</text>
+  <text class="tekst-mali" x="309.5" y="15" text-anchor="middle">9</text>
+  <text class="tekst" x="309.5" y="33" text-anchor="middle" font-weight="700">3</text>
+  <rect class="cvor-istaknut" x="296" y="42" width="27" height="27"/><text class="oznaka-cvora" x="309.5" y="55.5">−</text>
+  <text class="tekst" x="309.5" y="92" text-anchor="middle">0</text>
+  <line class="brid-tezak" style="stroke-width:3" x1="229.5" y1="4" x2="229.5" y2="98"/>
+  <text class="tekst-naglasen" x="229.5" y="114" text-anchor="middle"><tspan font-style="italic">p</tspan> = 6</text>
+  <text class="tekst" x="8" y="138">Kraj: svi međurezultati su ≥ 0.</text>
+  <text class="tekst" x="8" y="159">Odgovor: 5 oduzimanja.</text>
+</svg>
+<natpis>Kraj: $p=6$. Predznaci su $+,+,-,-,+,+,-,-,-$, međurezultati $2,3,2,1,3,6,4,3,0$ su nenegativni, a odgovor je $3+1+1=5$ oduzimanja (tri jedinice, jedna dvojka, jedna trojka).</natpis>
+</okvir>
+</okviri>
+</dodatak>
 
-@@ trener
-<ol class="koraci">
-<li>
-    <details class="spoiler korak">
-        <summary>Jedan interval greedy</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Oduzmi kad možeš. Kad ne možeš, a ranije si oduzeo nešto veće — bi li se isplatilo zamijeniti? Rezultat isti, $x$ veći. Dokaži da se time ništa ne gubi.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Struktura optimuma po vrijednostima</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Među jednakim vrijednostima: kad bi oduzeo raniju i zbrojio kasniju, zamjena povećava sve međuvrijednosti. Pa: prefiks zbrajanja, sufiks oduzimanja. Zatim usporedi različite vrijednosti.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Provjera izvedivosti u $O(\log)$</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Kad su predznaci fiksni po pravilu „$\le k$ minus, $\gt k$ plus”, uvjet $x\ge0$ je minimum prefiksnih zbrojeva — RMQ na statičkom nizu. Jedan niz po $k$.</p>
-        </div>
-    </details>
-</li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Binarna pretraga po <i>indeksu</i> umjesto po <i>pojavama vrijednosti $k$</i> u intervalu (treba lista pozicija po vrijednosti).</li>
-        <li>Zaboraviti prenijeti $C$ — akumulirani $x$ iz prethodnih pragova — u provjeru.</li>
-        <li>100 sparse tablica: MLE. Segmentna stabla ili paralelna obrada.</li>
-    </ul>
-</div>
+<h3>Ako rješenje ipak prekoračuje vrijeme</h3>
+<p>Ako rješenje baš nikako ne prolazi vremensko ograničenje (TLE), mogu se razmotriti sljedeći zahvati.</p>
+<ul>
+    <li>Obrađuju li se svi upiti paralelno, dovoljno je u svakom trenutku držati samo jedno segmentno stablo.</li>
+    <li>Offline RMQ nad statičkim nizom može se izvesti brže nego segmentnim stablom.
+        <ul>
+            <li>Na primjer, ako uz povećavanje $j$ održavamo $ans[i]=$ $\min\{a_i,\dots,a_j\}$, to se može obraditi <b>Union-Find</b> strukturom<info naslov="Union-Find (struktura disjunktnih skupova)"><p>Struktura koja održava podjelu elemenata na disjunktne skupove uz dvije operacije: <code>find(v)</code> vraća predstavnika skupa u kojem je $v$, a <code>union(u, v)</code> spaja dva skupa u jedan.</p><p>Skupovi se čuvaju kao stabla s pokazivačima prema roditelju. Uz sažimanje putova i spajanje manjeg skupa u veći, svaka operacija traje amortizirano $O(\alpha(n))$, gdje je $\alpha$ inverzna Ackermannova funkcija — u praksi konstanta.</p></info>.</li>
+        </ul>
+    </li>
+</ul>
+<p>Mislim da ni jedno ni drugo nije potrebno da bi se u jeziku C++ osvojili puni bodovi.</p>
+<dodatak naslov="Paralelna obrada upita i offline RMQ pomoću Union-Finda">
+<p><b>Paralelna obrada.</b> Vanjska petlja ide po $k=1,\dots,100$, a unutarnja po svim upitima; svaki upit pamti samo svoju granicu $p$, vrijednost $C$ i dosadašnji broj oduzimanja. Niz $P_k$ dobiva se iz $P_{k-1}$ promjenom predznaka karata vrijednosti $k$, pa su u memoriji istodobno dovoljni jedan niz i jedno segmentno stablo: $O(N+Q)$ memorije umjesto sto stabala.</p>
+<p><b>Offline RMQ.</b> U fazi $k$ svi RMQ-upiti $(p,R]$ poznati su unaprijed, pa ih se može poredati po desnom kraju i prolaziti $j=1,2,\dots,N$ održavajući $ans[i]=\min\{a_i,\dots,a_j\}$ za sve $i\le j$ (ovdje je $a=P_k$). Niz $ans$ ne opada po $i$ i sastoji se od blokova uzastopnih indeksa s istom vrijednošću. Kad stigne $a_j$, svi blokovi s vrijednošću $\ge a_j$ — a oni čine sufiks — stapaju se zajedno s indeksom $j$ u jedan blok vrijednosti $a_j$. Blokovi se drže na stogu i kao skupovi u Union-Find strukturi, s vrijednošću bloka zapisanom uz predstavnika. Svaki se blok stopi najviše jednom, a upit $(i,j)$ je vrijednost bloka u kojem je $i$, tj. jedan <code>find</code>. Jedna faza tako stoji $O((N+Q)\,\alpha(N))$, uz sortiranje upita po desnom kraju, koje se može obaviti jednom za sve faze.</p>
+</dodatak>
+<dodatak naslov="Referentna implementacija (C++)">
+<p>Rješenje s paralelnom obradom upita i jednim segmentnim stablom, prema gornjim dopunama. Umjesto $C$ pamti se $\delta=C-P_{k-1}(p)$, pa je</p>
+\[
+m=\delta+2k\cdot c_0+\min_{p\lt t\le R}P_k(t),
+\]
+<p>gdje je $c_0$ broj karata vrijednosti $k$ na položajima $1,\dots,p$ (brojeći od početka niza, ne od $L$). Uvjet $m+2kn\ge0$ tada kaže da $2k\,(c_0+n)$ mora biti barem $-\delta-\min P_k$, a nakon faze $\delta$ naraste za $2k\,(c_0+n)$.</p>
+<pre><code>#include &lt;bits/stdc++.h&gt;
+using namespace std;
 
-@@ analiza
-<slajdovi from="1" to="2" naslov="Zadatak">
-    <s n="1">Naslov; analiza: maspy.</s>
-    <s n="2">$x=0$; za $i$ redom $x+=a$ ili (ako $x\ge a$) $x-=a$ uz bod; maksimiziraj; $Q$ intervala.</s>
-</slajdovi>
+int main() {
+    int n, q;
+    scanf("%d", &amp;n);
+    vector&lt;int&gt; a(n + 1);
+    for (int i = 1; i &lt;= n; i++) scanf("%d", &amp;a[i]);
+    scanf("%d", &amp;q);
+    vector&lt;int&gt; L(q), R(q), p(q), ans(q, 0);
+    vector&lt;long long&gt; delta(q);
+    // P = niz P_k; na početku P_0 (sve se zbraja)
+    vector&lt;long long&gt; P(n + 1, 0);
+    for (int i = 1; i &lt;= n; i++) P[i] = P[i - 1] + a[i];
+    for (int j = 0; j &lt; q; j++) {
+        scanf("%d %d", &amp;L[j], &amp;R[j]);
+        p[j] = L[j] - 1;             // granica
+        delta[j] = -P[L[j] - 1];     // delta = C - P_0(p), C = 0
+    }
+    int sz = 1;
+    while (sz &lt; n + 1) sz &lt;&lt;= 1;
+    vector&lt;long long&gt; t(2 * sz);     // segmentno stablo minimuma nad P_k
+    vector&lt;int&gt; cnt(n + 1), pos;
+    for (int k = 1; k &lt;= 100; k++) {
+        // P_{k-1} -&gt; P_k: karte vrijednosti k mijenjaju predznak
+        // pos[c] = položaj c-te karte vrijednosti k
+        // cnt[i] = broj karata vrijednosti k na položajima 1..i
+        pos.assign(1, 0);
+        cnt[0] = 0;
+        for (int i = 1; i &lt;= n; i++) {
+            cnt[i] = cnt[i - 1] + (a[i] == k);
+            if (a[i] == k) pos.push_back(i);
+            P[i] -= 2LL * k * cnt[i];
+        }
+        if (pos.size() == 1) continue;   // vrijednost k se ne pojavljuje
+        for (int i = 0; i &lt; sz; i++) t[sz + i] = i &lt;= n ? P[i] : LLONG_MAX;
+        for (int i = sz - 1; i &gt;= 1; i--) t[i] = min(t[2 * i], t[2 * i + 1]);
+        for (int j = 0; j &lt; q; j++) {
+            int c0 = cnt[p[j]], cR = cnt[R[j]];
+            // last = redni broj zadnje zbrojene karte vrijednosti k
+            int last = c0;
+            if (p[j] &lt; R[j]) {
+                // m = min P_k(t) za p &lt; t &lt;= R
+                long long m = LLONG_MAX;
+                for (int l = p[j] + 1 + sz, r = R[j] + 1 + sz; l &lt; r; l &gt;&gt;= 1, r &gt;&gt;= 1) {
+                    if (l &amp; 1) m = min(m, t[l++]);
+                    if (r &amp; 1) m = min(m, t[--r]);
+                }
+                // treba vrijediti 2k * last &gt;= need
+                long long need = -(delta[j] + m);
+                if (need &gt; 0) last = max&lt;long long&gt;(c0, (need + 2 * k - 1) / (2 * k));
+            }
+            if (last &gt; c0) p[j] = pos[last];   // nova granica
+            delta[j] += 2LL * k * last;
+            // ostale karte vrijednosti k do R se oduzimaju
+            ans[j] += cR - last;
+        }
+    }
+    for (int j = 0; j &lt; q; j++) printf("%d\n", ans[j]);
+}</code></pre>
+</dodatak>
 
-<h2>Podzadaci 1–3 <span class="bodovi">15 bodova</span></h2>
-<slajdovi from="3" to="6" vrsta="koraci" naslov="Iscrpno i DP">
-    <s n="3">$2^N$ nizova operacija; $O(N2^N)$ po upitu ili DFS.</s>
-    <s n="4">Bitni su samo $x$ i rezultat: $dp[x]$ = max rezultat; $O(QN^2A)$.</s>
-    <s n="5">$x\in[0,NA]$, rezultat $\in[0,N]$.</s>
-    <s n="6">Obrnuto: $dp[\text{rezultat}]=\max x$; $O(QN^2)$.</s>
-</slajdovi>
-
-<h2>Podzadatak 4 <span class="bodovi">15 bodova</span></h2>
-<slajdovi from="7" to="12" vrsta="koraci" naslov="Greedy i konkavnost">
-    <s n="7">Iscrpno/DP ne ide; greedy s „optimalnim stanjem” koje je optimalno za bilo koji nastavak.</s>
-    <s n="8">Stanje: $x$ i multiskup $S$ oduzetih; dopušteno pokajanje.</s>
-    <s n="9">Pravila: $a\le x$ → oduzmi; $a\gt x$, $\max S=b\gt a$ → $x+2b-a$, zamijeni $b$ s $a$; inače zbroji. Priority queue, $O(N\log N)$.</s>
-    <s n="10">Greedy odgovara DP tablici iz podzadatka 3.</s>
-    <s n="11">Korak DP-a: $g(x)=\max(f(x)+a,f(x-1)-a)$ = max-plus konvolucija s $h=(a,-a,-\infty,\dots)$.</s>
-    <s n="12">Tablica je konkavna; konvolucija konkavnih = spajanje skupova nagiba (umetanje jednog). Iz toga se greedy može i izvesti.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Zašto je pokajanje ispravno.</b> Pravi cilj je za svaki mogući broj bodova $s$ držati najveći mogući $x$ ($f(s)$). Zamjena „oduzeto $b$ → zbrojeno, oduzmi $a$” ostavlja $s$, a $x$ raste za $2b-2a\gt0$ — pa je novo stanje barem tako dobro za svaki nastavak. Konkavnost $f$ znači da su „posljednji bodovi” sve skuplji, zbog čega je dovoljno pamtiti samo trenutnu najbolju točku i multiskup nagiba $S$.</p>
-</div>
-
-<h2>Podzadatak 5 <span class="bodovi">21 bod</span></h2>
-<slajdovi from="13" to="18" vrsta="koraci" naslov="$A\le2$, segmentno stablo funkcija">
-    <s n="13">Sad $Q$ raste; $A\le2$ ima posebno rješenje.</s>
-    <s n="14">Iz $S$ treba samo broj dvojki $y$; stanje $(x,y)$, $0\le x\lt4$; element = funkcija; kompozicije na segmentno stablo ako imaju $O(1)$ opis.</s>
-    <s n="15">$A=1$: $x\ge1\Rightarrow(x-1,y)$; $x=0,y\ge1\Rightarrow(3,y-1)$; $x=y=0\Rightarrow(1,0)$. $A=2$: $x\le1\Rightarrow(x+2,y)$; $x\ge2\Rightarrow(x-2,y+1)$.</s>
-    <s n="16">Uz $z=x+4y$: $A=1$: $z\ge1\Rightarrow z-1$, $z=0\Rightarrow1$; $A=2$: $z+2$.</s>
-    <s n="17">Kompozicije: graf funkcije.</s>
-    <s n="18">Segmentno stablo: $O(N+Q\log N)$.</s>
-</slajdovi>
-
-<h2>Puno rješenje <span class="bodovi">49 bodova</span></h2>
-<slajdovi from="19" to="27" vrsta="koraci" naslov="Pragovi po vrijednosti i RMQ">
-    <s n="19">Podzadaci 6, 7 zajedno; greedy ima previše stanja — potpuno drugačiji greedy koji iskorištava mali broj različitih vrijednosti: 100 koraka po $k$.</s>
-    <s n="20">Za fiksan $k$ postoji $p$: pojave $k$ prije $p$ zbrajamo, od $p$ oduzimamo (exchange).</s>
-    <s n="21">Exchange argument: zamjena ne pogoršava; ponavljaj do svojstva; postoji optimum sa svojstvom.</s>
-    <s n="22">Također: $a\gt b$, $A_i=a$, $A_j=b$: ako se $A_j$ zbraja, i $A_i$ se zbraja → pragovi monotoni; određuj ih za $k=1..100$.</s>
-    <s n="23">$k=1$: broj zbrajanja jedinica smije se minimizirati (zamjena zbrajanja minimuma i prvog oduzimanja većeg).</s>
-    <s n="24">Plan: nađi $p$ — zadnje zbrojeno $1$ (najveći $p$ takav da oduzimanje svih jedinica od $p$ vodi u protuslovlje); do $p$ sve zbrojeno; od $p$ jedinice oduzete; rekurzivno za $2$ na sufiksu itd.</s>
-    <s n="25">Slika.</s>
-    <s n="26">Korak $k$: „$\lt k$ oduzeto, $\ge k+1$ zbrojeno; koliko $k$-ova može oduzeti?” — po $k$ jedna struktura; treba statički RMQ; $O(AN+QA\log N)$.</s>
-    <s n="27">Ako TLE: paralelno po upitima (jedno stablo), ili offline RMQ DSU-om; u C++ nepotrebno.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Provjera izvedivosti konkretno.</b> Neka su odlučeni pragovi $p_1\le\dots\le p_{k-1}$ i $C$ = vrijednost $x$ neposredno prije kandidata $q$ (računa se prefiksnim zbrojevima s odgovarajućim predznacima po odsječcima). Od $q$ do $R$ predznaci su „$\le k$ minus, $\gt k$ plus” — niz $P_k$. Uvjet: $C+\min_{t\in[q,R]}P_k(t)-P_k(q-1)\ge0$. Kandidati $q$ su pojave vrijednosti $k$ u $[p_{k-1},R]$; izvedivost je monotona u $q$, pa binarna pretraga po listi pojava daje najmanji izvediv $q$ u $O(\log^2)$ ili $O(\log)$ s $O(1)$ RMQ-om.</p>
-</div>
-
-<slajdovi from="28" to="29" naslov="Statistika">
-    <s n="28">JOI: 100 (2), 80 (1), 51 (2), 30/36 (6), 3/8/15 (12), 0 (4).</s>
-    <s n="29">JOIG: 33 (5), 18 (1), 7 (5), 0 (2).</s>
-</slajdovi>
+<h2>Statistika <span class="slajd-ref">slajdovi 28–29</span></h2>
+<h3>Raspodjela bodova (JOI)</h3>
+<table>
+    <thead><tr><th>Bodovi</th><th>Broj natjecatelja</th><th>Kumulativno</th></tr></thead>
+    <tbody>
+        <tr><td>100</td><td>2</td><td>2</td></tr>
+        <tr><td>80</td><td>1</td><td>3</td></tr>
+        <tr><td>51</td><td>2</td><td>5</td></tr>
+        <tr><td>30, 36</td><td>6</td><td>11</td></tr>
+        <tr><td>3, 8, 15</td><td>12</td><td>23</td></tr>
+        <tr><td>0</td><td>4</td><td>27</td></tr>
+    </tbody>
+</table>
+<h3>Raspodjela bodova (JOIG)</h3>
+<table>
+    <thead><tr><th>Bodovi</th><th>Broj natjecateljica</th><th>Kumulativno</th></tr></thead>
+    <tbody>
+        <tr><td>33</td><td>5</td><td>5</td></tr>
+        <tr><td>18</td><td>1</td><td>6</td></tr>
+        <tr><td>7</td><td>5</td><td>11</td></tr>
+        <tr><td>0</td><td>2</td><td>13</td></tr>
+    </tbody>
+</table>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Greedy s pokajanjem = konkavan DP; za $A\le2$ funkcije na segmentnom stablu.</li>
-        <li>Optimum: po vrijednosti prefiks zbrajanja / sufiks oduzimanja, monotoni pragovi $p_1\le\dots\le p_{100}$.</li>
-        <li>Pragovi binarnom pretragom uz RMQ nad 100 prefiksnih nizova: $O(AN+QA\log N)$.</li>
+        <li>Za male $N$: potpuna pretraga, zatim DP po vrijednosti $x$ ($O(QN^2A)$) i, zamjenom uloga, DP „broj bodova → najveći $x$” ($O(QN^2)$).</li>
+        <li>Ta je dp-tablica konkavna, a jedna karta je max-plus konvolucija koja umeće jedan nagib; odatle pohlepni algoritam sa stanjem $(x,S)$ i prioritetnim redom, $O(N\log N)$ po upitu.</li>
+        <li>Za $A\le2$ stanje se sažima u $z=x+4y$; karte postaju jednostavne funkcije od $z$ čije se kompozicije drže u segmentnom stablu: $O(N+Q\log N)$.</li>
+        <li>Puni bodovi: argument zamjene daje optimalno rješenje u kojem za svaku vrijednost $k$ najprije idu zbrajanja pa oduzimanja, a granice su monotone po $k$; granice se određuju redom za $k=1,\dots,100$, svaki put uz najmanji mogući broj zbrajanja.</li>
+        <li>Svaka faza svodi se na RMQ nad statičkim nizom, ukupno $O(AN+QA\log N)$.</li>
     </ul>
 </div>
