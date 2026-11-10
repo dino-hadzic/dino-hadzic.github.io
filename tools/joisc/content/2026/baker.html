@@ -1,8 +1,8 @@
 @@ meta
 naslov = Pekar
 engleski = Baker
-oznake = rokovi Y_i=T_i+L, upit (A,B) gleda kupce [L_q,R_q) s T_i≤B≤Y_i, poslužuj zadnjih k redom ⇒ k ≤ ⌊min_i ((Y_i−B)/A + R−1−i)⌋ ⇔ min −A·i+Y_i na donjoj konveksnoj ljusci točaka (i,Y_i), upiti sortirani po B daju monotone L_q i R_q ⇒ klizni prozor = red iz dva stoga s ljuskama (stog s povratkom, pri prebacivanju ljusku gradi iznova), binarno pretraživanje po nagibu, O(M+Q(log Q+log M))
-autor_analize = Watanabe Yuto (yuto1115)
+oznake = konveksna ljuska, binarno pretraživanje, red iz dva stoga, stog s povratkom, offline upiti
+autor_analize = Watanabe Yūto (yuto1115)
 
 @@ zadatak
 <h1>Pekar</h1>
@@ -28,129 +28,854 @@ autor_analize = Watanabe Yuto (yuto1115)
 4 7</pre>
 <p>Izlaz: <code>3 2 2 0</code>. Pekar 2 od trenutka 3 završava kroasane u 5, 7, 9 — rokovi kupaca 1–3 su 6, 8, 9.</p>
 
-@@ rjesenje
-<h2>Svođenje na geometriju</h2>
-<p>Rok kupca $i$: $Y_i=T_i+L$ (nepadajući). Upit $(A,B)$ smije poslužiti samo kupce s $T_i\le B\le Y_i$ — to je <b>interval indeksa</b> $[L_q,R_q)$. Ako poslužuje $k$ kupaca, najbolje je uzeti <b>zadnjih $k$</b> (najkasniji rokovi) i redom ih peći: $j$-ti od njih završava u $B+A\cdot j$. Uvjet za $i\in[R-k,R)$: $Y_i\ge B+A\,(i-R+k+1)$; za $i\lt R-k$ desna je strana $\le B\le Y_i$ pa uvjet vrijedi automatski. Dakle za sve $i\in[L,R)$:
-\[k\le\frac{Y_i-B}{A}+R-1-i,\qquad \text{odgovor}=\min\Big(R-L,\ \Big\lfloor\min_i\Big(\tfrac{Y_i-B}{A}+R-1-i\Big)\Big\rfloor\Big).\]
-Minimizirati $(Y_i-B)/A-i$ isto je što i minimizirati $-A\,i+Y_i$: <b>točka $(i,Y_i)$ koju prvo dotakne pravac nagiba $A$ spušten s desna</b> — leži na <b>donjoj konveksnoj ljusci</b>. $O(QM)$ direktno daje podzadatke 1–2.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–2</span></h2>
+<p>Službenu analizu rješenja napisao je <b>Watanabe Yūto</b> (yuto1115) za 4. natjecateljski dan finala (Final Day 4) JOI 2025/26; zadatak se zove <i>Pekar</i> (Baker).</p>
 
-<h2>Fiksni intervali <span class="bodovi">60</span></h2>
+<h3>Sažetak zadatka</h3>
 <ul>
-    <li><b>$L_q=1$, $R_q=M+1$ (podzadatak 3):</b> jedna ljuska svih točaka (linearno, već sortirane); binarnim pretraživanjem po nagibima bridova nađi gdje nagib prelazi $A_q$; $O(\log M)$ po upitu.</li>
-    <li><b>$R_q=M+1$ (podzadatak 4):</b> ljuska točaka $L_q..M$ nije podskup globalne ljuske. Gradi ljusku dodajući točke $M,M-1,\dots,1$ (obrnuti Andrew); usput se pojavi ljuska svakog sufiksa. Upite sortiraj po $L_q$ padajuće; $O(M+Q(\log Q+\log M))$.</li>
-    <li><b>Proizvoljni $[L,R)$ (podzadatak 5):</b> segmentno stablo s ljuskom u svakom čvoru; upit = $O(\log M)$ čvorova × binarno pretraživanje: $O(M\log M+Q\log^2M)$.</li>
+    <li>Ima $M$ kupaca. Kupac $i$ u trenutku $T_i$ naručuje kroasan i može čekati najviše do trenutka $T_i+L$.</li>
+    <li>Ima $Q$ upita. U svakom upitu zadani su $A_q$ i $B_q$:
+        <ul>
+            <li>jedan pekar koji kroasan može ispeći za $A_q$ minuta dolazi na posao u trenutku $B_q$;</li>
+            <li>uzimaju se u obzir <b>samo narudžbe pristigle do trenutka dolaska na posao</b>;</li>
+            <li>koliko najviše narudžbi kupaca pekar može poslužiti?</li>
+        </ul>
+    </li>
+    <li>Ograničenja: $M\le2\times10^6$, $Q\le4\times10^5$.</li>
 </ul>
 
-<h2>Klizni prozor: red iz dva stoga <span class="bodovi">100</span></h2>
-<p>$L_q$ i $R_q$ nisu proizvoljni: $L_q=\min\{i:T_i\ge B_q-L\}$, $R_q=\max\{i:T_i\le B_q\}+1$ — <b>oba rastu s $B_q$</b>. Sortiraj upite po $B_q$: intervali se pomiču kao <b>red</b> (dodaj na kraj, skini s početka). Ljusku s dodavanjem i skidanjem <em>s kraja</em> (stog) lako je održavati: pri dodavanju točke zapamti koje je točke izbacila iz ljuske i pri skidanju ih vrati. Red simuliraj dvama stogovima „leđa o leđa”: dodaj u stražnji; skidanje s prednjeg, a kad je prednji prazan prebaci sve iz stražnjeg (svaka točka premještena najviše jednom, amortizirano $O(1)$). <b>Zamka:</b> prilikom prebacivanja ne kopiraj ljusku stražnjeg stoga — ona ne podržava skidanje sprijeda; <b>izgradi ljusku iznova</b> nad izvornim točkama u obrnutom redoslijedu (linearno). Upit: binarno pretraživanje po nagibu na obje ljuske, min od dvaju. Ukupno $O(M+Q(\log Q+\log M))$. Alternativa: podijeli-pa-vladaj.</p>
+<h2>Podzadatak 1 <span class="bodovi">8</span> <span class="slajd-ref">slajd 3</span></h2>
+<h3>$M\le10$, $Q\le10^5$</h3>
+<p>Uvodimo sljedeće vrijednosti:</p>
+<ul>
+    <li>$Y_i$ $(1\le i\le M):=T_i+L$ — <b>rok</b> kupca $i$ (trenutak do kojeg kroasan mora biti gotov);</li>
+    <li>$L_q,R_q$ $(1\le q\le Q)$ — interval kupaca $[L_q,R_q)$ koje upit $q$ uzima u obzir:
+        <ul>
+            <li>u obzir dolaze kupci $i$ za koje je $T_i\le B_q\le Y_i$.</li>
+        </ul>
+    </li>
+</ul>
+<p>Za svaki $k=1,2,\dots,R_q-L_q$ želimo odlučiti može li se poslužiti $k$ kupaca.</p>
+<ul>
+    <li>Optimalno je pohlepno posluživati kupce $R_q-k,\ R_q-k+1,\ \dots,\ R_q-1$, i to upravo tim redom.</li>
+</ul>
+<p>Složenost: $O(QM^2)$ vremena.</p>
+<dodatak naslov="Zašto baš zadnjih $k$ kupaca, i tim redom">
+<p>Slajd tvrdnju o optimalnosti ne dokazuje. Kupci $i$ s $T_i\le B_q\le Y_i$ čine interval indeksa jer je niz $T$ nepadajući: $L_q=\min\{i : T_i\ge B_q-L\}$ (prvi kupac čiji rok $Y_i$ nije prošao) i $R_q=\max\{i : T_i\le B_q\}+1$ (zadnji kupac koji je naručio do dolaska pekara). Ako takvih kupaca nema, interval je prazan i odgovor je $0$.</p>
+<p>Pekar koji poslužuje $k$ kupaca završava $j$-ti kroasan u trenutku $B_q+jA_q$ ($j=1,\dots,k$), neovisno o tome koje kupce bira. Za <em>fiksan</em> skup od $k$ kupaca najbolje ih je poslužiti po rastućem roku (zamjenom dvaju kupaca koji su u krivom poretku onaj s ranijim rokom dobiva raniji kroasan, a onaj s kasnijim rokom dobiva kroasan u trenutku koji je prvi već podnosio). Rokovi $Y_i$ rastu s indeksom, pa „po rastućem roku” znači „po rastućem indeksu”. Ako je ikoji skup $S$ od $k$ kupaca izvediv, izvediv je i skup zadnjih $k$ indeksa $\{R_q-k,\dots,R_q-1\}$: $j$-ti najmanji indeks u tom skupu nije manji od $j$-tog najmanjeg indeksa u $S$, pa ni njegov rok nije manji, a uvjet za $j$-tog posluženog kupca glasi $Y\ge B_q+jA_q$. Zato je dovoljno provjeravati upravo skup $R_q-k,\dots,R_q-1$ tim redom; provjera jednog $k$ traje $O(k)$, svih $k$ zajedno $O(M^2)$, ukupno $O(QM^2)$.</p>
+</dodatak>
 
-@@ trener
-<ol class="koraci">
-<li>
-    <details class="spoiler korak">
-        <summary>Koje kupce i kojim redom?</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Dopušteni su interval indeksa; za $k$ kupaca uzmi zadnjih $k$ i peci ih redom (zamjena redoslijeda ne pomaže).</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Pretvori uvjet u jedan minimum</summary>
-        <div class="spoiler-sadrzaj">
-            <p>$k\le\min_i\big((Y_i-B)/A+R-1-i\big)$; bitan je samo $\min_i(Y_i-A\,i)$ ⇒ konveksna ljuska.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Intervali klize</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Po $B$ rastu i $L$ i $R$ ⇒ red; red = dva stoga; stog ljuski s povratkom.</p>
-        </div>
-    </details>
-</li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Zaboraviti ograničiti odgovor na $R-L$ (formula može dati više).</li>
-        <li>Prijenos ljuske iz stražnjeg u prednji stog kopiranjem — prednji stog treba ljusku građenu s druge strane.</li>
-        <li>Veličine do $4\cdot10^{12}\cdot2\cdot10^6$ u vektorskim produktima: 128-bitni tip ili usporedba nagiba razlomcima s <code>__int128</code>.</li>
-        <li>Floor računaj kao $\lfloor(Y_i-B+A(R-1-i))/A\rfloor$ cijelobrojno ($Y_i-B\ge0$; $A(R-1-i)$ doseže $8\cdot10^{18}$ — tik ispod granice 64 bita), a ne preko decimalnih brojeva.</li>
-    </ul>
-</div>
+<h2>Podzadatak 2 <span class="bodovi">12</span> <span class="slajd-ref">slajdovi 4–11</span></h2>
+<h3>$M\le500$, $Q\le10^5$</h3>
+<p>Postoji više pristupa — pohlepno od početka, podzadatak 1 + binarno pretraživanje i slično — ali ovdje predstavljamo rješenje koje vodi prema sljedećim podzadacima.</p>
+<p>Za svaki $k=1,2,\dots,R_q-L_q$ želimo odlučiti može li se poslužiti $k$ kupaca.</p>
+<ul>
+    <li>Optimalno je pohlepno posluživati $R_q-k,\ R_q-k+1,\ \dots,\ R_q-1$ tim redom.</li>
+    <li>$\iff Y_i\ge B_q+A_q\,(i-R_q+k+1)\quad(R_q-k\le i\lt R_q)$</li>
+    <li>$\iff Y_i\ge B_q+A_q\,(i-R_q+k+1)\quad(L_q\le i\lt R_q)$</li>
+    <li>$\iff k\le\dfrac{Y_i-B_q}{A_q}+R_q-1-i\quad(L_q\le i\lt R_q)$</li>
+</ul>
+<p>Odgovor je <b>floor minimuma desne strane</b>. Složenost: $O(QM)$ vremena.</p>
+<dodatak naslov="Izvod triju ekvivalencija i računanje floora">
+<p>Ako se poslužuju kupci $R_q-k,\dots,R_q-1$ tim redom, kupac $i$ iz tog skupa je $(i-R_q+k+1)$-ti po redu, pa njegov kroasan završava u $B_q+A_q(i-R_q+k+1)$; to je prva ekvivalencija. Druga proširuje uvjet na sve $i\in[L_q,R_q)$: za $i\lt R_q-k$ vrijedi $i-R_q+k+1\le0$, pa je desna strana $\le B_q\le Y_i$ (kupac $i$ je u intervalu, dakle $B_q\le Y_i$) i uvjet vrijedi automatski. Treća je dijeljenje s $A_q\gt0$ i preuređenje.</p>
+<p>Budući da je $k$ cijeli broj, najveći dopušteni $k$ je $\big\lfloor\min_{L_q\le i\lt R_q}\big(\frac{Y_i-B_q}{A_q}+R_q-1-i\big)\big\rfloor$; uz to ne može biti više od $R_q-L_q$ posluženih kupaca, pa je konačni odgovor $\min\!\big(R_q-L_q,\ \lfloor\cdots\rfloor\big)$ (za $i=L_q$ desna strana može premašiti $R_q-L_q$ kad je $Y_{L_q}-B_q\ge A_q$). Floor se računa u cijelim brojevima bez prelijevanja kao $\big\lfloor\frac{Y_i-B_q}{A_q}\big\rfloor+R_q-1-i$, jer je $Y_i-B_q\ge0$, a $R_q-1-i$ je cijeli broj; brojnik je najviše $4\cdot10^{12}$.</p>
+</dodatak>
 
-@@ analiza
-<slajdovi from="1" to="4" naslov="Zadatak i osnovna formula">
-    <s n="1">Naslov; yuto1115.</s>
-    <s n="2">$M$ kupaca, kupac $i$ naručuje u $T_i$ i čeka do $T_i+L$; upit $(A_q,B_q)$: pekar $A_q$ min/kroasan dolazi u $B_q$, gleda samo prijašnje narudžbe; koliko najviše kupaca?</s>
-    <s n="3">Podzadatak 1: rok $Y_i=T_i+L$; upit gleda kupce $[L_q,R_q)$ s $T_i\le B_q\le Y_i$; za svaki $k$ provjeri: optimalno posluživati $R_q-k,\dots,R_q-1$ redom; $O(QM^2)$.</s>
-    <s n="4">Podzadatak 2: uvjet ⇔ $Y_i\ge B+A(i-R+k+1)$ za sve $i\in[L,R)$ ⇔ $k\le\frac{Y_i-B}{A}+R-1-i$; floor minimuma je odgovor; $O(QM)$.</s>
-</slajdovi>
+<okviri naslov="Točke $(i,Y_i)$ i pravac nagiba $A_q$ koji se pomiče s desna (slajdovi 5–10)" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 520 320" role="img" aria-label="Točke (i, Y_i) i pravac nagiba A_q, korak 1">
+<defs><marker id="glava-f1-1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="60" y1="290" x2="500" y2="290" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-1)"/><line x1="60" y1="290" x2="60" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-1)"/><text class="tekst" x="494" y="308" font-style="italic">x</text><text class="tekst" x="42" y="26" font-style="italic">y</text>
+<line x1="60" y1="215" x2="130" y2="215" class="brid"/>
+<polyline points="130,215 200,195 270,150 340,72 410,30" class="brid"/>
+<line x1="50" y1="250" x2="430" y2="250" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="7 5"/>
+<text class="tekst" x="438" y="255">y = B<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"></tspan></text>
+<circle cx="130" cy="215" r="6" fill="#1b2a3a"/>
+<circle cx="200" cy="195" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="6" fill="#1b2a3a"/>
+<circle cx="340" cy="72" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="30" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 5: pet točaka $(i,Y_i)$, spojenih redom, i isprekidani vodoravni pravac $y=B_q$ — trenutak dolaska pekara. (Na slajdu je upit indeksiran s $i$, tj. piše $y=B_i$; ovdje pišemo $B_q$ kao u tekstu slajdova.)</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 320" role="img" aria-label="Točke (i, Y_i) i pravac nagiba A_q, korak 2">
+<defs><marker id="glava-f1-2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="60" y1="290" x2="500" y2="290" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-2)"/><line x1="60" y1="290" x2="60" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-2)"/><text class="tekst" x="494" y="308" font-style="italic">x</text><text class="tekst" x="42" y="26" font-style="italic">y</text>
+<line x1="60" y1="215" x2="130" y2="215" class="brid"/>
+<polyline points="130,215 200,195 270,150 340,72 410,30" class="brid"/>
+<line x1="50" y1="250" x2="430" y2="250" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="7 5"/>
+<text class="tekst" x="438" y="255">y = B<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"></tspan></text>
+<line x1="60" y1="250" x2="328.3" y2="20.0" stroke="#c0392b" stroke-width="2.5"/>
+<text class="tekst-naglasen" x="300" y="16">y = A<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"> x + B</tspan><tspan dy="4" font-size="10">q</tspan></text>
+<circle cx="130" cy="215" r="6" fill="#1b2a3a"/>
+<circle cx="200" cy="195" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="6" fill="#1b2a3a"/>
+<circle cx="340" cy="72" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="30" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 6: crveni pravac $y=A_q x+B_q$ — vremena završetka kroasana ako se poslužuju svi kupci ($k=R_q-L_q$); kupac $i$ dobiva kroasan u $A_q i+B_q$. Prve tri točke leže ispod pravca, pa toliko kupaca nije moguće poslužiti.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 320" role="img" aria-label="Točke (i, Y_i) i pravac nagiba A_q, korak 3">
+<defs><marker id="glava-f1-3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="60" y1="290" x2="500" y2="290" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-3)"/><line x1="60" y1="290" x2="60" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-3)"/><text class="tekst" x="494" y="308" font-style="italic">x</text><text class="tekst" x="42" y="26" font-style="italic">y</text>
+<line x1="60" y1="215" x2="130" y2="215" class="brid"/>
+<polyline points="130,215 200,195 270,150 340,72 410,30" class="brid"/>
+<line x1="50" y1="250" x2="430" y2="250" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="7 5"/>
+<text class="tekst" x="438" y="255">y = B<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"></tspan></text>
+<line x1="130" y1="250" x2="398.3" y2="20.0" stroke="#c0392b" stroke-width="2.5"/>
+<text class="tekst-naglasen" x="330" y="16">y = A<tspan dy="4" font-size="10">q</tspan><tspan dy="-4">(x − 1) + B</tspan><tspan dy="4" font-size="10">q</tspan></text>
+<circle cx="130" cy="215" r="6" fill="#1b2a3a"/>
+<circle cx="200" cy="195" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="6" fill="#1b2a3a"/>
+<circle cx="340" cy="72" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="30" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 7: pravac $y=A_q(x-1)+B_q$ — jedan kupac manje; pravac je pomaknut za jedan udesno i prolazi kroz $y=B_q$ u $x=1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 320" role="img" aria-label="Točke (i, Y_i) i pravac nagiba A_q, korak 4">
+<defs><marker id="glava-f1-4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="60" y1="290" x2="500" y2="290" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-4)"/><line x1="60" y1="290" x2="60" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-4)"/><text class="tekst" x="494" y="308" font-style="italic">x</text><text class="tekst" x="42" y="26" font-style="italic">y</text>
+<line x1="60" y1="215" x2="130" y2="215" class="brid"/>
+<polyline points="130,215 200,195 270,150 340,72 410,30" class="brid"/>
+<line x1="50" y1="250" x2="430" y2="250" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="7 5"/>
+<text class="tekst" x="438" y="255">y = B<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"></tspan></text>
+<line x1="200" y1="250" x2="468.3" y2="20.0" stroke="#c0392b" stroke-width="2.5"/>
+<text class="tekst-naglasen" x="330" y="16">y = A<tspan dy="4" font-size="10">q</tspan><tspan dy="-4">(x − 2) + B</tspan><tspan dy="4" font-size="10">q</tspan></text>
+<circle cx="130" cy="215" r="6" fill="#1b2a3a"/>
+<circle cx="200" cy="195" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="6" fill="#1b2a3a"/>
+<circle cx="340" cy="72" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="30" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 8: pravac $y=A_q(x-2)+B_q$ — još jedan kupac manje; sada su sve točke iznad pravca ili na njemu.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 320" role="img" aria-label="Točke (i, Y_i) i pravac nagiba A_q, korak 5">
+<defs><marker id="glava-f1-5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="60" y1="290" x2="500" y2="290" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-5)"/><line x1="60" y1="290" x2="60" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-5)"/><text class="tekst" x="494" y="308" font-style="italic">x</text><text class="tekst" x="42" y="26" font-style="italic">y</text>
+<line x1="60" y1="215" x2="130" y2="215" class="brid"/>
+<polyline points="130,215 200,195 270,150 340,72 410,30" class="brid"/>
+<line x1="50" y1="250" x2="430" y2="250" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="7 5"/>
+<text class="tekst" x="438" y="255">y = B<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"></tspan></text>
+<line x1="340" y1="250" x2="510.0" y2="104.3" stroke="#c0392b" stroke-width="2.5"/>
+<line x1="153.3" y1="250" x2="421.7" y2="20.0" stroke="#1f618d" stroke-width="2.5"/>
+<line x1="400" y1="150" x2="330" y2="150" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#glava-f1-5)"/>
+<line x1="130" y1="215" x2="130" y2="290" stroke="#1b2a3a" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text class="oznaka-brida" x="130" y="308">1</text>
+<line x1="200" y1="195" x2="200" y2="290" stroke="#1b2a3a" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text class="oznaka-brida" x="200" y="308">2</text>
+<circle cx="200" cy="303" r="12" fill="none" stroke="#c0392b" stroke-width="2"/>
+<circle cx="130" cy="215" r="6" fill="#1b2a3a"/>
+<circle cx="200" cy="195" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="6" fill="#1b2a3a"/>
+<circle cx="340" cy="72" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="30" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 9: pravac nagiba $A_q$ krećemo iz položaja daleko desno (crveno) i pomičemo ulijevo (strelica) dok prvi put ne dotakne točke (plavo). Točkaste okomice spuštene su iz točaka $1$ i $2$; sjecište plavog pravca s $y=B_q$ pada između $1$ i $2$, a oznaka $2$ je zaokružena.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 320" role="img" aria-label="Točke (i, Y_i) i pravac nagiba A_q, korak 6">
+<defs><marker id="glava-f1-6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="60" y1="290" x2="500" y2="290" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-6)"/><line x1="60" y1="290" x2="60" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f1-6)"/><text class="tekst" x="494" y="308" font-style="italic">x</text><text class="tekst" x="42" y="26" font-style="italic">y</text>
+<line x1="60" y1="215" x2="130" y2="215" class="brid"/>
+<polyline points="130,215 200,195 270,150 340,72 410,30" class="brid"/>
+<line x1="50" y1="250" x2="430" y2="250" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="7 5"/>
+<text class="tekst" x="438" y="255">y = B<tspan dy="4" font-size="10">q</tspan><tspan dy="-4"></tspan></text>
+<line x1="340" y1="250" x2="510.0" y2="104.3" stroke="#c0392b" stroke-width="2.5"/>
+<line x1="153.3" y1="250" x2="421.7" y2="20.0" stroke="#1f618d" stroke-width="2.5"/>
+<line x1="400" y1="150" x2="330" y2="150" stroke="#1b2a3a" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#glava-f1-6)"/>
+<line x1="130" y1="215" x2="130" y2="290" stroke="#1b2a3a" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text class="oznaka-brida" x="130" y="308">1</text>
+<line x1="200" y1="195" x2="200" y2="290" stroke="#1b2a3a" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text class="oznaka-brida" x="200" y="308">2</text>
+<circle cx="200" cy="303" r="12" fill="none" stroke="#c0392b" stroke-width="2"/>
+<circle cx="130" cy="215" r="6" fill="#1b2a3a"/>
+<circle cx="200" cy="195" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="6" fill="#1b2a3a"/>
+<circle cx="340" cy="72" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="30" r="6" fill="#1b2a3a"/>
+<circle cx="270" cy="150" r="13" fill="none" stroke="#1e7b34" stroke-width="3"/>
+<circle cx="410" cy="30" r="13" fill="none" stroke="#1e7b34" stroke-width="3"/>
+</svg>
+<natpis>Slajd 10: zeleno su označene točke koje plavi pravac dotiče — točke $3$ i $5$; to su točke koje minimiziraju $-A_q x+y$.</natpis>
+</okvir>
+</okviri>
+<dodatak naslov="Što znači zaokruženi broj na slajdu 9">
+<p>Pravac $y=A_q(x-c)+B_q$ odgovara posluživanju $k=R_q-1-c$ kupaca (za $R_q=6$ na slici: $c=0,1,2$ daje $k=5,4,3$). Kad se pravac zaustavi na točkama, njegovo sjecište $c^\ast$ s $y=B_q$ općenito nije cijeli broj; dopušteni su samo cijeli $c\ge c^\ast$, pa se $c^\ast$ zaokružuje <em>gore</em> na $\lceil c^\ast\rceil$ — na slici na $2$ — i odgovor je $k=R_q-1-\lceil c^\ast\rceil=\lfloor R_q-1-c^\ast\rfloor$, što je upravo floor iz formule sa slajda 4 (ovdje $k=3$: poslužuju se kupci $3,4,5$).</p>
+</dodatak>
 
-<slajdovi from="5" to="11" vrsta="koraci" naslov="Pravac nagiba A spušten s desna">
-    <s n="5">Točke $(i,Y_i)$ i vodoravni pravac $y=B$.</s>
-    <s n="6">Pravac $y=A\,x+B$: vremena završetka ako se poslužuje puno kupaca.</s>
-    <s n="7">$y=A(x-1)+B$: pomak udesno = jedan kupac manje.</s>
-    <s n="8">$y=A(x-2)+B$.</s>
-    <s n="9">Pomiči pravac s desna dok ne dotakne točke; položaj određuje $k$.</s>
-    <s n="10">Dotaknute točke (zelene) daju minimum $-Ax+y$.</s>
-    <s n="11">Grafički: sve točke $[L_q,R_q)$ moraju biti iznad pravca; traži se točka koja minimizira $-A_qx+y$, iz nje odgovor u $O(1)$.</s>
-</slajdovi>
+<h3>Geometrijski pogled <span class="slajd-ref">slajd 11</span></h3>
+<p>Razmišljajmo pomoću grafa.</p>
+<ul>
+    <li>Imamo $M$ točaka $(1,Y_1),(2,Y_2),\dots,(M,Y_M)$ (točku $(i,Y_i)$ zovemo <b>točka $i$</b>).</li>
+</ul>
+<p>Fiksiramo li broj $k$ kupaca koje želimo poslužiti, vremena posluživanja pojedinih kupaca predstavljena su pravcem nagiba $A_q$ (što je $k$ manji, pravac je više udesno).</p>
+<ul>
+    <li>Nužno je i dovoljno da sve točke $[L_q,R_q)$ budu iznad tog pravca (uključujući sam pravac).</li>
+</ul>
+<p>Drugim riječima: želimo znati <b>kada pravac nagiba $A_q$, pomican s desna, prvi put udari u točke</b>.</p>
+<p>Nađemo li točku koja minimizira $-A_q x+y$, iz podataka te točke odgovor dobivamo u $O(1)$.</p>
+<dodatak>
+<p>Konkretno: ako je $i^\ast$ točka iz $[L_q,R_q)$ s najmanjim $-A_q i+Y_i$, onda je $\min_i\big(\frac{Y_i-B_q}{A_q}+R_q-1-i\big)=\frac{Y_{i^\ast}-B_q}{A_q}+R_q-1-i^\ast$ (izraz je $\frac{1}{A_q}(-A_q i+Y_i)$ plus konstanta), pa je odgovor $\min\!\big(R_q-L_q,\ \lfloor\frac{Y_{i^\ast}-B_q}{A_q}\rfloor+R_q-1-i^\ast\big)$. Pravac koji dotakne točku $i^\ast$ ima jednadžbu $y=A_q(x-i^\ast)+Y_{i^\ast}$, a njegovo sjecište s $y=B_q$ je $c^\ast=i^\ast-\frac{Y_{i^\ast}-B_q}{A_q}$.</p>
+</dodatak>
 
-<h2>Konveksna ljuska <span class="bodovi">60</span></h2>
-<slajdovi from="12" to="29" vrsta="koraci" naslov="Donja ljuska i binarno pretraživanje">
-    <s n="12">Podzadatak 3: uvijek $L_q=1$, $R_q=M+1$.</s>
-    <s n="13">Konveksna ljuska.</s>
-    <s n="14">Primjer skupa točaka.</s>
-    <s n="15">Andrewov algoritam: kreni s lijeva.</s>
-    <s n="16">Dodaj točku, spoji.</s>
-    <s n="17">Novi brid.</s>
-    <s n="18">Provjera skretanja.</s>
-    <s n="19">Desno skretanje — izbaci prethodnu.</s>
-    <s n="20">Nastavi.</s>
-    <s n="21">Izbacivanje.</s>
-    <s n="22">Nastavi.</s>
-    <s n="23">Izbacivanje.</s>
-    <s n="24">Nastavi.</s>
-    <s n="25">Zadnji brid.</s>
-    <s n="26">Donja ljuska gotova.</s>
-    <s n="27">Pravac malog nagiba dotiče lijevu točku.</s>
-    <s n="28">Veći nagib: dotiče točku dalje udesno — nagibi bridova rastu.</s>
-    <s n="29">Predračunaj ljusku (linearno); dovoljno gledati točke na ljusci; binarno pretraži brid gdje nagib prelazi $A_q$; $O(\log M)$ po upitu.</s>
-</slajdovi>
+<h2>Podzadatak 3 <span class="bodovi">30</span> <span class="slajd-ref">slajdovi 12–29</span></h2>
+<h3>$T_M\le B_q\lt T_1+L$</h3>
+<p>Ponovimo problem na koji smo sveli zadatak:</p>
+<ul>
+    <li>imamo $M$ točaka $(1,Y_1),(2,Y_2),\dots,(M,Y_M)$;</li>
+    <li>u svakom upitu zadani su $L_q,R_q,A_q$, a želimo znati koju od točaka $[L_q,R_q)$ prvu udari pravac nagiba $A_q$ pomican s desna;</li>
+    <li>u ovom je podzadatku uvijek $L_q=1$, $R_q=M+1$ (razmatraju se sve točke).</li>
+</ul>
+<p>Ključna riječ (slajd 13, preko cijelog slajda): <b>konveksna ljuska</b><info naslov="Donja konveksna ljuska i Andrewov algoritam"><p><b>Konveksna ljuska</b> skupa točaka najmanji je konveksni mnogokut koji sadrži sve točke. Ovdje su točke $(i,Y_i)$ već sortirane po $x$-koordinati, a zanima nas samo <b>donja ljuska</b>: lanac vrhova od najlijevije do najdesnije točke takav da su sve točke iznad lanca ili na njemu. Nagibi uzastopnih bridova donje ljuske strogo rastu.</p><p><b>Andrewov algoritam</b> (monotoni lanac) gradi donju ljusku u linearnom vremenu nad sortiranim točkama: točke se obrađuju slijeva nadesno i drže na stogu; prije guranja nove točke $P$ s vrha stoga se izbacuju točke sve dok posljednje dvije točke stoga $U,V$ i $P$ čine „desno skretanje” ili su kolinearne, tj. dok je $(V_x-U_x)(P_y-U_y)-(V_y-U_y)(P_x-U_x)\le0$ (vektorski produkt). Svaka točka je gurnuta jedanput i izbačena najviše jedanput, pa je ukupno vrijeme $O(M)$. Vektorski produkt ovdje doseže $2\cdot(2\cdot10^6)\cdot(4\cdot10^{12})=1{,}6\cdot10^{19}$, što prelazi 64-bitni predznačeni raspon, pa se računa u <code>__int128</code> (ili se nagibi uspoređuju razlomcima uz pažnju).</p></info>.</p>
 
-<slajdovi from="30" to="33" vrsta="koraci" naslov="Sufiksi i segmentno stablo">
-    <s n="30">Podzadatak 4: $L_q$ proizvoljan, $R_q=M+1$; želimo ljusku točaka $L_q..M$ — ne dobiva se rezanjem globalne.</s>
-    <s n="31">Globalna ljuska vs. ljuska točaka 1–4: različite.</s>
-    <s n="32">Gradi ljusku dodajući $M,M-1,\dots,1$; usput dobiješ ljuske svih sufiksa; upite sortiraj po $L_q$; $O(M+Q(\log Q+\log M))$.</s>
-    <s n="33">Podzadatak 5: oba kraja slobodna; segmentno stablo s ljuskom po čvoru; $O(M\log M+Q\log^2M)$.</s>
-</slajdovi>
+<okviri naslov="Izgradnja donje konveksne ljuske Andrewovim algoritmom (slajdovi 14–26)" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Osam točaka spojenih redom">
+<defs><marker id="glava-f2-1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-1)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-1)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="2.5"/>
 
-<h2>Puno rješenje <span class="bodovi">100</span></h2>
-<slajdovi from="34" to="48" vrsta="koraci" naslov="Red iz dva stoga">
-    <s n="34">$L_q=\min\{i:T_i\ge B_q-L\}$, $R_q=\max\{i:T_i\le B_q\}$; sortiranjem po $B_q$ i $L_q$ i $R_q$ postaju nepadajući.</s>
-    <s n="35">Treba: dodavanje na kraj, brisanje s početka, pristup ljusci (binarno) — operacije reda.</s>
-    <s n="36">Može li: dodavanje na kraj, brisanje s kraja, pristup ljusci?</s>
-    <s n="37">Može — zapamti točke izbačene pri dodavanju; operacije stoga.</s>
-    <s n="38">Želimo red, imamo stog… ?</s>
-    <s n="39">Red iz dva stoga.</s>
-    <s n="40">Slika: dva stoga leđa o leđa.</s>
-    <s n="41">Dodavanje u stražnji.</s>
-    <s n="42">Brisanje iz prednjeg.</s>
-    <s n="43">Prednji prazan — prebaci.</s>
-    <s n="44">Nakon prebacivanja.</s>
-    <s n="45">Svaki element prebačen najviše jednom ⇒ amortizirano $O(1)$.</s>
-    <s n="46">Svaki stog drži točke i ljusku; upit = binarno na obje; pri prebacivanju ljusku gradi iznova iz točaka (kopija ljuske ne dopušta brisanje sprijeda!); $O(M+Q(\log Q+\log M))$.</s>
-    <s n="47">Raspodjela bodova.</s>
-    <s n="48">100: 0; 82: 1; 72: 1; 60: 3; 50: 5; 42: 1; 20: 15; 0: 4.</s>
-</slajdovi>
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 14: primjer skupa od osam točaka, spojenih redom slijeva nadesno. (Primjer na slajdu je općenit — točke nisu nepadajuće kao $Y_i$ u zadatku.)</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-2)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-2)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 15: spojnice postaju točkaste — to su kandidati; ljusku gradimo slijeva, počevši od prve točke.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-3)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-3)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 16: dodajemo točku $2$ — brid $1\!-\!2$ (crveno) ulazi u ljusku.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-4)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-4)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 17: dodajemo točku $3$ — brid $2\!-\!3$ (crveno); dosadašnja ljuska je $1\!-\!2$ (puna crta).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-5)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-5)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 18: dodajemo točku $4$ — kandidat je brid $3\!-\!4$ (crveno). Nagib pada u odnosu na $2\!-\!3$: lanac $2\to3\to4$ skreće udesno.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-6)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-6)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 19: točka $3$ se izbacuje iz ljuske, a novi je kandidat brid $2\!-\!4$ (crveno); bridovi $2\!-\!3$ i $3\!-\!4$ ostaju samo točkasti.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-7)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-7)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 20: brid $2\!-\!4$ je prihvaćen; dodajemo točku $5$ — kandidat brid $4\!-\!5$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-8)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-8)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 21: brid $4\!-\!5$ je prihvaćen; dodajemo točku $6$ — kandidat brid $5\!-\!6$ skreće udesno.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-9" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-9)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-9)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 22: točka $5$ se izbacuje; novi kandidat je $4\!-\!6$ (crveno) — i on skreće udesno u odnosu na $2\!-\!4$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-10" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-10)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-10)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="355" y2="164" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 23: izbacuje se i točka $4$; kandidat je brid $2\!-\!6$ (crveno). Ljuska je sada $1\!-\!2\!-\!6$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-11" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-11)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-11)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="355" y2="164" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 24: dodajemo točku $7$ — kandidat brid $6\!-\!7$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-12" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-12)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-12)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="355" y2="164" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 25: brid $6\!-\!7$ prihvaćen; dodajemo točku $8$ — kandidat je vodoravni brid $7\!-\!8$, koji skreće udesno u odnosu na $6\!-\!7$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Izgradnja donje konveksne ljuske">
+<defs><marker id="glava-f2-13" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-13)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-13)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="355" y2="164" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="355" y1="164" x2="465" y2="90" stroke="#c0392b" stroke-width="3"/>
+
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 26: točka $7$ se izbacuje, kandidat je $6\!-\!8$ (crveno). Donja ljuska je gotova: $1\!-\!2\!-\!6\!-\!8$, nagibi bridova rastu slijeva nadesno.</natpis>
+</okvir>
+</okviri>
+
+<okviri naslov="Upit: pravac nagiba $A_q$ i donja ljuska (slajdovi 27–28)" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Pravac malog nagiba dotiče prvu točku ljuske">
+<defs><marker id="glava-f2-14" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-14)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-14)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="355" y2="164" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="355" y1="164" x2="465" y2="90" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="42" y1="240.8" x2="500" y2="195.0" stroke="#c0392b" stroke-width="2.5"/><circle cx="80" cy="237" r="13" fill="none" stroke="#1e7b34" stroke-width="3"/>
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 27: za mali nagib $A_q$ pravac pomican s desna prvo dotakne točku $1$ (zeleno) — krajnje lijevi vrh ljuske.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 300" role="img" aria-label="Strmiji pravac dotiče točku dalje udesno">
+<defs><marker id="glava-f2-15" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-15)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f2-15)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="50" y1="237" x2="80" y2="237" class="brid"/>
+<line x1="135" y1="227" x2="190" y2="122" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="190" y1="122" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="300" y2="69" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="300" y1="69" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="355" y1="164" x2="410" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="410" y1="90" x2="465" y2="90" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="135" y1="227" x2="245" y2="152" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="245" y1="152" x2="355" y2="164" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="80" y1="237" x2="135" y2="227" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="135" y1="227" x2="355" y2="164" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="355" y1="164" x2="465" y2="90" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="110" y1="274.2" x2="500" y2="98.8" stroke="#c0392b" stroke-width="2.5"/><circle cx="355" cy="164" r="13" fill="none" stroke="#1e7b34" stroke-width="3"/>
+<circle cx="80" cy="237" r="6" fill="#1b2a3a"/>
+<circle cx="135" cy="227" r="6" fill="#1b2a3a"/>
+<circle cx="190" cy="122" r="6" fill="#1b2a3a"/>
+<circle cx="245" cy="152" r="6" fill="#1b2a3a"/>
+<circle cx="300" cy="69" r="6" fill="#1b2a3a"/>
+<circle cx="355" cy="164" r="6" fill="#1b2a3a"/>
+<circle cx="410" cy="90" r="6" fill="#1b2a3a"/>
+<circle cx="465" cy="90" r="6" fill="#1b2a3a"/>
+</svg>
+<natpis>Slajd 28: za veći nagib $A_q$ pravac dotakne točku $6$ (zeleno) — vrh dalje udesno. Što je nagib veći, dotaknuti vrh je dalje udesno, jer nagibi bridova ljuske rastu.</natpis>
+</okvir>
+</okviri>
+
+<h3>Rješenje podzadatka 3 <span class="slajd-ref">slajd 29</span></h3>
+<ul>
+    <li>Predračunamo (donju) konveksnu ljusku zadanih $M$ točaka (točke su već sortirane, pa je to moguće u linearnom vremenu).</li>
+    <li>Za svaki upit:
+        <ul>
+            <li>želimo znati koju točku prvu udari pravac nagiba $A_q$ pomican s desna (ponavljanje);</li>
+            <li>dovoljno je razmatrati samo točke koje pripadaju ljusci (dokaz izostavljen);</li>
+            <li>među bridovima koji čine ljusku (poredani su po rastućem nagibu) binarnim pretraživanjem nađemo mjesto gdje nagib prelazi s „manji od $A_q$” na „barem $A_q$”;</li>
+            <li>$O(\log M)$ vremena po upitu.</li>
+        </ul>
+    </li>
+</ul>
+<dodatak naslov="Izostavljeni dokaz: dovoljno je gledati vrhove ljuske; zašto binarno pretraživanje radi">
+<p>Neka je $f(x,y)=-A_q x+y$. Ako točka $P$ nije vrh donje ljuske, postoji brid ljuske s krajevima $U,V$ takav da je $U_x\le P_x\le V_x$ i $P$ leži na bridu ili iznad njega: $P=\lambda U+(1-\lambda)V+(0,t)$ za neke $\lambda\in[0,1]$, $t\ge0$. Funkcija $f$ je linearna, pa je $f(P)=\lambda f(U)+(1-\lambda)f(V)+t\ge\min\big(f(U),f(V)\big)$. Dakle minimum $f$ po svim točkama postiže se u nekom vrhu ljuske.</p>
+<p>Neka su vrhovi ljuske $h_0,h_1,\dots,h_m$ slijeva nadesno i $s_j$ nagib brida $h_{j-1}h_j$; nagibi $s_1\lt s_2\lt\dots\lt s_m$ rastu. Tada je $f(h_j)-f(h_{j-1})=(x_j-x_{j-1})(s_j-A_q)$: vrijednost $f$ pada dok je $s_j\lt A_q$, a raste čim je $s_j\ge A_q$. Minimum je stoga u vrhu $h_{j^\ast}$ gdje je $j^\ast$ najmanji indeks sa $s_{j^\ast+1}\ge A_q$ (ili $j^\ast=m$ ako takvog nema) — to je upravo „mjesto gdje nagib prelazi s manjeg od $A_q$ na barem $A_q$” i nalazi se binarnim pretraživanjem po $j$ u $O(\log M)$. Usporedba $s_j\ge A_q$ računa se bez dijeljenja kao $y_j-y_{j-1}\ge A_q\,(x_j-x_{j-1})$; desna strana je najviše $4\cdot10^{12}\cdot2\cdot10^6=8\cdot10^{18}$, što još stane u 64-bitni predznačeni tip, ali je sigurnije uzeti <code>__int128</code>.</p>
+<p>Uvjet podzadatka $T_M\le B_q\lt T_1+L$ znači da je svaki kupac naručio do dolaska pekara i nijednom nije prošao rok, tj. $L_q=1$ i $R_q=M+1$ za sve upite. Odgovor je zatim $\min\!\big(M,\ \lfloor\frac{Y_{i^\ast}-B_q}{A_q}\rfloor+M-i^\ast\big)$.</p>
+</dodatak>
+
+<h2>Podzadatak 4 <span class="bodovi">10</span> <span class="slajd-ref">slajdovi 30–32</span></h2>
+<h3>$T_M\le B_q$</h3>
+<ul>
+    <li>Razlika u odnosu na prethodni podzadatak: $L_q$ sada može biti proizvoljan ($R_q=M+1$ i dalje vrijedi).</li>
+    <li>Želimo binarno pretraživati na ljusci <b>samo</b> točaka $L_q,L_q+1,\dots,M$.
+        <ul>
+            <li><s>Dovoljno je iz cijele ljuske izvaditi točke iz odgovarajućeg raspona?</s> (na slajdu precrtano — ne vrijedi, vidi skicu)</li>
+        </ul>
+    </li>
+</ul>
+<skica sirina="520px">
+<svg viewBox="0 0 520 300" role="img" aria-label="Ljuska svih točaka i ljuska točaka 1–4">
+<defs><marker id="glava-f3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs><line x1="50" y1="270" x2="500" y2="270" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f3)"/><line x1="50" y1="270" x2="50" y2="18" stroke="#1b2a3a" stroke-width="1.5" marker-end="url(#glava-f3)"/><text class="tekst" x="494" y="288" font-style="italic">x</text><text class="tekst" x="32" y="26" font-style="italic">y</text>
+<line x1="80" y1="243" x2="130" y2="235" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="130" y1="235" x2="180" y2="143" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="180" y1="143" x2="230" y2="167" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="230" y1="167" x2="280" y2="97" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="280" y1="97" x2="330" y2="179" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="330" y1="179" x2="380" y2="113" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="380" y1="113" x2="430" y2="113" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="130" y1="235" x2="230" y2="167" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="130" y1="235" x2="330" y2="179" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="230" y1="167" x2="330" y2="179" stroke="#1b2a3a" stroke-width="1.3" stroke-dasharray="3 4"/>
+<line x1="50" y1="243" x2="80" y2="243" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="80" y1="243" x2="130" y2="235" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="130" y1="235" x2="330" y2="179" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="330" y1="179" x2="430" y2="113" stroke="#1b2a3a" stroke-width="2.5"/>
+<line x1="50" y1="239" x2="80" y2="239" stroke="#c0392b" stroke-width="2.5"/>
+<line x1="80" y1="239" x2="130" y2="231" stroke="#c0392b" stroke-width="2.5"/>
+<line x1="130" y1="231" x2="230" y2="163" stroke="#c0392b" stroke-width="2.5"/>
+<circle cx="80" cy="243" r="6" fill="#1b2a3a"/>
+<circle cx="130" cy="235" r="6" fill="#1b2a3a"/>
+<circle cx="180" cy="143" r="6" fill="#1b2a3a"/>
+<circle cx="230" cy="167" r="6" fill="#1b2a3a"/>
+<circle cx="280" cy="97" r="6" fill="#1b2a3a"/>
+<circle cx="330" cy="179" r="6" fill="#1b2a3a"/>
+<circle cx="380" cy="113" r="6" fill="#1b2a3a"/>
+<circle cx="430" cy="113" r="6" fill="#1b2a3a"/>
+<line x1="300" y1="30" x2="340" y2="30" stroke="#1b2a3a" stroke-width="3"/>
+<text class="tekst" x="348" y="35">ljuska svih točaka</text>
+<line x1="300" y1="56" x2="340" y2="56" stroke="#c0392b" stroke-width="3"/>
+<text class="tekst" x="348" y="61">ljuska točaka 1–4</text>
+</svg>
+<natpis>Slajd 31: ljuska svih točaka (crno) i ljuska samo točaka $1$–$4$ (crveno). Ljuska podskupa <em>nije</em> dio ljuske cijelog skupa — točka $4$ je vrh crvene ljuske, a na crnoj je ljusci nije.</natpis>
+</skica>
+<ul>
+    <li>Razmotrimo izgradnju ljuske dodavanjem točaka redom $M,M-1,\dots,1$.
+        <ul>
+            <li>To je obrnuta verzija prethodnog algoritma.</li>
+            <li>Za svaki $l$, ljuska samo točaka $l,l+1,\dots,M$ pojavi se usput!</li>
+        </ul>
+    </li>
+    <li>Upite sortiramo po $L_q$ uzlazno; ukupno $O\big(M+Q(\log Q+\log M)\big)$ vremena.</li>
+</ul>
+<dodatak>
+<p>Andrewov algoritam radi jednako zdesna nalijevo: točke guramo na stog redom $M,M-1,\dots,1$, a prije guranja točke $l$ izbacujemo s vrha one točke zbog kojih bi lanac (gledan zdesna) skretao, tj. kolinearne ili „iznad” spojnice. Stanje stoga neposredno nakon guranja točke $l$ upravo je donja ljuska točaka $l,l+1,\dots,M$ — sufiksa. Zato upite obrađujemo po $L_q$ <em>silazno</em> (tj. sortiramo ih uzlazno po $L_q$ i prolazimo od kraja): spuštamo $l$ od $M$ do $1$ i, kad je gurnuta točka $l=L_q$, binarnim pretraživanjem na trenutnoj ljusci odgovaramo na sve upite s tim $L_q$. Sortiranje je $O(Q\log Q)$, izgradnja $O(M)$, upiti $O(Q\log M)$. Vrijednost $L_q$ nalazi se binarnim pretraživanjem po $T$ (prvi $i$ s $T_i\ge B_q-L$). Uvjet $T_M\le B_q$ daje $R_q=M+1$.</p>
+</dodatak>
+
+<h2>Podzadatak 5 <span class="bodovi">22</span> <span class="slajd-ref">slajd 33</span></h2>
+<h3>$M\le5\times10^5$, $Q\le10^5$</h3>
+<ul>
+    <li>Ni $L_q$ ni $R_q$ više nisu fiksni!
+        <ul>
+            <li>Želimo minimum $-A_q x+y$ po točkama $L_q,L_q+1,\dots,R_q$.</li>
+            <li>To je upit na intervalu, pa pokušajmo nešto nalik <b>segmentnom stablu</b><info naslov="Segmentno stablo s ljuskom u svakom čvoru"><p>Segmentno stablo nad indeksima $1,\dots,M$: svaki čvor pokriva interval indeksa, korijen cijeli $[1,M]$, djeca lijevu i desnu polovicu, listovi pojedine točke. Svaki interval $[L,R)$ rastavlja se na $O(\log M)$ čvorova čiji su intervali disjunktni i zajedno daju točno $[L,R)$.</p><p>Ovdje čvor umjesto zbroja ili minimuma čuva <b>donju ljusku</b> točaka svog intervala (gradi se linearno, jer su točke sortirane po $x$). Ukupno se pohranjuje $O(M\log M)$ točaka — za $M=5\cdot10^5$ oko $10^7$ parova, što stane u memoriju. Upit: u svakom od $O(\log M)$ čvorova binarno pretražimo ljusku ($O(\log M)$) i uzmemo najmanji od dobivenih minimuma $-A_q x+y$.</p></info>.</li>
+        </ul>
+    </li>
+    <li>Za svaki čvor segmentnog stabla predračunamo ljusku točaka iz njegova intervala.</li>
+    <li>Za svaki upit rastavimo $[L_q,R_q)$ na $O(\log M)$ intervala i u svakom od njih binarnim pretraživanjem na ljusci nađemo minimum $-A_q x+y$.</li>
+    <li>Ukupno $O(M\log M+Q\log^2 M)$ vremena.</li>
+</ul>
+<dodatak>
+<p>Slajd piše „točke $L_q,L_q+1,\dots,R_q$” zatvoreno, a u sljedećem retku interval $[L_q,R_q)$ poluotvoreno — riječ je o istom skupu kupaca iz podzadatka 1, samo je zapis krajnje točke na slajdovima nedosljedan. Minimum $-A_q x+y$ po cijelom intervalu jednak je najmanjem od minimuma po čvorovima rastava, a iz točke $i^\ast$ u kojoj se postiže odgovor je $\min\!\big(R_q-L_q,\ \lfloor\frac{Y_{i^\ast}-B_q}{A_q}\rfloor+R_q-1-i^\ast\big)$ kao prije. Ovo rješenje rješava podzadatke 1–5, ali za $M=2\cdot10^6$, $Q=4\cdot10^5$ dva logaritma po upitu i memorija $O(M\log M)$ više nisu prihvatljivi.</p>
+</dodatak>
+
+<h2>Podzadatak 6 — puni bodovi <span class="bodovi">18</span> <span class="slajd-ref">slajdovi 34–46</span></h2>
+<h3>$M\le2\times10^6$, $Q\le4\times10^5$</h3>
+<ul>
+    <li>Postoji više rješenja; ovdje predstavljamo jedno od njih (drugi primjer: <b>podijeli pa vladaj</b>).</li>
+    <li>Prethodno rješenje segmentnim stablom moglo je obraditi upite za <em>proizvoljne</em> intervale.
+        <ul>
+            <li>U stvarnosti $L_q$ i $R_q$ nisu proizvoljni:</li>
+            <li>$L_q=\min i\ \text{ t.d. }\ T_i\ge B_q-L;\qquad R_q=\max i\ \text{ t.d. }\ T_i\le B_q;$</li>
+            <li><b>sortiramo li upite po $B_q$ uzlazno, i $L_q$ i $R_q$ sortirani su uzlazno.</b></li>
+        </ul>
+    </li>
+</ul>
+<dodatak>
+<p>Zašto monotonost vrijedi: niz $T$ je nepadajući, pa je $L_q$ (prvi indeks s $T_i\ge B_q-L$) nepadajuća funkcija od $B_q$, a $R_q$ (zadnji indeks s $T_i\le B_q$) također. Slajd 34 označava s $R_q$ <em>zadnji</em> uključeni indeks, dok je u podzadatku 1 $R_q$ bio prvi <em>isključeni</em> (interval $[L_q,R_q)$); razlika je samo za $1$ i ne utječe na rješenje. Nakon sortiranja upita po $B_q$ sve vrijednosti $L_q$ i $R_q$ dobivaju se dvama pokazivačima koji se pomiču po nizu $T$ u ukupno $O(M+Q)$. Ako je $L_q\gt R_q$ (nijedan kupac nije i naručio i još čeka), odgovor je $0$.</p>
+<p>Skica spomenutog alternativnog pristupa (podijeli pa vladaj, nije na slajdovima): za sredinu $m$ raspona indeksa svaki upit čiji interval sadrži $m$ dijeli se na lijevi dio $[L_q,m)$ i desni dio $[m,R_q)$; ljuske svih sufiksa lijeve polovice i svih prefiksa desne polovice grade se inkrementalno kao u podzadatku 4, a upiti koji sredinu ne sadrže rekurzivno idu u lijevu ili desnu polovicu. Ukupno $O\big((M+Q)\log M\big)$.</p>
+</dodatak>
+
+<h3>Što želimo <span class="slajd-ref">slajd 35</span></h3>
+<ul>
+    <li>Dalje pretpostavljamo $L_1\le L_2\le\dots\le L_Q$ i $R_1\le R_2\le\dots\le R_Q$.</li>
+    <li>Za svaki od uzastopnih podnizova $[L_1,R_1],[L_2,R_2],\dots,[L_Q,R_Q]$ zadanog niza točaka želimo znati njegovu ljusku.</li>
+    <li>Što želimo: počevši od praznog niza točaka,
+        <ul>
+            <li>dodavati točku <b>na kraj</b>;</li>
+            <li>brisati točku <b>s početka</b>;</li>
+            <li>pristupati ljusci trenutnog niza (konkretno: binarno pretraživati po njoj).</li>
+        </ul>
+    </li>
+    <li>To su operacije nalik <b>redu</b> (queue).</li>
+</ul>
+
+<h3>Što možemo <span class="slajd-ref">slajdovi 36–37</span></h3>
+<ul>
+    <li>Usput: je li ostvarivo sljedeće? Počevši od praznog niza točaka,
+        <ul>
+            <li>dodavati točku na kraj;</li>
+            <li>brisati točku <b>s kraja</b>;</li>
+            <li>pristupati ljusci trenutnog niza.</li>
+        </ul>
+    </li>
+    <li>Može (pri dodavanju svake točke zabilježimo točke koje je to dodavanje izbacilo iz ljuske).</li>
+    <li>To su operacije nalik <b>stogu</b> (stack).</li>
+</ul>
+<dodatak naslov="Stog s ljuskom i povratkom (undo) — detalji">
+<p>Ljusku držimo u nizu <code>hull</code>. Pri guranju točke $P$ (koja je desno od svih dosadašnjih) izbacujemo s vrha ljuske točke koje s $P$ čine desno skretanje, zapišemo ih (zajedno s brojem) u zapis povratka za $P$ i gurnemo $P$. Pri brisanju $P$ s kraja niza uklonimo $P$ s vrha ljuske i vratimo zapisane točke — ljuska je ponovno točno ljuska preostalog niza, jer su izbačene točke bile dio ljuske neposredno prije dodavanja $P$. Vraćanje košta koliko i izbacivanje, pa ukupno vrijeme ostaje linearno u broju guranja ako se svaka točka gurne i briše najviše jedanput (što u nastavku i vrijedi).</p>
+<p>Alternativa bez amortizacije: izbačene točke čine sufiks ljuske, a predikat „točka $\mathrm{hull}[j]$ se izbacuje” monoton je po $j$, pa se nova veličina ljuske $p$ nađe binarnim pretraživanjem u $O(\log M)$; umjesto brisanja samo zapamtimo $(p,\ \mathrm{hull}[p],\ \text{stara veličina})$, upišemo $\mathrm{hull}[p]=P$ i postavimo veličinu na $p+1$. Povratak je $O(1)$: vratimo staru vrijednost i staru veličinu. Točke iznad indeksa „veličina” ostaju fizički u nizu i ne smetaju.</p>
+</dodatak>
+
+<h3>Dakle…? <span class="slajd-ref">slajdovi 38–39</span></h3>
+<ul>
+    <li>Želimo operacije nalik redu (dodavanje na kraj, brisanje s početka, pristup ljusci).</li>
+    <li>Znamo ostvariti operacije nalik stogu (dodavanje na kraj, brisanje s kraja, pristup ljusci).</li>
+    <li>Dakle…?</li>
+</ul>
+<p>Odgovor (slajd 39, preko cijelog slajda): <b>Two Stacks Queue</b> — <b>red iz dva stoga</b>.</p>
+
+<okviri naslov="Red iz dva stoga (slajdovi 40–44)" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 520 215" role="img" aria-label="Red iz dva stoga, korak 1">
+<defs><marker id="plava-1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f618d"/></marker></defs>
+<path d="M60 70 H245 V150 H60" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<path d="M460 70 H275 V150 H460" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<text class="tekst-mali" x="70" y="172">prednji stog (početak reda)</text>
+<text class="tekst-mali" x="285" y="172">stražnji stog (kraj reda)</text>
+<text class="tekst-mali" x="150" y="192">dno stogova je u sredini, otvori gledaju van</text>
+<circle cx="305" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="305" y="110">1</text>
+<line x1="450" y1="110" x2="345" y2="110" stroke="#1f618d" stroke-width="3" marker-end="url(#plava-1)"/>
+</svg>
+<natpis>Slajd 40: dva stoga spojena dnom o dno; elementi ulaze zdesna (strelica) u stražnji stog — dodavanje na kraj reda.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 215" role="img" aria-label="Red iz dva stoga, korak 2">
+<defs><marker id="plava-2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f618d"/></marker></defs>
+<path d="M60 70 H245 V150 H60" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<path d="M460 70 H275 V150 H460" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<text class="tekst-mali" x="70" y="172">prednji stog (početak reda)</text>
+<text class="tekst-mali" x="285" y="172">stražnji stog (kraj reda)</text>
+<text class="tekst-mali" x="150" y="192">dno stogova je u sredini, otvori gledaju van</text>
+<circle cx="305" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="305" y="110">1</text>
+<circle cx="360" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="360" y="110">2</text>
+<line x1="460" y1="110" x2="400" y2="110" stroke="#1f618d" stroke-width="3" marker-end="url(#plava-2)"/>
+</svg>
+<natpis>Slajd 41: još jedno dodavanje na kraj — u stražnjem stogu su dva elementa, prednji je prazan.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 215" role="img" aria-label="Red iz dva stoga, korak 3">
+<defs><marker id="plava-3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f618d"/></marker></defs>
+<path d="M60 70 H245 V150 H60" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<path d="M460 70 H275 V150 H460" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<text class="tekst-mali" x="70" y="172">prednji stog (početak reda)</text>
+<text class="tekst-mali" x="285" y="172">stražnji stog (kraj reda)</text>
+<text class="tekst-mali" x="150" y="192">dno stogova je u sredini, otvori gledaju van</text>
+<circle cx="305" cy="110" r="22" class="cvor-istaknut" opacity="0.3"/>
+<circle cx="360" cy="110" r="22" class="cvor-istaknut" opacity="0.3"/>
+<circle cx="160" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="160" y="110">2</text>
+<circle cx="215" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="215" y="110">1</text>
+<path d="M305 86 Q 260 18 220 82" fill="none" stroke="#1f618d" stroke-width="3" marker-end="url(#plava-3)"/>
+<path d="M360 86 Q 265 4 165 82" fill="none" stroke="#1f618d" stroke-width="3" marker-end="url(#plava-3)"/>
+</svg>
+<natpis>Slajd 42: zatraženo je brisanje s početka, a prednji je stog prazan — cijeli sadržaj stražnjeg stoga premješta se u prednji (lukovi); pritom se poredak obrće, pa je najstariji element na vrhu prednjeg stoga.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 215" role="img" aria-label="Red iz dva stoga, korak 4">
+<defs><marker id="plava-4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f618d"/></marker></defs>
+<path d="M60 70 H245 V150 H60" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<path d="M460 70 H275 V150 H460" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<text class="tekst-mali" x="70" y="172">prednji stog (početak reda)</text>
+<text class="tekst-mali" x="285" y="172">stražnji stog (kraj reda)</text>
+<text class="tekst-mali" x="150" y="192">dno stogova je u sredini, otvori gledaju van</text>
+<circle cx="160" cy="110" r="22" class="cvor-istaknut" opacity="0.3"/>
+<circle cx="215" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="215" y="110">1</text>
+<circle cx="32" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="32" y="110">2</text>
+<line x1="150" y1="110" x2="62" y2="110" stroke="#1f618d" stroke-width="3" marker-end="url(#plava-4)"/>
+</svg>
+<natpis>Slajd 43: brisanje s početka — s vrha prednjeg stoga element izlazi ulijevo; stražnji stog je prazan.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 215" role="img" aria-label="Red iz dva stoga, korak 5">
+<defs><marker id="plava-5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f618d"/></marker></defs>
+<path d="M60 70 H245 V150 H60" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<path d="M460 70 H275 V150 H460" fill="none" stroke="#1b2a3a" stroke-width="2"/>
+<text class="tekst-mali" x="70" y="172">prednji stog (početak reda)</text>
+<text class="tekst-mali" x="285" y="172">stražnji stog (kraj reda)</text>
+<text class="tekst-mali" x="150" y="192">dno stogova je u sredini, otvori gledaju van</text>
+<circle cx="215" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="215" y="110">1</text>
+<circle cx="305" cy="110" r="22" class="cvor-istaknut"/><text class="oznaka-cvora" x="305" y="110">3</text>
+<line x1="450" y1="110" x2="345" y2="110" stroke="#1f618d" stroke-width="3" marker-end="url(#plava-5)"/>
+</svg>
+<natpis>Slajd 44: novo dodavanje ide opet u stražnji stog, dok u prednjem čeka preostali stariji element.</natpis>
+</okvir>
+</okviri>
+
+<h3>Two Stacks Queue <span class="slajd-ref">slajd 45</span></h3>
+<ul>
+    <li>Dva stoga spojena „leđima o leđa” ostvaruju operacije jednake redu.</li>
+    <li>Dodavanje na kraj: dodaj u stog za kraj (stražnji stog).</li>
+    <li>Brisanje s početka: ako stog za početak (prednji stog) nije prazan, briši iz njega; ako je prazan, najprije cijeli sadržaj stražnjeg stoga premjesti u prednji.</li>
+    <li>Svaki se element premješta najviše jedanput, pa je sve amortizirano $O(1)$.</li>
+</ul>
+
+<h3>Primjena na ljuske <span class="slajd-ref">slajd 46</span></h3>
+<ul>
+    <li>Primijenimo to ovdje: u svakom stogu održavamo i niz točaka i njihovu ljusku — i to je dovoljno.
+        <ul>
+            <li>Obrada upita: binarno pretraživanje na ljusci svakog od dvaju stogova.</li>
+            <li>Premještanje (brisanje s početka kad je prednji stog prazan): iz <b>izvornog niza točaka</b> u stražnjem stogu u linearnom vremenu <b>od nule</b> izgradimo ljusku (kad bismo ljusku stražnjeg stoga samo kopirali, brisanje s početka ne bi bilo moguće!).</li>
+        </ul>
+    </li>
+    <li>Ukupno $O\big(M+Q(\log Q+\log M)\big)$ vremena.</li>
+</ul>
+<dodatak naslov="Kako točno izgledaju dva stoga s ljuskama">
+<p><b>Stražnji stog</b> sadrži točke s većim indeksima, gurnute po rastućem indeksu; njegova ljuska gradi se slijeva nadesno (obični Andrew). Iz njega se nikad ne briše pojedinačno — pri premještanju se isprazni cijeli.</p>
+<p><b>Prednji stog</b> sadrži točke s manjim indeksima, a na vrhu mu je točka <em>najmanjeg</em> indeksa (početak reda). Pri premještanju prolazimo izvorni niz točaka stražnjeg stoga od <em>najvećeg</em> indeksa prema najmanjem i svaku točku guramo u prednji stog uz održavanje ljuske zdesna nalijevo (obrnuti Andrew iz podzadatka 4) i zapis povratka; to je linearno. Brisanje s početka je tada brisanje s vrha prednjeg stoga uz povratak ljuske. Kopiranje ljuske stražnjeg stoga ne bi radilo jer je ona građena slijeva nadesno: uklanjanje njezine krajnje lijeve točke može „otkriti” točke koje su ranije izbačene, a za taj smjer nema zapisa povratka.</p>
+<p><b>Upit</b> $(A_q,B_q)$ nakon što red sadrži točno točke $[L_q,R_q)$: na svakoj od dviju ljuski binarnim pretraživanjem nađemo točku koja minimizira $-A_q x+y$ (nagibi bridova rastu s $x$ na obje), uzmemo bolju od dvije i odgovor je $\min\!\big(R_q-L_q,\ \lfloor\frac{Y_{i^\ast}-B_q}{A_q}\rfloor+R_q-1-i^\ast\big)$; za prazan red odgovor je $0$. Odgovore spremamo i ispisujemo u izvornom poretku upita.</p>
+<p><b>Složenost:</b> sortiranje upita $O(Q\log Q)$; pomicanje $L_q,R_q$ dvama pokazivačima $O(M+Q)$; svaka točka uđe u stražnji stog najviše jedanput, premjesti se najviše jedanput i izbriše najviše jedanput — $O(M)$ ukupno; upiti $O(Q\log M)$. Zbroj: $O\big(M+Q(\log Q+\log M)\big)$, s malom konstantom i $O(M)$ memorije, što je ključno za $M=2\cdot10^6$.</p>
+</dodatak>
+
+<h2>Raspodjela bodova <span class="slajd-ref">slajdovi 47–48</span></h2>
+<p>Slajd 47 je naslovni slajd „Raspodjela bodova”; slajd 48 donosi tablicu (uz ilustracije pekara i peciva):</p>
+<table>
+    <thead><tr><th>Bodovi</th><th>Riješeni podzadaci</th><th>Broj natjecatelja</th></tr></thead>
+    <tbody>
+        <tr><td>100</td><td>1, 2, 3, 4, 5, 6</td><td>0</td></tr>
+        <tr><td>82</td><td>1, 2, 3, 4, 5</td><td>1</td></tr>
+        <tr><td>72</td><td>1, 2, 3, 5</td><td>1</td></tr>
+        <tr><td>60</td><td>1, 2, 3, 4</td><td>3</td></tr>
+        <tr><td>50</td><td>1, 2, 3</td><td>5</td></tr>
+        <tr><td>42</td><td>1, 2, 5</td><td>1</td></tr>
+        <tr><td>20</td><td>1, 2</td><td>15</td></tr>
+        <tr><td>0</td><td>∅</td><td>4</td></tr>
+    </tbody>
+</table>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Odgovor $=\min(R-L,\lfloor\min_i((Y_i-B)/A+R-1-i)\rfloor)$; minimum je dodir pravca nagiba $A$ s donjom ljuskom.</li>
-        <li>Intervali klize monotono ⇒ red iz dva stoga ljuski s povratkom, $O(M+Q\log)$.</li>
+        <li>Upit gleda interval kupaca $[L_q,R_q)$ s $T_i\le B_q\le Y_i=T_i+L$; poslužuje se zadnjih $k$ kupaca redom, a uvjet glasi $k\le\frac{Y_i-B_q}{A_q}+R_q-1-i$ za sve $i$ u intervalu — odgovor je floor minimuma (ograničen s $R_q-L_q$).</li>
+        <li>Minimum $-A_q x+y$ po točkama $(i,Y_i)$ postiže se na donjoj konveksnoj ljusci, u vrhu gdje nagib bridova prelazi $A_q$ — binarno pretraživanje u $O(\log M)$.</li>
+        <li>Ljuska podintervala nije dio globalne ljuske: sufiksne ljuske dobivaju se obrnutim Andrewom (podzadatak 4), proizvoljni intervali segmentnim stablom ljuski u $O(\log^2M)$ po upitu (podzadatak 5).</li>
+        <li>Nakon sortiranja po $B_q$ i $L_q$ i $R_q$ rastu, pa je skup točaka red: red iz dva stoga, svaki s nizom točaka i ljuskom s povratkom; pri premještanju ljusku prednjeg stoga gradimo iznova iz izvornih točaka. Ukupno $O\big(M+Q(\log Q+\log M)\big)$.</li>
     </ul>
 </div>
