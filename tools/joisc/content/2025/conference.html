@@ -1,7 +1,7 @@
 @@ meta
 naslov = Konferencija
 engleski = Conference
-oznake = rastav niza na segmente l[?]r, cijena ovisi samo o krajevima i „kazni”, Large/Small slova, 17 zamjenskih lema, Podproblem 1 (subset-sum s intervalom), Podproblem 2 (ruksak s vrijednostima 1/2, paritet), O(N√N) subset-sum po različitim vrijednostima, offline upiti
+oznake = rastav niza na komade, zamjenske leme, subset-sum, ruksak 1/2, offline upiti, segmentno stablo
 autor_analize = Hachiya Norihisa (Mitsubachi)
 
 @@ zadatak
@@ -35,320 +35,1458 @@ A??B??C?A
 </div>
 <p>$(1,3,1)$: npr. <code>ABBBBCCAA</code> — promjene na 1, 5, 7.</p>
 
-@@ rjesenje
-<h2>Rastav na segmente</h2>
-<p>Reži niz na fiksnim slovima: svaki komad je $l[\,?^k\,]r$ (ili susjedni par fiksnih slova, $k=0$). Cijena je zbroj po komadima. <b>Lema.</b> Cijena komada ovisi samo o krajevima i o <i>kazni</i> = broju različitih umetnutih slova koja nisu ni $l$ ni $r$: isti krajevi → kazna 0, 1, 2 daje 0, 2, 3; različiti → kazna 0, 1 daje 1, 2. (Donja granica brojanjem prijelaza; postiže se grupiranjem jednakih slova: $A[BBC]A\to ABBCA$.) Dakle nije važno <i>koliko</i> stranih slova, nego <i>koja</i>.</p>
-<p>Označi $p,q,r$ = ukupno upitnika u $A[?]A$, $B[?]B$, $C[?]C$, a $s,t,u$ u $A[?]B$, $B[?]C$, $C[?]A$; $X+Y+Z=p+q+r+s+t+u$. Slovo $A$ je <b>Large</b> ako $X\gt p+s+u$ (mora „preliti” u komade gdje je strano) i <b>Small</b> ako $X\lt p$ (ne može ni ispuniti vlastite komade). Analogno za $B,C$.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–6</span></h2>
+<p>Službenu analizu rješenja napisao je <b>Hachiya Norihisa</b> (Mitsubachi) za 3. natjecateljski dan (Day 3) JOI proljetnog kampa 2024/2025 (naslovni slajd s fotografijom; „Korak 0: pregled zadatka”).</p>
 
-<h2>Struktura optimuma (17 zamjenskih lema)</h2>
-<p>Osnovna metoda: „ova zamjena dvaju umetnutih slova ne pogoršava cijenu, pa smijemo pretpostaviti…”. Lema 01: najviše jedan komad ima kaznu 2. Slučajevi po broju Large slova:</p>
+<h3>Pregled zadatka</h3>
 <ul>
-    <li><b>3 Large</b>: nemoguće (zbroj). <b>2 Large</b> ($A,B$): tada $Z\lt r$, $C$ Small; leme 02–06 ⇒ $A[?]A,\,C[?]A$ pune se samo s $A$; $B[?]B,\,B[?]C$ samo s $B$; $C$ ide samo u $C[?]C$. Ostaje: koliko $A$ (a koliko $B$) u $A[?]B$, a višak $a$ slova $A$ (i $B$) upada u $C[?]C$ → <b>Podproblem 1</b>.</li>
-    <li><b>1 Large</b> ($A$): ako $Y\gt q+t$ (ili $Z\gt r+t$) — opet Podproblem 1. Inače leme 07–10 ⇒ $B$ samo u $B[?]B,B[?]C$; $C$ samo u $C[?]C,B[?]C$; $A$ puni sve ostalo i prelijeva → <b>Podproblem 2</b>.</li>
-    <li><b>0 Large</b>: 3 ili 2 Small nemoguće; 1 Small ($C$): leme 11–17 daju istu strukturu kao 2 Large → Podproblem 1. 0 Small: napuni $A[?]A,B[?]B,C[?]C$ vlastitim slovima, ostatak stane u $A[?]B,B[?]C,C[?]A$ bez stranih slova (greedy s više slobode / indukcija) — postignuta je očita donja granica.</li>
+    <li>Zadan je niz znakova $S$ duljine $N$.</li>
+    <li>$S$ se sastoji od znakova $A$, $B$, $C$ i $?$.</li>
+    <li>U upitnike želimo upisati $A$, $B$ ili $C$ tako da broj mjesta na kojima se znak mijenja bude što manji.</li>
+    <li>Za $AABBACA$ to je $AA\,|\,BB\,|\,A\,|\,C\,|\,A$, dakle $4$ promjene.</li>
+    <li>Želimo odgovoriti na $Q$ upita.</li>
+    <li>U svakom upitu u upitnike treba upisati točno $X$ znakova $A$, $Y$ znakova $B$ i $Z$ znakova $C$ i riješiti gornji problem.</li>
 </ul>
 
-<h2>Podproblem 1 — subset-sum</h2>
-<p>Niz $c$ (veličine $C[?]C$). Napravi $Z$ smanjenja pozitivnih $c_i$ (ubaci $C$). Neka je $W=\#\{c_i\ge1\}$ (komadi u koje ulaze strana slova). Kazna $2W$ ako se $a$ (broj $A$ koji upadaju) može složiti kao podzbroj preostalih $c_i$, inače $2W+1$ (jedan komad dobije i $A$ i $B$). $W$ uvijek minimiziraj: uništavaj najmanje $c_i$. Kad više nijedan ne možeš uništiti, ostaje $z$ smanjenja; <b>lema</b>: $a$ je ostvariv nakon njih iff je neki podzbroj u $[a,a+z]$ sada. Kako broj $A$ u $A[?]B$ varira, $a$ prolazi interval, pa provjeri pogađa li skup podzbrojeva $[\min a,\max a+z]$. DP $O(N^2)$ po upitu ($\sum c\le N$).</p>
-
-<h2>Podproblem 2 — ruksak vrijednosti 1 i 2</h2>
-<p>Knjižare: $D$ (komadi $B[?]B$, kupuju se zlatom = slovima $B$, vrijednost 2), $E$ ($C[?]C$, srebro = $C$, vrijednost 2), $F$ ($B[?]C$, zlato ili srebro, vrijednost 1). „Kupiti” = potpuno ispuniti komad da $A$ ne uđe. Maksimiziraj vrijednost. Po upitu naivno: enumeriraj koliko iz $D$ i $E$, binarno za $F$: $O(N^2\log N)$.</p>
-
-<h2>Ubrzanja</h2>
+<h3>Ograničenja</h3>
 <ul>
-    <li><b>Mnogo upita ($N\le5000$)</b>. P1: grupiraj upite po tome koji niz ($A[?]A$/$B[?]B$/$C[?]C$) igra ulogu $c$; upit $(w,l,r)$ = „iz $w$ najvećih složiti podzbroj u $[l,r]$”; obrađuj $w$ rastuće uz DP tablicu koja raste: $O(N^2+Q\log Q)$. P2: odreži $d$ i $e$ na prefikse koje $y$ odn. $z$ mogu platiti — tada zlato i srebro smiješ izjednačiti; ruksak s vrijednostima 1/2: fiksiraj paritet broja kupljenih iz $F$, spoji $F$ po dva (sortirano) u vrijednost 2, pa greedy najjeftinije; za sve $(y,z)$: fiksiraj $y$, povećavaj $z$, segmentno stablo nad vrijednostima s $\{$broj, zbroj$\}$ i spust „do koje vrijednosti sve možeš kupiti”: $O(N^2\log N)$.</li>
-    <li><b>Malo upita ($Q\le10$)</b>. P1: subset-sum s grupiranjem jednakih vrijednosti (prefiksi s korakom) — $\sum c=O(N)$ ⇒ $O(\sqrt N)$ različitih vrijednosti ⇒ $O(N\sqrt N)$. P2: enumeriraj ukupno $M$ kupljenih iz $D\cup E$ (greedy po spojenom sortiranom nizu, prefiksni zbroj), ostatak za $F$ binarno: $O(N\log N)$.</li>
-    <li><b>Puno</b>. P1: po upitu odredi prag vrijednosti $i$ (sve manje uništeno, $k$ komada vrijednosti $i-1$ preostalo); $\mathrm{DP}'[i][j]$ = najmanji broj komada vrijednosti $i-1$ uz koje se $j$ složi iz vrijednosti $\ge i$; upit = $\min_{j\in[\min a,\max a+z]}\mathrm{DP}'[i][j]\le k$ (RMQ). $O(N\sqrt N+Q\log N)$. P2: po upitu odreži $d,e$, fiksiraj paritet, binarno traži najveću vrijednost $M$ do koje se sve iz spojenog $d,e,f$ (parovi) može platiti — broj i zbroj do $M$ iz prefiksnih zbrojeva; $O(\log N)$–$O(\log^2N)$ po upitu. Ukupno $O(N\sqrt N+Q\log N)$.</li>
+    <li>$N\le 300\,000$</li>
+    <li>prvi i zadnji znak niza $S$ su $A$</li>
+    <li>$Q\le 200\,000$</li>
+    <li>$X+Y+Z$ jednak je broju upitnika u $S$</li>
 </ul>
-<p>Autor iskreno upozorava: implementacija je vrlo teška; stvarna raspodjela bila je 19, 12, 11, 8, 4, 0 bodova.</p>
 
-@@ trener
-<ol class="koraci">
-<li>
-    <details class="spoiler korak">
-        <summary>Samo dva slova ($A$, $B$)</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Reži po fiksnim slovima. Za $A[???]A$: koja je cijena ako uđe barem jedno $B$? Za $A[???]B$? Zaključi da je bitno samo <i>ulazi li</i> strano slovo.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Greedy za dva slova</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Ako $A$-ova nema dovoljno za sve $A[?]A$, koje komade ćeš potpuno ispuniti? Najkraće prve — sortiraj, prefiksni zbroj, binarno po upitu.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Tri slova: tko prelijeva, tko ne dostaje</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Definiraj Large i Small. Pokaži da ne mogu biti 3 Large ni 2 Small. Zatim za svaki slučaj pogodi strukturu optimuma i dokazuj zamjenama.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Podproblem 1: zašto interval $[a,a+z]$</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Ako podzbroj daje $a+k$ ($0\le k\le z$), potroši $k$ smanjenja na izabrane, $z-k$ na ostale. Obratno, zbroj izabranih prije $z$ smanjenja je u $[a,a+z]$.</p>
-        </div>
-    </details>
-</li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Zaboraviti da komadi s $k=0$ (susjedna fiksna slova) daju konstantan doprinos.</li>
-        <li>Pogrešna cijena za kaznu 2 kod istih krajeva: 3, ne 4 (grupiraj: $ABBCA$).</li>
-        <li>Subset-sum bez grupiranja jednakih vrijednosti: $O(N^2)$ umjesto $O(N\sqrt N)$.</li>
-        <li>Miješati zlato i srebro <i>prije</i> odrezivanja $d$ i $e$ na plative prefikse.</li>
-    </ul>
+<h3>Podzadaci</h3>
+<table class="tablica-podzadataka">
+    <thead><tr><th>Podzadatak</th><th>$N$</th><th>$S$</th><th>$Q$</th><th>$Z$</th><th>Bodovi</th></tr></thead>
+    <tbody>
+        <tr><td>1</td><td>$50$</td><td>najviše 13 upitnika</td><td></td><td></td><td>4</td></tr>
+        <tr><td>2</td><td>$500$</td><td></td><td></td><td></td><td>7</td></tr>
+        <tr><td>3</td><td>$5000$</td><td></td><td>$10$</td><td></td><td>13</td></tr>
+        <tr><td>4</td><td>$5000$</td><td></td><td></td><td></td><td>18</td></tr>
+        <tr><td>5</td><td></td><td></td><td>$10$</td><td></td><td>12</td></tr>
+        <tr><td>6</td><td></td><td>nema $C$</td><td></td><td>$Z=0$</td><td>8</td></tr>
+        <tr><td>7</td><td></td><td></td><td></td><td>$Z=0$</td><td>13</td></tr>
+        <tr><td>8</td><td></td><td></td><td></td><td></td><td>25</td></tr>
+    </tbody>
+</table>
+
+<h3>O nastavku</h3>
+<ul>
+    <li>U analizi broj mjesta na kojima se znak mijenja zovemo <b>cijena</b>.</li>
+    <li>Za $AABBC$ cijena je $2$, za $ACCBA$ je $3$ — otprilike tako.</li>
+    <li>Odgovor je najmanja moguća cijena.</li>
+    <li>Spojler: nakon vrlo napornog dokaza problem se svodi na dva oblika, a nakon vrlo naporne analize (i implementacije) oni se mogu ubrzati i zadatak je riješen.</li>
+    <li>I slajdova je vrlo mnogo — čak 181.</li>
+</ul>
+
+<h2>Podzadatak 1 <span class="bodovi">4</span> <span class="slajd-ref">slajdovi 7–9</span></h2>
+<p>Ograničenja: $N\le 50$, u $S$ je najviše 13 upitnika.</p>
+<h3>Iscrpno pretraživanje</h3>
+<ul>
+    <li>Upitnika je najviše 13.</li>
+    <li>Dakle načina popunjavanja upitnika ima najviše $3^{13}=1\,594\,323$.</li>
+    <li>Kad odredimo kako su upitnici popunjeni, cijena se računa u $O(N)$.</li>
+    <li>Dovoljna je obična <code>for</code> petlja.</li>
+    <li>Unaprijed izračunamo cijenu za sva popunjavanja.</li>
+    <li>Ako je $M$ broj upitnika, rješenje radi u npr. $O(N\,3^M+Q)$.</li>
+    <li>Isprobavati sve za svaki upit zasebno, $O(N\,3^M Q)$, vjerojatno ipak ne prolazi.</li>
+</ul>
+<h3>Brže rješenje</h3>
+<ul>
+    <li>Ako pri upisivanju u upitnik, u duhu „diferencijalnog ažuriranja”, gledamo samo znakove neposredno prije i poslije njega, dobivamo $O(M\,3^M+Q)$.</li>
+    <li>Npr. za $AB??C$: kad upisujemo u prvi upitnik, važni su samo dijelovi $B?$ i $??$, a kad upisujemo u drugi, samo $??$ i $?C$.</li>
+    <li>Kad i sporije rješenje izgleda kao da će proći, dajte prednost jednostavnijem — ako se pojavi bug, gubitak vremena bit će manji.</li>
+</ul>
+
+<h2>Podzadatak 2 <span class="bodovi">7</span> <span class="slajd-ref">slajdovi 10–18</span></h2>
+<p>Ograničenje: $N\le 500$.</p>
+<h3>Zapažanje</h3>
+<ul>
+    <li>Rješenjem podzadatka 1 trebalo bi otprilike $3^{500}\approx 3{,}6\cdot 10^{238}$ operacija.</li>
+    <li>Kako god okrenemo, to ne ide.</li>
+    <li>Sjetimo se priče o diferencijalnom ažuriranju.</li>
+    <li>Kod njega je, na kraju, bila važna samo okolina mjesta koje određujemo.</li>
+    <li>Može li se ta ideja iskoristiti?</li>
+</ul>
+<h3>DP</h3>
+<ul>
+    <li>Odlučujmo znakove redom od početka.</li>
+    <li>Kad odredimo novi znak, cijena se mijenja samo na njemu samom i na znaku neposredno prije njega.</li>
+    <li>Kad od $AABB$ napravimo $AABBC$, važan je samo dio $BC$.</li>
+    <li>Kao stanje su važni broj upisanih $A$, $B$, $C$ i zadnji znak.</li>
+    <li>Razmotrimo DP.</li>
+</ul>
+<ul>
+    <li>$DP[i][j][k][l][m]$ := cijena prvih $i$ znakova kad smo pogledali prvih $i$ znakova, u upitnike upisali $j$, $k$, $l$ znakova $A$, $B$, $C$ i zadnji znak je $m$ ($=A$, $B$ ili $C$).</li>
+    <li>Inicijalizacija: $DP[0][0][0][0][A,B,C]=0$, sve ostalo $+\infty$.</li>
+    <li>Prijelaz se zapisuje kao minimum.</li>
+    <li>Jedan prijelaz je $O(1)$.</li>
+    <li>Stanja ima oko $O(N^4)$, pa su prijelazi $O(N^4)$.</li>
+    <li>Izgleda kao TLE ili MLE.</li>
+</ul>
+<h3>Ubrzanje</h3>
+<ul>
+    <li>$DP[i][j][k][l][m]$ := cijena prvih $i$ znakova kad smo pogledali prvih $i$ znakova, u upitnike upisali $j$, $k$, $l$ znakova $A$, $B$, $C$ i zadnji znak je $m$ ($=A$, $B$ ili $C$).</li>
+    <li>Prvo smanjimo broj dimenzija: $l$ slijedi iz $i$, $j$, $k$, pa ga možemo izbaciti.</li>
+    <li>Time je riješeno u $O(N^3)$.</li>
+    <li>Pošaljemo — i vrati se „netočno”.</li>
+    <li>Izgleda da je sudac pokvaren.</li>
+</ul>
+<h3>Štednja memorije</h3>
+<ul>
+    <li>Pročitajmo ipak vlastiti kod.</li>
+    <li>Polje od $500^3\cdot 3$ <code>int</code>-ova je teško.</li>
+    <li>Oko $1{,}5$ GB.</li>
+    <li>U stvarnosti je višedimenzionalno, pa je još teže.</li>
+    <li>① Računati „na mjestu” (in-place).</li>
+    <li>② Koristiti polje tipa <code>short</code>.</li>
+</ul>
+<ul>
+    <li>① Računanje na mjestu.</li>
+    <li>Kad se stari JOI-jevi zadaci rješavaju na AtCoderu, memorijsko je ograničenje 64 MB — to je tehnika koja se koristila za zadatke iz tog vremena.</li>
+    <li>Kad $DP[i]$ ovisi samo o $DP[i-1]$, pripremimo dva polja $A$ i $B$ i ažuriramo \[(A,B)=(DP[0],DP[1]),\,(DP[2],DP[1]),\,\dots\]</li>
+    <li>Vrijeme se ne mijenja, ali memorija gubi jednu dimenziju.</li>
+</ul>
+<ul>
+    <li>② Polje tipa <code>short</code>.</li>
+    <li>Brojevni tip s rasponom \[[-2^{15},\,2^{16}-1]=[-32768,\,32767].\]</li>
+    <li>Upola manje podataka nego <code>int</code>.</li>
+    <li>I kod ①, deklarirati polje globalno te umjesto <code>vector</code>-a pisati <code>int dp[501][501][3]</code> i slično — još je bolje.</li>
+</ul>
+<dodatak>
+<p>Na slajdu piše gornja granica $2^{16}-1$; točan raspon tipa <code>short</code> (16-bitni cijeli broj s predznakom) je $[-2^{15},\,2^{15}-1]$, tj. $[-32768,\,32767]$, kako i stoji u brojčanom zapisu. Vrijednosti DP-a ovdje su najviše $N-1\le 499$, pa <code>short</code> sigurno dostaje; $+\infty$ se predstavlja npr. kao $10^4$.</p>
+</dodatak>
+<h3>Napomena</h3>
+<ul>
+    <li>Pomoću testne funkcije u CMS-u može se provjeriti koliko se memorije troši.</li>
+    <li>Jeste li na probnom natjecanju provjerili da ta mogućnost postoji?</li>
+</ul>
+
+<h2>Podzadatak 3 — prije toga <span class="slajd-ref">slajdovi 19–20</span></h2>
+<p>Ograničenja podzadatka 3: $N\le 5\,000$, $Q\le 10$.</p>
+<ul>
+    <li>Ponekad se kasniji podzadatak čini lakšim.</li>
+    <li>Ovdje je to podzadatak 6.</li>
+    <li>Pogledajmo zato najprije podzadatak 6.</li>
+</ul>
+
+<h2>Podzadatak 6 <span class="bodovi">8</span> <span class="slajd-ref">slajdovi 21–35</span></h2>
+<p>Ograničenja: u $S$ nema $C$ i $Z=0$.</p>
+<h3>Što znače ograničenja</h3>
+<ul>
+    <li>U $S$ nema $C$ → $S$ se sastoji samo od $A$, $B$ i $?$.</li>
+    <li>$Z=0$ → u upitnike se upisuju samo $A$ i $B$.</li>
+    <li>Dakle broj vrsta znakova smanjio se na dvije: $A$ i $B$.</li>
+    <li>Što bi bilo s jednom vrstom znaka? → Sve je $A$, pa je cijena $0$.</li>
+</ul>
+<h3>Važna ideja</h3>
+<ul>
+    <li>Popunjavanje upitnika jedinstveno je određeno brojem upisanih $A$.</li>
+    <li>Ovdje upotrebljavamo važnu ideju: <b>rastav niza</b>.</li>
+    <li>Razmislimo npr. na $S=A???B?A?ABBA$.</li>
+</ul>
+<h3>Rastav niza</h3>
+<ul>
+    <li>Ovdje upotrebljavamo važnu ideju: <b>rastav niza</b>.</li>
+    <li>Razmislimo npr. na $S=A???B?A?ABBA$.</li>
+    <li>Cijena je tada zbroj cijena komada $A???B$, $B?A$, $A?A$, $AB$, $BB$ i $BA$.</li>
+    <li>Rezali smo između dva fiksna znaka.</li>
+    <li>Svaki je komad oblika ($A$ ili $B$) + (nekoliko upitnika) + ($A$ ili $B$).</li>
+    <li>Takav je rastav jedinstven.</li>
+    <li>Osim toga, ukupna duljina komada je $O(N)$ (dovoljno je pogledati doprinos svakog znaka).</li>
+</ul>
+<skica sirina="560px">
+<svg viewBox="0 0 560 150" role="img" aria-label="Rastav niza A???B?A?ABBA na komade A???B, B?A, A?A, AB, BB, BA">
+  <text class="tekst" x="10" y="24">S = A ? ? ? B ? A ? A B B A</text>
+  <rect x="10" y="50" width="130" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="75" y="72" text-anchor="middle">A ? ? ? B</text>
+  <rect x="150" y="50" width="80" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="190" y="72" text-anchor="middle">B ? A</text>
+  <rect x="240" y="50" width="80" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="280" y="72" text-anchor="middle">A ? A</text>
+  <rect x="330" y="50" width="60" height="34" rx="6" fill="#f3f3f3" stroke="#777"/>
+  <text class="tekst" x="360" y="72" text-anchor="middle">A B</text>
+  <rect x="400" y="50" width="60" height="34" rx="6" fill="#f3f3f3" stroke="#777"/>
+  <text class="tekst" x="430" y="72" text-anchor="middle">B B</text>
+  <rect x="470" y="50" width="60" height="34" rx="6" fill="#f3f3f3" stroke="#777"/>
+  <text class="tekst" x="500" y="72" text-anchor="middle">B A</text>
+  <text class="tekst-mali" x="10" y="112">plavo: komadi s upitnicima; sivo: komadi bez upitnika (k = 0)</text>
+  <text class="tekst-mali" x="10" y="134">susjedni komadi dijele krajnji znak, pa je ukupna duljina O(N)</text>
+</svg>
+<natpis>Dopuna: rastav niza sa slajda 24. Svaki fiksni znak (osim prvog i zadnjeg) pripada dvama susjednim komadima, pa je zbroj duljina komada najviše $2N$.</natpis>
+</skica>
+<h3>Razmatranje po komadima</h3>
+<ul>
+    <li>Svaki je komad oblika ($A$ ili $B$) + (nekoliko upitnika) + ($A$ ili $B$).</li>
+    <li>Kakva je cijena kad odredimo koliko $A$ i koliko $B$ upisujemo u upitnike?</li>
+    <li>① Slučaj jednakih krajeva.</li>
+    <li>Razmislimo na $A???A$.</li>
+    <li>$0$ znakova $A$, $3$ znaka $B$ → $ABBBA$, cijena $2$.</li>
+    <li>$1$ znak $A$, $2$ znaka $B$ → $AABBA$, $ABABA$ ili $ABBAA$.</li>
+    <li>Cijena je $2$ ili $4$, pa je najmanja cijena $2$.</li>
+    <li>$2$ znaka $A$, $1$ znak $B$ → uz $AABAA$ najmanja cijena je $2$.</li>
+    <li>$3$ znaka $A$, $0$ znakova $B$ → $AAAAA$, cijena $0$.</li>
+</ul>
+<h3>Donja granica</h3>
+<ul>
+    <li>① Slučaj jednakih krajeva, $A???A$.</li>
+    <li>Ako je sve $A$, cijena je $0$, a inače je bila $2$.</li>
+    <li>Postavimo slutnju: „ako je sve $A$, cijena je $0$; ako ima $B$, cijena je $2$”.</li>
+    <li>Dokažimo je.</li>
+    <li>Ako je sve $A$, cijena $0$ je očita.</li>
+    <li>Donja granica: pretpostavimo da ima $B$.</li>
+    <li>Gledamo li slijeva nadesno, sigurno se dogode i „lijevo $A$, desno $B$” i „lijevo $B$, desno $A$” — dakle barem $2$.</li>
+</ul>
+<h3>Dostizanje donje granice</h3>
+<ul>
+    <li>① Slučaj jednakih krajeva, $A???A$; slutnja „sve $A$ → $0$, ima $B$ → $2$”.</li>
+    <li>Dokaz: ako ima $B$, donja granica je $2$; dovoljno je još postići $2$.</li>
+    <li>To se postiže tako da $B$-ove zbijemo u lijevi dio upitnika, a $A$-ove u desni.</li>
+    <li>Zamisao: jednake znakove skupiti na jedno mjesto.</li>
+    <li>Npr. s jednim $A$ i dva $B$ napravimo $AABBA$.</li>
+    <li>Time je slutnja dokazana.</li>
+</ul>
+<h3>Slutnja za različite krajeve</h3>
+<ul>
+    <li>② Slučaj različitih krajeva.</li>
+    <li>Razmislimo na $A???B$.</li>
+    <li>$0$ znakova $A$, $3$ znaka $B$ → $ABBBB$, cijena $1$.</li>
+    <li>$1$ znak $A$, $2$ znaka $B$ → $AABBB$, $ABABB$ ili $ABBAB$.</li>
+    <li>Cijena je $1$ ili $3$, pa je najmanja cijena $1$.</li>
+    <li>$2$ znaka $A$, $1$ znak $B$ → uz $AAABB$ najmanja cijena je $1$.</li>
+    <li>$3$ znaka $A$, $0$ znakova $B$ → $AAAAB$, cijena $1$.</li>
+    <li>Postavimo slutnju „uvijek $1$”.</li>
+    <li>Dokažimo je.</li>
+</ul>
+<h3>Dokaz</h3>
+<ul>
+    <li>② Slučaj različitih krajeva, $A???B$; slutnja „uvijek $1$”.</li>
+    <li>Dokaz. Donja granica: pretpostavimo da ima $B$ (desni je kraj $B$, pa ga uvijek ima).</li>
+    <li>Gledamo li slijeva nadesno, barem jednom se dogodi „lijevo $A$, desno $B$” — dakle barem $1$.</li>
+    <li>Obratno, upišemo li $A$-ove lijevo, a $B$-ove desno, to se i postiže.</li>
+    <li>Time je slutnja dokazana.</li>
+</ul>
+<h3>Sažetak dosadašnjeg</h3>
+<ul>
+    <li>Za svaki komad:</li>
+    <li>① jednaki krajevi: ako je sve krajnji znak, cijena je $0$, inače $2$;</li>
+    <li>② različiti krajevi: uvijek $1$.</li>
+    <li>Bitno zapažanje: <b>važno je samo koji se znakovi upisuju, a koji ne</b>.</li>
+    <li>Ako je nekog znaka barem jedan, svejedno je koliko ih je.</li>
+</ul>
+<h3>Pohlepna strategija</h3>
+<ul>
+    <li>Dakle, ako upisujemo neki broj $A$-ova, a u ostatak $B$-ove:</li>
+    <li>komade s jednakim krajevima želimo cijele popuniti krajnjim znakom;</li>
+    <li>$A???A$ želimo pretvoriti u $AAAAA$.</li>
+    <li>Zato je optimalna sljedeća strategija:</li>
+    <li>komade oblika $A$ + (nekoliko upitnika) + $A$ pohlepno popunjavaj znakom $A$, od najkraćih;</li>
+    <li>komade oblika $B$ + (nekoliko upitnika) + $B$ pohlepno popunjavaj znakom $B$, od najkraćih;</li>
+    <li>ostalo popuni bilo kako.</li>
+</ul>
+<h3>Računanje cijene</h3>
+<ul>
+    <li>Optimalna strategija je gornja (A-komadi od najkraćih s $A$, B-komadi od najkraćih s $B$, ostatak bilo kako).</li>
+    <li>Cijena je \[\begin{aligned}&\big[\,(\text{broj komada } A+(?)+A \text{ u koje je ušao } B)\\&\quad+(\text{broj komada } B+(?)+B \text{ u koje je ušao } A)\,\big]\cdot 2\\&+(\text{broj komada } A+(?)+B)\cdot 1.\end{aligned}\]</li>
+    <li>Broj komada oblika $A+(?)+B$ lako je izračunati.</li>
+</ul>
+<ul>
+    <li>Brojimo komade oblika $A+(?)+A$ u koje je ušao $B$.</li>
+    <li>Dovoljno je prebrojati komade oblika $A+(?)+A$ u koje je ušao samo $A$.</li>
+    <li>Poredamo li brojeve upitnika u sortirani niz, pitanje glasi: „zbrajajući od početka niza, kada zbroj premaši zadani broj?”</li>
+    <li>Npr. za $A??A$, $A???A$, $A?A$, $A?A$ i $5$ znakova $A$:</li>
+    <li>„zbrajajući $(1,1,2,3)$ od početka, kada premašimo $5$?”</li>
+    <li>To se rješava prefiksnim sumama i binarnim pretraživanjem.</li>
+</ul>
+<h3>Odgovor</h3>
+<ul>
+    <li>Dakle po upitu npr. $O(\log N)$.</li>
+    <li>Ukupno $O(N+Q\log N)$.</li>
+</ul>
+<h3>Drugi pristup</h3>
+<ul>
+    <li>Drugi pristup.</li>
+    <li>Unaprijed pripremimo $ans[i]$ := odgovor kad u upitnike upisujemo $i$ znakova $A$.</li>
+    <li>$ans[0]$ je lagan: u sve upišemo $B$.</li>
+    <li>Iz $ans[i]$ želimo dobiti $ans[i+1]$.</li>
+    <li>Zamjenjujemo li $B$ u $A$ u skladu s gornjom pohlepnom strategijom, svi $ans[i]$ nabrajaju se u $O(N)$.</li>
+    <li>Ukupno $O(N+Q)$.</li>
+</ul>
+
+<h2>Podzadatak 3 <span class="bodovi">13</span> <span class="slajd-ref">slajdovi 36–111</span></h2>
+<p>Ograničenja: $N\le 5\,000$, $Q\le 10$.</p>
+<h3>Rastav niza <span class="slajd-ref">slajdovi 37–38</span></h3>
+<ul>
+    <li>Rastavimo li niz kao u podzadatku 6, dobivamo sljedeći problem:</li>
+    <li>zadano je nekoliko nizova oblika (jedan od $A$, $B$, $C$, zovimo ga $l$) + [nekoliko upitnika] + (jedan od $A$, $B$, $C$, zovimo ga $r$) — npr. $C[???]B$;</li>
+    <li>u upitnike treba upisati zadane brojeve znakova $A$, $B$, $C$;</li>
+    <li>treba minimizirati zbroj cijena svih komada.</li>
+    <li>Za svaki komad, broj vrsta znakova upisanih u $[?]$ koji nisu ni $l$ ni $r$ zovemo <b>kazna</b> (za $A[BBC]A$ kazna je $2$).</li>
+    <li>Za $A$, $B$ cijena je ovisila samo o krajevima i kazni.</li>
+</ul>
+<ul>
+    <li>Kazna komada = broj vrsta znakova upisanih u $[?]$ koji nisu ni $l$ ni $r$ ($A[BBC]A$: $2$).</li>
+    <li>Slutnja: „i uz $A$, $B$, $C$ cijena ovisi samo o krajevima i kazni”.</li>
+    <li>I zaista vrijedi!</li>
+    <li>Dokažimo.</li>
+</ul>
+<h3>Dokaz <span class="slajd-ref">slajdovi 39–40</span></h3>
+<ul>
+    <li>Slutnja: „i uz $A$, $B$, $C$ cijena ovisi samo o krajevima i kazni”.</li>
+    <li>① Slučaj jednakih krajeva ($l=r$).</li>
+    <li>Za kaznu $0$, $1$, $2$ donja granica je redom $0$, $2$, $3$.</li>
+    <li>To se i postiže.</li>
+    <li>Kao i prije, dovoljno je jednake znakove skupiti na jedno mjesto.</li>
+    <li>Npr. $A???A$ s dva $B$ i jednim $C$ pretvorimo u $ABBCA$.</li>
+</ul>
+<ul>
+    <li>② Slučaj različitih krajeva ($l\ne r$).</li>
+    <li>Za kaznu $0$, $1$ donja granica je redom $1$, $2$.</li>
+    <li>I to se postiže.</li>
+    <li>Kao i prije, jednake znakove skupimo na jedno mjesto.</li>
+    <li>Npr. $A???B$ s dva $B$ i jednim $C$ pretvorimo u $ACBBB$.</li>
+    <li>Time je slutnja dokazana.</li>
+</ul>
+<dodatak naslov="Zašto vrijede donje granice 0, 2, 3 odnosno 1, 2">
+<p>Zamislimo popunjeni komad kao niz <em>blokova</em> jednakih susjednih znakova; cijena komada je (broj blokova) $-1$. Svaka vrsta znaka koja se u komadu pojavljuje čini barem jedan blok, a prvi i zadnji blok sadrže krajeve $l$ i $r$.</p>
+<p>Jednaki krajevi $l=r$: uz kaznu $1$ postoji strani znak, pa osim bloka s $l$ na početku i bloka s $l$ na kraju (to su dva različita bloka jer je između njih strani znak) postoji još barem jedan blok — ukupno $\ge 3$ bloka, cijena $\ge 2$. Uz kaznu $2$ postoje dva različita strana znaka, dakle $\ge 4$ bloka i cijena $\ge 3$. Uz kaznu $0$ sve je $l$, cijena $0$.</p>
+<p>Različiti krajevi: blokovi s $l$ i $r$ su različiti, pa je cijena $\ge 1$; uz kaznu $1$ postoji i blok stranog znaka, dakle $\ge 3$ bloka i cijena $\ge 2$. Konstrukcije $ABBCA$ i $ACBBB$ sa slajda pokazuju da se granice dostižu (grupiranjem: prvo krajnji znak $l$, zatim strani znakovi u blokovima, pa krajnji znak $r$).</p>
+</dodatak>
+<h3>Preformulacija <span class="slajd-ref">slajdovi 41–42</span></h3>
+<ul>
+    <li>Svojstvo: „i uz $A$, $B$, $C$ cijena ovisi samo o krajevima i kazni”.</li>
+    <li>Pomoću njega prepišimo tekst zadatka:</li>
+    <li>zadano je nekoliko komada oblika ($l\in\{A,B,C\}$) + [nekoliko upitnika] + ($r\in\{A,B,C\}$), npr. $C[???]B$;</li>
+    <li>u upitnike se upisuju zadani brojevi znakova $A$, $B$, $C$;</li>
+    <li>minimizira se zbroj cijena komada;</li>
+    <li>kazna komada je broj vrsta znakova upisanih u $[?]$ koji nisu ni $l$ ni $r$ ($A[BBC]A$: $2$).</li>
+</ul>
+<ul>
+    <li>Kad su krajevi jednaki, kazna $0$, $1$, $2$ daje cijenu $0$, $2$, $3$.</li>
+    <li>Kad su krajevi različiti, kazna $0$, $1$ daje cijenu $1$, $2$.</li>
+    <li>Sada je dovoljno riješiti $N\le 5\,000$, $Q\le 10$.</li>
+    <li>Želimo nešto poput $O(N^2)$ ili $O(N^2\log N)$ po upitu.</li>
+</ul>
+<h3>Priprema pojmova <span class="slajd-ref">slajdovi 43–44</span></h3>
+<ul>
+    <li>U podzadatku 6 razmatrali smo pohlepnu strategiju.</li>
+    <li>Može li se i ovdje tako?</li>
+    <li>Zapravo može.</li>
+    <li>Najprije pripremimo razne pojmove.</li>
+    <li>Ukupan broj upitnika u komadima oblika $A[?]A$ označimo s $p$.</li>
+    <li>Za $B[?]B$, $C[?]C$, $A[?]B$, $B[?]C$, $C[?]A$ jednako definiramo $q$, $r$, $s$, $t$, $u$.</li>
+</ul>
+<ul>
+    <li>Za $S=A???AB??B??C??B$:</li>
+    <li>rastav je \[A[???]A + A[\,]B + B[??]B + B[??]C + C[??]B,\]</li>
+    <li>pa je \[(p,q,r,s,t,u)=(3,2,0,0,3,0).\]</li>
+    <li>Očito je $p,q,r,s,t,u\ge 0$.</li>
+    <li>To ćemo koristiti u dokazima, pa to ovdje izričito navodimo.</li>
+</ul>
+<skica sirina="560px">
+<svg viewBox="0 0 560 120" role="img" aria-label="Rastav A???AB??B??C??B na komade A[???]A, A[]B, B[??]B, B[??]C, C[??]B">
+  <text class="tekst" x="10" y="24">S = A ? ? ? A B ? ? B ? ? C ? ? B</text>
+  <rect x="10" y="46" width="110" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="65" y="68" text-anchor="middle">A[???]A</text>
+  <rect x="130" y="46" width="70" height="34" rx="6" fill="#f3f3f3" stroke="#777"/>
+  <text class="tekst" x="165" y="68" text-anchor="middle">A[ ]B</text>
+  <rect x="210" y="46" width="100" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="260" y="68" text-anchor="middle">B[??]B</text>
+  <rect x="320" y="46" width="100" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="370" y="68" text-anchor="middle">B[??]C</text>
+  <rect x="430" y="46" width="100" height="34" rx="6" fill="#eef3ff" stroke="#2c4a8a"/>
+  <text class="tekst" x="480" y="68" text-anchor="middle">C[??]B</text>
+  <text class="tekst-mali" x="10" y="100">p = 3 (A[?]A),  q = 2 (B[?]B),  r = 0 (C[?]C)</text>
+  <text class="tekst-mali" x="10" y="116">s = 0 (A[?]B),  t = 3 (B[?]C i C[?]B),  u = 0 (C[?]A)</text>
+</svg>
+<natpis>Dopuna: primjer sa slajda 44. Komadi $B[?]C$ i $C[?]B$ pripadaju istoj vrsti (vrsta komada određena je skupom krajeva, ne njihovim redoslijedom), pa je $t=2+1=3$; $A[\,]B$ nema upitnika i doprinosi $s=0$.</natpis>
+</skica>
+<h3>Definicija Large <span class="slajd-ref">slajd 45</span></h3>
+<ul>
+    <li>$p,q,r,s,t,u$ kao gore.</li>
+    <li>Želimo definirati ima li nekog znaka mnogo ili gotovo nimalo.</li>
+    <li>Za $A$, $B$, $C$ definiramo pojmove <b>Large</b> i <b>Small</b>.</li>
+    <li>Large: broj tog znaka veći je od ukupnog broja upitnika u komadima kojima je taj znak jedan od krajeva.</li>
+    <li>Npr. ako je $X\gt p+s+u$, $A$ zovemo Large.</li>
+    <li>Za $B$, $C$: $Y\gt q+s+t$, $Z\gt r+t+u$.</li>
+</ul>
+<h3>Definicija Small <span class="slajd-ref">slajd 46</span></h3>
+<ul>
+    <li>Large: npr. $X\gt p+s+u$ za $A$; za $B$, $C$: $Y\gt q+s+t$, $Z\gt r+t+u$.</li>
+    <li>Small: broj tog znaka manji je od ukupnog broja upitnika u komadima kojima je taj znak <em>oba</em> kraja.</li>
+    <li>Npr. ako je $X\lt p$, $A$ zovemo Small.</li>
+    <li>Za $B$, $C$: $Y\lt q$, $Z\lt r$.</li>
+</ul>
+<h3>Intuicija pojmova <span class="slajd-ref">slajd 47</span></h3>
+<ul>
+    <li>Large: znaka ima toliko mnogo da se prelijeva u komade u kojima povećava kaznu.</li>
+    <li>Small: znaka ima toliko malo da u komade kojima je on oba kraja ulaze drugi znakovi.</li>
+    <li>Iz razmatranja broja upitnika vrijedi \[X+Y+Z=p+q+r+s+t+u.\]</li>
+    <li>Razlikovat ćemo slučajeve prema broju Large i Small znakova.</li>
+</ul>
+<h3>Lavina dokaza <span class="slajd-ref">slajdovi 48–51</span></h3>
+<ul>
+    <li>Odavde, uz razlikovanje slučajeva, dokazujemo svojstva problema.</li>
+    <li>Ima ih čak 17.</li>
+    <li>Osnovna je ideja: „ovakvom operacijom ništa ne gubimo, pa smijemo pretpostaviti da optimalno rješenje ima ovo svojstvo”.</li>
+    <li>Nadalje pretpostavljamo da već dokazana svojstva vrijede.</li>
+</ul>
+<ul>
+    <li>Prije lavine dokaza: vjerojatno ste već umorni od slušanja, pa kratka pauza.</li>
+    <li>Pustit ćemo današnje fotografije iz Komabe.</li>
+    <li>Pauza (slajd 50, fotografija kamenog spomenika): „Nalazi se južno od ovog mjesta; piše „Umagami” (konjsko božanstvo).”</li>
+    <li>Pauza (slajd 51, fotografija procvjetalog stabla): „Lijepo. A sada — dokazi.”</li>
+</ul>
+<h3>Dokaz 01 <span class="slajd-ref">slajdovi 52–53</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 01.</strong> Broj $d$ komada s kaznom $2$ je najviše $1$.</p></div>
+<p class="dokaz"><em>(Dokaz 01.)</em> Pretpostavimo $d\ge 2$ i uzmimo dva komada s kaznom $2$.</p>
+<ul>
+    <li>① Ako su krajevi jednaki, npr. $A[A\cdot p_1,\,B\cdot q_1,\,C\cdot r_1]A$ i $A[A\cdot p_2,\,B\cdot q_2,\,C\cdot r_2]A$: zamijenimo $B$ iz prvog s $C$ iz drugog $\min(q_1,r_2)$ puta — $d$ se smanji za $1$ ili $2$, a cijena za barem $1$.</li>
+    <li>② Ako su krajevi različiti, npr. $A[A\cdot p_1,\,B\cdot q_1,\,C\cdot r_1]A$ i $B[A\cdot p_2,\,B\cdot q_2,\,C\cdot r_2]B$: zamijenimo $B$ iz prvog s $A$ iz drugog $\min(q_1,p_2)$ puta i dokaz je isti.</li>
+</ul>
+<dodatak>
+<p>Zašto cijena pada: u slučaju ① prvi komad prima dodatne $C$-ove, a drugi dodatne $B$-ove — oba već sadrže i $B$ i $C$, pa im se skup stranih znakova ne širi. Nakon $\min(q_1,r_2)$ zamjena jedan od njih ostaje bez jedne vrste stranog znaka, pa mu kazna pada s $2$ na $1$ (cijena s $3$ na $2$). U slučaju ② prvi komad prima $A$ (svoj krajnji znak), drugi prima $B$ (svoj krajnji znak), pa se opet nijedna kazna ne povećava, a barem jedna pada. Dakle, u optimalnom rješenju ne mogu postojati dva komada s kaznom $2$.</p>
+</dodatak>
+<h3>Razlikovanje slučajeva <span class="slajd-ref">slajdovi 54–55</span></h3>
+<ul>
+    <li>Razlikujemo slučajeve po broju Large znakova.</li>
+    <li>① Tri Large znaka.</li>
+    <li>To znači $X\gt p+s+u$, $Y\gt q+s+t$, $Z\gt r+t+u$.</li>
+    <li>To proturječi \[X+Y+Z=p+q+r+s+t+u.\]</li>
+    <li>② Dva Large znaka.</li>
+    <li>Smijemo pretpostaviti da su $A$ i $B$ Large.</li>
+    <li>Iz $X\gt p+s+u$ i $Y\gt q+s+t$ slijedi $Z\lt r-s$.</li>
+    <li>Posebno $Z\lt r$, tj. $C$ je Small.</li>
+</ul>
+<dodatak>
+<p>Zbrajanjem $X\gt p+s+u$ i $Y\gt q+s+t$ te oduzimanjem od jednakosti za $X+Y+Z$ dobivamo \[Z=(p+q+r+s+t+u)-X-Y\lt r-s.\] U slučaju ① zbroj triju nejednakosti dao bi \[X+Y+Z\gt p+q+r+2s+2t+2u\ge p+q+r+s+t+u,\] što je nemoguće.</p>
+</dodatak>
+<ul>
+    <li>② Dva Large znaka, $A$ i $B$; tada je $C$ Small.</li>
+    <li>Tada vrijede sljedeća svojstva:</li>
+    <li><b>Svojstvo 02:</b> u $A[?]A$ i $B[?]B$ ne ulazi $C$.</li>
+    <li><b>Svojstvo 03:</b> u $A[?]B$ ne ulazi $C$.</li>
+    <li><b>Svojstvo 04:</b> u $A[?]A$ ulazi samo $A$, a u $B[?]B$ samo $B$.</li>
+    <li><b>Svojstvo 05:</b> u $B[?]C$ ne ulazi $A$, a u $C[?]A$ ne ulazi $B$.</li>
+    <li><b>Svojstvo 06:</b> u $B[?]C$ i $C[?]A$ ne ulazi $C$.</li>
+</ul>
+<h3>Definicija notacije <span class="slajd-ref">slajd 56</span></h3>
+<ul>
+    <li>U dokazima koristimo zapis poput $A[BC]A$.</li>
+    <li>On znači: komad s oba kraja $A$ u čije su upitnike upisane točno dvije vrste ne-krajnjih znakova, $B$ i $C$ (a $A$ smije biti upisan).</li>
+    <li>Slično, $A[C]B$ znači komad s krajevima $A$ i $B$ u koji je upisana jedna vrsta ne-krajnjeg znaka, $C$ ($A$ i $B$ smiju biti upisani).</li>
+    <li>Može se shvatiti kao da smo jednake znakove saželi u jedan.</li>
+    <li>Uz svojstvo „i uz $A$, $B$, $C$ cijena ovisi samo o krajevima i kazni” to je prirodna notacija.</li>
+</ul>
+<h3>Dokaz 02 <span class="slajd-ref">slajdovi 57–60</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 02.</strong> U $A[?]A$ i $B[?]B$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 02.)</em></p>
+<ul>
+    <li>Dokazujemo kontradikcijom: neka u nekom $A[?]A$ postoji $C$.</li>
+    <li>Zbog $Z\lt r$, zamjenama s $A$-ovima i $B$-ovima iz $C[?]C$ sve $C$-ove iz $A[?]A$ možemo prenijeti u $C[?]C$.</li>
+    <li>Komad $A[?]A$ je oblika $A[BC]A$ ili $A[C]A$.</li>
+    <li>① Slučaj $A[BC]A$.</li>
+    <li>Po svojstvu 01 („broj komada s kaznom $2$ je najviše $1$”) komadi $C[?]C$ koji sadrže $A$ ili $B$ oblika su $CAA\dots AC$ ili $CBB\dots BC$.</li>
+    <li>Zamjena $A[BC]A$ s $C[A]C$ → u najgorem slučaju $A[B]A$ i $C[AB]C$: cijena se ne povećava.</li>
+    <li>Zamjena $A[BC]A$ s $C[B]C$ → $A[B]A$ i $C[B]C$: cijena pada za $1$.</li>
+    <li>② Slučaj $A[C]A$.</li>
+    <li>Zamjena $A[C]A$ s $C[A]C$ → $A[\,]A$ i $C[A]C$: cijena pada za $2$.</li>
+    <li>Zamjena $A[C]A$ s $C[B]C$ → u najgorem slučaju $A[B]A$ i $C[B]C$: cijena se ne povećava.</li>
+    <li>Zamjena $A[C]A$ s $C[AB]C$ → u najgorem slučaju $A[B]A$ i $C[AB]C$: cijena se ne povećava.</li>
+    <li>Dakle, $C$-ove iz $A[?]A$ možemo premjestiti u $C[?]C$ bez povećanja cijene.</li>
+    <li>Da u $B[?]B$ ne ulazi $C$ dobiva se iz istog dokaza zamjenom $A$ s $B$.</li>
+</ul>
+<dodatak>
+<p>Zašto u $C[?]C$ ima dovoljno znakova $A$/$B$ za zamjenu: svih $C$-ova je $Z\lt r$, pa je u $C[?]C$ (ukupno $r$ upitnika) upisano najviše $Z-c$ znakova $C$, gdje je $c$ broj $C$-ova u promatranim komadima $A[?]A$; preostalih barem $r-(Z-c)\gt c$ mjesta u $C[?]C$ zauzimaju $A$ ili $B$. „Zamjena” uvijek znači: jedan $C$ iz $A[?]A$ i jedan $A$/$B$ iz $C[?]C$ mijenjaju mjesta, pa brojevi $X$, $Y$, $Z$ ostaju isti. Ponavljamo je dok u $A[?]A$ ima $C$-ova; oblik komada $A[?]A$ (①/②) pritom se može promijeniti, ali svaki korak pripada jednom od navedenih slučajeva.</p>
+</dodatak>
+<h3>Dokaz 03 <span class="slajd-ref">slajd 61</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 03.</strong> U $A[?]B$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 03.)</em> Da u $A[?]B$ ne ulazi $C$ dokazuje se jednako. Štoviše, upisivanjem $A$ ili $B$ u $A[?]B$ kazna se ne povećava, pa zamjenom ništa ne gubimo.</p>
+<dodatak>
+<p>Konkretno: $C$ iz $A[?]B$ zamijenimo s nekim $A$ ili $B$ iz $C[?]C$ (postoji po istom brojanju kao u dokazu 02). Komad $A[?]B$ prima vlastiti krajnji znak, pa mu kazna ne raste (a padne na $0$ kad ode zadnji $C$); komad $C[?]C$ gubi strani znak i prima vlastiti $C$, pa mu kazna ne raste.</p>
+</dodatak>
+<h3>Dokaz 04 <span class="slajd-ref">slajdovi 62–66</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 04.</strong> U $A[?]A$ ulazi samo $A$, a u $B[?]B$ samo $B$.</p></div>
+<p class="dokaz"><em>(Dokaz 04.)</em></p>
+<ul>
+    <li>Dovoljno je dokazati da u $A[?]A$ ulazi samo $A$; za $B[?]B$ samo zamijenimo uloge $A$ i $B$.</li>
+    <li>Po svojstvu 02 („u $A[?]A$ ne ulazi $C$”), ako u $A[?]A$ ima $B$, komad je oblika $A[B]A$.</li>
+    <li>Jednako, ako u $B[?]B$ ima $A$, komad je oblika $B[A]B$.</li>
+    <li>Ako postoje i $A[B]A$ i $B[A]B$, dovoljno je zamijeniti znakove između ta dva komada.</li>
+    <li>Dakle $B[A]B$ ne postoji.</li>
+    <li>Pretpostavimo da postoji $A[B]A$.</li>
+    <li>Jednakim razmišljanjem: ako u $A[?]B$ ili $B[?]C$ ima $A$, moguća je zamjena koja ne povećava cijenu.</li>
+    <li>Dakle u $A[?]B$ i $B[?]C$ nema $A$.</li>
+    <li>Znači, $A$ ulazi samo u $A[?]A$, $A[?]C$ ili $C[?]C$.</li>
+    <li>Budući da je $A$ Large, $X\gt p+s+u\ge p+u$; dakle upitnike u $A[?]A$ i $A[?]C$ možemo popuniti.</li>
+    <li>Stoga u $C[?]C$ ima barem toliko $A$-ova koliko $B$-ova ima u $A[?]A$.</li>
+    <li>Sve $B$-ove iz $A[?]A$ zamijenimo s $A$-ovima iz $C[?]C$.</li>
+    <li>Promjena doprinosa cijene od $A[?]A$ je $\le -2$, a doprinos od $C[?]C$ raste najviše za $+1$.</li>
+    <li>Naime, prijelaz $C[A]C\to C[AB]C$ može se ograničiti na jedan komad.</li>
+    <li>Time je dokazano da u $A[?]A$ ulazi samo $A$.</li>
+    <li>Zamjenom $A$ i $B$ dokazuje se da u $B[?]B$ ulazi samo $B$. Time je svojstvo dokazano.</li>
+</ul>
+<dodatak naslov="Detalji zamjena u dokazu 04">
+<p><b>$A[B]A$ i $B[A]B$ istodobno.</b> Zamjena $B$ iz $A[B]A$ s $A$ iz $B[A]B$ vraća svakom komadu vlastiti znak; kazne ne rastu, a kad iz nekog komada ode zadnji strani znak, cijena mu pada za $2$. Ponavljanjem nestaje barem jedna od dviju vrsta komada; po simetriji $A\leftrightarrow B$ smijemo pretpostaviti da je nestao $B[A]B$ (slučaj kad je nestao $A[B]A$ obrađuje se simetrično), pa dalje dokazujemo da tada ne postoji ni $A[B]A$.</p>
+<p><b>$A$ u $A[?]B$ ili $B[?]C$.</b> Zamjena $B$ iz $A[B]A$ s tim $A$: komad $A[?]B$ prima $B$ (vlastiti kraj, kazna nepromijenjena), komad $B[?]C$ gubi strani $A$ i prima vlastiti $B$ (kazna ne raste); komad $A[B]A$ gubi $B$ (kazna ne raste, a eventualno pada). Stoga $A$ nije u $A[?]B$ ni u $B[?]C$; u $B[?]B$ nije jer nema $B[A]B$.</p>
+<p><b>Brojanje $A$-ova u $C[?]C$.</b> Neka je $b$ broj $B$-ova u svim $A[?]A$. U $A[?]A$ stane najviše $p-b$ znakova $A$, u $A[?]C$ najviše $u$, pa je u $C[?]C$ barem $X-(p-b)-u\gt b$ znakova $A$.</p>
+<p><b>Zašto $+1$ najviše jednom.</b> Zamjene biramo tako da $A$-ove uzimamo iz jednog komada $C[?]C$ dok se ne potroše, pa tek onda iz sljedećeg. Komad $C[A]C$ kojemu su zamijenjeni <em>svi</em> $A$-ovi postaje $C[B]C$ (cijena ista), a komad koji je već bio $C[AB]C$ ne mijenja kaznu; samo posljednji, djelomično zamijenjeni komad može prijeći iz $C[A]C$ u $C[AB]C$ (cijena $+1$). S druge strane barem jedan komad $A[B]A$ postaje $A[\,]A$ (cijena $-2$), pa ukupna cijena ne raste.</p>
+</dodatak>
+<h3>Dokaz 05 <span class="slajd-ref">slajd 67</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 05.</strong> U $B[?]C$ ne ulazi $A$, a u $C[?]A$ ne ulazi $B$.</p></div>
+<p class="dokaz"><em>(Dokaz 05.)</em></p>
+<ul>
+    <li>Neka postoji $B[A]C$.</li>
+    <li>Ako postoji $C[B]C$, $A[C]B$ ili $C[B]A$, zamijenimo s njim.</li>
+    <li>Ako ne postoji, onda je $Y\le q+t$, što proturječi tome da je $B$ Large.</li>
+    <li>Dakle $B[A]C$ ne postoji; jednako ni $C[B]A$.</li>
+    <li>Time je svojstvo dokazano.</li>
+</ul>
+<dodatak naslov="Ispunjeni detalji dokaza 05">
+<p>Zamjene: $A$ iz $B[A]C$ i $B$ iz $C[B]C$ → $B[\,]C$ i $C[A]C$ (cijena $-1$); $A$ iz $B[A]C$ i $C$ iz $A[C]B$ → $B[\,]C$ i $A[\,]B$ (cijena $-2$); $A$ iz $B[A]C$ i $B$ iz $C[B]A$ → $B[\,]C$ i $C[\,]A$ (cijena $-2$). Općenito: $A$ iz $B[A]C$ smijemo zamijeniti s <em>bilo kojim</em> $B$-om izvan komada $B[?]B$ i $B[?]C$ — u $A[?]B$ je $B$ vlastiti znak pa zamjena $B\to A$ tamo ne mijenja kaznu, u $C[?]C$ se strani $B$ zamjenjuje stranim $A$ (kazna ne raste), u $C[?]A$ se strani $B$ zamjenjuje vlastitim $A$ — dok $B[A]C$ dobiva $-1$. Ako takvog $B$-a nema, svi su $B$-ovi u $B[?]B$ i $B[?]C$, pa je $Y\le q+t\lt q+s+t\lt Y$, kontradikcija. (Slajd navodi $C[B]C$, $A[C]B$ i $C[B]A$ kao partnere za zamjenu; $B$ unutar komada $A[\,]B$ bez stranih znakova pokriva isti argument.) Tvrdnja za $C[B]A$ dobiva se zamjenom uloga $A\leftrightarrow B$, uz $X\gt p+s+u$.</p>
+</dodatak>
+<h3>Dokaz 06 <span class="slajd-ref">slajd 68</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 06.</strong> U $B[?]C$ i $C[?]A$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 06.)</em></p>
+<ul>
+    <li>$B$ je Large, a u $A[?]A$ i $A[?]C$ nema $B$ (svojstva 02 i 05).</li>
+    <li>Stoga za svaki $C$ u $B[?]C$ postoji $B$ u $C[?]C$.</li>
+    <li>Dovoljno ih je zamijeniti.</li>
+    <li>Za $C[?]A$ jednako.</li>
+    <li>Time je svojstvo dokazano.</li>
+</ul>
+<dodatak>
+<p>Brojanje: neka je $c$ broj $C$-ova u svim $B[?]C$. $B$-ovi mogu biti samo u $B[?]B$ (najviše $q$), $A[?]B$ (najviše $s$), $B[?]C$ (najviše $t-c$) i $C[?]C$, pa je u $C[?]C$ barem $Y-q-s-(t-c)\gt c$ znakova $B$. Zamjena $C$ iz $B[?]C$ s $B$ iz $C[?]C$: $B[?]C$ dobiva vlastiti znak umjesto vlastitog (kazna ista), $C[?]C$ gubi strani $B$ i prima vlastiti $C$ (kazna ne raste). Za $C[?]A$ isti argument s $A$-ovima: $X\gt p+s+u$ daje barem onoliko $A$-ova u $C[?]C$ koliko je $C$-ova u $C[?]A$.</p>
+</dodatak>
+<h3>Sažetak <span class="slajd-ref">slajdovi 69–70</span></h3>
+<ul>
+    <li>② Dva Large znaka: $A$ i $B$ su Large, pa je $C$ Small.</li>
+    <li>Svojstvo 02: u $A[?]A$, $B[?]B$ ne ulazi $C$.</li>
+    <li>Svojstvo 03: u $A[?]B$ ne ulazi $C$.</li>
+    <li>Svojstvo 04: u $A[?]A$ ulazi samo $A$, u $B[?]B$ samo $B$.</li>
+    <li>Svojstvo 05: u $B[?]C$ ne ulazi $A$, u $C[?]A$ ne ulazi $B$.</li>
+    <li>Svojstvo 06: u $B[?]C$, $C[?]A$ ne ulazi $C$.</li>
+    <li>Dakle: u $A[?]A$ i $C[?]A$ ulazi $A$; u $B[?]B$ i $B[?]C$ ulazi $B$; $C$ ulazi samo u $C[?]C$.</li>
+</ul>
+<h3>Struktura optimalnog rješenja</h3>
+<ul>
+    <li>② Dva Large znaka ($A$, $B$), $C$ Small.</li>
+    <li>U $A[?]A$ i $A[?]C$ ulazi samo $A$.</li>
+    <li>U $B[?]B$ i $B[?]C$ ulazi samo $B$.</li>
+    <li>$C$ ulazi samo u $C[?]C$.</li>
+    <li>Neodređeno je jedino koliko $A$ i koliko $B$ ulazi u $A[?]B$.</li>
+    <li>Fiksirajmo broj $A$-ova u $A[?]B$ i neka u $C[?]C$ ulazi $a$ znakova $A$.</li>
+    <li>Tada se problem svodi na sljedeći <b>Podproblem 1</b>.</li>
+</ul>
+<h3>Podproblem 1 <span class="slajd-ref">slajd 71</span></h3>
+<div class="tvrdnja">
+<p><strong>Podproblem 1.</strong></p>
+<ul>
+    <li>Zadan je niz $c$ (odgovara brojevima upitnika u komadima $C[?]C$).</li>
+    <li>$Z$ puta izaberemo neki pozitivni član niza $c$ i smanjimo ga za $1$ (upisivanje $C$ u upitnik komada $C[?]C$).</li>
+    <li>Za niz $c$ nakon toga definiramo <b>globu</b> na sljedeći način; globu treba minimizirati.</li>
+    <li>Neka je $W$ broj indeksa $i$ s $c_i\ge 1$ (broj komada $C[?]C$ u koje ulazi nešto osim $C$).</li>
+    <li>Ako se $a$ može dobiti kao podzbroj niza $c$, globa je $2W$.</li>
+    <li>Ako ne može, globa je $2W+1$ (dodaje se dio zbog komada s kaznom $2$).</li>
+    <li>Vrijedi $a\le\sum c_i-Z$.</li>
+</ul>
 </div>
+<dodatak naslov="Odakle globa">
+<p>Nakon upisivanja $C$-ova u $C[?]C$ preostala mjesta u tim komadima ($\sum c_i-Z$ njih) popunjavaju $a$ znakova $A$ i $\sum c_i-Z-a$ znakova $B$ (svi ostali $A$-ovi i $B$-ovi već su u „svojim” komadima, a $A[?]B$ ne stvara kaznu). Svaki komad s $c_i\ge 1$ prima barem jedan strani znak, dakle kaznu barem $1$ (cijena $2$). Ako se $A$-ovi mogu rasporediti tako da svaki komad primi samo jednu vrstu stranog znaka — tj. ako je $a$ podzbroj nekih $c_i$ — ukupna je cijena $2W$; inače je neki komad $C[AB]C$ s cijenom $3$, a po svojstvu 01 takav je najviše jedan, pa je cijena $2W+1$ (i to je dostižno: $A$-ove upisujemo redom u komade, samo jedan komad dobiva oba znaka).</p>
+</dodatak>
+<h3>Rješenje Podproblema 1 <span class="slajd-ref">slajdovi 72–78</span></h3>
+<ul>
+    <li>Razmotrimo Podproblem 1.</li>
+    <li>Najprije, $W$ smijemo uzeti najmanjim mogućim.</li>
+    <li>Ako je $W'$ najmanja dostižna vrijednost od $W$, globa se može svesti na najviše $2W'+1$.</li>
+    <li>Obratno, uz $W\ge W'+1$ globa je barem $2W'+2$, što je lošije.</li>
+    <li>$W$ se minimizira tako da uvijek smanjujemo najmanji pozitivni $c_i$.</li>
+    <li>Pretpostavimo da smo došli do trenutka kad zbog preostalog broja operacija više ne možemo povećati broj indeksa s $c_i=0$.</li>
+</ul>
+<ul>
+    <li>Npr. za $c=(3,4,6,7)$ i $Z=8$ nakon $7$ operacija imamo</li>
+    <li>$c=(0,0,6,7)$ i još jedno smanjenje — to je taj trenutak.</li>
+    <li>Ako je $a$ (broj koji želimo kao podzbroj) jednak $5$, treba smanjiti $6$; ako je $6$, treba smanjiti $7$.</li>
+    <li>Što dakle smanjiti?</li>
+</ul>
+<ul>
+    <li>Zapravo se može riješiti.</li>
+    <li>Neka je $z$ broj preostalih operacija u trenutku kad više ne možemo povećati broj indeksa s $c_i=0$.</li>
+    <li>Tada vrijedi: $a$ se može dobiti kao podzbroj nakon tih $z$ operacija <b>ako i samo ako</b> se u tom trenutku kao podzbroj može dobiti neki broj iz $[a,\,a+z]$.</li>
+    <li>Dovoljnost: ako se može dobiti $a+k$, na članove uzete u taj podzbroj primijenimo $k$ operacija, a na ostale $z-k$.</li>
+    <li>Nužnost: ako se nakon $z$ operacija može dobiti $a$, pogledajmo zbroj članova izabranih za $a$ kakav je bio $z$ operacija ranije.</li>
+</ul>
+<ul>
+    <li>Primjer: $c=(3,4,6,7)$, $Z=8$; nakon $7$ operacija $c=(0,0,6,7)$ i preostaje $z=1$ smanjenje.</li>
+    <li>Podzbrojevi ovog $c$ su $6$, $7$ i $13$.</li>
+    <li>$a=5$: $[5,\,5+1]=[5,6]$, a $6$ se može dobiti — OK.</li>
+    <li>$a=6$: $[6,\,6+1]=[6,7]$, a $6$ i $7$ se mogu dobiti — OK.</li>
+</ul>
+<ul>
+    <li>(Ponovno iskaz.) Nakon $z$ operacija $a$ je podzbroj ako i samo ako je u tom trenutku neki broj iz $[a,a+z]$ podzbroj.</li>
+    <li>Dovoljnost: ako se može dobiti $a+k$, primijenimo $k$ operacija na članove u podzbroju, a $z-k$ na ostale.</li>
+    <li>Nužnost: ako se nakon $z$ operacija može dobiti $a$, zbroj članova izabranih za $a$ promatran $z$ operacija ranije daje tvrdnju.</li>
+</ul>
+<dodatak naslov="Potpuni dokaz leme o intervalu $[a,a+z]$">
+<p>U promatranom trenutku vrijedi $z\lt\min\{c_i:\ c_i\ge1\}$ (inače bismo mogli uništiti još jedan član), pa nijedna od preostalih $z$ operacija ne može napraviti novu nulu — $W$ je fiksan bez obzira na to kako ih rasporedimo, i smijemo ih raspoređivati slobodno.</p>
+<p><em>Dovoljnost.</em> Neka je $I$ skup indeksa sa $\sum_{i\in I}c_i=a+k$, $0\le k\le z$. Oduzmemo $k$ jedinica članovima iz $I$ (moguće jer je $k\le z\lt c_i$ za svaki pozitivni $c_i$, a $I$ je neprazan čim je $a+k\gt0$; ako je $a+k=0$, onda je $k=0$) i $z-k$ jedinica članovima izvan $I$ (moguće jer je $z-k\le z\le\sum_{i\notin I}c_i-\,$… točnije, $a\le\sum c_i-Z$ i $\sum_{i\in I}c_i=a+k$ daju $\sum_{i\notin I}c_i\ge Z-k\ge z-k$). Nakon toga je $\sum_{i\in I}c_i=a$.</p>
+<p><em>Nužnost.</em> Neka nakon $z$ operacija skup $I$ ima zbroj $a$. Članovi iz $I$ smanjeni su ukupno za neki $k\in[0,z]$, pa je njihov zbroj prije operacija bio $a+k\in[a,a+z]$.</p>
+</dodatak>
+<ul>
+    <li>Problem podzbroja rješava se DP-om $DP[i][j]$ := može li se zbroj $j$ dobiti iz prvih $i$ članova, u $O(N^2)$.</li>
+    <li>Vrijednost $a$ jedinstveno je određena kad fiksiramo broj upitnika u $A[?]B$ (popunjenih znakom $A$).</li>
+    <li>No taj broj može biti razni.</li>
+    <li>Međutim, promijeni li se broj $A$-ova u $A[?]B$ za $1$, i $a$ se promijeni za $1$.</li>
+    <li>Dakle skup mogućih vrijednosti $a$ je interval.</li>
+</ul>
+<ul>
+    <li>Skup mogućih vrijednosti $a$ je interval.</li>
+    <li>Želimo znati minimum odgovora Podproblema 1 (= doprinosa komada $C[?]C$ cijeni) kad $a$ prolazi tim intervalom (= kad mijenjamo broj $A$-ova upotrijebljenih u $A[?]B$).</li>
+    <li>Osim toga, $Z$ ne ovisi o $a$ → isti DP problema podzbroja!</li>
+    <li>Dakle dovoljno je u Podproblemu 1 interval $[a,\,a+z]$ zamijeniti s $[\min(a),\,\max(a)+z]$.</li>
+    <li>I to se rješava u $O(N^2)$.</li>
+</ul>
+<dodatak naslov="Interval vrijednosti $a$">
+<p>U slučaju ② komadi $A[?]A$ i $C[?]A$ puni se znakom $A$ ($p+u$ komada), $B[?]B$ i $B[?]C$ znakom $B$ ($q+t$). Ako u $A[?]B$ ide $\alpha$ znakova $A$ i $s-\alpha$ znakova $B$, u $C[?]C$ ulazi $a=X-p-u-\alpha$ znakova $A$ i \[\sum c_i-Z-a=Y-q-t-(s-\alpha)\] znakova $B$. Uvjeti $0\le\alpha\le s$, $a\ge0$ i $Y-q-t-(s-\alpha)\ge0$ daju \[\alpha\in\big[\max(0,\,s-(Y-q-t)),\,\min(s,\,X-p-u)\big],\] pa $a$ prolazi intervalom \[\big[\,X-p-u-\min(s,X-p-u),\ X-p-u-\max(0,s-Y+q+t)\,\big].\] Interval je neprazan jer je $X\gt p+s+u$ i $Y\gt q+s+t$. Budući da je ukupna cijena = (konstanta: broj komada s različitim krajevima) + (globa Podproblema 1), minimum po $a$ daje odgovor na upit.</p>
+</dodatak>
 
-@@ analiza
-<slajdovi from="1" to="6" naslov="Zadatak">
-    <s n="1">Naslov; analiza: Mitsubachi.</s>
-    <s n="2">Korak 0: pregled.</s>
-    <s n="3">Niz nad $A,B,C,?$; upitnike popuni da bude što manje promjena; $AABBACA$: $AA|BB|A|C|A$ = 4. $Q$ upita s brojevima $X,Y,Z$.</s>
-    <s n="4">$N\le300\,000$, $Q\le200\,000$; krajevi su $A$.</s>
-    <s n="5">Tablica podzadataka.</s>
-    <s n="6">Broj promjena zovemo <i>cijena</i>. Spojler: nakon vrlo teškog dokaza problem se svodi na dva oblika, a nakon vrlo teške analize ubrzava. Slajdova je 181.</s>
-</slajdovi>
-
-<h2>Podzadaci 1–2 <span class="bodovi">11 bodova</span></h2>
-<slajdovi from="7" to="18" vrsta="koraci" naslov="Iscrpno i DP">
-    <s n="7">Podzadatak 1: $\le13$ upitnika.</s>
-    <s n="8">$3^{13}\approx1.6\cdot10^6$ popunjavanja, cijena $O(N)$; predizračun $O(N3^M+Q)$.</s>
-    <s n="9">Diferencijalno: pri popunjavanju gledaj samo susjede — $O(M3^M+Q)$; kad stigne, biraj jednostavnije.</s>
-    <s n="10">Podzadatak 2: $N\le500$.</s>
-    <s n="11">$3^{500}$ ne ide; iskoristi ideju „bitni su samo susjedi”.</s>
-    <s n="12">Popunjavaj slijeva; promjena cijene ovisi o novom znaku i prethodnom. Stanje: broj umetnutih $A,B,C$ i zadnji znak.</s>
-    <s n="13">$DP[i][j][k][l][m]$: $O(N^4)$ stanja — TLE/MLE.</s>
-    <s n="14">$l$ slijedi iz $i,j,k$: $O(N^3)$. Predaš — WA?! Sudac pokvaren?</s>
-    <s n="15">Ne: $500^3\cdot3$ int-ova je $\approx1.5$ GB.</s>
-    <s n="16">① In-place: dvije tablice $DP[i-1]$, $DP[i]$ naizmjence — jedna dimenzija manje.</s>
-    <s n="17">② <code>short</code> ($\pm32767$); globalni statički nizovi umjesto vektora.</s>
-    <s n="18">Provjeri memoriju u CMS-u — jesi li na probi isprobao?</s>
-</slajdovi>
-
-<h2>Podzadatak 6 prvo <span class="bodovi">8 bodova</span></h2>
-<slajdovi from="19" to="35" vrsta="koraci" naslov="Dva slova">
-    <s n="19">Podzadatak 3: $N\le5000$, $Q\le10$.</s>
-    <s n="20">Kasniji podzadatak može biti lakši — riješimo prvo 6.</s>
-    <s n="21">Podzadatak 6: bez $C$, $Z=0$.</s>
-    <s n="22">Samo $A$ i $B$. (S jednim slovom cijena je 0.)</s>
-    <s n="23">Popunjenje određeno brojem $A$. Ključna ideja: <b>rastav niza</b>, primjer $A???B?A?ABBA$.</s>
-    <s n="24">Cijena = zbroj po komadima $A???B+B?A+A?A+AB+BB+BA$; svaki komad je slovo + upitnici + slovo; rastav jedinstven; ukupna duljina $O(N)$.</s>
-    <s n="25">Isti krajevi $A???A$: 0 $A$-ova → 2; 1 → min 2; 2 → 2; 3 → 0.</s>
-    <s n="26">Slutnja: sve $A$ → 0, inače 2. Donja granica: slijeva se dogode prijelaz $A\to B$ i $B\to A$.</s>
-    <s n="27">Postizanje: $B$-ove zbij lijevo, $A$-ove desno ($AABBA$).</s>
-    <s n="28">Različiti krajevi $A???B$: uvijek 1?</s>
-    <s n="29">Da: barem jedan prijelaz $A\to B$; $A$-ovi lijevo, $B$-ovi desno.</s>
-    <s n="30">Sažetak: isti krajevi 0/2, različiti 1. Bitno je samo <i>koje</i> slovo ulazi, ne koliko.</s>
-    <s n="31">Greedy: komade $A[?]A$ puni s $A$ od najkraćih; isto $B[?]B$; ostalo bilo kako.</s>
-    <s n="32">Cijena $=2\cdot(\#A[?]A$ s $B$ $+\#B[?]B$ s $A)+\#A[?]B$.</s>
-    <s n="33">Broj potpuno ispunjenih $A[?]A$: sortiraj duljine, prefiksni zbroj, binarno ($1,1,2,3$ s 5 $A$-ova).</s>
-    <s n="34">$O(N+Q\log N)$.</s>
-    <s n="35">Alternativa: $ans[i]$ za svaki broj $A$ inkrementalno, $O(N+Q)$.</s>
-</slajdovi>
-
-<h2>Podzadatak 3: tri slova <span class="bodovi">13 bodova</span></h2>
-<slajdovi from="36" to="53" vrsta="koraci" naslov="Kazna, Large/Small, lema 01">
-    <s n="36">Podzadatak 3.</s>
-    <s n="37">Rastavom dobivamo komade $l[?^k]r$ nad $A,B,C$; kazna = broj vrsta umetnutih slova koja nisu $l$ ni $r$ ($A[BBC]A$: 2).</s>
-    <s n="38">Slutnja: cijena ovisi samo o krajevima i kazni — vrijedi.</s>
-    <s n="39">Isti krajevi: kazna 0,1,2 → 0,2,3; grupiraj slova ($ABBCA$).</s>
-    <s n="40">Različiti: kazna 0,1 → 1,2 ($ACBBB$).</s>
-    <s n="41">Preformulacija zadatka preko komada i kazni.</s>
-    <s n="42">Cilj: $O(N^2)$ ili $O(N^2\log N)$ po upitu.</s>
-    <s n="43">Oznake: $p,q,r,s,t,u$ = ukupno upitnika u $A[?]A,B[?]B,C[?]C,A[?]B,B[?]C,C[?]A$.</s>
-    <s n="44">Primjer $A???AB??B??C??B$: $(p,q,r,s,t,u)=(3,2,0,0,3,0)$.</s>
-    <s n="45">Large: $X\gt p+s+u$ (analogno $Y\gt q+s+t$, $Z\gt r+t+u$).</s>
-    <s n="46">Small: $X\lt p$ (analogno $Y\lt q$, $Z\lt r$).</s>
-    <s n="47">Large prelijeva u komade gdje stvara kaznu; Small pušta strana slova u vlastite komade. $X+Y+Z=p+q+r+s+t+u$.</s>
-    <s n="48">Slijedi 17 lema; ideja: zamjena ne pogoršava, pa optimum smijemo pretpostaviti.</s>
-    <s n="49">Pauza prije dokaza.</s>
-    <s n="50">Fotografija (Komaba).</s>
-    <s n="51">Fotografija; natrag na dokaze.</s>
-    <s n="52">Lema 01: najviše jedan komad s kaznom 2. Isti krajevi $A[\dots]A$ i $A[\dots]A$: zamijeni $B$ prvog s $C$ drugog $\min(q_1,r_2)$ puta — kazna 2 nestaje u barem jednom, cijena pada.</s>
-    <s n="53">Različiti tipovi komada: zamijeni $B$ prvog i $A$ drugog — isto.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Zašto kazna, a ne broj slova.</b> Komad $l[\dots]r$ sa skupom umetnutih slova $T$: svaki prijelaz mijenja slovo, a svako slovo iz $T\setminus\{l,r\}$ mora se „ući i izići”; grupiranjem svih jednakih slova u blokove broj prijelaza je točno (broj blokova $-1$), a blokova je $|T\cup\{l,r\}|$ uz eventualno spajanje s krajevima. Ista formula daje 0/2/3 i 1/2. Zato zadatak postaje kombinatorika: <i>koja</i> slova ulaze u koji komad.</p>
+<h3>Natrag na razlikovanje slučajeva: jedan Large <span class="slajd-ref">slajdovi 79–81</span></h3>
+<ul>
+    <li>③ Točno jedan Large znak.</li>
+    <li>Smijemo pretpostaviti da je $A$ Large.</li>
+    <li>Iz $X\gt p+s+u$ slijedi $Y+Z\lt q+r+t$.</li>
+    <li>[#1] Ako je $Y\gt q+t$ i $Z\gt r+t$: proturječi uvjetu na $Y+Z$.</li>
+    <li>[#2] Ako je $Y\gt q+t$:</li>
+    <li>tada je $Z\lt r$;</li>
+    <li>vrijede ista svojstva kao u ②, pa se svodi na Podproblem 1;</li>
+    <li>budući da $B$ nije Large, $Y\le q+s+t$.</li>
+</ul>
+<ul>
+    <li>[#2] $Y\gt q+t$.</li>
+    <li>Iz $q+t\lt Y\le q+s+t$: nakon što $B$-ove upišemo u $B[?]B$ i $B[?]C$, sav ostatak upišemo u $A[?]B$.</li>
+    <li>Zato je broj $A$-ova u $A[?]B$ jedinstven, pa se Podproblem 1 zapisuje malo jednostavnije.</li>
+    <li>Postupak je isti, samo je računanje krajeva intervala jednostavnije.</li>
+    <li>[#3] Ako je $Z\gt r+t$: rješava se kao [#2].</li>
+</ul>
+<dodatak naslov="Zašto svojstva 02–06 vrijede i u slučaju [#2]">
+<p>Iz $Y+Z\lt q+r+t$ i $Y\gt q+t$ slijedi $Z\lt r$ ($C$ je Small). U dokazima 02 i 03 koristi se samo $Z\lt r$ i svojstvo 01. U dokazu 04 za $A[?]A$ koristi se $X\gt p+u$, a za $B[?]B$ samo $Y\gt q+t$ — oba vrijede. Dokaz 05 za $B[A]C$ treba samo $Y\gt q+t$ (vidi dopunu uz dokaz 05), a za $C[B]A$ samo $X\gt p+u$. Dokaz 06 za $C[?]A$ koristi $X\gt p+s+u$ ($A$-ova u $C[?]C$ ima barem koliko $C$-ova u $C[?]A$). Jedino dokaz 06 za $B[?]C$ koristio je $Y\gt q+s+t$, što ovdje ne vrijedi; zamjenjuje ga <em>kružna zamjena</em>: neka je $c$ broj $C$-ova u $B[?]C$. Ako u $C[?]C$ ima $B$-ova, zamijenimo ih izravno s tim $C$-ovima. Inače su $B$-ovi samo u $B[?]B$ ($\le q$), $B[?]C$ ($\le t-c$) i $A[?]B$, pa je u $A[?]B$ barem $Y-q-(t-c)\gt c$ znakova $B$; $A$-ova u $C[?]C$ ima barem $X-p-u-(s-c-1)$, što je $\gt c$. Za svaki $C$ u $B[?]C$: $A$ iz $C[?]C$ ide u $A[?]B$ umjesto jednog $B$ (kazna $A[?]B$ ista), taj $B$ ide u $B[?]C$ umjesto $C$ (kazna ista), a $C$ ide u $C[?]C$ umjesto $A$ (kazna ne raste). Cijena se ne povećava, pa zaključak slajda („ista svojstva kao u ②”) vrijedi. Krajevi intervala u [#2]: $\alpha=Y$-ovi koji ne stanu u $B[?]B$, $B[?]C$ idu u $A[?]B$, tj. broj $A$-ova u $A[?]B$ je $s-(Y-q-t)$, a \[a=X-p-u-s+(Y-q-t)\] je jedinstven.</p>
+</dodatak>
+<ul>
+    <li>[#4] $Y\le q+t$ i $Z\le r+t$.</li>
+    <li>Tada vrijede sljedeća svojstva:</li>
+    <li><b>Svojstvo 07:</b> u $B[?]B$ ne ulazi $C$, a u $C[?]C$ ne ulazi $B$.</li>
+    <li><b>Svojstvo 08:</b> u $A[?]B$ ne ulazi $C$, a u $C[?]A$ ne ulazi $B$.</li>
+    <li><b>Svojstvo 09:</b> u $A[?]A$ ne ulaze $B$ ni $C$.</li>
+    <li><b>Svojstvo 10:</b> u $A[?]B$ ne ulazi $B$, a u $C[?]A$ ne ulazi $C$.</li>
+</ul>
+<h3>Dokaz 07 <span class="slajd-ref">slajdovi 82–83</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 07.</strong> U $B[?]B$ ne ulazi $C$, a u $C[?]C$ ne ulazi $B$.</p></div>
+<p class="dokaz"><em>(Dokaz 07.)</em></p>
+<ul>
+    <li>Želimo dokazati da u $B[?]B$ ne ulazi $C$.</li>
+    <li>Zbog $Z\le r+t$, za svaki $C$ u $B[?]B$ postoji po jedan $A$ ili $B$ u $C[?]C$ ili $B[?]C$.</li>
+    <li>Argumentom kao u dokazu 02, sve $C$-ove iz $B[?]B$ zamijenimo s $A$-ovima i $B$-ovima iz $C[?]C$ i $B[?]C$; cijena se ne povećava, pa ništa ne gubimo.</li>
+    <li>Dokazali smo da u $B[?]B$ ne ulazi $C$.</li>
+    <li>Zamjenom uloga $B$ i $C$ dokazuje se da u $C[?]C$ ne ulazi $B$.</li>
+    <li>Time je svojstvo dokazano.</li>
+</ul>
+<dodatak>
+<p>Brojanje: $C$-ova je $Z\le r+t$, od čega je $c$ u $B[?]B$; u $C[?]C\cup B[?]C$ ($r+t$ upitnika) stoga ima barem $r+t-(Z-c)\ge c$ znakova koji nisu $C$, tj. $A$ ili $B$. Zamjena: $B[?]B$ umjesto stranog $C$ dobiva $B$ (vlastiti) ili $A$ (strani umjesto stranog) — kazna ne raste; $C[?]C$ i $B[?]C$ gube $A$/$B$ i primaju $C$, koji im je vlastiti znak — kazna ne raste. Simetrični dio koristi $Y\le q+t$ i komade $B[?]B\cup B[?]C$.</p>
+</dodatak>
+<h3>Dokaz 08 <span class="slajd-ref">slajdovi 84–85</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 08.</strong> U $A[?]B$ ne ulazi $C$, a u $C[?]A$ ne ulazi $B$.</p></div>
+<p class="dokaz"><em>(Dokaz 08.)</em></p>
+<ul>
+    <li>Dokazujemo da u $A[?]B$ ne ulazi $C$.</li>
+    <li>Argument je isti kao u dokazu 07: zbog $Y\le q+t$, za svaki $C$ u $A[?]B$ postoji po jedan $A$ ili $B$ u $B[?]B$ ili $B[?]C$.</li>
+    <li>Zamjena ne povećava cijenu, pa ništa ne gubimo.</li>
+    <li>Time je dokazano.</li>
+    <li>Zamjenom uloga $B$ i $C$ dokazuje se da u $C[?]A$ ne ulazi $B$.</li>
+    <li>Time je svojstvo dokazano.</li>
+</ul>
+<dodatak>
+<p>Za polovicu „$C$ ne ulazi u $A[?]B$” prirodno je brojanje preko $Z\le r+t$ kao u dokazu 07: ako je $c$ broj $C$-ova u $A[?]B$, u $C[?]C\cup B[?]C$ ima barem $c$ znakova koji nisu $C$; po svojstvu 07 u $C[?]C$ su to $A$-ovi, a u $B[?]C$ $A$-ovi ili $B$-ovi. Zamjena $C$ iz $A[?]B$ s takvim znakom: $A[?]B$ prima $A$ ili $B$ (vlastiti znak, cijena $-1$ kad ode zadnji $C$), a $C[?]C$/$B[?]C$ prima vlastiti $C$ (kazna ne raste). Uvjet $Y\le q+t$ i komadi $B[?]B$, $B[?]C$ koje slajd navodi odgovaraju simetričnoj polovici „$B$ ne ulazi u $C[?]A$” (tamo se $B$ iz $C[?]A$ zamjenjuje s $A$-om ili $C$-om iz $B[?]B\cup B[?]C$; po svojstvu 07 u $B[?]B$ nema $C$, pa je to $A$, a $C[?]A$ prima vlastiti $A$ ili $C$).</p>
+</dodatak>
+<h3>Dokaz 09 <span class="slajd-ref">slajd 86</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 09.</strong> U $A[?]A$ ne ulaze $B$ ni $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 09.)</em> Isti argument kao u dokazu 07: zamisao je da $B$ iz $A[?]A$ zamijenimo s $A$-om ili $C$-om iz $B[?]B$ ili $B[?]C$.</p>
+<dodatak>
+<p>Brojanje preko $Y\le q+t$: ako je $b$ broj $B$-ova u $A[?]A$, u $B[?]B\cup B[?]C$ ima barem $q+t-(Y-b)\ge b$ znakova koji nisu $B$. Zamjena $B$ iz $A[?]A$ s $A$ iz $B[?]B$ ili $B[?]C$: $A[?]A$ prima vlastiti znak (kazna ne raste, pada kad ode zadnji $B$), a drugi komad prima vlastiti $B$. Zamjena s $C$ iz $B[?]C$: $A[?]A$ zamjenjuje strani $B$ stranim $C$ (kazna ne raste), $B[?]C$ zamjenjuje vlastiti $C$ vlastitim $B$. Za $C$ u $A[?]A$ isto preko $Z\le r+t$ i komada $C[?]C\cup B[?]C$.</p>
+</dodatak>
+<h3>Dokaz 10 <span class="slajd-ref">slajd 87</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 10.</strong> U $A[?]B$ ne ulazi $B$, a u $C[?]A$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 10.)</em> Isti argument kao u dokazu 07: zamisao je da $B$ iz $A[?]B$ zamijenimo s $A$-om iz $B[?]B$.</p>
+<dodatak>
+<p>Neka je $b$ broj $B$-ova u $A[?]B$. Po $Y\le q+t$ u $B[?]B\cup B[?]C$ ima barem $b$ znakova koji nisu $B$. Ako je neki od njih $A$ (u $B[?]B$ su po svojstvu 07 svi ne-$B$ znakovi upravo $A$), zamijenimo ga s $B$ iz $A[?]B$: $A[?]B$ mijenja vlastiti znak vlastitim (kazna ista), a $B[?]B$ odnosno $B[?]C$ gubi strani $A$ i prima vlastiti $B$. Ako je takav znak $C$ u $B[?]C$, izravna zamjena bi $A[?]B$ dala strani $C$; tada radimo kružnu zamjenu kao u dopuni uz slajd 79: $A$ iz $C[?]C$ (ima ih barem $X-p-u-(s-b)\gt b$ jer je $A$ Large, a $A$-ovi su, osim u $B[?]B$ i $B[?]C$ koje smo upravo isključili, samo u $A[?]A$, $A[?]B$, $C[?]A$, $C[?]C$) ide u $A[?]B$ umjesto $B$, taj $B$ ide u $B[?]C$ umjesto $C$, a $C$ ide u $C[?]C$ umjesto $A$ — nijedna kazna ne raste. Polovica za $C$ u $C[?]A$ je simetrična ($B\leftrightarrow C$, $Z\le r+t$).</p>
+</dodatak>
+<h3>Sažetak i struktura optimalnog rješenja <span class="slajd-ref">slajdovi 88–89</span></h3>
+<ul>
+    <li>③ Jedan Large znak, [#4] $Y\le q+t$ i $Z\le r+t$.</li>
+    <li>Svojstvo 07: u $B[?]B$ ne ulazi $C$, u $C[?]C$ ne ulazi $B$.</li>
+    <li>Svojstvo 08: u $A[?]B$ ne ulazi $C$, u $C[?]A$ ne ulazi $B$.</li>
+    <li>Svojstvo 09: u $A[?]A$ ne ulaze $B$, $C$.</li>
+    <li>Svojstvo 10: u $A[?]B$ ne ulazi $B$, u $C[?]A$ ne ulazi $C$.</li>
+    <li>Dakle: u $A[?]A$, $A[?]B$ i $C[?]A$ ulazi $A$; $B$ ulazi samo u $B[?]B$ i $B[?]C$; $C$ ulazi samo u $C[?]C$ i $B[?]C$.</li>
+</ul>
+<ul>
+    <li>③ [#4]: u $A[?]A$, $A[?]B$, $A[?]C$ ulazi samo $A$.</li>
+    <li>$B$ ulazi samo u $B[?]B$ i $B[?]C$.</li>
+    <li>$C$ ulazi samo u $C[?]C$ i $B[?]C$.</li>
+    <li>Razmišljamo ovako: najprije upišemo $B$-ove i $C$-ove, a zatim $A$-ove u ostatak.</li>
+    <li>Tada se problem svodi na sljedeći <b>Podproblem 2</b>.</li>
+</ul>
+<h3>Podproblem 2 <span class="slajd-ref">slajdovi 90–92</span></h3>
+<div class="tvrdnja">
+<p><strong>Podproblem 2.</strong></p>
+<ul>
+    <li>Postoje tri knjižare $D$, $E$, $F$; svaka prodaje knjige.</li>
+    <li>Imamo $Y$ zlatnika i $Z$ srebrnjaka (broj $B$-ova i broj $C$-ova).</li>
+    <li>Knjige kupujemo ovako:</li>
+    <li>u knjižari $D$ knjiga $i$ stoji $d_i$ zlatnika (u upitnike komada $B[?]B$ upisujemo samo $B$);</li>
+    <li>u knjižari $E$ knjiga $i$ stoji $e_i$ srebrnjaka (u upitnike komada $C[?]C$ upisujemo samo $C$);</li>
+    <li>u knjižari $F$ knjiga $i$ stoji $f_i$ novčića, zlatnika i srebrnjaka zajedno (u upitnike komada $B[?]C$ upisujemo $B$ ili $C$).</li>
+    <li>Za način kupnje definiramo globu i minimiziramo je:</li>
+    <li>\[\begin{aligned}&\big(\,(\text{broj nekupljenih knjiga u } D)\\&\quad+(\text{broj nekupljenih knjiga u } E)\,\big)\cdot 2\\&+(\text{broj nekupljenih knjiga u } F)\cdot 1.\end{aligned}\]</li>
+    <li>Dakle, želimo minimizirati porast cijene nastao upisivanjem $A$ u upitnike.</li>
+</ul>
 </div>
+<ul>
+    <li>Ekvivalentno: inicijaliziramo varijablu $W=0$;</li>
+    <li>pri svakoj kupnji u $D$ ili $E$ dodamo $+2$, pri kupnji u $F$ dodamo $+1$;</li>
+    <li>treba maksimizirati $W$ na kraju.</li>
+    <li>Minimizaciju izraza o nekupljenim knjigama preformulirali smo u maksimizaciju izraza o kupljenima.</li>
+    <li>Ovaj je oblik pregledniji, pa ga nadalje koristimo.</li>
+</ul>
+<dodatak>
+<p>„Kupiti knjigu” znači potpuno popuniti komad vlastitim znakovima tako da u njega ne uđe $A$. Nekupljeni komad $B[?]B$ ili $C[?]C$ prima $A$ i njegova kazna postaje $1$ (cijena $+2$), nekupljeni $B[?]C$ prima $A$ (cijena $+1$); $A$-ova ima dovoljno da popune sve što ostane jer je $A$ Large. Dvije formulacije razlikuju se za konstantu $2(|D|+|E|)+|F|$.</p>
+</dodatak>
+<h3>Rješenje Podproblema 2 <span class="slajd-ref">slajd 93</span></h3>
+<ul>
+    <li>Razmotrimo Podproblem 2.</li>
+    <li>Iscrpno isprobamo $O(N^2)$ mogućnosti za broj knjiga kupljenih u $D$ i u $E$.</li>
+    <li>Želimo znati koliko se tada može kupiti u $F$.</li>
+    <li>Iz potrošenog u $D$ i $E$ znamo koliko novca ostaje za $F$.</li>
+    <li>Koliko se knjiga može kupiti nađemo binarnim pretraživanjem, $O(\log N)$.</li>
+    <li>Dakle riješeno u npr. $O(N^2\log N)$.</li>
+</ul>
+<dodatak>
+<p>Pritom se u svakoj knjižari kupuju najjeftinije knjige (zamjena skuplje kupljene jeftinijom nekupljenom ne mijenja $W$ i štedi novac), pa „kupiti $k$ knjiga u $D$” znači kupiti $k$ najjeftinijih: cijena je prefiksni zbroj sortiranog $d$. Za $F$ binarno tražimo najveći prefiks sortiranog $f$ čiji zbroj stane u preostale novčiće ($Y+Z$ umanjeno za trošak u $D$ i $E$).</p>
+</dodatak>
 
-<h2>Slučaj 2 Large → Podproblem 1</h2>
-<slajdovi from="54" to="78" vrsta="koraci" naslov="Leme 02–06 i Podproblem 1">
-    <s n="54">3 Large nemoguće (zbroj). 2 Large ($A,B$): $Z\lt r-s$, pa $C$ Small.</s>
-    <s n="55">Leme 02–06: $C$ ne ulazi u $A[?]A,B[?]B$ ni $A[?]B$; $A[?]A,B[?]B$ samo vlastita slova; $B[?]C,C[?]A$ bez $A$ odn. $B$ i bez $C$.</s>
-    <s n="56">Notacija $A[BC]A$: krajevi $A$, strana slova $B$ i $C$ (vlastito smije).</s>
-    <s n="57">Dokaz 02: $C$ u $A[?]A$; $Z\lt r$ pa u nekom $C[?]C$ ima $A$ ili $B$ — zamjena.</s>
-    <s n="58">$A[BC]A$ s $C[A]C$ → $A[B]A$, $C[AB]C$ (ne gore); s $C[B]C$ → cijena $-1$.</s>
-    <s n="59">$A[C]A$ s $C[A]C$ → $-2$; s $C[B]C$ ili $C[AB]C$ → ne gore.</s>
-    <s n="60">Sve $C$ iz $A[?]A$ presele u $C[?]C$ bez štete; za $B[?]B$ isto.</s>
-    <s n="61">Lema 03 ($A[?]B$ bez $C$) analogno; $A,B$ u $A[?]B$ ne kažnjavaju.</s>
-    <s n="62">Lema 04: $A[B]A$ i $B[A]B$ istodobno → zamjena; dakle nema oba.</s>
-    <s n="63">Uz $A[B]A$: $A$ nije u $A[?]B,B[?]C$ (zamjena ne košta) — $A$ je u $A[?]A,A[?]C,C[?]C$.</s>
-    <s n="64">$A$ Large: $X\gt p+u$ — $A[?]A$ i $A[?]C$ mogu se ispuniti; dakle u $C[?]C$ ima barem toliko $A$ koliko $B$ u $A[?]A$.</s>
-    <s n="65">Zamijeni ih: $A[?]A$ dobiva $-2$, $C[?]C$ najviše $+1$ ($C[A]C\to C[AB]C$ jednom).</s>
-    <s n="66">Simetrično za $B[?]B$.</s>
-    <s n="67">Lema 05: $B[A]C$ — zamijeni s $C[B]C$, $A[C]B$ ili $C[B]A$; ako ih nema, $Y\le q+t$, protuslovlje s Large.</s>
-    <s n="68">Lema 06: $B$ Large, bez $B$ u $A[?]A,A[?]C$ ⇒ za svaki $C$ u $B[?]C$ postoji $B$ u $C[?]C$ — zamjena.</s>
-    <s n="69">Sažetak lema 02–06.</s>
-    <s n="70">Struktura: $A$ u $A[?]A,A[?]C$; $B$ u $B[?]B,B[?]C$; $C$ samo u $C[?]C$. Slobodno: raspodjela $A/B$ u $A[?]B$; $a$ = broj $A$ koji upadaju u $C[?]C$ → Podproblem 1.</s>
-    <s n="71">Podproblem 1: niz $c$; $Z$ smanjenja; $W=\#\{c_i\ge1\}$; kazna $2W$ ako je $a$ podzbroj, inače $2W+1$; $a\le\sum c_i-Z$.</s>
-    <s n="72">$W$ smije biti minimalan: min $W'$ daje $\le2W'+1$, a $W\ge W'+1$ daje $\ge2W'+2$. Minimizacija: smanjuj najmanji $c_i$.</s>
-    <s n="73">$c=(3,4,6,7)$, $Z=8$: nakon 7 poteza $(0,0,6,7)$, 1 potez ostaje; za $a=5$ smanji 6, za $a=6$ smanji 7 — kako odlučiti?</s>
-    <s n="74">Lema: uz $z$ preostalih poteza $a$ je ostvariv iff podzbroj trenutnog $c$ pogađa $[a,a+z]$ (dovoljnost: $k$ poteza na izabrane, $z-k$ na ostale; nužnost: zbroj izabranih prije poteza).</s>
-    <s n="75">Primjer.</s>
-    <s n="76">Ponovljen iskaz s dokazom.</s>
-    <s n="77">Subset-sum DP $O(N^2)$; $a$ je određen brojem $A$ u $A[?]B$, koji varira, a $a$ se mijenja za 1 po koraku → $a$ prolazi interval.</s>
-    <s n="78">Traži se min kazne po $a$ u intervalu; $Z$ ne ovisi o $a$ → isti DP; zamijeni $[a,a+z]$ s $[\min a,\max a+z]$.</s>
-</slajdovi>
+<h3>Natrag na razlikovanje slučajeva: nijedan Large <span class="slajd-ref">slajdovi 94–96</span></h3>
+<ul>
+    <li>④ Nema Large znaka.</li>
+    <li>I ovdje slijedi razlikovanje slučajeva i popis svojstava.</li>
+    <li>Razlikujemo prema broju Small znakova.</li>
+    <li>[#1] Tri Small znaka: iz $X+Y+Z\lt p+q+r$ dobivamo proturječje s uvjetom na ukupni broj.</li>
+    <li>[#2] Dva Small znaka: neka su $B$ i $C$ Small; iz $Y\lt q$ i $Z\lt r$ slijedi $X\gt p+s+t+u$.</li>
+    <li>\[X\gt p+s+t+u\ge p+s+u\] — proturječje (s time da $A$ nije Large).</li>
+</ul>
+<dodatak>
+<p>Na slajdu su brojevi znakova u ovom koraku zapisani samim slovima („$B\lt q$, $C\lt r$, $A\gt p+s+t+u$”); ovdje pišemo $Y$, $Z$, $X$. Izvod: \[X=(p+q+r+s+t+u)-Y-Z\gt(p+q+r+s+t+u)-q-r=p+s+t+u.\]</p>
+</dodatak>
+<ul>
+    <li>[#3] Jedan Small znak.</li>
+    <li>Neka je $C$ Small: $X\ge p$, $Y\ge q$, $Z\lt r$.</li>
+    <li>Budući da $A$ i $B$ nisu Large, razmatranjem ukupnog broja dobivamo</li>
+    <li>$p+u\le X\le p+s+u$, $q+t\le Y\le q+s+t$, $Z\lt r$.</li>
+    <li>Također $p+q+s+t+u\le X+Y$.</li>
+</ul>
+<dodatak>
+<p>Izvod: \[X+Y=(p+q+r+s+t+u)-Z\gt p+q+s+t+u\] jer je $Z\lt r$; tada \[X=(X+Y)-Y\gt(p+q+s+t+u)-(q+s+t)=p+u\] i simetrično $Y\gt q+t$ (slajd navodi slabije nejednakosti $\le$, koje su dovoljne za dokaze).</p>
+</dodatak>
+<ul>
+    <li>Tada vrijede sljedeća svojstva:</li>
+    <li><b>Svojstvo 11:</b> u $A[?]A$, $B[?]B$, $A[?]B$ ne ulazi $C$.</li>
+    <li><b>Svojstvo 12:</b> u $A[?]A$ ne ulazi $B$.</li>
+    <li><b>Svojstvo 13:</b> u $B[?]B$ ne ulazi $A$.</li>
+    <li><b>Svojstvo 14:</b> u $C[?]A$ ne ulazi $B$.</li>
+    <li><b>Svojstvo 15:</b> u $B[?]C$ ne ulazi $A$.</li>
+    <li><b>Svojstvo 16:</b> u $B[?]C$ ne ulazi $C$.</li>
+    <li><b>Svojstvo 17:</b> u $C[?]A$ ne ulazi $C$.</li>
+</ul>
+<h3>Dokaz 11 <span class="slajd-ref">slajd 97</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 11.</strong> U $A[?]A$, $B[?]B$, $A[?]B$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 11.)</em> Zbog $Z\lt r$, za svaki $C$ upisan u te komade u $C[?]C$ postoji po jedan upisani $A$ ili $B$. Dovoljno ih je zamijeniti.</p>
+<dodatak>
+<p>Brojanje kao u dokazu 02: $C$-ova u $C[?]C$ je najviše $Z-c$, pa je ne-$C$ znakova u $C[?]C$ barem $r-Z+c\gt c$. Komadi $A[?]A$, $B[?]B$, $A[?]B$ umjesto stranog $C$ primaju $A$ ili $B$ (vlastiti znak ili strani umjesto stranog), a $C[?]C$ prima vlastiti $C$ — cijena ne raste.</p>
+</dodatak>
+<h3>Dokaz 12 <span class="slajd-ref">slajdovi 98–99</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 12.</strong> U $A[?]A$ ne ulazi $B$.</p></div>
+<p class="dokaz"><em>(Dokaz 12.)</em></p>
+<ul>
+    <li>Pretpostavimo da u $A[?]A$ ima $B$.</li>
+    <li>U $A[?]B$ i $B[?]B$ upisani su samo $B$-ovi.</li>
+    <li>Naime, inače je u njima (po svojstvu 11) upisan $A$, pa bismo ga zamijenili s tim $B$.</li>
+    <li>Iz toga i $p+u\le X$ slijedi: za svaki $B$ u $A[?]A$ postoji po jedan $A$ u $C[?]C$ ili $B[?]C$.</li>
+    <li>Dovoljno ih je zamijeniti.</li>
+    <li>Može se dogoditi $C[A]C\to C[AB]C$, no porast cijene zbog toga je najviše $+1$, dok $A[B]A\to A[\,]A$ smanjuje cijenu za $2$ — zamjena je opravdana.</li>
+</ul>
+<dodatak>
+<p>Brojanje: neka je $b$ broj $B$-ova u $A[?]A$. $A$-ovi mogu biti u $A[?]A$ (najviše $p-b$), $C[?]A$ (najviše $u$), $C[?]C$ i $B[?]C$ (ne u $A[?]B$, $B[?]B$ po prethodnom koraku), pa je u $C[?]C\cup B[?]C$ barem $X-(p-b)-u\ge b$ znakova $A$. Zamjena s $A$ iz $B[?]C$: taj komad gubi strani $A$ i prima vlastiti $B$. Zamjena s $A$ iz $C[?]C$: kao u dopuni uz dokaz 04, redoslijedom zamjena osiguramo da najviše jedan komad prijeđe iz $C[A]C$ u $C[AB]C$; ukupno $\le -2+1\lt0$.</p>
+</dodatak>
+<h3>Dokaz 13 <span class="slajd-ref">slajd 100</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 13.</strong> U $B[?]B$ ne ulazi $A$.</p></div>
+<p class="dokaz"><em>(Dokaz 13.)</em> Zamjenom uloga $A$ i $B$ dobiva se isti oblik kao u dokazu 12.</p>
+<h3>Dokaz 14 <span class="slajd-ref">slajd 101</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 14.</strong> U $C[?]A$ ne ulazi $B$.</p></div>
+<p class="dokaz"><em>(Dokaz 14.)</em></p>
+<ul>
+    <li>Pretpostavimo da u $C[?]A$ ima $B$.</li>
+    <li>Smijemo pretpostaviti da u $A[?]B$ i $B[?]C$ nema $A$ — ako ima, moguća je zamjena.</li>
+    <li>Iz $p+u\le X$ slijedi da za svaki $B$ u $C[?]A$ postoji po jedan $A$ u $C[?]C$.</li>
+    <li>Dovoljno ih je zamijeniti.</li>
+</ul>
+<dodatak>
+<p>Zamjena $B$ iz $C[?]A$ s $A$ iz $A[?]B$ ili $B[?]C$: $C[?]A$ prima vlastiti $A$ (cijena $-1$ kad ode zadnji $B$), $A[?]B$ prima vlastiti $B$, $B[?]C$ zamjenjuje strani $A$ vlastitim $B$. Brojanje: $A$-ovi su tada u $A[?]A$ ($\le p$), $C[?]A$ ($\le u-b$ gdje je $b$ broj $B$-ova u $C[?]A$), $C[?]C$ (ne u $B[?]B$ po svojstvu 13), pa ih je u $C[?]C$ barem $X-p-(u-b)\ge b$. Zamjena $B$ iz $C[?]A$ s $A$ iz $C[?]C$: $C[?]A$ dobiva $-1$, a $C[?]C$ zamjenjuje strani $A$ stranim $B$ — s istim redoslijedom kao u dokazu 04 najviše jedan komad postaje $C[AB]C$ ($+1$), pa cijena ne raste.</p>
+</dodatak>
+<h3>Dokaz 15 <span class="slajd-ref">slajd 102</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 15.</strong> U $B[?]C$ ne ulazi $A$.</p></div>
+<p class="dokaz"><em>(Dokaz 15.)</em> Zamjenom uloga $A$ i $B$ dobiva se isti oblik kao u dokazu 14.</p>
+<h3>Dokaz 16 <span class="slajd-ref">slajdovi 103–104</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 16.</strong> U $B[?]C$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 16.)</em></p>
+<ul>
+    <li>Pretpostavimo da u $B[?]C$ ima $C$.</li>
+    <li>Ako u $C[?]C$ ima $B$, smijemo zamijeniti, pa pretpostavimo da nema.</li>
+    <li>U $C[?]C$ su tada samo $A$ i $C$.</li>
+    <li>Ako u $C[?]A$ ima $C$, budući da je $C$ Small ($Z\lt r$), u $C[?]C$ je upisan $A$, pa taj $C$ zamijenimo s $A$-om iz $C[?]C$.</li>
+    <li>Dakle u $C[?]A$ je samo $C$. <em>(tako piše na slajdu; vidi dopunu)</em></li>
+    <li>Iz toga i dosadašnjih svojstava, $B$ se nalazi samo u $B[?]B$, $A[?]B$ i $B[?]C$.</li>
+    <li>Na kraju, i $A$-ova u $C[?]C$ i $B$-ova u $A[?]B$ ima barem koliko $C$-ova u $B[?]C$.</li>
+    <li>Zamijenimo li te $A$, $B$, $C$ kružno, $A\to B\to C$, broj $A$-ova u $C[?]C$ se smanji, a broj $C$-ova poveća za isto toliko.</li>
+    <li>Cijena se pritom ne povećava, pa je dokazano.</li>
+</ul>
+<dodatak naslov="Ispunjeni detalji dokaza 16">
+<p>Nakon zamjene $C$-ova iz $C[?]A$ s $A$-ovima iz $C[?]C$ (oba komada zamjenjuju vlastiti znak vlastitim odnosno strani vlastitim) komadi $C[?]A$ sadrže samo $A$ (nema $B$ po svojstvu 14, a $C$-ove smo upravo iselili); rečenica „u $C[?]A$ je samo $C$” na slajdu je očito omaška i treba glasiti „samo $A$” — za nastavak dokaza bitno je jedino da $C[?]A$ ne sadrži $B$.</p>
+<p>Brojanja (neka je $c$ broj $C$-ova u $B[?]C$): $C$-ovi su samo u $C[?]C$, $B[?]C$ i $C[?]A$ (svojstvo 11), a u $C[?]C$ nema $B$, pa je $Z=(r-a_{CC})+c+c'$, gdje je $a_{CC}$ broj $A$-ova u $C[?]C$, a $c'$ broj $C$-ova u $C[?]A$; iz $Z\lt r$ slijedi $a_{CC}\gt c+c'\ge c$ (i to vrijedi i nakon iseljavanja $c'$ $C$-ova iz $C[?]A$). $B$-ovi su u $B[?]B$ ($\le q$), $B[?]C$ ($\le t-c$) i $A[?]B$, pa je iz $Y\ge q+t$ u $A[?]B$ barem $c$ znakova $B$.</p>
+<p>Kružna zamjena, $c$ puta: $A$ iz $C[?]C$ prelazi u $A[?]B$ na mjesto jednog $B$ (vlastiti umjesto vlastitog, kazna ista), taj $B$ prelazi u $B[?]C$ na mjesto jednog $C$ (vlastiti umjesto vlastitog), a taj $C$ prelazi u $C[?]C$ na mjesto $A$ (vlastiti umjesto stranog, kazna ne raste). Brojevi $X$, $Y$, $Z$ ne mijenjaju se, cijena ne raste, a $B[?]C$ više ne sadrži $C$.</p>
+</dodatak>
+<h3>Dokaz 17 <span class="slajd-ref">slajd 105</span></h3>
+<div class="tvrdnja"><p><strong>Svojstvo 17.</strong> U $C[?]A$ ne ulazi $C$.</p></div>
+<p class="dokaz"><em>(Dokaz 17.)</em> Zamjenom uloga $A$ i $B$ dobiva se isti oblik kao u dokazu 16.</p>
+<h3>Sažetak <span class="slajd-ref">slajdovi 106–107</span></h3>
+<ul>
+    <li>④ Nema Large, [#3] jedan Small znak.</li>
+    <li>Svojstvo 11: u $A[?]A$, $B[?]B$, $A[?]B$ ne ulazi $C$.</li>
+    <li>Svojstvo 12: u $A[?]A$ ne ulazi $B$.</li>
+    <li>Svojstvo 13: u $B[?]B$ ne ulazi $A$.</li>
+    <li>Svojstvo 14: u $C[?]A$ ne ulazi $B$.</li>
+    <li>Svojstvo 15: u $B[?]C$ ne ulazi $A$.</li>
+    <li>Svojstvo 16: u $B[?]C$ ne ulazi $C$.</li>
+    <li>Svojstvo 17: u $C[?]A$ ne ulazi $C$.</li>
+</ul>
+<ul>
+    <li>Struktura optimalnog rješenja u ④ [#3]:</li>
+    <li>u $A[?]A$ i $A[?]C$ ulazi samo $A$;</li>
+    <li>u $B[?]B$ i $B[?]C$ ulazi samo $B$;</li>
+    <li>$C$ ulazi samo u $C[?]C$.</li>
+    <li>Neodređeno je jedino koliko $A$ i koliko $B$ ulazi u $A[?]B$.</li>
+    <li>To se, jednako kao u ②, svodi na Podproblem 1.</li>
+</ul>
+<h3>Slučaj bez Small znakova <span class="slajd-ref">slajd 108</span></h3>
+<ul>
+    <li>④ Nema Large, [#4] nema ni Small znakova.</li>
+    <li>Najprije u $A[?]A$, $B[?]B$, $C[?]C$ upišemo redom samo $A$, $B$, $C$ (do kraja).</li>
+    <li>Ostatak se može tako rasporediti u $A[?]B$, $B[?]C$, $C[?]A$ da nastanu samo komadi $A[\,]B$, $B[\,]C$, $C[\,]A$.</li>
+    <li>Time je dostignuta očita donja granica.</li>
+    <li>To se dokazuje indukcijom po broju upitnika.</li>
+    <li>I bez indukcije: pohlepno upisujemo sa strane koja ima zalihe.</li>
+    <li>Dakle, ovaj je slučaj jednostavan.</li>
+</ul>
+<dodatak naslov="Konstrukcija za slučaj bez Large i bez Small">
+<p>Vrijedi $p\le X\le p+s+u$, $q\le Y\le q+s+t$, $r\le Z\le r+t+u$. Nakon popunjavanja $A[?]A$, $B[?]B$, $C[?]C$ ostaje $a'=X-p\le s+u$, $b'=Y-q\le s+t$, $c'=Z-r\le t+u$ znakova, pri čemu je $a'+b'+c'=s+t+u$. Neka u $A[?]B$ ide $x$ znakova $A$ i $s-x$ znakova $B$; tada u $C[?]A$ ide $a'-x$ znakova $A$ i $u-a'+x$ znakova $C$, a u $B[?]C$ ide $b'-s+x$ znakova $B$ i $t-b'+s-x$ znakova $C$. Svi ti brojevi su nenegativni točno kada je \[\max(0,\,a'-u,\,s-b')\le x\le\min(s,\,a',\,s-b'+t);\] svaka donja granica je $\le$ svake gornje zbog $a'\le s+u$, $a'+b'\le s+t+u$ (tj. $c'\ge0$), $s\le a'+b'$ (tj. $c'\le t+u$) i $b'\le s+t$, pa takav $x$ postoji. Tada svaki komad s različitim krajevima sadrži samo svoje krajnje znakove (cijena $1$), a svaki s jednakim krajevima samo svoj znak (cijena $0$) — to je očita donja granica (svaki komad $A[?]B$ ima cijenu barem $1$). Pohlepna varijanta sa slajda: redom popunjavamo komade, uvijek uzimajući krajnji znak kojeg je preostalo više nego što mu preostaje mjesta u „njegovim” komadima.</p>
+</dodatak>
+<h3>Sažetak <span class="slajd-ref">slajdovi 109–110</span></h3>
+<ul>
+    <li>Time su svi slučajevi obrađeni.</li>
+    <li>Bilo je to naporno razlikovanje slučajeva.</li>
+</ul>
+<ul>
+    <li>① Tri Large znaka: proturječje.</li>
+    <li>② Dva Large znaka: svodi se na Podproblem 1.</li>
+    <li>③ Jedan Large znak: svodi se na Podproblem 2 (ili, u slučajevima [#2]/[#3], na Podproblem 1).</li>
+    <li>④ Nema Large znakova:</li>
+    <li>[#1] tri Small: proturječje;</li>
+    <li>[#2] dva Small: proturječje;</li>
+    <li>[#3] jedan Small: svodi se na Podproblem 1;</li>
+    <li>[#4] nema Small: rješava se izravno.</li>
+</ul>
+<h3>Zaključak <span class="slajd-ref">slajd 111</span></h3>
+<ul>
+    <li>Dakle, zadatak se svodi na Podproblem 1 i Podproblem 2.</li>
+    <li>Podproblem 1 riješili smo u $O(N^2)$ po upitu.</li>
+    <li>Podproblem 2 riješili smo u $O(N^2\log N)$ po upitu.</li>
+    <li>Ukupno je zadatak riješen u $O(QN^2\log N)$.</li>
+    <li>Intuitivno: u Podproblemu 1 postoji jedan Small znak i smanjujemo cijenu dijela u koji ulaze drugi znakovi.</li>
+    <li>U Podproblemu 2 postoji jedan Large znak i smanjujemo cijenu dijela u koji se on prelijeva.</li>
+</ul>
+<h2>Podzadatak 4 <span class="bodovi">18</span> <span class="slajd-ref">slajdovi 112–136</span></h2>
+<p>Ograničenje: $N\le 5\,000$.</p>
+<h3>Plan <span class="slajd-ref">slajdovi 113–114</span></h3>
+<ul>
+    <li>Zadatak se svodi na Podproblem 1 i Podproblem 2.</li>
+    <li>Cilj je svaki od njih ubrzati i prilagoditi upitima.</li>
+    <li><b>Podproblem 1</b> (ponovljen): zadan je niz $c$ (brojevi upitnika u $C[?]C$); $Z$ puta smanjimo neki pozitivni član za $1$ (upisivanje $C$); zatim je $W$ broj indeksa s $c_i\ge1$ (komadi $C[?]C$ u koje ulazi nešto osim $C$); globa je $2W$ ako je $a$ podzbroj niza $c$, inače $2W+1$ (dodatak za komad s kaznom $2$); vrijedi $a\le\sum c_i-Z$. Globu treba minimizirati.</li>
+    <li><b>Podproblem 2</b> (ponovljen): tri knjižare $D$, $E$, $F$; imamo $Y$ zlatnika i $Z$ srebrnjaka (brojevi $B$-ova i $C$-ova); $W=0$; u $D$ knjiga $i$ stoji $d_i$ zlatnika (u $B[?]B$ samo $B$), u $E$ knjiga $i$ stoji $e_i$ srebrnjaka (u $C[?]C$ samo $C$), u $F$ knjiga $i$ stoji $f_i$ novčića bilo koje vrste (u $B[?]C$ $B$ ili $C$); za kupnju u $D$, $E$ je $W\mathrel{+}=2$, u $F$ je $W\mathrel{+}=1$; maksimiziraj $W$.</li>
+</ul>
+<h3>Razlika prema podzadatku 3 <span class="slajd-ref">slajd 115</span></h3>
+<ul>
+    <li>$N$ je ostao malen, ali $Q$ je velik.</li>
+    <li>Rješenje podzadatka 3 želimo prilagoditi upitima.</li>
+    <li>Razmislimo što se u Podproblemu 1 i Podproblemu 2 mijenja kad imamo upite.</li>
+    <li>Najprije: brojevi upitnika kojih vrsta komada su važni?</li>
+</ul>
+<h3>Podproblem 1 s upitima <span class="slajd-ref">slajdovi 116–120</span></h3>
+<ul>
+    <li>Što se u Podproblemu 1 mijenja s upitima?</li>
+    <li>Najprije: brojevi upitnika kojih vrsta komada su važni?</li>
+    <li>Maloprije smo koristili niz brojeva upitnika u $C[?]C$.</li>
+    <li>Ovisno o $X$, $Y$, $Z$ važan može biti i niz za $A[?]A$ ili $B[?]B$.</li>
+    <li>U svakom je slučaju važan točno jedan od tih nizova, a sadržaj niza je isti kad god su isti krajevi — dakle, važan je jedan od tri niza.</li>
+</ul>
+<ul>
+    <li>(Podproblem 1 ponovljen, isti iskaz kao gore.)</li>
+    <li>Upite podijelimo prema tome koji se niz koristi; neka se koristi niz za $C[?]C$.</li>
+    <li>Tada nad istim nizom $c$ obrađujemo upite sljedećeg oblika:</li>
+    <li>„uzmi $w$ najvećih članova niza $c$; može li se njihovim podzbrojem pogoditi neki broj iz $[l,r]$?”</li>
+    <li>Upit zadaje $(w,l,r)$.</li>
+</ul>
+<ul>
+    <li>Točnije, iz upitom određenog $z$ treba izračunati $w$.</li>
+    <li>Obrađujemo li upite po rastućem $w$, možemo istodobno napredovati s DP tablicom problema podzbroja i odgovarati na upite.</li>
+    <li>Pripremimo $DP[0]$ → obradimo upite s $w=0$ → pripremimo $DP[1]$ → obradimo upite s $w=1$ → …</li>
+    <li>Ukupno $O(N^2+Q\log Q)$; uz pažljivo sortiranje $O(N^2+Q)$.</li>
+</ul>
+<p>Ovo je tipična <b>offline obrada upita</b><info naslov="Offline obrada upita"><p>Kad odgovori na upite ne ovise jedan o drugome, upite smijemo pročitati unaprijed, presložiti ih u povoljan redoslijed (ovdje po rastućem $w$) i odgovarati usput dok neka struktura „raste” (ovdje DP tablica podzbrojeva kojoj dodajemo član po član, od najvećeg prema najmanjem). Tako se svaki upit odgovori nad točno onim stanjem strukture koje mu treba, bez vraćanja unatrag; odgovore na kraju ispišemo u izvornom redoslijedu.</p></info>.</p>
+<dodatak naslov="Kako iz upita dobiti $(w,l,r)$">
+<p>Pohlepno uništavanje najmanjih članova: sortiramo $c$ uzlazno i nađemo najveći $k$ sa $c_1+\dots+c_k\le Z$ (prefiksne sume i binarno pretraživanje); tada je $w=|c|-k$ broj preživjelih (najvećih) članova, $W=w$, a $z=Z-(c_1+\dots+c_k)$ je ostatak operacija (vrijedi $z\lt c_{k+1}$). Interval je \[[l,r]=[\min(a),\,\max(a)+z]\] iz dopune uz slajd 78. Upit $(w,l,r)$ odgovara se nad $DP[w]$ = skupom podzbrojeva $w$ najvećih članova: odgovor je „da” ako je neki $DP[w][j]$, $j\in[l,r]$, istinit (prefiksni zbroj retka ili jednostavna petlja, jer je tablica široka $O(N)$).</p>
+</dodatak>
+<h3>Podproblem 2 s upitima <span class="slajd-ref">slajdovi 121–128</span></h3>
+<ul>
+    <li>(Podproblem 2 ponovljen, isti iskaz kao gore.)</li>
+    <li>Kao i maloprije, koji su nizovi brojeva upitnika potrebni može ovisiti o upitu.</li>
+    <li>No sadržaj nizova se ne mijenja, pa upite unaprijed podijelimo prema tome koji se nizovi koriste.</li>
+    <li>Neka su važni nizovi za $B[?]B$, $B[?]C$ i $C[?]C$.</li>
+</ul>
+<ul>
+    <li>Upit zadaje $(y,z)$ (broj zlatnika i srebrnjaka).</li>
+    <li>Podaci o knjižarama ne ovise o upitu.</li>
+    <li>Razmotrimo unaprijed izračunati odgovor za sve parove $(y,z)$.</li>
+    <li>Najprije smijemo pretpostaviti da su $d$, $e$, $f$ (cijene knjiga) sortirani.</li>
+    <li>Niz $d$ smijemo odrezati na mjestu do kojeg je zbroj od početka još $\le y$ — kasnije knjige ionako se zlatnicima ne mogu kupiti.</li>
+    <li>Jednako za $e$.</li>
+</ul>
+<ul>
+    <li>Nakon toga zlatnike i srebrnjake smijemo poistovjetiti.</li>
+    <li>To se dokazuje razmatranjem strategije kupnje u knjižarama $D$ i $E$ (onima u kojima se plaća samo zlatom odnosno samo srebrom).</li>
+    <li>Npr. za $d=(2,3,3)$, $e=(1,4,10)$, $f=(1,5)$, $(y,z)=(4,5)$:</li>
+    <li>odrežemo na $d=(2)$, $e=(1,4)$;</li>
+    <li>$d$ i $e$ spojimo u $(1,2,4)$ i smatramo da imamo $9$ novčića.</li>
+</ul>
+<dodatak naslov="Zašto se zlato i srebro smiju poistovjetiti">
+<p>U svakoj knjižari isplati se kupovati najjeftinije knjige, pa su kupljene knjige iz $D$ neki prefiks sortiranog $d$; prefiks mora stati u $y$ zlatnika, dakle leži unutar odrezanog $d'$ — knjige iza reza nikad se ne kupuju (isto za $e'$). Neka je sada $S$ bilo koji skup knjiga iz $d'\cup e'\cup f$ s ukupnom cijenom $\le y+z$. Dio iz $d'$ stoji najviše $\sum d'\le y$ pa ga platimo zlatom, dio iz $e'$ najviše $\sum e'\le z$ pa ga platimo srebrom, a dio iz $F$ (koji prima obje valute) platimo ostatkom: ako je $g$ zlato potrošeno u $D$, a $h$ srebro potrošeno u $E$, vrijedi $(y-g)+(z-h)\ge$ cijena dijela iz $F$. Obratno je svaka ostvariva kupnja očito ukupne cijene $\le y+z$. Dakle nakon rezanja uvjet je samo „ukupna cijena $\le y+z$”.</p>
+</dodatak>
+<ul>
+    <li>Zlatnike i srebrnjake poistovjećujemo (dokaz razmatranjem kupnje u $D$ i $E$).</li>
+    <li>Kupnja u $D$ ili $E$ daje $W\mathrel{+}=2$, u $F$ daje $+1$.</li>
+    <li>Dakle, ovo je problem ruksaka u kojem su vrijednosti $1$ ili $2$.</li>
+    <li>Želimo iskoristiti to što su vrijednosti samo $1$ ili $2$.</li>
+</ul>
+<ul>
+    <li>Da su sve vrijednosti $1$ → pohlepno, od najjeftinijih.</li>
+    <li>Što se mijenja kad dodamo vrijednost $2$? → Htjeli bismo opet imati samo jednu vrijednost.</li>
+    <li>Dvije kupljene knjige vrijednosti $1$ možemo smatrati jednom knjigom vrijednosti $2$.</li>
+    <li>Fiksiramo paritet broja kupljenih knjiga vrijednosti $1$, a knjige vrijednosti $1$ po cijeni spajamo po dvije u knjige vrijednosti $2$.</li>
+</ul>
+<ul>
+    <li>Za $d=(2,3,3)$, $e=(1,4,10)$, $f=(1,5)$, $(y,z)=(4,5)$:</li>
+    <li>odrežemo na $d=(2)$, $e=(1,4)$;</li>
+    <li>$d$ i $e$ spojimo u $(1,2,4)$, novčića je $9$;</li>
+    <li>neparan broj iz $f$ → kupimo $f_1=1$, pa iz $(1,2,4)$ kupujemo s $9-1=8$ novčića;</li>
+    <li>paran broj iz $f$ → iz $(1,2,4,6)$ (gdje je $6=1+5$) kupujemo s $9$ novčića.</li>
+</ul>
+<ul>
+    <li>Koliko se može kupiti — binarno pretraživanje!</li>
+    <li>Zbrajamo članove niza od najmanjeg i tražimo mjesto na kojem zbroj premaši zadanu vrijednost.</li>
+</ul>
+<dodatak naslov="Zašto je spajanje po parovima ispravno">
+<p>Ako optimalna kupnja sadrži $m$ knjiga iz $F$, zamjenom skuplje kupljene jeftinijom nekupljenom smijemo pretpostaviti da su to $m$ najjeftinijih, $f_1,\dots,f_m$. Za paran $m$ to su parovi $(f_1,f_2),(f_3,f_4),\dots$ — prvih $m/2$ „knjiga” vrijednosti $2$ s cijenama $f_1+f_2,\,f_3+f_4,\dots$; za neparan $m$ kupimo $f_1$ obvezno (vrijednost $1$) i parove $(f_2,f_3),(f_4,f_5),\dots$. U oba slučaja sve preostale stavke (iz $d'$, $e'$ i parovi) vrijede $2$, pa je najveći broj stavki koje stanu u budžet dan pohlepnim uzimanjem najjeftinijih — a pohlepno rješenje uvijek uzima prefiks parova, što je u skladu s pretpostavkom. Od dva pariteta uzmemo bolji rezultat. (Primjer: paran slučaj daje $(1,2,4)$ i $(1,2,4,6)$ — niz parova pridružuje se spojenom nizu.)</p>
+</dodatak>
+<h3>Svi parovi $(y,z)$ <span class="slajd-ref">slajdovi 129–130</span></h3>
+<ul>
+    <li>To želimo izračunati za sve $(y,z)$.</li>
+    <li>Dovoljno je znati računati slučaj „paran broj iz $f$”; isto napravimo dvaput.</li>
+    <li>Fiksiramo $y$ i povećavamo $z$.</li>
+    <li>$y$ je fiksan → mjesto reza niza $d$ je isto.</li>
+    <li>$z$ raste → mjesto reza niza $e$ pomiče se udesno.</li>
+    <li>Dakle, niz nad kojim binarno tražimo „kada zbroj od početka premaši zadanu vrijednost” — raste.</li>
+</ul>
+<ul>
+    <li>Želimo obrađivati:</li>
+    <li>① dodavanje vrijednosti u niz;</li>
+    <li>② računanje kada zbroj od najmanjih premaši zadanu vrijednost.</li>
+    <li>No vrijednosti su male.</li>
+    <li>Možemo li pratiti koliko se puta koja vrijednost pojavila u nizu?</li>
+    <li>Koristimo <b>segmentno stablo koje čuva broj i zbroj</b>.</li>
+    <li>U čvor segmentnog stabla stavljamo par $\{$broj, zbroj$\}$.</li>
+</ul>
+<h3>Segmentno stablo s brojem i zbrojem <span class="slajd-ref">slajdovi 131–135</span></h3>
+<ul>
+    <li>U čvor segmentnog stabla stavljamo par $\{$broj, zbroj$\}$ za interval vrijednosti.</li>
+    <li>Za $(1,3,3)$ dobiva se slika desno (slajd 131).</li>
+    <li>① Dodavanje vrijednosti — kao i uvijek, $O(\log N)$.</li>
+</ul>
+<ul>
+    <li>② „Kada zbroj od najmanjih premaši zadanu vrijednost” pretvaramo u „do koje vrijednosti smijemo zbrajati sve”.</li>
+    <li>Za $(1,3,3)$ i $5$ smijemo zbrojiti sve do $2$.</li>
+    <li>Tražimo $M$ takav da se sve vrijednosti od $1$ do $M$ mogu zbrojiti.</li>
+</ul>
+<ul>
+    <li>Tražimo $M$ takav da se sve od $1$ do $M$ može zbrojiti.</li>
+    <li>Binarno pretraživanje nad segmentnim stablom!</li>
+    <li>Binarno tražimo $M$ → $O(\log^2 N)$.</li>
+</ul>
+<ul>
+    <li>Binarno pretraživanje nad segmentnim stablom može se napraviti i u $O(\log N)$.</li>
+    <li>Kao na slici: odgovor određujemo bit po bit od najvišeg, spuštajući se prema donjim čvorovima.</li>
+    <li>Na internetu ima raznih materijala o tome.</li>
+</ul>
+<p>Postupak sa slike je <b>spust po segmentnom stablu</b><info naslov="Spust po segmentnom stablu (binarno pretraživanje u O(log N))"><p>Segmentno stablo nad vrijednostima $0,1,\dots$ u svakom čvoru čuva (broj, zbroj) svih elemenata čija vrijednost pada u interval čvora. Tražimo najveći $M$ takav da zbroj svih elemenata vrijednosti $\le M$ stane u budžet $b$. Krenemo od korijena s akumuliranim zbrojem $0$. U čvoru pogledamo lijevo dijete: ako akumulirano $+$ zbroj lijevog djeteta $\le b$, cijeli lijevi interval stane — dodamo njegov zbroj i nastavimo u <em>desno</em> dijete; inače nastavimo u <em>lijevo</em> dijete. U listu (vrijednost $v$) provjerimo stane li i on; $M$ je zadnja vrijednost čiji je cijeli interval primljen. Posjećujemo jedan put od korijena do lista, dakle $O(\log N)$, umjesto $O(\log N)$ upita zbroja unutar vanjskog binarnog pretraživanja ($O(\log^2 N)$).</p></info>.</p>
+<okviri naslov="Segmentno stablo {broj, zbroj} za niz (1, 3, 3) i spust s budžetom 5" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 380 190" role="img" aria-label="Segmentno stablo nad vrijednostima 0 do 3 s parovima broj i zbroj: korijen 3,7; djeca 1,1 i 2,6; listovi 0,0 1,1 0,0 2,6">
+  <rect x="20" y="10" width="340" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="190" y="38" text-anchor="middle">{3, 7}</text>
+  <rect x="20" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="105" y="82" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="275" y="82" text-anchor="middle">{2, 6}</text>
+  <rect x="20" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="62" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="105" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="147" y="126" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="232" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="275" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="317" y="126" text-anchor="middle">{2, 6}</text>
+  <text class="tekst-mali" x="62" y="162" text-anchor="middle">vrij. 0</text>
+  <text class="tekst-mali" x="147" y="162" text-anchor="middle">vrij. 1</text>
+  <text class="tekst-mali" x="232" y="162" text-anchor="middle">vrij. 2</text>
+  <text class="tekst-mali" x="317" y="162" text-anchor="middle">vrij. 3</text>
+  <text class="tekst-mali" x="20" y="184">čvor = {broj, zbroj} elemenata u intervalu</text>
+</svg>
+<natpis>Slajd 131: za niz $(1,3,3)$ listovi su vrijednosti $0,1,2,3$ s parovima $\{0,0\},\{1,1\},\{0,0\},\{2,6\}$; unutarnji čvorovi $\{1,1\}$, $\{2,6\}$, korijen $\{3,7\}$. Dodavanje vrijednosti ažurira jedan put od lista do korijena, $O(\log N)$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 380 190" role="img" aria-label="Isto stablo; pitanje do koje vrijednosti se sve može zbrojiti uz budžet 5">
+  <rect x="20" y="10" width="340" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="190" y="38" text-anchor="middle">{3, 7}</text>
+  <rect x="20" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="105" y="82" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="275" y="82" text-anchor="middle">{2, 6}</text>
+  <rect x="20" y="98" width="85" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="62" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="105" y="98" width="85" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="147" y="126" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="98" width="85" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="232" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="275" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="317" y="126" text-anchor="middle">{2, 6}</text>
+  <text class="tekst-mali" x="62" y="162" text-anchor="middle">vrij. 0</text>
+  <text class="tekst-mali" x="147" y="162" text-anchor="middle">vrij. 1</text>
+  <text class="tekst-mali" x="232" y="162" text-anchor="middle">vrij. 2</text>
+  <text class="tekst-mali" x="317" y="162" text-anchor="middle">vrij. 3</text>
+  <text class="tekst-naglasen" x="20" y="184">budžet 5: sve do M = 2 stane (zbroj 1)</text>
+</svg>
+<natpis>Slajd 132: pitanje „kada zbroj od najmanjih premaši $5$” pretvaramo u „do koje vrijednosti $M$ se sve može zbrojiti”; za $(1,3,3)$ i $5$ to je $M=2$ (zelene vrijednosti $0,1,2$ zajedno stoje $1$).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 380 190" role="img" aria-label="Isto stablo; binarno pretraživanje po M daje O(log^2 N)">
+  <rect x="20" y="10" width="340" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="190" y="38" text-anchor="middle">{3, 7}</text>
+  <rect x="20" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="105" y="82" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="275" y="82" text-anchor="middle">{2, 6}</text>
+  <rect x="20" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="62" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="105" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="147" y="126" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="232" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="275" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="317" y="126" text-anchor="middle">{2, 6}</text>
+  <text class="tekst-mali" x="62" y="162" text-anchor="middle">vrij. 0</text>
+  <text class="tekst-mali" x="147" y="162" text-anchor="middle">vrij. 1</text>
+  <text class="tekst-mali" x="232" y="162" text-anchor="middle">vrij. 2</text>
+  <text class="tekst-mali" x="317" y="162" text-anchor="middle">vrij. 3</text>
+  <text class="tekst-naglasen" x="20" y="184">binarno po M + zbroj [0, M]: O(log² N)</text>
+</svg>
+<natpis>Slajd 133: najjednostavnije, $M$ tražimo binarnim pretraživanjem, a za svaki kandidat upitom zbroja na intervalu vrijednosti $[0,M]$ — $O(\log^2 N)$ po upitu.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 380 190" role="img" aria-label="Spust po stablu s budžetom 5: u korijenu 0+7 veće od 5, lijevo dijete 0+1 stane pa idemo desno, u desnom djetetu lijevi list 1+0 stane, desni list 1+6 ne stane">
+  <defs><marker id="str-crvena" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <rect x="20" y="10" width="340" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="190" y="38" text-anchor="middle">{3, 7}</text>
+  <text class="tekst-mali" x="240" y="50" fill="#c0392b">0 + 7 &gt; 5</text>
+  <rect x="20" y="54" width="170" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="105" y="82" text-anchor="middle">{1, 1}</text>
+  <text class="tekst-mali" x="60" y="94" fill="#c0392b">0 + 1 ≤ 5</text>
+  <line x1="130" y1="68" x2="200" y2="68" stroke="#c0392b" stroke-width="2" marker-end="url(#str-crvena)"/>
+  <rect x="190" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="275" y="82" text-anchor="middle">{2, 6}</text>
+  <rect x="20" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="62" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="105" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="147" y="126" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="98" width="85" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="232" y="126" text-anchor="middle">{0, 0}</text>
+  <text class="tekst-mali" x="196" y="138" fill="#c0392b">1 + 0 ≤ 5</text>
+  <line x1="250" y1="110" x2="290" y2="110" stroke="#c0392b" stroke-width="2" marker-end="url(#str-crvena)"/>
+  <rect x="275" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="317" y="126" text-anchor="middle">{2, 6}</text>
+  <text class="tekst-mali" x="62" y="162" text-anchor="middle">vrij. 0</text>
+  <text class="tekst-mali" x="147" y="162" text-anchor="middle">vrij. 1</text>
+  <text class="tekst-mali" x="232" y="162" text-anchor="middle">vrij. 2</text>
+  <text class="tekst-mali" x="317" y="162" text-anchor="middle">vrij. 3</text>
+  <text class="tekst-naglasen" x="20" y="184">spust u jednom prolazu: M = 2</text>
+</svg>
+<natpis>Slajd 134 (crvene oznake sa slike): u korijenu $0+7\gt5$, pa se spuštamo; lijevo dijete $\{1,1\}$: $0+1\le5$, cijeli interval stane, akumulirano $1$, idemo udesno; u $\{2,6\}$ gledamo lijevi list $\{0,0\}$: $1+0\le5$ stane, idemo udesno; desni list $\{2,6\}$: $1+6\gt5$ ne stane. Dakle $M=2$ u jednom prolazu, $O(\log N)$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 380 190" role="img" aria-label="Isti spust; zaključak o složenosti za fiksni y i za sve parove">
+  <defs><marker id="str-crvena2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <rect x="20" y="10" width="340" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="190" y="38" text-anchor="middle">{3, 7}</text>
+  <text class="tekst-mali" x="240" y="50" fill="#c0392b">0 + 7 &gt; 5</text>
+  <rect x="20" y="54" width="170" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="105" y="82" text-anchor="middle">{1, 1}</text>
+  <text class="tekst-mali" x="60" y="94" fill="#c0392b">0 + 1 ≤ 5</text>
+  <line x1="130" y1="68" x2="200" y2="68" stroke="#c0392b" stroke-width="2" marker-end="url(#str-crvena2)"/>
+  <rect x="190" y="54" width="170" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="275" y="82" text-anchor="middle">{2, 6}</text>
+  <rect x="20" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="62" y="126" text-anchor="middle">{0, 0}</text>
+  <rect x="105" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="147" y="126" text-anchor="middle">{1, 1}</text>
+  <rect x="190" y="98" width="85" height="44" fill="#e8f5e9" stroke="#333"/>
+  <text class="tekst" x="232" y="126" text-anchor="middle">{0, 0}</text>
+  <text class="tekst-mali" x="196" y="138" fill="#c0392b">1 + 0 ≤ 5</text>
+  <line x1="250" y1="110" x2="290" y2="110" stroke="#c0392b" stroke-width="2" marker-end="url(#str-crvena2)"/>
+  <rect x="275" y="98" width="85" height="44" fill="#fff" stroke="#333"/>
+  <text class="tekst" x="317" y="126" text-anchor="middle">{2, 6}</text>
+  <text class="tekst-mali" x="62" y="162" text-anchor="middle">vrij. 0</text>
+  <text class="tekst-mali" x="147" y="162" text-anchor="middle">vrij. 1</text>
+  <text class="tekst-mali" x="232" y="162" text-anchor="middle">vrij. 2</text>
+  <text class="tekst-mali" x="317" y="162" text-anchor="middle">vrij. 3</text>
+  <text class="tekst-naglasen" x="20" y="184">fiksni y: O(N log N); svi y: O(N² log N)</text>
+</svg>
+<natpis>Slajd 135: uz fiksni $y$ svi parovi $(y,z)$ obrađuju se u $O(N\log N)$ (jedno dodavanje i jedan spust po koraku); mijenjanjem $y$ dobivamo sve parove u $O(N^2\log N)$, pa je ukupno $O(N^2\log N+Q)$.</natpis>
+</okvir>
+</okviri>
+<ul>
+    <li>Za fiksni $y$ sve parove $(y,z)$ izračunali smo u $O(N\log N)$.</li>
+    <li>Mijenjajući $y$, sve parove $(y,z)$ računamo u $O(N^2\log N)$.</li>
+    <li>Dakle riješeno u $O(N^2\log N+Q)$.</li>
+</ul>
+<dodatak>
+<p>Broj kupljenih stavki za dani $M$: \[(\text{broj elemenata vrijednosti}\le M)+\Big\lfloor\frac{\text{budžet}-\text{zbroj}_{\le M}}{M+1}\Big\rfloor,\] ograničeno brojem elemenata vrijednosti $M+1$ (slajd 171 to izriče za konačno rješenje). Parovi iz $f$ (i $f_1$ u neparnom slučaju) dodaju se u stablo prije početka, a $d'$ pri fiksiranju $y$; budžet je $y+z$ (odnosno $y+z-f_1$). Ukupno je $O(N)$ parova $(y,z)$ jer je $y+z\le N$.</p>
+</dodatak>
+<h3>Sažetak <span class="slajd-ref">slajd 136</span></h3>
+<ul>
+    <li>Podproblem 1: DP problema podzbroja popunjavamo od većih članova $c$ i usput obrađujemo upite.</li>
+    <li>Podproblem 2: uz fiksiran paritet broja kupnji u $F$ dobivamo pohlepni algoritam; koristimo segmentno stablo.</li>
+    <li>Podproblem 1: $O(N^2+Q)$ ili $O(N^2+Q\log Q)$.</li>
+    <li>Podproblem 2: $O(N^2\log N+Q)$ ili $O(N^2\log^2 N+Q)$.</li>
+    <li>Ukupno $O(N^2\log N+Q)$.</li>
+    <li>Varijanta s dodatnim logaritmom od binarnog pretraživanja nad segmentnim stablom, $O(N^2\log^2 N+Q)$, vrlo vjerojatno dobiva TLE.</li>
+</ul>
 
-<h2>Slučaj 1 Large → Podproblem 2</h2>
-<slajdovi from="79" to="93" vrsta="koraci" naslov="Leme 07–10 i knjižare">
-    <s n="79">1 Large ($A$): $Y+Z\lt q+r+t$. Ako $Y\gt q+t$ i $Z\gt r+t$ — protuslovlje. Ako samo $Y\gt q+t$: $Z\lt r$ → Podproblem 1.</s>
-    <s n="80">Tada $q+t\lt Y\le q+s+t$: nakon $B[?]B,B[?]C$ ostatak $B$ ide u $A[?]B$, pa je broj $A$ u $A[?]B$ jedinstven — jednostavniji interval. $Z\gt r+t$ simetrično.</s>
-    <s n="81">Ako $Y\le q+t$ i $Z\le r+t$: leme 07–10.</s>
-    <s n="82">Lema 07: $C$ u $B[?]B$ — $Z\le r+t$ pa u $C[?]C$ ili $B[?]C$ ima $A/B$ za zamjenu.</s>
-    <s n="83">Simetrično $B$ u $C[?]C$.</s>
-    <s n="84">Lema 08: $C$ u $A[?]B$ — isti argument s $Y\le q+t$.</s>
-    <s n="85">Simetrično $B$ u $C[?]A$.</s>
-    <s n="86">Lema 09: $B,C$ ne ulaze u $A[?]A$ (zamjena s $A$/$C$ iz $B[?]B,B[?]C$).</s>
-    <s n="87">Lema 10: $B$ ne u $A[?]B$, $C$ ne u $C[?]A$.</s>
-    <s n="88">Sažetak: $A$ u $A[?]A,A[?]B,C[?]A$; $B$ samo u $B[?]B,B[?]C$; $C$ samo u $C[?]C,B[?]C$.</s>
-    <s n="89">Prvo smjesti $B,C$, zatim $A$ u ostatak → Podproblem 2.</s>
-    <s n="90">Knjižare $D$ ($B[?]B$, zlato $=Y$), $E$ ($C[?]C$, srebro $=Z$), $F$ ($B[?]C$, zlato ili srebro).</s>
-    <s n="91">Kazna: $2\cdot$(nekupljeno u $D,E$) $+1\cdot$(nekupljeno u $F$) — trošak ulaska $A$.</s>
-    <s n="92">Ekvivalentno maksimiziraj $W$: $+2$ po knjizi iz $D,E$, $+1$ iz $F$.</s>
-    <s n="93">Naivno: enumeriraj broj kupljenih iz $D$ i $E$ ($O(N^2)$), za $F$ binarno: $O(N^2\log N)$.</s>
-</slajdovi>
+<h2>Podzadatak 5 <span class="bodovi">12</span> <span class="slajd-ref">slajdovi 137–147</span></h2>
+<p>Ograničenje: $Q\le 10$.</p>
+<h3>Razlika prema podzadatku 3 <span class="slajd-ref">slajd 138</span></h3>
+<ul>
+    <li>$Q$ je ostao malen, ali $N$ je velik.</li>
+    <li>Rješenje podzadatka 3 želimo ubrzati.</li>
+    <li>Potražimo što se u Podproblemu 1 i Podproblemu 2 može ubrzati.</li>
+</ul>
+<h3>Ubrzanje Podproblema 1 <span class="slajd-ref">slajdovi 139–143</span></h3>
+<ul>
+    <li>(Podproblem 1 ponovljen, isti iskaz kao gore.)</li>
+    <li>Problem podzbroja rješavali smo DP-om $DP[i][j]$ := može li se zbroj $j$ dobiti iz prvih $i$ članova, u $O(N^2)$.</li>
+    <li>Može li se to nekako ubrzati?</li>
+    <li>Pokušajmo s malim trikom.</li>
+    <li>Prijelaze za jednake vrijednosti radimo zajedno.</li>
+    <li>$DP[i][j]$ := može li se zbroj $j$ dobiti nakon što smo obradili vrijednosti do $i$.</li>
+</ul>
+<ul>
+    <li>Iz $DP[i]$ gradimo $DP[i+1]$.</li>
+    <li>Ako vrijednosti $i+1$ nema, ništa se ne mijenja.</li>
+    <li>Neka je ima $n$ komada.</li>
+    <li>$DP[i+1][j]$ je istinit ako je istinit neki od \[DP[i][j],\,DP[i][j-(i+1)],\,DP[i][j-2(i+1)],\,\dots,\,DP[i][j-n(i+1)].\]</li>
+    <li>To se ubrzava prefiksnim sumama s korakom $i+1$.</li>
+</ul>
+<p>To je standardni <b>ograničeni subset-sum</b><info naslov="Ograničeni subset-sum: prefiksi s korakom"><p>Za vrijednost $v$ koja se pojavljuje $n$ puta treba $DP'[j]=\bigvee_{k=0}^{n}DP[j-kv]$. Za svaki ostatak $j\bmod v$ zasebno, indeksi $j,\,j-v,\,j-2v,\dots$ čine niz; ako $P[j]$ označava broj istinitih vrijednosti među $DP[j],DP[j-v],DP[j-2v],\dots$ (prefiksni zbroj s korakom $v$), onda je $DP'[j]$ istinit točno kad je $P[j]-P[j-(n+1)v]\gt0$. Sve to je $O(N)$ po vrijednosti $v$, umjesto $O(nN)$ za $n$ zasebnih prijelaza. (Ekvivalentno: $DP'[j]$ je istinit ako je neki od zadnjih $n+1$ članova tog niza istinit — „klizni prozor”.)</p></info>.</p>
+<ul>
+    <li>Dakle složenost je $O(k\cdot N)$, gdje je $k$ broj različitih vrijednosti.</li>
+    <li>Broj različitih vrijednosti je $O(N)$, pa je to samo konstantno ubrzanje.</li>
+</ul>
+<ul>
+    <li>Dakle $O(k\cdot N)$ za $k$ različitih vrijednosti; $k$ je $O(N)$, dakle samo konstanta…</li>
+    <li>…nije tako: složenost se popravila na $O(N\sqrt N)$.</li>
+    <li>Ako je zbroj vrijednosti $O(N)$, broj različitih vrijednosti je $O(\sqrt N)$.</li>
+    <li>Izgleda netrivijalno, ali vrijedi jer je $1+2+\dots+\sqrt N$ otprilike $N/2$.</li>
+</ul>
+<dodatak>
+<p>Ako je $k$ različitih pozitivnih vrijednosti, njihov je zbroj barem \[1+2+\dots+k=\frac{k(k+1)}{2};\] budući da je zbroj svih $c_i$ najviše broj upitnika, tj. $\le N$, slijedi $k(k+1)/2\le N$, pa je $k\le\sqrt{2N}$.</p>
+</dodatak>
+<h3>Ubrzanje Podproblema 2 <span class="slajd-ref">slajdovi 144–146</span></h3>
+<ul>
+    <li>(Podproblem 2 ponovljen, isti iskaz kao gore.)</li>
+    <li>Iscrpno smo isprobavali $O(N^2)$ mogućnosti za broj knjiga kupljenih u $D$ i $E$.</li>
+    <li>Htjeli smo znati koliko se može kupiti u $F$.</li>
+    <li>Iz potrošenog u $D$ i $E$ znamo koliko ostaje za $F$.</li>
+    <li>Koliko se može kupiti nalazimo binarnim pretraživanjem, $O(\log N)$.</li>
+    <li>Tako smo imali $O(N^2\log N)$.</li>
+    <li>Možemo li umjesto toga iscrpno isprobavati samo ukupan broj $M$ knjiga kupljenih u $D$ i $E$?</li>
+</ul>
+<ul>
+    <li>Iscrpno isprobavamo ukupan broj $M$ knjiga kupljenih u $D$ i $E$.</li>
+    <li>Optimalan je pohlepni postupak: $M$ puta kupimo najjeftiniju još nekupljenu knjigu iz $D\cup E$.</li>
+    <li>Iznos potreban za $M$ knjiga iz $D\cup E$ dobivamo iz spojenog (merge) i sortiranog niza $d$, $e$ — binarnim pretraživanjem, $O(\log N)$.</li>
+    <li>Koliko se ostatkom može kupiti u $F$ također dobivamo binarnim pretraživanjem, $O(\log N)$.</li>
+    <li>Dakle rješivo u $O(N\log N)$.</li>
+</ul>
+<dodatak>
+<p>Ovdje su $d$ i $e$ već odrezani na prefikse plative zlatom odnosno srebrom (slajd 123), pa se valute smiju poistovjetiti; za fiksni $M$ najjeftinijih $M$ stavki spojenog niza daje najmanji trošak, dakle najviše novca za $F$. Zapravo je dovoljan prefiksni zbroj spojenog niza (trošak za $M$ je $O(1)$), a binarno pretraživanje treba samo za $F$.</p>
+</dodatak>
+<h3>Sažetak <span class="slajd-ref">slajd 147</span></h3>
+<ul>
+    <li>Podproblem 1: ako pri ažuriranju DP-a podzbroja jednake vrijednosti obrađujemo zajedno, složenost se — iznenađujuće — popravlja.</li>
+    <li>Podproblem 2: fiksiramo li ukupan broj kupnji u $D$ i $E$, trošak se računa pohlepno, jednako kao za $F$.</li>
+    <li>Podproblem 1: $O(N\sqrt N)$.</li>
+    <li>Podproblem 2: $O(N\log N)$.</li>
+    <li>Ukupno $O(QN\sqrt N)$.</li>
+</ul>
 
-<h2>Slučaj 0 Large</h2>
-<slajdovi from="94" to="111" vrsta="koraci" naslov="Leme 11–17 i zaključak">
-    <s n="94">0 Large: 3 Small → $X+Y+Z\lt p+q+r$ protuslovlje; 2 Small ($B,C$) → $X\gt p+s+t+u$, protuslovlje s „nije Large”.</s>
-    <s n="95">1 Small ($C$): $p+u\le X\le p+s+u$, $q+t\le Y\le q+s+t$, $Z\lt r$.</s>
-    <s n="96">Leme 11–17.</s>
-    <s n="97">Lema 11: $C$ ne u $A[?]A,B[?]B,A[?]B$ — $Z\lt r$ daje $A/B$ u $C[?]C$ za zamjenu.</s>
-    <s n="98">Lema 12: $B$ u $A[?]A$; u $A[?]B,B[?]B$ samo $B$; iz $p+u\le X$ toliko $A$ je u $C[?]C$ ili $B[?]C$.</s>
-    <s n="99">Zamjena: $A[B]A\to A[]A$ ($-2$), $C[A]C\to C[AB]C$ ($\le+1$).</s>
-    <s n="100">Lema 13 simetrično.</s>
-    <s n="101">Lema 14: $B$ u $C[?]A$ — $A$ nije u $A[?]B,B[?]C$; $p+u\le X$ → $A$ u $C[?]C$; zamjena.</s>
-    <s n="102">Lema 15 simetrično.</s>
-    <s n="103">Lema 16: $C$ u $B[?]C$; u $C[?]C$ nema $B$ (inače zamjena), dakle samo $A$ ili $C$; $C$ u $C[?]A$ → zamjena s $A$ iz $C[?]C$ ($C$ Small); dakle $C[?]A$ samo $C$…</s>
-    <s n="104">…i $B$ je samo u $B[?]B,A[?]B,B[?]C$; ciklička zamjena $A\to B\to C$ kroz $C[?]C$, $A[?]B$, $B[?]C$ ne povećava cijenu.</s>
-    <s n="105">Lema 17 simetrično.</s>
-    <s n="106">Sažetak 11–17.</s>
-    <s n="107">Struktura kao u slučaju 2 Large → Podproblem 1.</s>
-    <s n="108">0 Small: napuni $A[?]A,B[?]B,C[?]C$; ostatak stane u $A[?]B,B[?]C,C[?]A$ samo s krajevima (indukcija / greedy sa strane koja ima zalihe) — donja granica dostignuta.</s>
-    <s n="109">Sva podjela gotova — bilo je naporno.</s>
-    <s n="110">Pregled: 3L nemoguće; 2L → P1; 1L → P1 ili P2; 0L: 3S,2S nemoguće, 1S → P1, 0S lako.</s>
-    <s n="111">P1 $O(N^2)$, P2 $O(N^2\log N)$ po upitu: $O(QN^2\log N)$. Intuicija: P1 — jedan Small pušta strance; P2 — jedan Large prelijeva.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Kako pamtiti slučajeve.</b> Large slovo ima više primjeraka nego mjesta u komadima gdje je „domaće” ($p+s+u$), pa <i>mora</i> ući negdje kao stranac; Small slovo ne stiže ni ispuniti komade s oba svoja kraja, pa u njih <i>mora</i> ući netko strani. Podproblem 1 optimizira <i>tko i kako</i> ulazi u komade jednog Small slova (uništi najviše komada, izbjegni komad s dva stranca). Podproblem 2 optimizira <i>kamo</i> prelijeva jedno Large slovo (kupi što više komada da ih zatvoriš).</p>
-</div>
+<h2>Podzadatak 6 — ponavljanje <span class="slajd-ref">slajdovi 148–150</span></h2>
+<p>Ograničenja: u $S$ nema $C$ i $Z=0$.</p>
+<ul>
+    <li>Obrađeno kod podzadatka 3, ovdje samo ponavljamo.</li>
+    <li>Optimalna strategija: komade $A$ + (upitnici) + $A$ pohlepno popunjavamo s $A$ od najkraćih; komade $B$ + (upitnici) + $B$ pohlepno s $B$ od najkraćih; ostalo bilo kako.</li>
+    <li>Sortiramo niz brojeva upitnika u $A[?]A$ i niz za $B[?]B$; prefiksne sume + binarno pretraživanje daju $O(\log N)$ po upitu.</li>
+    <li>Ukupno $O(N+Q\log N)$.</li>
+</ul>
+<ul>
+    <li>Drugi pristup: unaprijed $ans[i]$ := odgovor kad u upitnike ide $i$ znakova $A$.</li>
+    <li>$ans[0]$ je lagan: svugdje $B$.</li>
+    <li>Iz $ans[i]$ želimo $ans[i+1]$.</li>
+    <li>Po gornjoj strategiji svi $ans[i]$ nabrajaju se u $O(N)$.</li>
+    <li>Ukupno $O(N+Q)$.</li>
+</ul>
 
-<h2>Podzadatak 4: mnogo upita, $N\le5000$ <span class="bodovi">18 bodova</span></h2>
-<slajdovi from="112" to="136" vrsta="koraci" naslov="Offline obrada oba podproblema">
-    <s n="112">Podzadatak 4.</s>
-    <s n="113">Plan: P1 i P2 prilagoditi upitima.</s>
-    <s n="114">Ponovljen P2.</s>
-    <s n="115">$Q$ velik: koji brojevi upitnika su bitni?</s>
-    <s n="116">Za P1 igra ulogu jedan od tri niza ($A[?]A$, $B[?]B$, $C[?]C$) — sadržaj ne ovisi o upitu.</s>
-    <s n="117">Ponovljen P1.</s>
-    <s n="118">Grupiraj upite po nizu; upit $(w,l,r)$: iz $w$ najvećih $c_i$ podzbroj u $[l,r]$?</s>
-    <s n="119">$w$ iz $z$; obrađuj $w$ rastuće i gradi DP tablicu.</s>
-    <s n="120">$DP[0]$ → upiti $w=0$ → $DP[1]$ → …: $O(N^2+Q\log Q)$ ili $O(N^2+Q)$.</s>
-    <s n="121">Ponovljen P2.</s>
-    <s n="122">Nizovi $B[?]B,B[?]C,C[?]C$ (ili permutacija) — grupiraj upite.</s>
-    <s n="123">Upit $(y,z)$; predizračun za sve $(y,z)$; $d,e,f$ sortirani; $d$ odreži na prefiks plativ s $y$, $e$ s $z$.</s>
-    <s n="124">Tada zlato i srebro smiješ izjednačiti (dokaz preko strategije koja kupuje u $D,E$); $d=(2,3,3),e=(1,4,10),f=(1,5),(y,z)=(4,5)$ → $d=(2),e=(1,4)$, zajedno $(1,2,4)$ i 9 novčića.</s>
-    <s n="125">Ruksak s vrijednostima 2 ($D,E$) i 1 ($F$).</s>
-    <s n="126">Samo 1 → greedy; s 2: pretvori 1-ice u 2-ice: fiksiraj paritet broja iz $F$, spoji po dvije najjeftinije.</s>
-    <s n="127">Neparno: kupi $f_1=1$, pa iz $(1,2,4)$ s 8; parno: iz $(1,2,4,6)$ s 9.</s>
-    <s n="128">Koliko stane — binarno po prefiksnom zbroju.</s>
-    <s n="129">Za sve $(y,z)$: fiksiraj $y$ (rez $d$ isti), $z$ raste → rez $e$ raste: niz se puni.</s>
-    <s n="130">Treba: ① dodaj vrijednost; ② do koje vrijednosti sve stane. Vrijednosti su male → segmentno stablo s $\{$broj, zbroj$\}$.</s>
-    <s n="131">Dodavanje $O(\log N)$.</s>
-    <s n="132">② → najveći $M$ da sve $\le M$ stane.</s>
-    <s n="133">Binarno po $M$ nad stablom: $O(\log^2N)$.</s>
-    <s n="134">Spust po stablu: $O(\log N)$.</s>
-    <s n="135">Fiksni $y$: $O(N\log N)$; svi $y$: $O(N^2\log N)$; ukupno $O(N^2\log N+Q)$.</s>
-    <s n="136">Sažetak: P1 $O(N^2+Q\log Q)$, P2 $O(N^2\log N+Q)$; $O(N^2\log^2N)$ vjerojatno TLE.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Zašto paritet rješava ruksak 1/2.</b> Predmeti vrijednosti 1 ($F$) u optimumu su najjeftiniji $m$ komada iz $F$ (zamjena). Ako je $m$ paran, spoji $f_1+f_2,\,f_3+f_4,\dots$ u predmete vrijednosti 2 — sada svi predmeti vrijede 2 i greedy po cijeni je optimalan. Ako je $m$ neparan, kupi $f_1$ obavezno i ostatak spoji. Dva prolaza, uzmi bolji.</p>
-</div>
+<h2>Podzadatak 7 <span class="bodovi">13</span> <span class="slajd-ref">slajdovi 151–155</span></h2>
+<p>Ograničenje: $Z=0$.</p>
+<h3>Što znači $Z=0$ <span class="slajd-ref">slajdovi 152–154</span></h3>
+<ul>
+    <li>Razlikovanje slučajeva, dokazi i problemi na koje se svodimo postaju malo lakši.</li>
+    <li>Podproblem 1: budući da se $C$ ne upisuje u upitnike, to je čisti problem podzbroja:</li>
+    <li>„može li se podzbrojem pogoditi neki broj iz zadanog intervala?”</li>
+    <li>Rješivo u npr. $O(N\sqrt N+Q)$.</li>
+</ul>
+<ul>
+    <li>Podproblem 2 dobiva malo ljepši oblik: $B$-ove upisujemo u $B[?]B$ i $B[?]C$, a u ostatak $A$ (ili obrnuto, s $A$ i $B$ zamijenjenima) — to je ruksak s vrijednostima $1$ i $2$.</li>
+    <li>Fiksiramo li paritet broja stavki vrijednosti $1$, postaje pohlepan.</li>
+    <li>Kao u podzadatku 4, po dvije stavke vrijednosti $1$ spajamo u jednu.</li>
+</ul>
+<ul>
+    <li>Kao u podzadatku 4 spajamo po dvije stavke vrijednosti $1$.</li>
+    <li>Štoviše, budući da je $Z=0$, to je isto rješenje kao u podzadatku 4:</li>
+    <li>tamo smo fiksirali $y$ i povećavali $z$; ovdje fiksiramo $z$ (na $0$) i povećavamo $y$.</li>
+    <li>Rješivo u npr. $O(N\log N+Q)$.</li>
+    <li>Ovdje bi, mislim, prošlo i binarno pretraživanje nad segmentnim stablom s dodatnim logaritmom, $O(N\log^2 N+Q)$.</li>
+</ul>
+<dodatak>
+<p>Uz $Z=0$ nema znaka $C$ u upitnicima, ali $C$ može biti u $S$: komadi $C[?]C$ tada primaju samo strane znakove, pa je $C$ Small čim postoji $C[?]C$ s upitnicima ($r\gt0$), a u Podproblemu 1 nema $Z$ smanjenja ($z=0$, $W$ = broj komada $C[?]C$). U Podproblemu 2 ($A$ Large) knjižara $E$ ne postoji (srebra nema), ostaju $D$ i $F$ s jednom valutom.</p>
+</dodatak>
+<h3>Sažetak <span class="slajd-ref">slajd 155</span></h3>
+<ul>
+    <li>Podproblem 1: obični problem podzbroja.</li>
+    <li>Podproblem 2: dovoljno je napraviti isto što i u pripremi za podzadatak 4; zbog $Z=0$ iz složenosti otpada jedan faktor $N$.</li>
+    <li>I s jednim logaritmom viška trebalo bi biti dovoljno vremena.</li>
+    <li>Podproblem 1: $O(N\sqrt N+Q)$.</li>
+    <li>Podproblem 2: $O(N\log N+Q)$ ili $O(N\log^2 N+Q)$.</li>
+    <li>Ukupno $O(N\sqrt N+Q)$.</li>
+</ul>
 
-<h2>Podzadatak 5: malo upita, veliki $N$ <span class="bodovi">12 bodova</span></h2>
-<slajdovi from="137" to="147" vrsta="koraci" naslov="Subset-sum u $O(N\sqrt N)$ i greedy za P2">
-    <s n="137">Podzadatak 5: $Q\le10$.</s>
-    <s n="138">Ubrzaj oba podproblema.</s>
-    <s n="139">Ponovljen P1.</s>
-    <s n="140">Subset-sum $O(N^2)$; grupiraj jednake vrijednosti: $DP[i][j]$ = zbroj $j$ iz vrijednosti $\le i$.</s>
-    <s n="141">Vrijednost $i+1$ s $n$ komada: $DP[i+1][j]=\bigvee_{k\le n}DP[i][j-k(i+1)]$ — prefiksi s korakom $i+1$.</s>
-    <s n="142">$O(\text{broj različitih}\cdot N)$ — naizgled samo konstanta.</s>
-    <s n="143">Ali zbroj vrijednosti je $O(N)$ ⇒ različitih je $O(\sqrt N)$ ($1+2+\dots+\sqrt N\approx N/2$): $O(N\sqrt N)$.</s>
-    <s n="144">Ponovljen P2.</s>
-    <s n="145">Umjesto para (iz $D$, iz $E$) enumeriraj zbroj $M$ kupljenih iz $D\cup E$.</s>
-    <s n="146">Greedy: $M$ puta najjeftinija nekupljena iz $D\cup E$; trošak iz spojenog sortiranog niza; ostatak za $F$ binarno: $O(N\log N)$.</s>
-    <s n="147">P1 $O(N\sqrt N)$, P2 $O(N\log N)$; ukupno $O(QN\sqrt N)$.</s>
-</slajdovi>
+<h2>Podzadatak 8 <span class="bodovi">25</span> <span class="slajd-ref">slajdovi 156–178</span></h2>
+<p>Bez dodatnih ograničenja.</p>
+<h3>Ponavljanje podzadataka 4 i 5 <span class="slajd-ref">slajd 157</span></h3>
+<ul>
+    <li>U podzadatku 4 rješenje smo prilagodili upitima.</li>
+    <li>U podzadatku 5 ubrzali smo obradu jednog upita.</li>
+    <li>Uspijemo li oboje, čini se da je podzadatak 8 riješen.</li>
+    <li>Može li se to zaista?</li>
+</ul>
+<h3>Podproblem 1: spajanje ideja <span class="slajd-ref">slajdovi 158–166</span></h3>
+<ul>
+    <li>(Podproblem 1 ponovljen, isti iskaz kao gore.)</li>
+    <li>U Podproblemu 1 želimo i ubrzanje i prilagodbu upitima.</li>
+    <li>Ideja ubrzanja: DP podzbroja u kojem $DP[i][j]$ znači „može li se zbroj $j$ dobiti nakon obrade vrijednosti do $i$”.</li>
+    <li>Ideja za upite: na upite odgovaramo iz međustanja DP tablice, pa je ažuriramo, i tako naizmjence.</li>
+    <li>Spojimo to dvoje!</li>
+</ul>
+<ul>
+    <li>Za svaki upit odredimo koju DP tablicu koristi.</li>
+    <li>Prvi ključ DP tablice je najmanji $M$ takav da je zbroj svih $c_i$ od najvećih do vrijednosti $M$ još $\le Z$.</li>
+    <li>Taj je $M$ lako naći.</li>
+    <li>Može i segmentnim stablom iz podzadatka 4, a budući da se $c$ ne mijenja, može i prefiksnim sumama s binarnim pretraživanjem.</li>
+</ul>
+<dodatak naslov="Precizan prag $M$">
+<p>Pohlepno uništavamo najmanje članove. Neka je $\sigma(v)=\sum_{c_i\le v}c_i$. Prag je vrijednost $v$ sa $\sigma(v-1)\le Z\lt\sigma(v)$: svi članovi $\lt v$ uništeni su, od članova vrijednosti $v$ uništeno je $\lfloor(Z-\sigma(v-1))/v\rfloor$, preostaje ih $k$, a ostatak operacija je $z=(Z-\sigma(v-1))\bmod v$, pri čemu je $z\lt v$. DP tablica koja se koristi je ona za vrijednosti $\ge v+1$, dakle $M=v+1$ u oznakama slajda $DP[M]$ („$i$ iz $DP[i][j]$”). Za $c=(1,3,3,4)$, $Z=5$: $\sigma(1)=1\le5\lt\sigma(3)=7$, pa je $v=3$, uništeni su $1$ i jedna trojka, $k=1$, $z=1$, $M=4$ — točno kao na slajdu 161. Ako je $Z\ge\sigma(\max c)$, sve je uništeno: $W=0$, a $a\le\sum c_i-Z=0$ daje globu $0$. (Formulaciju sa slajda „od najvećih do $M$ zbroj $\le Z$” treba čitati u ovom smislu — zbrajanje ide od najmanjih članova; doslovno čitanje, npr. za $c=(5,5,10)$, $Z=7$, dalo bi pogrešan prag.)</p>
+</dodatak>
+<ul>
+    <li>Preostaje: $DP[i][j]$ := može li se $j$ dobiti kao podzbroj članova $c_i\ge i$,</li>
+    <li>a iz njega, uz još nekoliko dodanih članova vrijednosti $i-1$, pitanje može li se pogoditi zadani interval.</li>
+    <li>Riječima je to već nerazumljivo.</li>
+    <li>Npr. za $c=(1,3,3,4)$ i $Z=5$ možemo izbrisati $1$ i jednu $3$.</li>
+    <li>Iz $DP[4]$ (podaci o podzbrojevima samo članova $\ge4$) i toga koristimo li $3$ ili ne želimo znati može li se pogoditi zadani interval.</li>
+</ul>
+<ul>
+    <li>Za $c=(1,3,3,4)$, $Z=5$: brišemo $1$ i jednu $3$.</li>
+    <li>Iz $DP[4]$ i broja upotrijebljenih trojki (i $z$) želimo znati može li se pogoditi zadani interval.</li>
+    <li>Za početak, za jedan broj $a$ (interval duljine $1$): provjerimo je li nešto u $DP[4][[a,\,a+z]]$ ili $DP[4][[a-3,\,a-3+z]]$ istinito.</li>
+    <li>Za interval: provjerimo je li nešto istinito u \[DP[4]\big[[\min(a),\,\max(a)+z]\big]\quad\text{ili}\quad DP[4]\big[[\min(a)-3,\,\max(a)-3+z]\big].\]</li>
+</ul>
+<ul>
+    <li>Provjeravamo \[DP[4]\big[[\min(a),\max(a)+z]\big]\quad\text{i}\quad DP[4]\big[[\min(a)-3,\max(a)-3+z]\big].\]</li>
+    <li>No broj intervala koje treba provjeriti ovako je $O(N)$ → TLE.</li>
+    <li>Plač.</li>
+</ul>
+<dodatak>
+<p>Preostalih trojki (općenito članova vrijednosti $i-1$) može biti $k=O(N)$, a smijemo upotrijebiti bilo kojih $0,1,\dots,k$ njih — zato $k+1$ pomaknutih intervala \[[\min(a)-m(i-1),\,\max(a)-m(i-1)+z],\qquad m=0,\dots,k.\] U primjeru je $k=1$, pa su samo dva. Napomena: ovdje $z$ označava ostatak operacija nakon pohlepnog uništavanja (kao u lemi o intervalu), a ostatak se smije trošiti i na preživjele članove vrijednosti $i-1$ i na veće.</p>
+</dodatak>
+<ul>
+    <li>Definiramo $DP'[i][j]$ := najmanji $k$ za koji je $DP[i][j-k(i-1)]$ istinit.</li>
+    <li>Ako takvog $k$ nema, $+\infty$.</li>
+    <li>Provjera „je li nešto istinito u jednom od dvaju intervala \[DP[4]\big[[\min(a),\max(a)+z]\big],\quad DP[4]\big[[\min(a)-3,\max(a)-3+z]\big]\]”</li>
+    <li>postaje \[\min DP'[4]\big[[\min(a),\,\max(a)+z]\big]\le k.\]</li>
+</ul>
+<ul>
+    <li>$DP'[i][j]$ := najmanji $k$ s $DP[i][j-k(i-1)]$ istinitim; $+\infty$ ako ne postoji.</li>
+    <li>$DP'$ se iz DP polja računa redom po $j=0,1,\dots$ u $O(N)$.</li>
+    <li>Vrijednosti $i$ koje treba izračunati ima $O(\sqrt N)$, pa je ukupno $O(N\sqrt N)$.</li>
+    <li>Minimum na intervalu daje segmentno stablo u $O(\log N)$ po upitu.</li>
+</ul>
+<dodatak>
+<p>Rekurzija: \[DP'[i][j]=\begin{cases}0 & DP[i][j]\text{ istinit},\\ DP'[i][j-(i-1)]+1 & \text{inače, } j\ge i-1,\\ +\infty & \text{inače, } j\lt i-1.\end{cases}\] Ispravnost upita: postoji $m\le k$ i $j\in[\min(a),\max(a)+z]$ s $DP[i][j-m(i-1)]$ istinitim $\iff$ $\min_{j}DP'[i][j]\le k$. Za svaku od $O(\sqrt N)$ različitih vrijednosti $i$ koje se pojavljuju kao prag gradimo segmentno stablo (ili sparse table) nad retkom $DP'[i]$; upiti se grupiraju po pragu i odgovaraju dok su DP redci u memoriji (redak za $i$ dobiva se iz retka za sljedeću veću vrijednost dodavanjem svih članova vrijednosti $i$, kao u podzadatku 5, ali idući od najvećih vrijednosti prema najmanjima). Memorija je $O(N)$ po retku.</p>
+</dodatak>
+<ul>
+    <li>Računanje $DP'$: $O(N)$ po $i$; vrijednosti $i$ ima $O(\sqrt N)$; ukupno $O(N\sqrt N)$.</li>
+    <li>Minimum na intervalu segmentnim stablom: $O(\log N)$ po upitu.</li>
+    <li>Ukupno $O(N\sqrt N+Q\log N)$.</li>
+</ul>
+<h3>Podproblem 2: spajanje ideja <span class="slajd-ref">slajdovi 167–173</span></h3>
+<ul>
+    <li>(Podproblem 2 ponovljen, isti iskaz kao gore.)</li>
+    <li>U Podproblemu 2 želimo i ubrzanje i prilagodbu upitima.</li>
+    <li>Ideja ubrzanja: iscrpno isprobavamo ukupan broj knjiga kupljenih u $D$ i $E$.</li>
+    <li>Ideja za upite: razlikujemo paritet broja knjiga kupljenih u $F$ i spajamo knjige po dvije.</li>
+    <li>Spojimo to dvoje!</li>
+</ul>
+<ul>
+    <li>Najprije za svaki upit odrežemo $d$ i $e$ na dio plativ zlatom odnosno srebrom.</li>
+    <li>Dalje se ionako ne može kupiti, pa to smatramo nepostojećim.</li>
+    <li>Fiksiramo li paritet broja kupnji u $F$, na kraju: prvih nekoliko članova $d$, prvih nekoliko članova $e$ i $f$ spojimo (merge), sortiramo, zbrajamo od početka i gledamo kada zbroj premaši zadanu vrijednost.</li>
+</ul>
+<ul>
+    <li>Kao u podzadatku 4 želimo pratiti raspodjelu vrijednosti i naći do koje se vrijednosti sve može zbrojiti.</li>
+    <li>Za svaki od $d$, $e$, $f$ zasebno to se lako računa, a rezultate zbrojimo.</li>
+    <li>Npr. za $d=(3,6)$, $e=(2,2,3,3)$, $f=(1,8)$ i granicu $2$ dobivamo redom $\{0$ komada, zbroj $0\}$, $\{2$ komada, zbroj $4\}$, $\{1$ komad, zbroj $1\}$.</li>
+</ul>
+<ul>
+    <li>Zbrojeno: $\{3$ komada, zbroj $5\}$.</li>
+    <li>Ako znamo najveći $M$ za koji je taj zbroj $\le$ zadane vrijednosti, znamo broj stavki vrijednosti $\le M$.</li>
+    <li>Koliko stavki vrijednosti $M+1$ još stane slijedi iz zbroja do $M$.</li>
+</ul>
+<ul>
+    <li>Treba voditi računa o rezanju $d$ i $e$, ali to je lako uz prefiksne sume od $d$ i $e$.</li>
+    <li>Podatak poput „$d=(3,6)$, do $2$: $\{0$ komada, zbroj $0\}$” dobiva se pomoću <code>lower_bound</code> u $O(\log N)$.</li>
+    <li>Takvih operacija ima $O(\log N)$ (koraka binarnog pretraživanja po $M$), pa je to $O(\log^2 N)$ po upitu.</li>
+    <li>Unaprijed izračunamo li prefiksne sume indeksirane vrijednošću za $d$, $e$, $f$, operacija je $O(1)$</li>
+    <li>i upit traje $O(\log N)$.</li>
+</ul>
+<dodatak>
+<p>Za niz $d$ (sortiran) i granicu $M$: broj članova $\le M$ je $\mathrm{cnt}_d(M)$ (<code>upper_bound</code> ili tablica po vrijednosti), a rez na prefiks duljine $L_d$ (najveći prefiks sa zbrojem $\le y$) daje broj $\min(L_d,\mathrm{cnt}_d(M))$ i zbroj $\mathrm{pref}_d[\min(L_d,\mathrm{cnt}_d(M))]$. Za $f$ koristimo niz parova $g_j=f_{2j-1}+f_{2j}$ (paran slučaj) odnosno $f_1$ obvezno i $g'_j=f_{2j}+f_{2j+1}$ (neparan); oba su niza rastuća pa isto vrijedi. Budžet je $y+z$ (u neparnom slučaju $y+z-f_1$). $M$ binarno tražimo među vrijednostima $0..N$: $O(\log N)$ koraka, svaki $O(1)$ uz tablice po vrijednosti.</p>
+</dodatak>
+<ul>
+    <li>Operacija ima $O(\log N)$, dakle $O(\log^2 N)$ po upitu; s pripremom $O(\log N)$ po upitu.</li>
+    <li>Time je riješen slučaj s fiksiranim paritetom broja kupnji u $F$.</li>
+    <li>Dovoljno je to napraviti dvaput.</li>
+    <li>Ukupno $O((N+Q\log N)\log N)$ ili $O((N+Q)\log N)$.</li>
+</ul>
+<h3>Sažetak <span class="slajd-ref">slajdovi 174–178</span></h3>
+<ul>
+    <li>Podproblem 1: $O(N\sqrt N+Q)$.</li>
+    <li>Podproblem 2: $O((N+Q\log N)\log N)$ ili $O((N+Q)\log N)$.</li>
+    <li>Ukupno $O(N\sqrt N+Q\log N)$ ili $O(N\sqrt N+Q\log^2 N)$.</li>
+    <li>Vjerojatno bi prošlo i da se priprema u Podproblemu 2 preskoči i ostane $O(N\sqrt N+Q\log^2 N)$.</li>
+    <li>A kako stojimo s implementacijom?</li>
+</ul>
+<dodatak>
+<p>Na slajdu 174 Podproblem 1 naveden je kao $O(N\sqrt N+Q)$, dok slajd 166 daje $O(N\sqrt N+Q\log N)$ zbog RMQ upita; ukupna složenost $O(N\sqrt N+Q\log N)$ obuhvaća oboje.</p>
+</dodatak>
+<ul>
+    <li>Implementacija izgleda vrlo naporno.</li>
+    <li>Svi koji su dogurali dovde vjerojatno pate i poželjeli su otputovati daleko.</li>
+    <li>Pustimo fotografije Kyushua.</li>
+    <li>Kyushu (slajd 176, fotografija mosta preko mora): „Lijepo. Veliki most Koshikijima; nalazi se zapadno od Kagoshime.”</li>
+    <li>Kyushu (slajd 177, fotografija visećeg mosta): „Lijepo. Natrag u stvarnost. Most Kanmon; ispod njega može se pješice proći tunelom.”</li>
+</ul>
+<ul>
+    <li>Mislim da je implementacija vrlo naporna.</li>
+    <li>Važna je i implementacijska snaga!</li>
+    <li>Važna je i odlučnost da se težak zadatak pusti!</li>
+</ul>
 
-<h2>Podzadaci 6–7 <span class="bodovi">21 bod</span></h2>
-<slajdovi from="148" to="155" vrsta="koraci" naslov="$Z=0$">
-    <s n="148">Podzadatak 6.</s>
-    <s n="149">Podsjetnik greedy rješenja; $O(N+Q\log N)$.</s>
-    <s n="150">Alternativa $O(N+Q)$.</s>
-    <s n="151">Podzadatak 7: $Z=0$.</s>
-    <s n="152">P1 postaje čisti subset-sum „pogađa li interval”: $O(N\sqrt N+Q)$.</s>
-    <s n="153">P2: $B$ u $B[?]B,B[?]C$, ostatak $A$ — ruksak 1/2 s paritetom.</s>
-    <s n="154">Isto kao podzadatak 4 sa $z=0$ fiksnim i rastućim $y$: $O(N\log N+Q)$ (i s dodatnim $\log$ prolazi).</s>
-    <s n="155">Ukupno $O(N\sqrt N+Q)$.</s>
-</slajdovi>
-
-<h2>Puno rješenje <span class="bodovi">25 bodova</span></h2>
-<slajdovi from="156" to="181" vrsta="koraci" naslov="Spoj ubrzanja i offline obrade">
-    <s n="156">Podzadatak 8.</s>
-    <s n="157">Podzadatak 4 = upiti, 5 = brzina; treba oboje.</s>
-    <s n="158">Ponovljen P1.</s>
-    <s n="159">Spoji: DP po vrijednostima + odgovaranje između koraka.</s>
-    <s n="160">Po upitu: prag $M$ — najmanji tako da zbroj $c_i$ većih od… (svi manji uništeni, $Z$ dovoljan) — prefiksni zbroj + binarno.</s>
-    <s n="161">$DP[i][j]$ = $j$ iz vrijednosti $\ge i$; plus nekoliko komada vrijednosti $i-1$: $c=(1,3,3,4)$, $Z=5$ briše 1 i jednu 3.</s>
-    <s n="162">Provjeri $DP[4]$ na $[\min a,\max a+z]$ i na $[\min a-3,\max a-3+z]$.</s>
-    <s n="163">Ali komada vrijednosti $i-1$ može ostati $O(N)$ — previše intervala.</s>
-    <s n="164">$DP'[i][j]$ = najmanji $k$ s $DP[i][j-k(i-1)]$ (ili $\infty$); upit: $\min_{j\in[\min a,\max a+z]}DP'[i][j]\le k$.</s>
-    <s n="165">$DP'$ iz $DP$ u $O(N)$ po $i$; $O(\sqrt N)$ vrijednosti $i$: $O(N\sqrt N)$; RMQ segmentnim stablom $O(\log N)$.</s>
-    <s n="166">P1: $O(N\sqrt N+Q\log N)$.</s>
-    <s n="167">Ponovljen P2.</s>
-    <s n="168">Spoji enumeraciju zbroja i paritet.</s>
-    <s n="169">Po upitu odreži $d,e$; fiksiraj paritet; spoji $d$-prefiks, $e$-prefiks i $f$-parove; do koje vrijednosti sve stane?</s>
-    <s n="170">Broj i zbroj do $M$ za svaki od tri niza zasebno ($d=(3,6)$: do 2 → $\{0,0\}$; $e=(2,2,3,3)$ → $\{2,4\}$; $f=(1,8)$ → $\{1,1\}$).</s>
-    <s n="171">Zbroj $\{3,5\}$; najveći $M$ sa zbrojem $\le$ budžet daje broj kupljenih; $M+1$ djelomično iz ostatka.</s>
-    <s n="172">Rez $d,e$ uz prefiksne zbrojeve; <code>lower_bound</code> $O(\log N)$ po koraku → $O(\log^2N)$ po upitu; s predizračunom $O(\log N)$.</s>
-    <s n="173">Dva prolaza (paritet); ukupno $O((N+Q\log N)\log N)$ ili $O((N+Q)\log N)$.</s>
-    <s n="174">Sve: $O(N\sqrt N+Q\log N)$ (ili $\log^2$). A implementacija?</s>
-    <s n="175">Implementacija je vrlo teška — tko je došao ovamo želi pobjeći daleko. Fotografije Kyushua.</s>
-    <s n="176">Most Koshikijima.</s>
-    <s n="177">Most Kanmon; natrag u stvarnost.</s>
-    <s n="178">Važna je i implementacijska snaga — i odluka da se težak zadatak pusti.</s>
-    <s n="179">Raspodjela bodova.</s>
-    <s n="180">„Idealno”: svih 27 sa 100 — ne bi razlikovalo.</s>
-    <s n="181">Stvarno: 19 bodova (12), 12 (2), 11 (2), 8 (2), 4 (4), 0 (5).</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Kako prići ovakvom zadatku na natjecanju.</b> Podzadaci 1, 2 i 6 (19 bodova) su ono što je većina i uzela: iscrpno, $O(N^3)$ DP sa štednjom memorije i dvoslovni greedy. Lema o kazni (slajdovi 37–40) vrijedi pokušati dokazati jer je kratka i daje osnovu za sve; puna podjela slučajeva realno nije natjecateljski dohvatljiva.</p>
-</div>
+<h2>Raspodjela bodova <span class="slajd-ref">slajdovi 179–181</span></h2>
+<p>Korak 9: raspodjela bodova.</p>
+<h3>Idealno</h3>
+<table>
+    <thead><tr><th>Bodovi</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>Broj</th><th>Kumulativno</th></tr></thead>
+    <tbody>
+        <tr><td>100</td><td>o</td><td>o</td><td>o</td><td>o</td><td>o</td><td>o</td><td>o</td><td>o</td><td>27</td><td>27</td></tr>
+    </tbody>
+</table>
+<ul>
+    <li>Za selekciju to ne bi napravilo nikakvu razliku.</li>
+</ul>
+<h3>Stvarno</h3>
+<table>
+    <thead><tr><th>Bodovi</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>Broj</th><th>Kumulativno</th></tr></thead>
+    <tbody>
+        <tr><td>19</td><td>o</td><td>o</td><td>-</td><td>-</td><td>-</td><td>o</td><td>-</td><td>-</td><td>12</td><td>12</td></tr>
+        <tr><td>12</td><td>o</td><td>-</td><td>-</td><td>-</td><td>-</td><td>o</td><td>-</td><td>-</td><td>2</td><td>14</td></tr>
+        <tr><td>11</td><td>o</td><td>o</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>2</td><td>16</td></tr>
+        <tr><td>8</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>o</td><td>-</td><td>-</td><td>2</td><td>18</td></tr>
+        <tr><td>4</td><td>o</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>4</td><td>22</td></tr>
+        <tr><td>0</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>5</td><td>27</td></tr>
+    </tbody>
+</table>
+<p>(Stupci 1–8 označavaju podzadatke; „o” znači da je podzadatak riješen. Nitko nije riješio podzadatke 3, 4, 5, 7 ni 8.)</p>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Rastav na komade; cijena ovisi samo o krajevima i skupu stranih slova.</li>
-        <li>Large/Small; zamjenske leme svode optimum na Podproblem 1 (subset-sum s intervalom) ili Podproblem 2 (ruksak 1/2).</li>
-        <li>Subset-sum po različitim vrijednostima $O(N\sqrt N)$; paritet + greedy za ruksak; offline/RMQ za upite.</li>
+        <li>Niz se reže na komade $l[?^k]r$; cijena komada ovisi samo o krajevima i o <em>kazni</em> (broju vrsta stranih znakova): $0/2/3$ za jednake krajeve, $1/2$ za različite.</li>
+        <li>Znak je <em>Large</em> ako se mora preliti u tuđe komade ($X\gt p+s+u$), a <em>Small</em> ako ne može popuniti ni vlastite ($X\lt p$); 17 zamjenskih svojstava svodi optimum na Podproblem 1 (subset-sum s intervalom $[\min a,\max a+z]$) ili Podproblem 2 (ruksak s vrijednostima 1 i 2, knjižare $D$, $E$, $F$).</li>
+        <li>Podproblem 1: subset-sum po različitim vrijednostima je $O(N\sqrt N)$; upiti se grupiraju po pragu, a $DP'$ + RMQ daje $O(\log N)$ po upitu.</li>
+        <li>Podproblem 2: nakon rezanja $d$, $e$ valute se poistovjećuju; fiksira se paritet kupnji u $F$, parovi se spajaju u vrijednost 2 i pohlepno se traži najveći $M$ do kojeg sve stane (segmentno stablo $\{$broj, zbroj$\}$ ili prefiksne sume po vrijednosti).</li>
+        <li>Ukupno $O(N\sqrt N+Q\log N)$; na natjecanju nitko nije prešao 19 bodova.</li>
     </ul>
 </div>
