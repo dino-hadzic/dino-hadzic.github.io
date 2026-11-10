@@ -350,7 +350,61 @@ def render_okviri(a, body):
     return '\n'.join(out)
 
 
-def expand_components(text):
+SVG_RE = re.compile(r'<svg\b([^>]*)>(.*?)</svg>', re.S)
+TEXT_RE = re.compile(r'<text\b([^>]*)>(.*?)</text>', re.S)
+FONT_PX = {'oznaka-cvora': 15, 'oznaka-brida': 13, 'tekst': 14, 'tekst-mali': 12, 'tekst-naglasen': 14}
+
+
+def check_svg_text_bounds(svg_attrs, body, where):
+    """Gruba provjera da tekst ne izlazi iz viewBoxa (širina znaka ≈ 0,6 em).
+
+    Točne širine ovise o fontu, zato je procjena namjerno pesimistična; natpise
+    koji ne stanu treba skratiti, prelomiti u više <text> redaka ili pomaknuti.
+    """
+    vb = svg_attrs.get('viewBox', '')
+    try:
+        x0, y0, w, h = [float(v) for v in vb.replace(',', ' ').split()]
+    except ValueError:
+        raise ValueError(f'{where}: <svg> mora imati viewBox="x y w h"')
+    problems = []
+    for a_str, inner in TEXT_RE.findall(body):
+        a = attrs(a_str)
+        if 'x' not in a or 'y' not in a:
+            continue
+        txt = re.sub(r'<[^>]+>', '', inner)
+        txt = html.unescape(txt)
+        cls = a.get('class', '')
+        size = FONT_PX.get(cls.split()[0] if cls else '', 14)
+        m = re.search(r'font-size:\s*([\d.]+)', a.get('style', ''))
+        if m:
+            size = float(m.group(1))
+        if 'font-size' in a:
+            size = float(re.sub(r'[^\d.]', '', a['font-size']) or size)
+        est = len(txt) * size * 0.6
+        x = float(a['x']); y = float(a['y'])
+        anchor = a.get('text-anchor', 'middle' if cls.startswith('oznaka') else 'start')
+        m2 = re.search(r'text-anchor:\s*(\w+)', a.get('style', ''))
+        if m2:
+            anchor = m2.group(1)
+        if anchor == 'middle':
+            left, right = x - est / 2, x + est / 2
+        elif anchor == 'end':
+            left, right = x - est, x
+        else:
+            left, right = x, x + est
+        if left < x0 or right > x0 + w or y - size > y0 + h or y < y0:
+            problems.append(f'"{txt}" (x={x:g}, y={y:g}, procjena širine {est:.0f}px, viewBox {vb})')
+    if problems:
+        raise ValueError(f'{where}: tekst izlazi iz skice:\n  ' + '\n  '.join(problems))
+
+
+def check_all_svgs(text, where):
+    for a_str, body in SVG_RE.findall(text):
+        check_svg_text_bounds(attrs(a_str), body, where)
+
+
+def expand_components(text, where='editorial'):
+    check_all_svgs(text, where)
     text = OKVIRI_RE.sub(lambda m: render_okviri(attrs(m.group(1)), m.group(2)), text)
     text = SKICA_RE.sub(lambda m: render_skica(attrs(m.group(1)), m.group(2)), text)
     text = DODATAK_RE.sub(lambda m: render_dodatak(attrs(m.group(1)), m.group(2)), text)
@@ -419,12 +473,6 @@ def problem_page(year, entry, meta, blocks, score, ordinal, day_label):
     p.append('        <h2 class="naslov-sekcije">Zadatak</h2>')
     p.append('        <div class="zadatak">')
     p.append(blocks['zadatak'])
-    if full:
-        p.append(f'            <a class="kartica-analize" href="{slug}-editorial.html">')
-        p.append('                <span class="ikona" aria-hidden="true">📖</span>')
-        p.append('                <span>Rješenje: cijeli editorial'
-                 f'<small>Potpun prijevod službene analize rješenja ({SLIDES[f"{year}/{slug}"]["n"]} slajdova), podzadatak po podzadatak, s prevedenim skicama.</small></span>')
-        p.append('            </a>')
     p.append('        </div>')
     p.append('    </section>')
 
@@ -483,7 +531,7 @@ def editorial_page(year, entry, meta, blocks, score, day_label):
     autor = meta.get('autor_analize', '')
     full = 'editorial' in blocks
     if full:
-        body = expand_components(blocks['editorial'])
+        body = expand_components(blocks['editorial'], f'{year}/{slug}')
     else:
         body = expand_slides(blocks['analiza'], year, slug)
 
