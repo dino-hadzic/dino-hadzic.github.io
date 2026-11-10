@@ -1,7 +1,7 @@
 @@ meta
 naslov = Teleporter 2
 engleski = Teleporter 2
-oznake = intervali [S_i,T_i), najveći broj uzastopnih teleporta = maksimalan skup disjunktnih intervala = min broj probadajućih točaka (dualnost), odaberi K „ražnjića”, plati intervale između susjednih, F(l,r)=Σ C_j za l<S_j, T_j≤r je Monge, monotone minima O(KN log N), Aliens/Lagrange po broju ražnjića + lijeno segmentno stablo (dodaj na prefiks, min) O(N log N log(N·maxC))
+oznake = intervali, dualnost, DP, Monge, monotone minima, Aliens (Lagrange)
 autor_analize = blackyuki
 
 @@ zadatak
@@ -27,108 +27,454 @@ autor_analize = blackyuki
 5 8 2</pre>
 <p>Izlaz <code>4</code>: uništi uređaje 3 i 4; s uređajima $1\to4$ i $2\to3$ nikad ne teleportira dvaput. (S uređajima 1 i 4 mogao bi: $1\to4$, hodaj do 5, $5\to8$.)</p>
 
-@@ rjesenje
-<h2>Preformulacija i dualnost</h2>
-<p>Uređaj $=$ poluotvoreni interval $[S_i,T_i)$; Bitaro može uzeti uređaje $i$ pa $j$ ⇔ $T_i\le S_j$ ⇔ intervali su disjunktni. Najveći broj teleporta na ruti = najveći skup <b>disjunktnih</b> intervala (interval scheduling). Dualno: to je jednako <b>najmanjem broju točaka („ražnjića”)</b> koje probadaju sve intervale ($p\in[S_j,T_j)$): greedy po $T$ bira interval, stavi ražnjić u $T-1$, izbaci probodene — broj ražnjića = broj odabranih disjunktnih intervala, a manje ražnjića očito ne može. Dakle: <b>odaberi $K$ ražnjića</b> i plati sve intervale koje nijedan ne probada.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–4</span></h2>
+<p>Službenu analizu rješenja zadatka <i>Teleporter</i> napisao je <b>blackyuki</b> za 2. natjecateljski dan (Contest 2).</p>
 
-<h2>Podzadaci 1–3 <span class="bodovi">37</span></h2>
+<h3>Podzadatak 0 — pregled zadatka</h3>
 <ul>
-    <li><b>$K=1$:</b> jedan ražnjić $p$; trošak = $\sum C_j$ po intervalima s $p\notin[S_j,T_j)$ = ukupno − (zbroj probodenih); prefiksne sume, $O(N+M)$.</li>
-    <li><b>$N,M\le20$:</b> bitmaska.</li>
-    <li><b>$N,M\le500$:</b> dodaj ražnjiće-stražare $0$ i $N+1$. Za odabrane $0=p_1\lt\dots\lt p_{K+2}=N+1$ trošak je $\sum F(p_t,p_{t+1})$, gdje $F(l,r)=\sum\{C_j: l\lt S_j,\ T_j\le r\}$ (intervali strogo između). $dp[k][r]=\min_l dp[k-1][l]+F(l,r)$; $F$ iz 2D prefiksnih suma u $O(1)$: $O(KN^2)$. (Bez dualnosti: DP po greedy-odabranim intervalima, prijelaz $i\to j$ plaća intervale $i\lt j'\lt j$ sa $S_{j'}\ge T_i$.)</li>
+    <li>Zadani su poluotvoreni intervali $[S_1,T_1),\,[S_2,T_2),\,\dots,\,[S_M,T_M)$.</li>
+    <li>Uništavanjem intervala želimo postići da odgovor <b>problema rasporeda intervala</b> (interval scheduling) bude najviše $K$.</li>
+    <li>Interval $i$ može se uništiti uz trošak $C_i$.</li>
+    <li>Treba odrediti najmanji mogući zbroj troškova.</li>
+</ul>
+<dodatak naslov="Veza s izvornim tekstom zadatka">
+<p>Uređaj $i$ koji teleportira sa $S_i$ na $T_i$ poistovjećujemo s poluotvorenim intervalom $[S_i,T_i)$. Bitaro nakon teleporta $i$ može (hodajući) doći do $S_j$ i upotrijebiti uređaj $j$ točno onda kada je $T_i\le S_j$, tj. kada su intervali $[S_i,T_i)$ i $[S_j,T_j)$ <b>disjunktni</b> (dodirivanje $T_i=S_j$ je dopušteno — zato su intervali poluotvoreni). Najveći broj teleporta na nekoj ruti stoga je najveća veličina skupa međusobno disjunktnih intervala, a to je upravo odgovor klasičnog problema rasporeda intervala (interval scheduling). Uvjet „na svakoj ruti najviše $K$ teleporta” znači: nakon uništavanja među preostalim intervalima nema $K+1$ disjunktnih.</p>
+<skica sirina="440px">
+<svg viewBox="0 0 400 200" role="img" aria-label="Primjer 1: četiri intervala na točkama 1 do 8; intervali 3 i 4 su uništeni">
+  <line class="brid" x1="30" y1="160" x2="366" y2="160"/>
+  <line class="brid" x1="30" y1="155" x2="30" y2="165"/><text class="tekst-mali" x="26" y="180">1</text>
+  <line class="brid" x1="78" y1="155" x2="78" y2="165"/><text class="tekst-mali" x="74" y="180">2</text>
+  <line class="brid" x1="126" y1="155" x2="126" y2="165"/><text class="tekst-mali" x="122" y="180">3</text>
+  <line class="brid" x1="174" y1="155" x2="174" y2="165"/><text class="tekst-mali" x="170" y="180">4</text>
+  <line class="brid" x1="222" y1="155" x2="222" y2="165"/><text class="tekst-mali" x="218" y="180">5</text>
+  <line class="brid" x1="270" y1="155" x2="270" y2="165"/><text class="tekst-mali" x="266" y="180">6</text>
+  <line class="brid" x1="318" y1="155" x2="318" y2="165"/><text class="tekst-mali" x="314" y="180">7</text>
+  <line class="brid" x1="366" y1="155" x2="366" y2="165"/><text class="tekst-mali" x="362" y="180">8</text>
+  <line class="brid-tezak" x1="30" y1="40" x2="174" y2="40"/><circle class="cvor" cx="174" cy="40" r="4"/><text class="tekst-mali" x="30" y="32">1: [1,4), C=3</text>
+  <line class="brid-tezak" x1="78" y1="65" x2="126" y2="65"/><circle class="cvor" cx="126" cy="65" r="4"/><text class="tekst-mali" x="78" y="57">2: [2,3), C=5</text>
+  <line class="brid-lak" x1="126" y1="90" x2="270" y2="90"/><circle class="cvor-sivi" cx="270" cy="90" r="4"/><text class="tekst-mali" x="126" y="82">3: [3,6), C=2 — uništen</text>
+  <line class="brid-lak" x1="222" y1="115" x2="366" y2="115"/><circle class="cvor-sivi" cx="366" cy="115" r="4"/><text class="tekst-mali" x="222" y="107">4: [5,8), C=2 — uništen</text>
+</svg>
+<natpis>Primjer 1 ($N=8$, $K=1$) u jeziku intervala: uređaji su poluotvoreni intervali (prazan kružić označava isključeni desni kraj). Intervali $3$ i $4$ uništeni su (isprekidano) uz trošak $2+2=4$; preostali $[1,4)$ i $[2,3)$ nisu disjunktni, pa je najveći broj teleporta $1\le K$. Da smo zadržali $[1,4)$ i $[5,8)$, bili bi disjunktni ($4\le5$) i Bitaro bi mogao teleportirati dvaput.</natpis>
+</skica>
+</dodatak>
+
+<h3>Ograničenja</h3>
+<ul>
+    <li>$N,M\le10^5$</li>
+    <li>$1\le S_i\lt T_i\le N$</li>
+    <li>$1\le C_i\le10^9$</li>
 </ul>
 
-<h2>Monge i monotone minima <span class="bodovi">60</span></h2>
-<p>$F$ je <b>Monge</b>: doprinos jednog intervala je $[l\lt S_j]\cdot[r\ge T_j]$, produkt nerastuće funkcije u $l$ i neopadajuće u $r$, pa za $a\lt b$, $c\lt d$: $F(a,c)+F(b,d)\le F(a,d)+F(b,c)$ (produkt $(x_a-x_b)(y_c-y_d)\le0$); zbroj Monge funkcija je Monge. Zato je optimalni $l$ za $dp[k][r]$ neopadajući u $r$ ⇒ <b>monotone minima</b> (podijeli-pa-vladaj po $r$) računa sloj u $O(N\log N)$: ukupno $O(KN\log N)$.</p>
+<h2>Podzadatak 1 <span class="bodovi">5</span> <span class="slajd-ref">slajdovi 5–7</span></h2>
+<h3>$K=1$</h3>
+<ul>
+    <li>Uvjet „odgovor problema rasporeda intervala jednak je $1$” preformulirajmo u ekvivalentan oblik.</li>
+    <li>$\Rightarrow\ \max S_i\lt\min T_i$</li>
+    <li>Dovoljno je za svaki $j=1,2,\dots,N-1$ izračunati zbroj $C_i$ po svim $i$ za koje je $S_i\le j\lt T_i$.</li>
+    <li>Prefiksnim sumama sve zajedno radi u $O(N+M)$.</li>
+    <li>Time se dobiva 5 bodova.</li>
+</ul>
+<dodatak naslov="Zašto $\max S_i\lt\min T_i$ i kako iz toga slijedi odgovor">
+<p>Dva intervala $[S_a,T_a)$ i $[S_b,T_b)$ disjunktna su točno onda kada je $T_a\le S_b$ ili $T_b\le S_a$. Dakle u skupu intervala postoje dva disjunktna ako i samo ako postoji par s $T_a\le S_b$, tj. ako i samo ako je $\min T\le\max S$. Suprotno: svi preostali intervali u parovima se sijeku $\iff\max S_i\lt\min T_i\iff$ postoji točka $j$ (npr. $j=\max S_i$) sa $S_i\le j\lt T_i$ za <em>sve</em> preostale $i$, tj. sve preostale intervale probada jedna cjelobrojna točka $j\in\{1,\dots,N-1\}$.</p>
+<p>Zato je optimalno odabrati točku $j$, <b>zadržati</b> upravo intervale koji sadrže $j$ i uništiti sve ostale. Ako je $W_j=\sum_{S_i\le j\lt T_i}C_i$ zbroj troškova intervala koji sadrže $j$, odgovor je</p>
+\[
+\sum_{i=1}^{M}C_i-\max_{1\le j\le N-1}W_j .
+\]
+<p>Vrijednosti $W_j$ za sve $j$ dobivaju se razlikovnim nizom: za svaki interval dodamo $C_i$ na mjesto $S_i$ i oduzmemo $C_i$ na mjestu $T_i$, pa su $W_j$ prefiksne sume tog niza — ukupno $O(N+M)$.</p>
+</dodatak>
 
-<h2>Aliens (Lagrange) <span class="bodovi">100</span></h2>
-<p>Monge ⇒ optimum $g(K)$ je <b>konveksan u $K$</b>. Dodaj kaznu $\lambda$ po ražnjiću i makni ograničenje broja: $h(\lambda)=\min_{\text{skup}}(\text{trošak}+\lambda\cdot\#)$. Binarno traži $\lambda\in[0,\sum C]$ tako da optimalan broj ražnjića bude $K$ (uz dogovor za izjednačenja); odgovor $h(\lambda)-\lambda K$. Jedno računanje $h$: 1D DP $dp[r]=\min_{l\lt r}\big(dp[l]+F(l,r)\big)+\lambda$ slijeva nadesno; vrijednosti $dp[l]+F(l,r)$ za sve $l$ drži u <b>lijenom segmentnom stablu</b>: kad $r$ dosegne $T_j$, dodaj $C_j$ na sve $l\lt S_j$ (prefiks); upit = globalni min. Alternative: set susjednih razlika („klizni minimum”), ili običan segment razlika s max prefiksne sume (kao u Dangu). Vrijeme $O(N\log N\log(N\max C))$ — s dobrom konstantom 100, inače podzadatak 5.</p>
+<h3>$K=1$ — drugo rješenje</h3>
+<ul>
+    <li>(Drugo rješenje): uzmimo <b>dual</b>.</li>
+    <li>Tvrdnja „odgovor problema rasporeda intervala jednak je $K$” ekvivalentna je sljedećoj:</li>
+    <li>„da bi se probili svi intervali, potrebno je $K$ <b>ražnjića</b>.”</li>
+    <li>Za $K=1$ to se podudara s upravo opisanim rješenjem.</li>
+</ul>
+<dodatak naslov="Dokaz dualnosti (najveći broj disjunktnih intervala = najmanji broj ražnjića)">
+<p><b>Ražnjić</b> je cjelobrojna točka $p$; on <b>probada</b> interval $j$ ako je $S_j\le p\lt T_j$ (tj. $p\in\{S_j,S_j+1,\dots,T_j-1\}$). Neka je $\alpha$ najveći broj međusobno disjunktnih intervala, a $\beta$ najmanji broj ražnjića koji zajedno probadaju sve intervale. Tvrdimo $\alpha=\beta$.</p>
+<p><em>$\alpha\le\beta$:</em> jedan ražnjić probada najviše jedan interval iz bilo koje familije disjunktnih intervala, pa za probadanje $\alpha$ disjunktnih intervala treba barem $\alpha$ ražnjića.</p>
+<p><em>$\beta\le\alpha$:</em> konstruirajmo ražnjiće pohlepno. Dok ima neprobodenih intervala, uzmimo među njima onaj s najmanjim desnim krajem $T$ i stavimo ražnjić u točku $T-1$ (ona je u intervalu jer je $S\le T-1$); taj ražnjić probada odabrani interval i sve ostale neprobodene intervale koji sadrže $T-1$. Odabrani intervali međusobno su disjunktni: ako je $[S,T)$ odabran kasnije od $[S',T')$, tada $[S,T)$ nije bio proboden ražnjićem $T'-1$, a kako je $T\ge T'\gt T'-1$, mora biti $S\gt T'-1$, tj. $S\ge T'$. Dakle, postupak stavlja točno onoliko ražnjića koliko je odabrao disjunktnih intervala, pa je $\beta\le\alpha$.</p>
+<p>Posebno: nakon uništavanja preostali intervali imaju odgovor rasporeda $\le K$ <b>ako i samo ako</b> ih svih probada nekih $K$ ražnjića. Umjesto da biramo koje intervale uništiti, možemo birati <b>položaje $K$ ražnjića</b> i platiti točno one intervale koje nijedan ražnjić ne probada — na toj se preformulaciji temelje sva daljnja rješenja.</p>
+<skica sirina="440px">
+<svg viewBox="0 0 400 200" role="img" aria-label="Primjer 1 s jednim ražnjićem u točki 2 koji probada intervale 1 i 2">
+  <line class="brid" x1="30" y1="160" x2="366" y2="160"/>
+  <line class="brid" x1="30" y1="155" x2="30" y2="165"/><text class="tekst-mali" x="26" y="180">1</text>
+  <line class="brid" x1="78" y1="155" x2="78" y2="165"/><text class="tekst-mali" x="74" y="180">2</text>
+  <line class="brid" x1="126" y1="155" x2="126" y2="165"/><text class="tekst-mali" x="122" y="180">3</text>
+  <line class="brid" x1="174" y1="155" x2="174" y2="165"/><text class="tekst-mali" x="170" y="180">4</text>
+  <line class="brid" x1="222" y1="155" x2="222" y2="165"/><text class="tekst-mali" x="218" y="180">5</text>
+  <line class="brid" x1="270" y1="155" x2="270" y2="165"/><text class="tekst-mali" x="266" y="180">6</text>
+  <line class="brid" x1="318" y1="155" x2="318" y2="165"/><text class="tekst-mali" x="314" y="180">7</text>
+  <line class="brid" x1="366" y1="155" x2="366" y2="165"/><text class="tekst-mali" x="362" y="180">8</text>
+  <line class="brid-istaknut" x1="30" y1="40" x2="174" y2="40"/><circle class="cvor" cx="174" cy="40" r="4"/><text class="tekst-mali" x="30" y="32">1: [1,4), C=3</text>
+  <line class="brid-istaknut" x1="78" y1="65" x2="126" y2="65"/><circle class="cvor" cx="126" cy="65" r="4"/><text class="tekst-mali" x="78" y="57">2: [2,3), C=5</text>
+  <line class="brid-lak" x1="126" y1="90" x2="270" y2="90"/><circle class="cvor-sivi" cx="270" cy="90" r="4"/><text class="tekst-mali" x="126" y="82">3: [3,6), C=2</text>
+  <line class="brid-lak" x1="222" y1="115" x2="366" y2="115"/><circle class="cvor-sivi" cx="366" cy="115" r="4"/><text class="tekst-mali" x="222" y="107">4: [5,8), C=2</text>
+  <line class="brid-tezak" x1="78" y1="20" x2="78" y2="150"/>
+  <text class="tekst-naglasen" x="84" y="20">ražnjić p = 2</text>
+</svg>
+<natpis>Dualni pogled na primjer 1: jedan ražnjić u točki $p=2$ probada intervale $1$ i $2$ (žuto), a neprobodene intervale $3$ i $4$ moramo platiti: $W_2=3+5=8$, trošak $12-8=4$. Nijedan drugi položaj ražnjića ne daje manji trošak.</natpis>
+</skica>
+</dodatak>
 
-@@ trener
-<ol class="koraci">
-<li>
-    <details class="spoiler korak">
-        <summary>Što je zapravo „najviše $K$ teleporta na svakoj ruti”?</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Najveći skup disjunktnih intervala $[S,T)$ ima $\le K$ članova ⇔ postoji $K$ točaka koje probadaju sve preostale intervale.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Cijena između susjednih ražnjića</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Uništeni su intervali koji stanu strogo između: $F(l,r)$. Je li $F$ Monge? (Da — zbroj indikatora „pravokutnika”.)</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Skini $K$</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Konveksnost po $K$ dopušta Aliens; unutra DP s dodavanjem na prefiks i globalnim minimumom.</p>
-        </div>
-    </details>
-</li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Zatvoreni umjesto poluotvorenih intervala: $T_i=S_j$ <b>jest</b> lančano.</li>
-        <li>Aliens: pri izjednačenju biraj konzistentno (npr. najmanji broj ražnjića) i uzmi $\lambda$ na granici; odgovor $h(\lambda)-\lambda K$ vrijedi i kad točno $K$ nije postignut.</li>
-        <li>Ražnjić u točki $N$ ili $0$ ne probada ništa korisno — stražari $0$ i $N+1$ su fiksni, a $K$ pravih se biraju iz $1..N-1$.</li>
-    </ul>
+<h2>Podzadatak 2 <span class="bodovi">3</span> <span class="slajd-ref">slajdovi 8–9</span></h2>
+<h3>$N,M\le20$</h3>
+<ul>
+    <li>Isprobamo sve podskupove bitmaskom (bit-potpuno pretraživanje).</li>
+    <li>Time se dobivaju 3 boda.</li>
+    <li>Lijepo, zar ne?</li>
+</ul>
+<dodatak>
+<p>Za svaku od $2^M$ bitmaski uništenih uređaja zbrojimo troškove, a za preostale intervale pohlepnim algoritmom (sortiranje po $T_i$, uzimanje svakog intervala koji počinje nakon kraja zadnjeg uzetog) izračunamo najveći broj disjunktnih intervala i provjerimo je li $\le K$. Ukupno $O(2^M\cdot M\log M)$, što je za $M\le20$ posve dovoljno.</p>
+</dodatak>
+
+<h2>Podzadatak 3 <span class="bodovi">29</span> <span class="slajd-ref">slajdovi 10–15</span></h2>
+<h3>$N,M\le500$ — pohlepni algoritam i DP</h3>
+<ul>
+    <li>Prisjetimo se pohlepnog algoritma za problem rasporeda intervala.</li>
+    <li>Intervale sortiramo uzlazno po $T_i$ (izjednačenja razrješavamo uzlazno po $S_i$) i pohlepno ih biramo redom.</li>
+    <li>Radi jednostavnosti dodajemo sljedeća dva intervala kao <b>stražare</b>:</li>
+    <li>$(S_0,T_0,C_0)=(-1,\,0,\,\infty)$</li>
+    <li>$(S_{M+1},T_{M+1},C_{M+1})=(N,\,N+1,\,\infty)$</li>
+</ul>
+<ul>
+    <li>Razmotrimo uvjet uz koji pohlepni postupak kao rezultat odabere upravo intervale $0=i_1\lt i_2\lt\dots\lt i_k=M+1$.</li>
+    <li>Nakon što je odabran interval $i_1$, a prije nego što se odabere interval $i_2$, svi intervali koje bi pohlepni algoritam inače trebao odabrati moraju biti uništeni.</li>
+    <li>Konkretno, to su intervali $j$ za koje je $i_1\lt j\lt i_2$ i $S_j\ge T_{i_1}$.</li>
+</ul>
+<ul>
+    <li>Promotrimo sljedeći DP:</li>
+    <li>$dp[k][i]$: najmanji zbroj troškova ako smo pogledali intervale do $i$ i odabrali $k$ intervala, pri čemu je $i$ među odabranima (zadnji odabrani).</li>
+    <li>Trošak prijelaza $dp[k][i]\to dp[k+1][j]$ može se dobiti u $O(1)$ pomoću 2D prefiksnih suma.</li>
+    <li>Složenost je $O(KM^2)$.</li>
+</ul>
+<dodatak naslov="Pojedinosti glavnog (primalnog) DP-a">
+<p>Nakon sortiranja indeksi $0,1,\dots,M+1$ odnose se na <em>sortirani</em> poredak; stražar $0$ ima $T_0=0$, pa ga pohlepni algoritam uzima prvi, a stražar $M+1$ ima $T_{M+1}=N+1$ i $S_{M+1}=N\ge T_j$ za sve $j$, pa ga uzima zadnji; nijedan se ne može uništiti (trošak $\infty$). Pohlepni postupak nakon $i_1$ uzima prvi sljedeći interval $j$ (u sortiranom poretku) sa $S_j\ge T_{i_1}$; intervale sa $S_j\lt T_{i_1}$ preskače jer se sijeku s $i_1$, i njih ne treba uništavati. Da bi sljedeći odabrani bio baš $i_2$, mora vrijediti $S_{i_2}\ge T_{i_1}$ (prijelaz je dopušten samo za takve parove) i svi $j$ s $i_1\lt j\lt i_2$, $S_j\ge T_{i_1}$ moraju biti uništeni.</p>
+<p>Svaki skup uništenih intervala $D$ koji ispunjava uvjet zadatka određuje niz $0=i_1\lt\dots\lt i_k=M+1$ koji pohlepni algoritam odabere među preostalima, uz $k-2\le K$, i $D$ nužno sadrži sve „obvezne” intervale za taj niz; obratno, uništavanje samo obveznih intervala daje valjan skup. Zato je odgovor</p>
+\[
+\min_{2\le k\le K+2} dp[k][M+1],
+\]
+<p>gdje $k$ broji i oba stražara (stvarno odabranih intervala je $k-2$).</p>
+<p>Za trošak prijelaza u $O(1)$ definiramo $G[x][s]=\sum\{C_{j'}:\ j'\le x,\ S_{j'}\ge s\}$ za $0\le x\le M+1$, $0\le s\le N$ (2D prefiksne sume po sortiranom indeksu i po lijevom kraju); tada je trošak prijelaza $i\to j$ jednak $G[j-1][T_i]-G[i][T_i]$.</p>
+</dodatak>
+
+<h3>$N,M\le500$ — drugo rješenje pomoću duala</h3>
+<ul>
+    <li>(Drugo rješenje): uzmimo dual.</li>
+    <li>Kao stražare, ražnjiće u točkama $0$ i $N+1$ uvijek stavljamo.</li>
+    <li>Kad odaberemo ražnjiće $0=i_1\lt i_2\lt\dots\lt i_k=N+1$, želimo najmanji ukupni trošak intervala koje treba uništiti.</li>
+    <li>Trošak koji se dodaje pri prijelazu s $i_1$ na $i_2$:</li>
+    <li>zbroj troškova intervala $j$ za koje je $i_1\lt S_j\lt T_j\le i_2$.</li>
+</ul>
+<ul>
+    <li>(Drugo rješenje): uzmimo dual.</li>
+    <li>Može se sastaviti DP sličan onome iz glavnog rješenja.</li>
+    <li>Pomoću 2D prefiksnih suma prijelaz je moguć u $O(1)$.</li>
+    <li>Složenost je $O(KN^2)$.</li>
+</ul>
+<dodatak naslov="Zašto je trošak prijelaza upravo zbroj po $i_1\lt S_j\lt T_j\le i_2$">
+<p>Interval $j$ ostaje neproboden točno kad nijedan ražnjić ne leži u $\{S_j,\dots,T_j-1\}$. Neka je $i_1$ najveći ražnjić s $i_1\lt S_j$ (postoji zbog stražara $0$) i $i_2$ ražnjić koji slijedi nakon njega. Tada je $i_2\ge S_j$, a kako $i_2$ ne probada $j$, mora biti $i_2\ge T_j$; dakle $j$ je „strogo između” susjednih ražnjića $i_1$ i $i_2$. Obratno, ako za susjedne ražnjiće vrijedi $i_1\lt S_j\lt T_j\le i_2$, između njih nema drugih ražnjića, pa $j$ nitko ne probada. Svaki neprobodeni interval tako je pribrojen <b>točno jednom</b>, u prijelazu između jedinstvenog para susjednih ražnjića, i ukupni trošak odabira ražnjića jednak je zbroju troškova prijelaza.</p>
+<p>Označimo $P[l][r]=\sum\{C_j:\ S_j\le l,\ T_j\le r\}$ (2D prefiksne sume u ravnini $(S,T)$, dimenzija $(N+2)\times(N+2)$). Tada je trošak prijelaza $F(l,r)=P[N][r]-P[l][r]$ — zbroj po svim $j$ s $T_j\le r$ umanjen za one sa $S_j\le l$.</p>
+<p>Ražnjić u točki $0$ ili $N$ ne probada ništa (uvijek je $1\le S_j$ i $T_j\le N$), pa se pravi ražnjići biraju među točkama $1,\dots,N-1$. Dodatni ražnjić nikad ne povećava trošak ($F(l,m)+F(m,r)\le F(l,r)$ za $l\lt m\lt r$), pa se uvjet „najviše $K$” smije zamijeniti s „točno $\min(K,N-1)$” ražnjića; ako je $K\ge N-1$, odgovor je $0$. S $dp[k][r]=\min_{l\lt r}\big(dp[k-1][l]+F(l,r)\big)$, $dp[0][0]=0$, odgovor je $dp[K+1][N+1]$ (uz $K\gets\min(K,N-1)$ i ražnjiće $\lt N+1$ ograničene na $1,\dots,N-1$).</p>
+<okviri naslov="Dualni pogled na primjer 2: pohlepno probadanje ražnjićima i optimalni izbor za K=2" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 520 275" role="img" aria-label="Korak 1: ražnjić u točki 3 probada intervale 3, 4, 1 i 7">
+  <line class="brid" x1="30" y1="232" x2="470" y2="232"/>
+  <line class="brid" x1="30" y1="227" x2="30" y2="237"/><text class="tekst-mali" x="26" y="252">1</text>
+  <line class="brid" x1="70" y1="227" x2="70" y2="237"/><text class="tekst-mali" x="66" y="252">2</text>
+  <line class="brid" x1="110" y1="227" x2="110" y2="237"/><text class="tekst-mali" x="106" y="252">3</text>
+  <line class="brid" x1="150" y1="227" x2="150" y2="237"/><text class="tekst-mali" x="146" y="252">4</text>
+  <line class="brid" x1="190" y1="227" x2="190" y2="237"/><text class="tekst-mali" x="186" y="252">5</text>
+  <line class="brid" x1="230" y1="227" x2="230" y2="237"/><text class="tekst-mali" x="226" y="252">6</text>
+  <line class="brid" x1="270" y1="227" x2="270" y2="237"/><text class="tekst-mali" x="266" y="252">7</text>
+  <line class="brid" x1="310" y1="227" x2="310" y2="237"/><text class="tekst-mali" x="306" y="252">8</text>
+  <line class="brid" x1="350" y1="227" x2="350" y2="237"/><text class="tekst-mali" x="346" y="252">9</text>
+  <line class="brid" x1="390" y1="227" x2="390" y2="237"/><text class="tekst-mali" x="383" y="252">10</text>
+  <line class="brid" x1="430" y1="227" x2="430" y2="237"/><text class="tekst-mali" x="423" y="252">11</text>
+  <line class="brid" x1="470" y1="227" x2="470" y2="237"/><text class="tekst-mali" x="463" y="252">12</text>
+  <line class="brid-tezak" x1="70" y1="40" x2="150" y2="40"/><circle class="cvor" cx="150" cy="40" r="4"/><text class="tekst-mali" x="70" y="34">3: [2,4) C=5</text>
+  <line class="brid-istaknut" x1="70" y1="65" x2="150" y2="65"/><circle class="cvor" cx="150" cy="65" r="4"/><text class="tekst-mali" x="70" y="59">4: [2,4) C=8</text>
+  <line class="brid-istaknut" x1="30" y1="90" x2="190" y2="90"/><circle class="cvor" cx="190" cy="90" r="4"/><text class="tekst-mali" x="30" y="84">1: [1,5) C=3</text>
+  <line class="brid" x1="150" y1="115" x2="310" y2="115"/><circle class="cvor" cx="310" cy="115" r="4"/><text class="tekst-mali" x="150" y="109">2: [4,8) C=2</text>
+  <line class="brid" x1="270" y1="140" x2="350" y2="140"/><circle class="cvor" cx="350" cy="140" r="4"/><text class="tekst-mali" x="270" y="134">5: [7,9) C=4</text>
+  <line class="brid-istaknut" x1="110" y1="165" x2="390" y2="165"/><circle class="cvor" cx="390" cy="165" r="4"/><text class="tekst-mali" x="110" y="159">7: [3,10) C=5</text>
+  <line class="brid" x1="350" y1="190" x2="430" y2="190"/><circle class="cvor" cx="430" cy="190" r="4"/><text class="tekst-mali" x="350" y="184">6: [9,11) C=7</text>
+  <line class="brid-tezak" x1="110" y1="18" x2="110" y2="222"/><text class="tekst-naglasen" x="115" y="18">p = 3</text>
+</svg>
+<natpis>Korak 1. Među neprobodenim intervalima najmanji desni kraj ima $[2,4)$ (interval $3$; izjednačenje s intervalom $4$ razriješeno je po $S$), pa ražnjić stavljamo u točku $T-1=3$. On probada intervale $3$, $4$, $1$ i $7$ (žuto).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 275" role="img" aria-label="Korak 2: ražnjić u točki 7 probada intervale 2 i 5">
+  <line class="brid" x1="30" y1="232" x2="470" y2="232"/>
+  <line class="brid" x1="30" y1="227" x2="30" y2="237"/><text class="tekst-mali" x="26" y="252">1</text>
+  <line class="brid" x1="70" y1="227" x2="70" y2="237"/><text class="tekst-mali" x="66" y="252">2</text>
+  <line class="brid" x1="110" y1="227" x2="110" y2="237"/><text class="tekst-mali" x="106" y="252">3</text>
+  <line class="brid" x1="150" y1="227" x2="150" y2="237"/><text class="tekst-mali" x="146" y="252">4</text>
+  <line class="brid" x1="190" y1="227" x2="190" y2="237"/><text class="tekst-mali" x="186" y="252">5</text>
+  <line class="brid" x1="230" y1="227" x2="230" y2="237"/><text class="tekst-mali" x="226" y="252">6</text>
+  <line class="brid" x1="270" y1="227" x2="270" y2="237"/><text class="tekst-mali" x="266" y="252">7</text>
+  <line class="brid" x1="310" y1="227" x2="310" y2="237"/><text class="tekst-mali" x="306" y="252">8</text>
+  <line class="brid" x1="350" y1="227" x2="350" y2="237"/><text class="tekst-mali" x="346" y="252">9</text>
+  <line class="brid" x1="390" y1="227" x2="390" y2="237"/><text class="tekst-mali" x="383" y="252">10</text>
+  <line class="brid" x1="430" y1="227" x2="430" y2="237"/><text class="tekst-mali" x="423" y="252">11</text>
+  <line class="brid" x1="470" y1="227" x2="470" y2="237"/><text class="tekst-mali" x="463" y="252">12</text>
+  <line class="brid-lak" x1="70" y1="40" x2="150" y2="40"/><circle class="cvor-sivi" cx="150" cy="40" r="4"/><text class="tekst-mali" x="70" y="34">3: [2,4) C=5</text>
+  <line class="brid-lak" x1="70" y1="65" x2="150" y2="65"/><circle class="cvor-sivi" cx="150" cy="65" r="4"/><text class="tekst-mali" x="70" y="59">4: [2,4) C=8</text>
+  <line class="brid-lak" x1="30" y1="90" x2="190" y2="90"/><circle class="cvor-sivi" cx="190" cy="90" r="4"/><text class="tekst-mali" x="30" y="84">1: [1,5) C=3</text>
+  <line class="brid-tezak" x1="150" y1="115" x2="310" y2="115"/><circle class="cvor" cx="310" cy="115" r="4"/><text class="tekst-mali" x="150" y="109">2: [4,8) C=2</text>
+  <line class="brid-istaknut" x1="270" y1="140" x2="350" y2="140"/><circle class="cvor" cx="350" cy="140" r="4"/><text class="tekst-mali" x="270" y="134">5: [7,9) C=4</text>
+  <line class="brid-lak" x1="110" y1="165" x2="390" y2="165"/><circle class="cvor-sivi" cx="390" cy="165" r="4"/><text class="tekst-mali" x="110" y="159">7: [3,10) C=5</text>
+  <line class="brid" x1="350" y1="190" x2="430" y2="190"/><circle class="cvor" cx="430" cy="190" r="4"/><text class="tekst-mali" x="350" y="184">6: [9,11) C=7</text>
+  <line class="brid-tezak" x1="110" y1="18" x2="110" y2="222"/><text class="tekst-naglasen" x="115" y="18">p = 3</text>
+  <line class="brid-tezak" x1="270" y1="18" x2="270" y2="222"/><text class="tekst-naglasen" x="275" y="18">p = 7</text>
+</svg>
+<natpis>Korak 2. Među preostalima najmanji desni kraj ima $[4,8)$ (interval $2$); ražnjić u točki $7$ probada intervale $2$ i $5$. Odabrani intervali $[2,4)$ i $[4,8)$ disjunktni su jer $4\ge4$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 275" role="img" aria-label="Korak 3: ražnjić u točki 10 probada interval 6; ukupno tri ražnjića">
+  <line class="brid" x1="30" y1="232" x2="470" y2="232"/>
+  <line class="brid" x1="30" y1="227" x2="30" y2="237"/><text class="tekst-mali" x="26" y="252">1</text>
+  <line class="brid" x1="70" y1="227" x2="70" y2="237"/><text class="tekst-mali" x="66" y="252">2</text>
+  <line class="brid" x1="110" y1="227" x2="110" y2="237"/><text class="tekst-mali" x="106" y="252">3</text>
+  <line class="brid" x1="150" y1="227" x2="150" y2="237"/><text class="tekst-mali" x="146" y="252">4</text>
+  <line class="brid" x1="190" y1="227" x2="190" y2="237"/><text class="tekst-mali" x="186" y="252">5</text>
+  <line class="brid" x1="230" y1="227" x2="230" y2="237"/><text class="tekst-mali" x="226" y="252">6</text>
+  <line class="brid" x1="270" y1="227" x2="270" y2="237"/><text class="tekst-mali" x="266" y="252">7</text>
+  <line class="brid" x1="310" y1="227" x2="310" y2="237"/><text class="tekst-mali" x="306" y="252">8</text>
+  <line class="brid" x1="350" y1="227" x2="350" y2="237"/><text class="tekst-mali" x="346" y="252">9</text>
+  <line class="brid" x1="390" y1="227" x2="390" y2="237"/><text class="tekst-mali" x="383" y="252">10</text>
+  <line class="brid" x1="430" y1="227" x2="430" y2="237"/><text class="tekst-mali" x="423" y="252">11</text>
+  <line class="brid" x1="470" y1="227" x2="470" y2="237"/><text class="tekst-mali" x="463" y="252">12</text>
+  <line class="brid-lak" x1="70" y1="40" x2="150" y2="40"/><circle class="cvor-sivi" cx="150" cy="40" r="4"/><text class="tekst-mali" x="70" y="34">3: [2,4) C=5</text>
+  <line class="brid-lak" x1="70" y1="65" x2="150" y2="65"/><circle class="cvor-sivi" cx="150" cy="65" r="4"/><text class="tekst-mali" x="70" y="59">4: [2,4) C=8</text>
+  <line class="brid-lak" x1="30" y1="90" x2="190" y2="90"/><circle class="cvor-sivi" cx="190" cy="90" r="4"/><text class="tekst-mali" x="30" y="84">1: [1,5) C=3</text>
+  <line class="brid-lak" x1="150" y1="115" x2="310" y2="115"/><circle class="cvor-sivi" cx="310" cy="115" r="4"/><text class="tekst-mali" x="150" y="109">2: [4,8) C=2</text>
+  <line class="brid-lak" x1="270" y1="140" x2="350" y2="140"/><circle class="cvor-sivi" cx="350" cy="140" r="4"/><text class="tekst-mali" x="270" y="134">5: [7,9) C=4</text>
+  <line class="brid-lak" x1="110" y1="165" x2="390" y2="165"/><circle class="cvor-sivi" cx="390" cy="165" r="4"/><text class="tekst-mali" x="110" y="159">7: [3,10) C=5</text>
+  <line class="brid-tezak" x1="350" y1="190" x2="430" y2="190"/><circle class="cvor" cx="430" cy="190" r="4"/><text class="tekst-mali" x="350" y="184">6: [9,11) C=7</text>
+  <line class="brid-tezak" x1="110" y1="18" x2="110" y2="222"/><text class="tekst-naglasen" x="115" y="18">p = 3</text>
+  <line class="brid-tezak" x1="270" y1="18" x2="270" y2="222"/><text class="tekst-naglasen" x="275" y="18">p = 7</text>
+  <line class="brid-tezak" x1="390" y1="18" x2="390" y2="222"/><text class="tekst-naglasen" x="395" y="18">p = 10</text>
+</svg>
+<natpis>Korak 3. Ostaje samo $[9,11)$ (interval $6$); ražnjić u točki $10$. Postupak je stavio $3$ ražnjića i odabrao $3$ disjunktna intervala $[2,4),[4,8),[9,11)$ — odgovor rasporeda intervala je $3\gt K=2$, pa nešto treba uništiti.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 520 275" role="img" aria-label="Optimalno za K=2: ražnjići 3 i 10, uništeni intervali 2 i 5 uz trošak 6">
+  <line class="brid" x1="30" y1="232" x2="470" y2="232"/>
+  <line class="brid" x1="30" y1="227" x2="30" y2="237"/><text class="tekst-mali" x="26" y="252">1</text>
+  <line class="brid" x1="70" y1="227" x2="70" y2="237"/><text class="tekst-mali" x="66" y="252">2</text>
+  <line class="brid" x1="110" y1="227" x2="110" y2="237"/><text class="tekst-mali" x="106" y="252">3</text>
+  <line class="brid" x1="150" y1="227" x2="150" y2="237"/><text class="tekst-mali" x="146" y="252">4</text>
+  <line class="brid" x1="190" y1="227" x2="190" y2="237"/><text class="tekst-mali" x="186" y="252">5</text>
+  <line class="brid" x1="230" y1="227" x2="230" y2="237"/><text class="tekst-mali" x="226" y="252">6</text>
+  <line class="brid" x1="270" y1="227" x2="270" y2="237"/><text class="tekst-mali" x="266" y="252">7</text>
+  <line class="brid" x1="310" y1="227" x2="310" y2="237"/><text class="tekst-mali" x="306" y="252">8</text>
+  <line class="brid" x1="350" y1="227" x2="350" y2="237"/><text class="tekst-mali" x="346" y="252">9</text>
+  <line class="brid" x1="390" y1="227" x2="390" y2="237"/><text class="tekst-mali" x="383" y="252">10</text>
+  <line class="brid" x1="430" y1="227" x2="430" y2="237"/><text class="tekst-mali" x="423" y="252">11</text>
+  <line class="brid" x1="470" y1="227" x2="470" y2="237"/><text class="tekst-mali" x="463" y="252">12</text>
+  <line class="brid-istaknut" x1="70" y1="40" x2="150" y2="40"/><circle class="cvor" cx="150" cy="40" r="4"/><text class="tekst-mali" x="70" y="34">3: [2,4) C=5</text>
+  <line class="brid-istaknut" x1="70" y1="65" x2="150" y2="65"/><circle class="cvor" cx="150" cy="65" r="4"/><text class="tekst-mali" x="70" y="59">4: [2,4) C=8</text>
+  <line class="brid-istaknut" x1="30" y1="90" x2="190" y2="90"/><circle class="cvor" cx="190" cy="90" r="4"/><text class="tekst-mali" x="30" y="84">1: [1,5) C=3</text>
+  <line class="brid-lak" x1="150" y1="115" x2="310" y2="115"/><circle class="cvor-sivi" cx="310" cy="115" r="4"/><text class="tekst-mali" x="150" y="109">2: [4,8) C=2 — uništen</text>
+  <line class="brid-lak" x1="270" y1="140" x2="350" y2="140"/><circle class="cvor-sivi" cx="350" cy="140" r="4"/><text class="tekst-mali" x="270" y="134">5: [7,9) C=4 — uništen</text>
+  <line class="brid-istaknut" x1="110" y1="165" x2="390" y2="165"/><circle class="cvor" cx="390" cy="165" r="4"/><text class="tekst-mali" x="110" y="159">7: [3,10) C=5</text>
+  <line class="brid-istaknut" x1="350" y1="190" x2="430" y2="190"/><circle class="cvor" cx="430" cy="190" r="4"/><text class="tekst-mali" x="350" y="184">6: [9,11) C=7</text>
+  <line class="brid-tezak" x1="110" y1="18" x2="110" y2="222"/><text class="tekst-naglasen" x="115" y="18">p = 3</text>
+  <line class="brid-tezak" x1="390" y1="18" x2="390" y2="222"/><text class="tekst-naglasen" x="395" y="18">p = 10</text>
+</svg>
+<natpis>Optimalni izbor za $K=2$: ražnjići u točkama $0\lt3\lt10\lt13$ (stražari $0$ i $N+1=13$ nisu nacrtani). Neprobodeni su intervali $2$ i $5$ — oni su „strogo između” ražnjića $3$ i $10$ ($3\lt4\lt8\le10$ i $3\lt7\lt9\le10$) — pa plaćamo $F(3,10)=2+4=6$, što je izlaz primjera 2.</natpis>
+</okvir>
+</okviri>
+</dodatak>
+
+<h2>Podzadatak 4 <span class="bodovi">23</span> <span class="slajd-ref">slajdovi 16–22</span></h2>
+<h3>$N,M\le4000$ — funkcija troška je Monge</h3>
+<ul>
+    <li>U nastavku objašnjavamo verziju s dualom.</li>
+    <li>Ni verzija bez duala ne bi se trebala bitno razlikovati.</li>
+    <li>Želimo ubrzati DP.</li>
+    <li>Trošak prijelaza $dp[k][i_1]\to dp[k+1][i_2]$ označimo s $F[i_1][i_2]$ <small>(na slajdu je zapisano $dp[k][i_1]\to dp[k][i_2]$; misli se na prijelaz u sljedeći sloj)</small>.</li>
+    <li>$F[i_1][i_2]=$ (zbroj troškova intervala $j$ za koje je $i_1\lt S_j\lt T_j\le i_2$)</li>
+    <li>Ova funkcija troška $F$ je <b>Monge</b>.</li>
+</ul>
+
+<h3>Što je Monge…?</h3>
+<div class="tvrdnja">
+<p><strong>Definicija Monge matrice.</strong> Promatramo $N\times M$ matrice realnih brojeva.</p>
+<p>Za $N\times M$ matricu $A$ kažemo da je <b>Monge</b> ako vrijedi sljedeći uvjet:</p>
+<p>za sve četvorke cijelih brojeva $(i_1,i_2,j_1,j_2)$ sa $1\le i_1\lt i_2\le N$ i $1\le j_1\lt j_2\le M$ vrijedi $A_{i_1,j_1}+A_{i_2,j_2}\le A_{i_1,j_2}+A_{i_2,j_1}$.</p>
 </div>
+<p><small>Izvor citata: <a href="https://hackmd.io/@tatyam-prime/monge1">https://hackmd.io/@tatyam-prime/monge1</a></small></p>
 
-@@ analiza
-<slajdovi from="1" to="4" naslov="Zadatak">
-    <s n="1">Naslov; blackyuki.</s>
-    <s n="2">Podzadatak 0: pregled.</s>
-    <s n="3">Poluotvoreni intervali $[S_i,T_i)$; uništavanjem (trošak $C_i$) postići da je odgovor interval schedulinga $\le K$.</s>
-    <s n="4">$N,M\le10^5$, $C\le10^9$.</s>
-</slajdovi>
+<h3>Dokaz</h3>
+<ul>
+    <li>Doprinos jednog intervala funkciji $F$ je Monge, pa je Monge i zbroj svih tih doprinosa.</li>
+</ul>
+<dodatak naslov="Provedba dokaza">
+<p>Doprinos intervala $j$ je $F_j(l,r)=C_j\cdot a_j(l)\cdot b_j(r)$, gdje je $a_j(l)=[\,l\lt S_j\,]$ <em>nerastuća</em> funkcija od $l$, a $b_j(r)=[\,T_j\le r\,]$ <em>neopadajuća</em> funkcija od $r$. Za $l_1\lt l_2$ i $r_1\lt r_2$ imamo</p>
+\[
+F_j(l_1,r_2)+F_j(l_2,r_1)-F_j(l_1,r_1)-F_j(l_2,r_2)
+= C_j\,\big(a_j(l_1)-a_j(l_2)\big)\big(b_j(r_2)-b_j(r_1)\big)\ \ge 0,
+\]
+<p>jer je $a_j(l_1)\ge a_j(l_2)$ i $b_j(r_2)\ge b_j(r_1)$. To je upravo Mongeova nejednakost $F_j(l_1,r_1)+F_j(l_2,r_2)\le F_j(l_1,r_2)+F_j(l_2,r_1)$. Nejednakost je stroga jedino kad je $l_1\lt S_j\le l_2$ i $r_1\lt T_j\le r_2$ (tada je lijeva strana $C_j$, a desna $0$). Zbrajanjem Mongeovih nejednakosti za sve $j$ dobivamo da je i $F=\sum_j F_j$ Monge.</p>
+<skica sirina="420px">
+<svg viewBox="0 0 380 260" role="img" aria-label="Doprinos jednog intervala u ravnini (l, r): vrijednost C_j u pravokutniku l manje od S_j i r barem T_j, inače 0">
+  <rect x="50" y="30" width="120" height="90" fill="#fde9c4" stroke="none"/>
+  <line class="brid" x1="50" y1="220" x2="330" y2="220"/>
+  <line class="brid" x1="50" y1="220" x2="50" y2="30"/>
+  <line class="brid-lak" x1="170" y1="30" x2="170" y2="220"/>
+  <line class="brid-lak" x1="50" y1="120" x2="330" y2="120"/>
+  <text class="tekst" x="340" y="225">l</text>
+  <text class="tekst" x="44" y="22">r</text>
+  <text class="tekst-mali" x="163" y="238">Sⱼ</text>
+  <text class="tekst-mali" x="26" y="124">Tⱼ</text>
+  <text class="tekst-naglasen" x="98" y="80">Cⱼ</text>
+  <text class="tekst" x="245" y="80">0</text>
+  <text class="tekst" x="105" y="175">0</text>
+  <text class="tekst" x="245" y="175">0</text>
+  <circle class="cvor" cx="110" cy="70" r="5"/><text class="tekst-mali" x="116" y="64">(l₁,r₂)</text>
+  <circle class="cvor" cx="230" cy="70" r="5"/><text class="tekst-mali" x="236" y="64">(l₂,r₂)</text>
+  <circle class="cvor" cx="110" cy="170" r="5"/><text class="tekst-mali" x="116" y="164">(l₁,r₁)</text>
+  <circle class="cvor" cx="230" cy="170" r="5"/><text class="tekst-mali" x="236" y="164">(l₂,r₁)</text>
+</svg>
+<natpis>Doprinos jednog intervala $j$ kao funkcija para $(l,r)$: iznosi $C_j$ točno u „gornjem lijevom” pravokutniku $l\lt S_j$, $r\ge T_j$, a inače $0$. Za nacrtane točke ($l_1\lt S_j\le l_2$, $r_1\lt T_j\le r_2$) vrijedi $F_j(l_1,r_1)+F_j(l_2,r_2)=0\le C_j=F_j(l_1,r_2)+F_j(l_2,r_1)$; u svim ostalim položajima četvorke obje su strane jednake.</natpis>
+</skica>
+</dodatak>
 
-<h2>Mali podzadaci <span class="bodovi">37</span></h2>
-<slajdovi from="5" to="15" vrsta="koraci" naslov="K=1, bitmaska, DP s dualnošću">
-    <s n="5">Podzadatak 1: $K=1$.</s>
-    <s n="6">„Odgovor 1” ⇔ $\max S_i\lt\min T_i$; za svaki $j$ zbroj $C_i$ sa $S_i\le j\lt T_i$ prefiksnim sumama; $O(N+M)$.</s>
-    <s n="7">Alternativa — dualnost: „odgovor $K$” ⇔ treba $K$ ražnjića da se probodu svi intervali; za $K=1$ isto rješenje.</s>
-    <s n="8">Podzadatak 2.</s>
-    <s n="9">Bitmaska; 3 boda.</s>
-    <s n="10">Podzadatak 3.</s>
-    <s n="11">Greedy interval schedulinga: sortiraj po $T$ (pa $S$); dodaj stražare $(-1,0,\infty)$ i $(N,N+1,\infty)$.</s>
-    <s n="12">Da greedy odabere $0=i_1\lt\dots\lt i_k=M+1$: između $i_1$ i $i_2$ obriši sve $j$ koje bi greedy uzeo — $i_1\lt j\lt i_2$ i $S_j\ge T_{i_1}$.</s>
-    <s n="13">$dp[k][i]$: gledano do $i$, odabrano $k$ intervala s $i$ zadnjim; prijelaz 2D prefiksima $O(1)$; $O(KM^2)$.</s>
-    <s n="14">Dualno: ražnjići $0$ i $N+1$ fiksni; za $0=i_1\lt\dots\lt i_k=N+1$ trošak prijelaza $i_1\to i_2$ = $\sum C_j$ za $i_1\lt S_j\lt T_j\le i_2$.</s>
-    <s n="15">Sličan DP, 2D prefiksi, $O(KN^2)$.</s>
-</slajdovi>
+<h3>Ubrzanje DP-a pomoću Mongeova svojstva</h3>
+<div class="tvrdnja">
+<p><strong>Podzadatak 3</strong> <small>(citirani slajd iz analize zadatka <i>Chorus</i>, JOISC 2023)</small></p>
+<p>• Budući da je riječ o <b>monotone minima</b>, podijeli-pa-vladaj daje $O(N\log N)$.</p>
+<p>• Ukupno $O(N^2\log N)$, s malom konstantom.</p>
+<p>• Ako vam to nije poznato, pretražite izraz „Monge DP” (ubrzanje DP-a Mongeovim svojstvom) i slično.</p>
+</div>
+<p><small>Izvor citata: <a href="https://www2.ioi-jp.org/camp/2023/2023-sp-tasks/contest3/chorus-review.pdf">https://www2.ioi-jp.org/camp/2023/2023-sp-tasks/contest3/chorus-review.pdf</a></small></p>
+<ul>
+    <li>Ubrzanje DP-a pomoću Mongeova svojstva.</li>
+    <li>Ako zapišemo $f(k,r)=l$ kad minimum $dp[k+1][r]$ potječe od $dp[k][l]$, vrijedi $f(k,1)\le f(k,2)\le\cdots$.</li>
+    <li>Može se primijeniti <b>monotone minima</b><info naslov="Monotone minima"><p>Za matricu $B$ s $n$ redaka i $m$ stupaca neka je $\mathrm{opt}(r)$ položaj (najljevijeg) minimuma u retku $r$. Matrica je <i>monotona</i> ako je $\mathrm{opt}(1)\le\mathrm{opt}(2)\le\dots\le\mathrm{opt}(n)$; svaka Mongeova matrica je monotona (dokaz u dopuni ispod).</p><p>Minimume svih redaka monotone matrice nalazi podijeli-pa-vladaj: za srednji redak $r$ pregledamo sve dopuštene stupce $[\ell,h]$ i nađemo $\mathrm{opt}(r)$; za retke iznad $r$ kandidati su samo stupci $[\ell,\mathrm{opt}(r)]$, a za retke ispod samo $[\mathrm{opt}(r),h]$. Na svakoj od $O(\log n)$ razina rekurzije pregleda se ukupno $O(n+m)$ polja, pa je vrijeme $O\big((n+m)\log n\big)$ uz $O(1)$ po dohvatu elementa. Ovdje je $B[r][l]=dp[k][l]+F(l,r)$ (redak $r$, stupac $l\lt r$), a element se dohvaća u $O(1)$ preko 2D prefiksnih suma.</p></info>.</li>
+    <li>Složenost je $O(KN\log N)$.</li>
+</ul>
+<dodatak naslov="Dokaz monotonosti optimalnog prijelaza i implementacija jednog sloja">
+<p>Neka je $f(k,r)$ <em>najmanji</em> indeks $l$ koji postiže $\min_l\big(dp[k][l]+F(l,r)\big)$. Pretpostavimo suprotno tvrdnji: $r_1\lt r_2$ i $l_1:=f(k,r_1)\gt l_2:=f(k,r_2)$. Mongeova nejednakost za $l_2\lt l_1$, $r_1\lt r_2$ glasi $F(l_2,r_1)+F(l_1,r_2)\le F(l_2,r_2)+F(l_1,r_1)$; dodamo li objema stranama $dp[k][l_1]+dp[k][l_2]$, dobivamo</p>
+\[
+\begin{aligned}
+\big(dp[k][l_2]+F(l_2,r_1)\big)+\big(dp[k][l_1]+F(l_1,r_2)\big)
+&\le \big(dp[k][l_2]+F(l_2,r_2)\big)+\big(dp[k][l_1]+F(l_1,r_1)\big)\\
+&= dp[k+1][r_2]+dp[k+1][r_1].
+\end{aligned}
+\]
+<p>Lijeva strana nije manja od $dp[k+1][r_1]+dp[k+1][r_2]$ (svaki pribrojnik je barem odgovarajući minimum), pa vrijedi jednakost, tj. i $l_2$ postiže minimum za $r_1$. Budući da je $l_2\lt l_1$, to proturječi izboru $l_1$ kao <em>najmanjeg</em> optimalnog indeksa. Dakle $f(k,r_1)\le f(k,r_2)$.</p>
+<p>Jedan sloj DP-a (iz <code>stari</code> $=dp[k]$ u <code>novi</code> $=dp[k+1]$) monotone minima računa ovako; $F(l,r)=P[N][r]-P[l][r]$ je $O(1)$ (tablica $P$ ima $(N+2)^2$ 64-bitnih brojeva, oko 128 MB za $N=4000$, što je unutar ograničenja memorije od 1024 MB):</p>
+<pre><code>// novi[r] = min_{l &lt; r} ( stari[l] + F(l, r) )  za r u [rl, rr), kandidati l u [ll, lr)
+void sloj(int rl, int rr, int ll, int lr) {
+    if (rl &gt;= rr) return;
+    int r = (rl + rr) / 2, best = ll;
+    long long v = INF;
+    for (int l = ll; l &lt; min(lr, r); ++l)
+        if (stari[l] + F(l, r) &lt; v) { v = stari[l] + F(l, r); best = l; }   // najmanji optimalni l
+    novi[r] = v;
+    sloj(rl, r, ll, best + 1);      // reci iznad: kandidati do best
+    sloj(r + 1, rr, best, lr);      // reci ispod: kandidati od best
+}
+// poziv: sloj(1, N + 2, 0, N + 1);  slojeva je K + 1, ukupno O(K N log N)</code></pre>
+<p>Vrijednosti $dp[k][l]=\infty$ (nedostižna stanja, npr. $l\lt k$) ne kvare postupak jer se nikad ne biraju kao minimum kad postoji konačan kandidat.</p>
+</dodatak>
 
-<h2>Monge <span class="bodovi">60</span></h2>
-<slajdovi from="16" to="22" vrsta="koraci" naslov="Monotone minima">
-    <s n="16">Podzadatak 4.</s>
-    <s n="17">Dualna verzija; $F[i_1][i_2]$ = zbroj troškova intervala strogo između — Monge.</s>
-    <s n="18">Definicija Monge (tatyam).</s>
-    <s n="19">Dokaz: doprinos jednog intervala je Monge, zbroj Monge funkcija je Monge.</s>
-    <s n="20">Ubrzanje DP-a Monge svojstvom (JOISC 2023 chorus).</s>
-    <s n="21">$f(k,r)$ = optimalni $l$ za $dp[k+1][r]$ neopadajući u $r$ ⇒ monotone minima; $O(KN\log N)$.</s>
-    <s n="22">Alternativa: inline DP s lijenim segmentnim stablom (teška konstanta); moguće i bez lijenog — vidi podzadatak 6.</s>
-</slajdovi>
+<h3>$N,M\le4000$ — drugo rješenje</h3>
+<ul>
+    <li>(Drugo rješenje) I bez Mongeova svojstva može se raditi <b>inline DP</b> s lijenim segmentnim stablom.</li>
+    <li>Konstanta je prilično nezgodna (konstanta monotone minima vrlo je mala).</li>
+    <li>Treba se potruditi.</li>
+    <li>Postoji i rješenje bez lijenog segmentnog stabla.</li>
+    <li>Pojedinosti u podzadatku 6.</li>
+</ul>
+<dodatak naslov="Što je ovdje „inline DP”">
+<p>Sloj $dp[k+1]$ računamo prolazeći $r=1,2,\dots,N+1$ slijeva nadesno i održavajući za sve $l\lt r$ vrijednost $\mathrm{val}[l]=dp[k][l]+F(l,r)$ u segmentnom stablu. Kad $r$ dosegne $T_j$, interval $j$ postaje „strogo između” za sve $l\lt S_j$, pa svim pozicijama $l\in[0,S_j-1]$ dodamo $C_j$ (<b>dodavanje na prefiks</b>); zatim je $dp[k+1][r]=\min_{l\lt r}\mathrm{val}[l]$ (<b>globalni minimum</b>), a $\mathrm{val}[r]=dp[k][r]$ ubacimo za buduće $r$. Po sloju je to $O(N\log N)$ uz $O(M)$ ažuriranja, ukupno $O(KN\log N)$ — ista složenost kao monotone minima, ali s puno većom konstantom. Isti postupak s jednim slojem i kaznom po ražnjiću čini jezgru rješenja za pune bodove.</p>
+</dodatak>
 
-<h2>Aliens <span class="bodovi">100</span></h2>
-<slajdovi from="23" to="29" vrsta="koraci" naslov="Lagrangeova relaksacija">
-    <s n="23">Podzadaci 5–6.</s>
-    <s n="24">Alien DP (tatyam).</s>
-    <s n="25">Dodaj $X$ na svaki brid i računaj najkraći put brzo: (1) lijeno stablo dodaj-na-interval/max, (2) starry sky tree, (3) <code>std::set</code> razlika susjednih točaka s brisanjem nepotrebnih (kao klizni minimum).</s>
-    <s n="26">(4) običan segment nad razlikama i max prefiksne sume — „jeste li ponovili jučerašnji zadatak?”</s>
-    <s n="27">$O(N\log N\log(N\max C))$; s dobrom konstantom 100, inače podzadatak 5.</s>
-    <s n="28">Raspodjela bodova.</s>
-    <s n="29">84: 1, 60: 3, 37: 7, 32: 5, 8: 7, 3: 4, 0: 3.</s>
-</slajdovi>
+<h2>Podzadaci 5 i 6 — puni bodovi <span class="bodovi">40</span> <span class="slajd-ref">slajdovi 23–27</span></h2>
+<h3>$N,M\le40\,000$ (podzadatak 5), $N,M\le100\,000$ (podzadatak 6) — Alien DP</h3>
+<p>Primjenjujemo <b>Alien DP</b><info naslov="Alien DP (Aliens trik, Lagrangeova relaksacija)"><p>Tehnika za DP-ove oblika „najmanji trošak uz točno $k$ odabranih dijelova” kad je optimum $g(k)$ <b>konveksna</b> funkcija od $k$. Umjesto da pamtimo $k$ u stanju, svakom odabranom dijelu dodamo kaznu $\lambda\ge0$ i riješimo problem <i>bez</i> ograničenja na broj dijelova: $h(\lambda)=\min_k\big(g(k)+\lambda k\big)$. Za konveksno $g$ vrijedi $g(K)=\max_{\lambda}\big(h(\lambda)-\lambda K\big)$, a broj dijelova u optimumu za $\lambda$ pada kako $\lambda$ raste, pa se odgovarajuća $\lambda$ nalazi <b>binarnim pretraživanjem</b>; svaki korak zahtijeva jedno računanje $h(\lambda)$. Ime potječe od zadatka <i>Aliens</i> s IOI-ja 2016.</p><p>Ovdje je $g(k)$ najmanji trošak uz točno $k$ ražnjića, tj. najkraći put $0\to N+1$ s točno $k+1$ bridova u grafu s težinama $F$. Kako je $F$ Monge, $g$ je konveksna (teorem iz citiranog članka), a kazna $\lambda$ odgovara dodavanju $X$ na svaki brid.</p></info>.</p>
+<div class="tvrdnja">
+<p>• Zadan je graf s $N$ vrhova u kojem prelazak iz vrha $i$ u vrh $j$ ($i\lt j$) košta $A_{i,j}$. Ako je $A$ Monge, najkraći putovi iz jednog izvora mogu se izračunati u $O(N)$.</p>
+<p>&nbsp;&nbsp;◦ Najkraći $s$–$t$ put koji prolazi <b>točno $d$ bridova</b> može se izračunati u $O(N\log A_{\max})$.</p>
+</div>
+<p><small>Izvor citata: <a href="https://hackmd.io/@tatyam-prime/monge1">https://hackmd.io/@tatyam-prime/monge1</a></small></p>
+<ul>
+    <li>Alien DP.</li>
+    <li>Dovoljno je da brzo znamo izračunati najkraći put kad se trošku svakog brida doda $X$.</li>
+    <li>Opcija 1: lijeno segmentno stablo s dodavanjem na interval i dohvatom maksimuma na intervalu.</li>
+    <li>Opcija 2: <i>starry sky tree</i>.</li>
+    <li>Opcija 3: u <code>std::set</code> održavamo razlike susjednih točaka i brišemo nepotrebne točke.</li>
+    <li>Slika je slična kliznom minimumu (sliding window minimum).</li>
+</ul>
+<dodatak naslov="Računanje najkraćeg puta uz kaznu $X$ po bridu">
+<p>Za zadani $X$ računamo $d[r]=\min_{l\lt r}\big(d[l]+F(l,r)\big)+X$ za $r=1,\dots,N+1$ uz $d[0]=0$ (ražnjići su na $1,\dots,N-1$; za $r=N$ vrijednost ne treba, a za $r=N+1$ kazna se može izostaviti jer je broj bridova uvijek za jedan veći od broja ražnjića, pa se razlikuje samo za konstantu $X$). Istodobno pamtimo $\mathrm{cnt}[r]$ — najmanji broj ražnjića s kojim se $d[r]$ postiže (pri izjednačenju vrijednosti biramo manji broj).</p>
+<p>Prolazimo $r$ slijeva nadesno i, kao u „inline DP-u” iz podzadatka 4, održavamo $\mathrm{val}[l]=d[l]+F(l,r)$ za sve već izračunane $l\lt r$: kad $r$ dosegne $T_j$, dodamo $C_j$ na sve pozicije $l\lt S_j$ (dodavanje na prefiks), a $d[r]$ je globalni minimum. Potrebne su dakle dvije operacije — <b>dodaj na prefiks</b> i <b>minimum na cijelom nizu</b> — i to je ono što sve četiri opcije ostvaruju:</p>
+<ul>
+    <li><b>Opcija 1</b> — lijeno segmentno stablo s dodavanjem na interval i dohvatom minimuma (slajd kaže „maksimuma”: formulira li se zadatak kao najveći zbroj troškova <em>zadržanih</em> intervala, znakovi se obrću; obje su varijante ekvivalentne).</li>
+    <li><b>Opcija 2</b> — <i>starry sky tree</i>: segmentno stablo u kojem svaki čvor čuva minimum (ili maksimum) svog intervala <em>relativno</em> prema roditelju, pa dodavanje na interval ne zahtijeva spuštanje lijenih oznaka; to je lakša i brža varijanta opcije 1.</li>
+    <li><b>Opcija 3</b> — Budući da se dodaje samo na <em>prefiks</em>, razlika $\mathrm{val}[l]-\mathrm{val}[l']$ za $l\lt l'$ s vremenom samo raste. Čim je $\mathrm{val}[l]\ge\mathrm{val}[l']$ za neko $l\lt l'$, točka $l$ više nikad nije potrebna (kao u kliznom minimumu). Preostale točke imaju strogo rastuće vrijednosti, pa je minimum uvijek u najljevijoj; u <code>std::set</code> čuvamo preostale točke i razlike susjednih, dodavanje $C_j$ na prefiks smanjuje samo razliku na granici $S_j$ (prvi par susjeda $l\lt S_j\le l'$), a kad razlika padne na $\le0$, lijevu točku brišemo i razlike spajamo. Svaka točka briše se najviše jednom — amortizirano $O(\log N)$ po operaciji.</li>
+</ul>
+</dodatak>
+
+<ul>
+    <li>Alien DP.</li>
+    <li>Opcija 4: u običnom segmentnom stablu čuvamo <b>razlike</b> i tražimo maksimum prefiksnih suma.</li>
+</ul>
+<div class="tvrdnja">
+<p><strong>Haruku (hirayuu_At)</strong> <small>[IOI] 4:43</small> <small>(snimka poruke sa slajda)</small><br>
+„Usput, za ovaj upit lijeno segmentno stablo nije potrebno.<br>
+Hint: kad bismo znali odrediti maksimum prefiksnih suma…?”</p>
+</div>
+<ul>
+    <li>Bio je to, dakle, zadatak tipa „jeste li dobro ponovili jučerašnji zadatak?”.</li>
+</ul>
+<dodatak naslov="Opcija 4 u pojedinostima">
+<p>Umjesto vrijednosti $\mathrm{val}[l]$ čuvamo razlike $\delta[l]=\mathrm{val}[l]-\mathrm{val}[l-1]$ (uz $\delta[0]=\mathrm{val}[0]$). Dodavanje $C_j$ na prefiks $[0,S_j-1]$ mijenja samo <em>dvije</em> razlike: $\delta[0]\mathrel{+}=C_j$ i $\delta[S_j]\mathrel{-}=C_j$ — dva ažuriranja u točki. Vrijednost $\mathrm{val}[l]$ je prefiksna suma razlika, pa je globalni minimum jednak <b>minimumu prefiksnih suma</b> niza $\delta$ (odnosno maksimumu, u formulaciji sa suprotnim znakom). Čvor običnog segmentnog stabla čuva $(\text{zbroj},\ \text{min. prefiksna suma})$, a spajanje je $\big(s_L+s_R,\ \min(m_L,\ s_L+m_R)\big)$ — bez lijene propagacije. Nova pozicija $r$ ubacuje se postavljanjem $\delta[r]=d[r]-\mathrm{val}[r-1]$ (pozicije $\ge r$ prije toga drže $+\infty$, što se najjednostavnije rješava tako da se u stablu minimum traži samo nad prefiksom $[0,r-1]$). „Jučerašnji zadatak” vjerojatno se odnosi na zadatak 1. dana (<i>Dango</i>), u kojem se također binarno pretražuje po segmentnom stablu s ekstremima prefiksnih suma.</p>
+</dodatak>
+
+<ul>
+    <li>Složenost je $O\big(N\log N\log(N\max C)\big)$.</li>
+    <li>S dobrom konstantom dobivaju se puni bodovi.</li>
+    <li>S dodatnim faktorom $\log$ ili lošom konstantom dobiva se podzadatak 5.</li>
+</ul>
+<dodatak naslov="Binarno pretraživanje po $\lambda$, izjednačenja i rekonstrukcija odgovora">
+<p>Neka je $g(k)$ najmanji trošak uz točno $k$ ražnjića ($0\le k\le N-1$) i $K\gets\min(K,N-1)$. Funkcija $g$ je nerastuća (dodatni ražnjić ne povećava trošak) i konveksna, pa su „nagibi” $s_k=g(k)-g(k+1)\ge0$ nerastući i cjelobrojni. Za cijeli $\lambda\ge0$ neka je $h(\lambda)=\min_k\big(g(k)+\lambda k\big)$ i $\mathrm{cnt}(\lambda)$ najmanji $k$ koji ga postiže; minimizatori su točno $k$ s $s_{k-1}\ge\lambda\ge s_k$, pa je $\mathrm{cnt}(\lambda)$ nerastuća funkcija od $\lambda$ — binarno pretraživanje je opravdano.</p>
+<p>Binarno tražimo <b>najmanji</b> $\lambda\in[0,\sum_j C_j]$ sa $\mathrm{cnt}(\lambda)\le K$ (za $\lambda=\sum_j C_j$ nijedan ražnjić se ne isplati, pa je $\mathrm{cnt}=0$). Tada je $K$ jedan od minimizatora za taj $\lambda$: iz $\mathrm{cnt}(\lambda-1)\gt K$ slijedi $s_K\ge\lambda$, a iz $\mathrm{cnt}(\lambda)=k_0\le K$ slijedi $s_{k_0}\le\lambda$; zbog monotonosti nagiba $s_{k_0}\ge s_K$, pa je $s_K=\lambda\le s_{K-1}$ (za $\lambda=0$ tvrdnja je očita). Zato je</p>
+\[
+\text{odgovor}=h(\lambda)-\lambda K ,
+\]
+<p>i to vrijedi i kad se broj ražnjića točno $K$ pri tom $\lambda$ ne pojavi kao $\mathrm{cnt}$ (zbog izjednačenja). Iteracija binarnog pretraživanja ima $O\big(\log(N\max C)\big)$, svaka traje $O(N\log N)$ — ukupno $O\big(N\log N\log(N\max C)\big)$. Ispravnost ove sheme (dualni DP, konveksnost $g$ i formula za odgovor) provjerili smo usporedbom s izravnim rješenjem po svim podskupovima na nekoliko stotina malih slučajnih primjera.</p>
+</dodatak>
+
+<h2>Raspodjela bodova <span class="slajd-ref">slajdovi 28–29</span></h2>
+<table>
+    <thead><tr><th>Bodovi</th><th>Broj natjecatelja</th></tr></thead>
+    <tbody>
+        <tr><td>84</td><td>1</td></tr>
+        <tr><td>60</td><td>3</td></tr>
+        <tr><td>37</td><td>7</td></tr>
+        <tr><td>32</td><td>5</td></tr>
+        <tr><td>8</td><td>7</td></tr>
+        <tr><td>3</td><td>4</td></tr>
+        <tr><td>0</td><td>3</td></tr>
+    </tbody>
+</table>
+<dodatak>
+<p>Nitko nije osvojio svih 100 bodova. Tipični zbrojevi: $84=5+3+29+23+24$ (sve osim podzadatka 6), $60=5+3+29+23$, $37=5+3+29$, $32=3+29$, $8=5+3$.</p>
+</dodatak>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Dualnost: umjesto ograničiti disjunktne intervale, odaberi $K$ probadajućih točaka i plati sve između susjednih.</li>
-        <li>Cijena je Monge ⇒ monotone minima; konveksnost po $K$ ⇒ Aliens s lijenim segmentnim stablom.</li>
+        <li>Uređaji su poluotvoreni intervali $[S_i,T_i)$; najveći broj teleporta na ruti je najveći broj disjunktnih intervala, a po dualnosti jednak najmanjem broju ražnjića koji probadaju sve intervale. Umjesto uništavanja biramo $K$ ražnjića i plaćamo intervale strogo između susjednih.</li>
+        <li>Trošak prijelaza $F(l,r)=\sum\{C_j: l\lt S_j\lt T_j\le r\}$ računa se 2D prefiksnim sumama u $O(1)$: DP $O(KN^2)$ za podzadatak 3.</li>
+        <li>$F$ je Monge (zbroj „pravokutnih” indikatora), pa je optimalni prijelaz monoton u $r$ i monotone minima daje $O(KN\log N)$ za podzadatak 4.</li>
+        <li>Monge daje i konveksnost po broju ražnjića: Alien DP s kaznom $\lambda$ po ražnjiću, a unutarnji DP treba samo „dodaj na prefiks + globalni minimum” (lijeno/starry-sky stablo, <code>std::set</code> razlika ili obično stablo s minimumom prefiksnih suma): $O\big(N\log N\log(N\max C)\big)$ za pune bodove.</li>
     </ul>
 </div>
