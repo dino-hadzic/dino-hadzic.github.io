@@ -196,7 +196,7 @@
 
         // Klik na sliku = sljedeći slajd (kao u prezentaciji).
         slides.forEach(function (slide) {
-            var img = slide.querySelector('img');
+            var img = slide.querySelector('img, svg');
             if (img) {
                 img.style.cursor = 'pointer';
                 img.addEventListener('click', function () { stop(); show(current + 1); });
@@ -214,7 +214,59 @@
         show(0);
     }
 
+    /* ---------- (i) kartice ---------- */
+
+    function initInfoCards() {
+        var buttons = Array.prototype.slice.call(document.querySelectorAll('.info > .info-gumb'));
+        if (!buttons.length) {
+            return;
+        }
+        function setOpen(button, open) {
+            var card = button.nextElementSibling;
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (card) {
+                card.classList.toggle('otvoreno', open);
+                card.classList.remove('desno');
+                if (open) {
+                    // Kartica ne smije izaći iz članka na desnoj strani.
+                    var bounds = (button.closest('.analiza') || document.body).getBoundingClientRect();
+                    var rect = card.getBoundingClientRect();
+                    if (rect.right > bounds.right - 8) {
+                        card.classList.add('desno');
+                    }
+                }
+            }
+        }
+        function closeAll(except) {
+            buttons.forEach(function (button) {
+                if (button !== except) {
+                    setOpen(button, false);
+                }
+            });
+        }
+        buttons.forEach(function (button) {
+            button.addEventListener('click', function (event) {
+                event.stopPropagation();
+                var open = button.getAttribute('aria-expanded') !== 'true';
+                closeAll(button);
+                setOpen(button, open);
+            });
+        });
+        document.addEventListener('click', function (event) {
+            var inside = event.target.closest && event.target.closest('.info');
+            if (!inside) {
+                closeAll(null);
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeAll(null);
+            }
+        });
+    }
+
     function init() {
+        initInfoCards();
         Array.prototype.forEach.call(document.querySelectorAll('.tabovi'), initTabs);
         Array.prototype.forEach.call(document.querySelectorAll('.slajdovi'), initSlides);
     }
