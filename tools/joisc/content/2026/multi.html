@@ -1,8 +1,8 @@
 @@ meta
 naslov = Multikomunikacija 2
 engleski = Multi Communication 2
-oznake = distribuirano računanje MST-a: N igrača po rundi, svaki zna svoj redak matrice i prima N×64 bita, „emitiranje” = ista poruka svima, Borůvka faza = 1 runda (leader/parent 8 bit + (min težina, cilj) 56 bit), poruka samom sebi nosi tekući zbroj, „prvi potez ×3” (2nd-min trik), kontrakcija u 2 runde kad je ≤21 komponenta (k-ti vrh komponente i emitira min(i, i+k)), ukupno 5 emitiranja = 6 rundi
-autor_analize = Yamagata Ryuto (tatyam)
+oznake = distribuirano računanje, MST, Borůvka, emitiranje, kontrakcija
+autor_analize = Yamagata Ryūto (tatyam)
 
 @@ zadatak
 <h1>Multikomunikacija 2</h1>
@@ -21,178 +21,732 @@ autor_analize = Yamagata Ryuto (tatyam)
 <h3>Primjer</h3>
 <p>$N=3$, $A_{01}=1,A_{02}=2,A_{12}=3$. Runda 0: svaki natjecatelj pošalje nešto svima; runda 1: natjecatelj $(1,0)$ iz primljenog odgovori $X=3$. Broj rundi: 2.</p>
 
-@@ rjesenje
-<h2>Model: emitiranje i pamćenje kroz sebe</h2>
-<p>Vrh $i$ zna svoj redak $A_i$ i prima $N$ 64-bitnih poruka. <b>Emitiranje</b> = vrh šalje istu 64-bitnu poruku svim $N$ vrhovima sljedeće runde; tada svi u sljedećoj rundi vide isti skup podataka i <b>svi računaju isto</b> (nužno za konzistentne odluke). Poruka <b>samom sebi</b> je jedino „pamćenje” između rundi — umjesto da je bacimo, nosi tekući zbroj težina usvojenih bridova (56 bita). Odgovor se daje na početku runde, pa $b$ emitiranja $=$ $b+1$ rundi.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–8</span></h2>
+<p>Službenu analizu rješenja (JOI 2025/2026 Final Stage, dan 1 – <i>Multi Communication 2</i>) napisao je <b>Yamagata Ryūto (tatyam)</b>.</p>
 
-<h2>Podzadaci 1–3 <span class="bodovi">30</span></h2>
+<h3>Pregled zadatka</h3>
 <ul>
-    <li><b>$N\le64$, 1-bitne težine:</b> redak stane u 64 bita; jedno emitiranje, u rundi 1 svi znaju cijelu matricu ⇒ 2 runde.</li>
-    <li><b>$N\le256$, 1-bitne težine:</b> redak (256 bita) ne stane — šalji u 5 dijelova po 52 bita + <code>leader[i]</code> (8 bita) svake runde. Svi na isti način usvajaju bridove težine 0 (bez ciklusa) i ažuriraju predstavnike; $X=(\text{broj komponenata})-1$. 5 emitiranja ⇒ 6 rundi. <i>Tehnika 1:</i> umjesto <code>leader[i]</code> pošalji <code>parent[i]</code> u šumi usvojenih bridova — nosi više informacije (iz roditelja se rekonstruira i predstavnik).</li>
-    <li><b>$N\le64$, bez ograničenja rundi ($R=80$):</b> Prim: svaki vrh $i\notin S$ emitira min težinu do $S$ (48 bita) + bit „jesam li u $S$”; vrh 0 nosi zbroj; $N$ rundi.</li>
+    <li>Zadan je težinski potpun neusmjeren graf s $N$ vrhova, ali su <b>težine skrivene</b>.</li>
+    <li>Svaki vrh zna težine bridova koji su mu susjedni (incidentni).</li>
+    <li>Svi vrhovi zajedno, <b>distribuiranim računanjem</b>, trebaju odrediti težinu $X$ minimalnog razapinjućeg stabla.</li>
+    <li>Koliko rundi treba?</li>
+    <li>$N\le256$, težina brida $A_{i,j}$ ima $48$ bita.</li>
+</ul>
+<okviri naslov="Pregled zadatka: potpun graf, skrivene težine, računala u vrhovima, MST" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 300 250" role="img" aria-label="Težinski potpun graf sa 6 vrhova">
+  <line class="brid" x1="100" y1="40" x2="200" y2="40"/><text class="oznaka-brida" x="150" y="32">3</text>
+  <line class="brid" x1="100" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="55" y="82">9</text>
+  <line class="brid" x1="100" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="236" y="104">7</text>
+  <line class="brid" x1="100" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="90" y="110">5</text>
+  <line class="brid" x1="100" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="138" y="96">4</text>
+  <line class="brid" x1="200" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="86" y="86">3</text>
+  <line class="brid" x1="200" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="246" y="78">6</text>
+  <line class="brid" x1="200" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="160" y="146">1</text>
+  <line class="brid" x1="200" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="210" y="110">6</text>
+  <line class="brid" x1="30" y1="130" x2="270" y2="130"/><text class="oznaka-brida" x="222" y="124">3</text>
+  <line class="brid" x1="30" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="52" y="186">5</text>
+  <line class="brid" x1="30" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="96" y="162">9</text>
+  <line class="brid" x1="270" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="204" y="162">9</text>
+  <line class="brid" x1="270" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="248" y="186">0</text>
+  <line class="brid" x1="100" y1="220" x2="200" y2="220"/><text class="oznaka-brida" x="150" y="240">9</text>
+  <circle class="cvor" cx="100" cy="40" r="14"/><circle class="cvor" cx="200" cy="40" r="14"/>
+  <circle class="cvor" cx="30" cy="130" r="14"/><circle class="cvor" cx="270" cy="130" r="14"/>
+  <circle class="cvor" cx="100" cy="220" r="14"/><circle class="cvor" cx="200" cy="220" r="14"/>
+</svg>
+<natpis>Slajd 2: zadan je težinski potpun neusmjeren graf s $N$ vrhova (na slici $N=6$).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 300 250" role="img" aria-label="Samo vrh s računalom zna težine svojih bridova; ostale su skrivene (upitnici)">
+  <line class="brid-tezak" x1="100" y1="40" x2="200" y2="40"/><text class="oznaka-brida" x="150" y="32">3</text>
+  <line class="brid-tezak" x1="100" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="55" y="82">9</text>
+  <line class="brid-tezak" x1="100" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="236" y="104">7</text>
+  <line class="brid-tezak" x1="100" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="90" y="110">5</text>
+  <line class="brid-tezak" x1="100" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="138" y="96">4</text>
+  <line class="brid-lak" x1="200" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="86" y="86">?</text>
+  <line class="brid-lak" x1="200" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="246" y="78">?</text>
+  <line class="brid-lak" x1="200" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="160" y="146">?</text>
+  <line class="brid-lak" x1="200" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="210" y="110">?</text>
+  <line class="brid-lak" x1="30" y1="130" x2="270" y2="130"/><text class="oznaka-brida" x="222" y="124">?</text>
+  <line class="brid-lak" x1="30" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="52" y="186">?</text>
+  <line class="brid-lak" x1="30" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="96" y="162">?</text>
+  <line class="brid-lak" x1="270" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="204" y="162">?</text>
+  <line class="brid-lak" x1="270" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="248" y="186">?</text>
+  <line class="brid-lak" x1="100" y1="220" x2="200" y2="220"/><text class="oznaka-brida" x="150" y="240">?</text>
+  <circle class="cvor-istaknut" cx="100" cy="40" r="14"/><circle class="cvor" cx="200" cy="40" r="14"/>
+  <circle class="cvor" cx="30" cy="130" r="14"/><circle class="cvor" cx="270" cy="130" r="14"/>
+  <circle class="cvor" cx="100" cy="220" r="14"/><circle class="cvor" cx="200" cy="220" r="14"/>
+  <rect x="91" y="8" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="87" y="20" width="26" height="3" fill="#1b3d5c"/>
+  <text class="tekst-mali" x="120" y="20">računalo</text>
+</svg>
+<natpis>Slajd 3: težine su skrivene; svaki vrh (računalo) zna samo težine bridova koji su mu susjedni — istaknuti vrh vidi $3,9,7,5,4$, a ostale težine za njega su „?”.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 300 250" role="img" aria-label="Računalo u svakom vrhu; svi zajedno računaju distribuirano">
+  <line class="brid" x1="100" y1="40" x2="200" y2="40"/><text class="oznaka-brida" x="150" y="32">3</text>
+  <line class="brid" x1="100" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="55" y="82">9</text>
+  <line class="brid" x1="100" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="236" y="104">7</text>
+  <line class="brid" x1="100" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="90" y="110">5</text>
+  <line class="brid" x1="100" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="138" y="96">4</text>
+  <line class="brid" x1="200" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="86" y="86">3</text>
+  <line class="brid" x1="200" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="246" y="78">6</text>
+  <line class="brid" x1="200" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="160" y="146">1</text>
+  <line class="brid" x1="200" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="210" y="110">6</text>
+  <line class="brid" x1="30" y1="130" x2="270" y2="130"/><text class="oznaka-brida" x="222" y="124">3</text>
+  <line class="brid" x1="30" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="52" y="186">5</text>
+  <line class="brid" x1="30" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="96" y="162">9</text>
+  <line class="brid" x1="270" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="204" y="162">9</text>
+  <line class="brid" x1="270" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="248" y="186">0</text>
+  <line class="brid" x1="100" y1="220" x2="200" y2="220"/><text class="oznaka-brida" x="150" y="240">9</text>
+  <circle class="cvor-plavi" cx="100" cy="40" r="14"/><circle class="cvor-plavi" cx="200" cy="40" r="14"/>
+  <circle class="cvor-plavi" cx="30" cy="130" r="14"/><circle class="cvor-plavi" cx="270" cy="130" r="14"/>
+  <circle class="cvor-plavi" cx="100" cy="220" r="14"/><circle class="cvor-plavi" cx="200" cy="220" r="14"/>
+  <rect x="91" y="8" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="191" y="8" width="18" height="12" rx="2" fill="#2c5f8a"/>
+  <rect x="21" y="98" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="261" y="98" width="18" height="12" rx="2" fill="#2c5f8a"/>
+  <rect x="71" y="212" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="211" y="212" width="18" height="12" rx="2" fill="#2c5f8a"/>
+</svg>
+<natpis>Slajd 4: u svakom vrhu je računalo; svi vrhovi surađuju (<b>distribuirano računanje</b>) i traže težinu $X$ minimalnog razapinjućeg stabla.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 300 250" role="img" aria-label="Jedna runda: svaki vrh prima 64 bita od svakog vrha i šalje 64 bita svakom vrhu">
+  <line class="brid-lak" x1="100" y1="40" x2="200" y2="40"/><line class="brid-lak" x1="100" y1="40" x2="30" y2="130"/>
+  <line class="brid-lak" x1="100" y1="40" x2="270" y2="130"/><line class="brid-lak" x1="100" y1="40" x2="100" y2="220"/>
+  <line class="brid-lak" x1="100" y1="40" x2="200" y2="220"/><line class="brid-lak" x1="200" y1="40" x2="30" y2="130"/>
+  <line class="brid-lak" x1="200" y1="40" x2="270" y2="130"/><line class="brid-lak" x1="200" y1="40" x2="100" y2="220"/>
+  <line class="brid-lak" x1="200" y1="40" x2="200" y2="220"/><line class="brid-lak" x1="30" y1="130" x2="270" y2="130"/>
+  <line class="brid-lak" x1="30" y1="130" x2="100" y2="220"/><line class="brid-lak" x1="30" y1="130" x2="200" y2="220"/>
+  <line class="brid-lak" x1="270" y1="130" x2="100" y2="220"/><line class="brid-lak" x1="270" y1="130" x2="200" y2="220"/>
+  <line class="brid-lak" x1="100" y1="220" x2="200" y2="220"/>
+  <circle class="cvor-plavi" cx="100" cy="40" r="14"/><circle class="cvor-plavi" cx="200" cy="40" r="14"/>
+  <circle class="cvor-plavi" cx="30" cy="130" r="14"/><circle class="cvor-plavi" cx="270" cy="130" r="14"/>
+  <circle class="cvor-plavi" cx="100" cy="220" r="14"/><circle class="cvor-plavi" cx="200" cy="220" r="14"/>
+  <text class="tekst" x="150" y="118" style="text-anchor:middle">runda: primi N × 64 bita,</text>
+  <text class="tekst" x="150" y="138" style="text-anchor:middle">odgovori X ili pošalji</text>
+  <text class="tekst" x="150" y="158" style="text-anchor:middle">svakom vrhu 64 bita</text>
+  <text class="tekst-naglasen" x="150" y="186" style="text-anchor:middle">(i sebi samo 64 bita!)</text>
+</svg>
+<natpis>Slajd 5: ponavlja se <b>runda</b> — primi $64$ bita od svakog vrha prethodne runde; ako je $X$ poznat, odgovori; inače svakom vrhu sljedeće runde pošalji $64$ bita (i samome sebi u sljedećoj rundi može se prenijeti samo $64$ bita!).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 300 250" role="img" aria-label="Minimalno razapinjuće stablo istaknuto: bridovi težina 3, 3, 3, 1, 0">
+  <line class="brid-istaknut" x1="100" y1="40" x2="200" y2="40"/><text class="oznaka-brida" x="150" y="32">3</text>
+  <line class="brid" x1="100" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="55" y="82">9</text>
+  <line class="brid" x1="100" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="236" y="104">7</text>
+  <line class="brid" x1="100" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="90" y="110">5</text>
+  <line class="brid" x1="100" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="138" y="96">4</text>
+  <line class="brid-istaknut" x1="200" y1="40" x2="30" y2="130"/><text class="oznaka-brida" x="86" y="86">3</text>
+  <line class="brid" x1="200" y1="40" x2="270" y2="130"/><text class="oznaka-brida" x="246" y="78">6</text>
+  <line class="brid-istaknut" x1="200" y1="40" x2="100" y2="220"/><text class="oznaka-brida" x="160" y="146">1</text>
+  <line class="brid" x1="200" y1="40" x2="200" y2="220"/><text class="oznaka-brida" x="210" y="110">6</text>
+  <line class="brid-istaknut" x1="30" y1="130" x2="270" y2="130"/><text class="oznaka-brida" x="222" y="124">3</text>
+  <line class="brid" x1="30" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="52" y="186">5</text>
+  <line class="brid" x1="30" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="96" y="162">9</text>
+  <line class="brid" x1="270" y1="130" x2="100" y2="220"/><text class="oznaka-brida" x="204" y="162">9</text>
+  <line class="brid-istaknut" x1="270" y1="130" x2="200" y2="220"/><text class="oznaka-brida" x="248" y="186">0</text>
+  <line class="brid" x1="100" y1="220" x2="200" y2="220"/><text class="oznaka-brida" x="150" y="240">9</text>
+  <circle class="cvor" cx="100" cy="40" r="14"/><circle class="cvor" cx="200" cy="40" r="14"/>
+  <circle class="cvor" cx="30" cy="130" r="14"/><circle class="cvor" cx="270" cy="130" r="14"/>
+  <circle class="cvor" cx="100" cy="220" r="14"/><circle class="cvor" cx="200" cy="220" r="14"/>
+</svg>
+<natpis>Slajd 6: traži se težina $X$ minimalnog razapinjućeg stabla (istaknuto: $3+3+3+1+0=10$). Koliko rundi treba? $N\le256$, težine $A_{i,j}$ imaju $48$ bita.</natpis>
+</okvir>
+</okviri>
+
+<h3>Način distribuiranog računanja</h3>
+<p>Ponavlja se sljedeća <b>runda</b>:</p>
+<ol>
+    <li>od svakog vrha prethodne runde primi $64$ bita informacija;</li>
+    <li>ako je težina $X$ minimalnog razapinjućeg stabla već određena, odgovori je;</li>
+    <li>inače svakom vrhu sljedeće runde pošalji $64$ bita informacija. <b>(I samome sebi u sljedećoj rundi može se prenijeti samo $64$ bita informacija!)</b></li>
+</ol>
+<dodatak naslov="Brojanje rundi i oznake">
+<p>Odgovor se daje na <em>početku</em> runde, nakon primanja poruka. Zato shema s $b$ slanja (emitiranja) traje $b+1$ rundi: u rundama $0,\dots,b-1$ šalje se, a u rundi $b$ se odgovara. Tako „5 emitiranja → 6 rundi” u nastavku.</p>
+<p>Vrhove označavamo $0,1,\dots,N-1$; $A[i]$ je $i$-ti redak matrice težina (sve što vrh $i$ zna o grafu). Pretpostavlja se da u rundi $0$ vrh prima samo nule, pa je jedino „pamćenje” između rundi upravo poruka koju vrh pošalje samome sebi.</p>
+</dodatak>
+
+<h3>Podzadaci</h3>
+<table>
+    <tr><th></th><th>bodovi</th><th>$N\le$</th><th>$A_{i,j}$ je</th><th>za pune bodove</th></tr>
+    <tr><td>1</td><td>5</td><td>$64$</td><td>$1$ bit</td><td>$6$ rundi</td></tr>
+    <tr><td>2</td><td>10</td><td>$256$</td><td>$1$ bit</td><td>$6$ rundi</td></tr>
+    <tr><td>3</td><td>15</td><td>$64$</td><td>$48$ bita</td><td>$80$ rundi</td></tr>
+    <tr><td>4</td><td>40</td><td>$256$</td><td>$20$ bita</td><td>$6$ rundi</td></tr>
+    <tr><td>5</td><td>15</td><td>$256$</td><td>$40$ bita</td><td>$6$ rundi</td></tr>
+    <tr><td>6</td><td>15</td><td>$256$</td><td>$48$ bita</td><td>$6$ rundi</td></tr>
+</table>
+<p>Bodovi unutar podzadatka (osim podzadatka 3):</p>
+<ul>
+    <li>$6$ rundi → $100\,\%$</li>
+    <li>$7$ rundi → $80\,\%$</li>
+    <li>$8$ rundi → $60\,\%$</li>
+    <li>$9$ rundi → $40\,\%$</li>
+    <li>$10$ rundi → $30\,\%$</li>
+</ul>
+<p>$6$ rundi? Je li tako nešto uopće moguće?</p>
+
+<h2>Podzadatak 1 <span class="bodovi">5</span> <span class="slajd-ref">slajdovi 9–10</span></h2>
+<h3>Podzadatak 1: $N\le64$, $A_{i,j}$ je $1$ bit</h3>
+<ul>
+    <li>U rundi $0$ svaki vrh $i$ može informaciju o retku $A[i]$ spakirati u $64$ bita i poslati je svim vrhovima!
+        <ul><li>Slanje svim vrhovima zvat ćemo <b>emitiranje</b> (放送).</li></ul>
+    </li>
+    <li>U rundi $1$ skupljene su informacije o svim bridovima, pa se izračuna minimalno razapinjuće stablo.</li>
+</ul>
+<p><b>Gotovo u $2$ runde!</b></p>
+<okviri naslov="Podzadatak 1: emitiranje retka matrice" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 340 270" role="img" aria-label="Vrh 0 emitira svoj redak A[0]=011010 svim vrhovima">
+  <defs><marker id="str-plava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1f5fa8"/></marker></defs>
+  <line class="brid-lak" x1="220" y1="50" x2="300" y2="150"/><line class="brid-lak" x1="220" y1="50" x2="220" y2="250"/>
+  <line class="brid-lak" x1="220" y1="50" x2="120" y2="250"/><line class="brid-lak" x1="300" y1="150" x2="220" y2="250"/>
+  <line class="brid-lak" x1="300" y1="150" x2="120" y2="250"/><line class="brid-lak" x1="300" y1="150" x2="40" y2="150"/>
+  <line class="brid-lak" x1="220" y1="250" x2="120" y2="250"/><line class="brid-lak" x1="220" y1="250" x2="40" y2="150"/>
+  <line class="brid-lak" x1="120" y1="250" x2="40" y2="150"/><line class="brid-lak" x1="40" y1="150" x2="220" y2="50"/>
+  <line x1="134" y1="50" x2="204" y2="50" stroke="#1f5fa8" stroke-width="2.5" marker-end="url(#str-plava)"/>
+  <line x1="132" y1="58" x2="286" y2="143" stroke="#1f5fa8" stroke-width="2.5" marker-end="url(#str-plava)"/>
+  <line x1="126" y1="64" x2="212" y2="236" stroke="#1f5fa8" stroke-width="2.5" marker-end="url(#str-plava)"/>
+  <line x1="120" y1="66" x2="120" y2="234" stroke="#1f5fa8" stroke-width="2.5" marker-end="url(#str-plava)"/>
+  <line x1="108" y1="60" x2="52" y2="138" stroke="#1f5fa8" stroke-width="2.5" marker-end="url(#str-plava)"/>
+  <circle class="cvor-istaknut" cx="120" cy="50" r="15"/><text class="oznaka-cvora" x="120" y="50">0</text>
+  <circle class="cvor" cx="220" cy="50" r="15"/><text class="oznaka-cvora" x="220" y="50">1</text>
+  <circle class="cvor" cx="300" cy="150" r="15"/><text class="oznaka-cvora" x="300" y="150">2</text>
+  <circle class="cvor" cx="220" cy="250" r="15"/><text class="oznaka-cvora" x="220" y="250">3</text>
+  <circle class="cvor" cx="120" cy="250" r="15"/><text class="oznaka-cvora" x="120" y="250">4</text>
+  <circle class="cvor" cx="40" cy="150" r="15"/><text class="oznaka-cvora" x="40" y="150">5</text>
+  <text class="tekst-mali" x="120" y="22" style="text-anchor:middle">A[0] = [0,1,1,0,1,0]</text>
+  <text class="tekst-mali" x="168" y="42" style="text-anchor:middle">011010</text>
+  <text class="tekst-mali" x="242" y="104" style="text-anchor:middle">011010</text>
+  <text class="tekst-mali" x="196" y="170" style="text-anchor:middle">011010</text>
+  <text class="tekst-mali" x="98" y="190" style="text-anchor:middle">011010</text>
+  <text class="tekst-mali" x="56" y="100" style="text-anchor:middle">011010</text>
+</svg>
+<natpis>Slajd 9: u rundi $0$ vrh $0$ spakira svoj redak $A[0]=[0,1,1,0,1,0]$ u $64$ bita i <b>emitira</b> ga svim vrhovima (isto rade i svi ostali vrhovi).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 340 270" role="img" aria-label="U rundi 1 vrh 0 od svakog vrha j prima redak A[j]">
+  <defs><marker id="str-crvena" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid-lak" x1="220" y1="50" x2="300" y2="150"/><line class="brid-lak" x1="220" y1="50" x2="220" y2="250"/>
+  <line class="brid-lak" x1="220" y1="50" x2="120" y2="250"/><line class="brid-lak" x1="300" y1="150" x2="220" y2="250"/>
+  <line class="brid-lak" x1="300" y1="150" x2="120" y2="250"/><line class="brid-lak" x1="300" y1="150" x2="40" y2="150"/>
+  <line class="brid-lak" x1="220" y1="250" x2="120" y2="250"/><line class="brid-lak" x1="220" y1="250" x2="40" y2="150"/>
+  <line class="brid-lak" x1="120" y1="250" x2="40" y2="150"/><line class="brid-lak" x1="40" y1="150" x2="220" y2="50"/>
+  <line x1="204" y1="50" x2="136" y2="50" stroke="#c0392b" stroke-width="2.5" marker-end="url(#str-crvena)"/>
+  <line x1="286" y1="143" x2="134" y2="59" stroke="#c0392b" stroke-width="2.5" marker-end="url(#str-crvena)"/>
+  <line x1="212" y1="236" x2="128" y2="66" stroke="#c0392b" stroke-width="2.5" marker-end="url(#str-crvena)"/>
+  <line x1="120" y1="234" x2="120" y2="67" stroke="#c0392b" stroke-width="2.5" marker-end="url(#str-crvena)"/>
+  <line x1="52" y1="138" x2="109" y2="62" stroke="#c0392b" stroke-width="2.5" marker-end="url(#str-crvena)"/>
+  <circle class="cvor-istaknut" cx="120" cy="50" r="15"/><text class="oznaka-cvora" x="120" y="50">0</text>
+  <circle class="cvor" cx="220" cy="50" r="15"/><text class="oznaka-cvora" x="220" y="50">1</text>
+  <circle class="cvor" cx="300" cy="150" r="15"/><text class="oznaka-cvora" x="300" y="150">2</text>
+  <circle class="cvor" cx="220" cy="250" r="15"/><text class="oznaka-cvora" x="220" y="250">3</text>
+  <circle class="cvor" cx="120" cy="250" r="15"/><text class="oznaka-cvora" x="120" y="250">4</text>
+  <circle class="cvor" cx="40" cy="150" r="15"/><text class="oznaka-cvora" x="40" y="150">5</text>
+  <text class="tekst-mali" x="168" y="42" style="text-anchor:middle">100111</text>
+  <text class="tekst-mali" x="250" y="96" style="text-anchor:middle">010111</text>
+  <text class="tekst-mali" x="196" y="176" style="text-anchor:middle">111011</text>
+  <text class="tekst-mali" x="96" y="190" style="text-anchor:middle">010101</text>
+  <text class="tekst-mali" x="56" y="100" style="text-anchor:middle">001110</text>
+</svg>
+<natpis>Slajd 10: u rundi $1$ vrh $0$ (kao i svaki drugi vrh) primio je retke $A[1],\dots,A[5]$ svih vrhova, dakle zna cijelu matricu i izračuna minimalno razapinjuće stablo. Gotovo u $2$ runde!</natpis>
+</okvir>
+</okviri>
+<dodatak>
+<p>Kod $1$-bitnih težina $N\le64$ bitova retka stane u jednu $64$-bitnu poruku, a budući da je svaki vrh primio sve retke, svi u rundi $1$ računaju isti $X$ (bilo tko može odgovoriti). Težina MST-a u $0/1$-grafu jednaka je (broj komponenata povezanosti grafa bridova težine $0$) $-\,1$, jer se bridovi težine $0$ uvijek smiju usvojiti, a svaka daljnja komponenta spaja se jednim bridom težine $1$.</p>
+</dodatak>
+
+<h2>Podzadatak 2 <span class="bodovi">10</span> <span class="slajd-ref">slajdovi 11–18</span></h2>
+<h3>Podzadatak 2: $N\le256$, $A_{i,j}$ je $1$ bit</h3>
+<ul>
+    <li>Informacija retka $A[i]$ ne stane u $64$ bita… → <b>pošaljimo je u dijelovima!</b></li>
+    <li>Ali čak i ako šaljemo u dijelovima, ne možemo zapamtiti sve što nam je poslano…</li>
+</ul>
+<p>Što učiniti?</p>
+<p>→ Od poslanih informacija <b>usvojimo sve bridove težine $0$</b> i pamtimo <b>trenutno stanje komponenata povezanosti</b>!</p>
+
+<h3>Pamćenje stanja komponenata povezanosti</h3>
+<p>Kako zapamtiti stanje komponenata povezanosti…</p>
+<p>→ <b>Reproducirajmo UnionFind!</b><info naslov="UnionFind (DSU, strukture disjunktnih skupova)"><p>Struktura podataka koja održava particiju skupa $\{0,\dots,N-1\}$ na disjunktne skupove (ovdje: komponente povezanosti) uz dvije operacije: <b>find</b>$(i)$ vraća predstavnika skupa u kojem je $i$, a <b>union</b>$(i,j)$ spaja skupove od $i$ i $j$. Uobičajena implementacija svaki skup drži kao ukorijenjeno stablo zapisano poljem roditelja; uz sažimanje puteva i spajanje po veličini operacije su gotovo konstantne. Brid $(i,j)$ zatvara ciklus točno kad je $\mathrm{find}(i)=\mathrm{find}(j)$, pa UnionFind služi upravo za „usvoji brid ako ne stvara ciklus” u Kruskalovu i Borůvkinu algoritmu.</p><p>U ovom zadatku ne treba brzina nego <i>stanje</i>: dovoljno je da svi vrhovi na isti način znaju tko je s kim u komponenti, a to stanje stane u polje <code>leader</code> odnosno <code>parent</code> od $N$ brojeva po $8$ bita.</p></info></p>
+
+<h3>Reproducirajmo UnionFind!</h3>
+<ul>
+    <li>$\mathrm{leader}[i]:=$ predstavnik komponente povezanosti koja sadrži vrh $i$ (na primjer, najmanji vrh u komponenti).</li>
+</ul>
+<p>Dovoljno je znati to polje.</p>
+<p><b>Ako na kraju runde vrh $i$ emitira $\mathrm{leader}[i]$, svim vrhovima bit će predano cijelo polje $\mathrm{leader}$!</b></p>
+<p><b>Napomena:</b> da bi se emitirao ispravan $\mathrm{leader}[i]$, potrebno je da</p>
+<ul>
+    <li>svi na isti način prime informacije o bridovima,</li>
+    <li>svi na isti način usvoje bridove i</li>
+    <li>svi na isti način ažuriraju $\mathrm{leader}$!</li>
 </ul>
 
-<h2>Borůvka u rundama <span class="bodovi">9–10 rundi</span></h2>
-<p>Faza Borůvke: svaka komponenta usvoji najlakši brid koji iz nje izlazi (svojstvo reza); komponente se barem udvostruče ⇒ $\le8$ faza za $N\le256$. <i>Tehnika 2:</i> ako su sve komponente veličine $\ge x$ i $N\le2x-1$, graf je već povezan — ne troši fazu. Jedna faza = jedno emitiranje: vrh $i$ šalje <code>leader[i]</code> (8) + (min težina, cilj) prema vrhovima izvan svoje komponente (48+8). Svi rekonstruiraju iste usvojene bridove. Težine usvojenih bridova svi vide, pa vrh 0 (ili svaki) nosi zbroj kroz poruku sebi (<i>tehnika 3</i>): 8 emitiranja ⇒ 9 rundi; bez trika zbroj traži još jedno emitiranje (10).</p>
+<h3>Podzadatak 2: $N\le256$, $A_{i,j}$ je $1$ bit — rješenje</h3>
+<ul>
+    <li>Svaki vrh $i$ informaciju retka $A[i]$ emitira <b>u $5$ dijelova po $52$ bita</b>.</li>
+    <li>Osim toga, svaki put emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svi na isti način prime informacije o bridovima,</li>
+    <li>sve bridove težine $0$ (ako ne stvaraju ciklus) usvoje,</li>
+    <li>svi na isti način ažuriraju $\mathrm{leader}$.</li>
+    <li>Iz konačnog broja komponenata povezanosti unatrag se izračuna odgovor.</li>
+</ul>
+<p><b>$5$ emitiranja → gotovo u $6$ rundi!</b></p>
+<dodatak>
+<p>Redak ima $N\le256$ bitova; $\lceil 256/5\rceil=52$, pa $5$ dijelova po $52$ bita pokriva cijeli redak, a $52+8=60\le64$ bita stane u poruku. U rundi $r$ ($r=0,\dots,4$) vrh $i$ šalje bitove $A[i][52r..52r+51]$ i svoj trenutni $\mathrm{leader}[i]$; u rundi $r+1$ svi iz primljenih dijelova znaju iste bridove težine $0$ (brid $(i,j)$ pojavljuje se i u retku $i$ i u retku $j$, što ne smeta) i iz primljenog polja $\mathrm{leader}$ isto stanje komponenata, pa deterministički dobiju isti novi $\mathrm{leader}$. U rundi $5$ svi znaju konačne komponente i odgovaraju $X=(\text{broj komponenata})-1$ (vidi dopunu uz podzadatak 1).</p>
+<p>U rundi $0$ još nema primljenog polja $\mathrm{leader}$; tada je $\mathrm{leader}[i]=i$ (sve su komponente jednočlane), što svi znaju bez slanja.</p>
+</dodatak>
 
-<h2>Tehnika 4: prvi potez ×3 <span class="bodovi">prema 8</span></h2>
-<p>U rundi 0 sve su komponente jednočlane — <code>leader</code> je nepotreban, a i 1st-min brid dovoljno je opisati <b>ciljem</b> (8 bita), jer je njegova težina poznata objema krajnjim točkama. Preostalih 56 bita nosi <b>2nd-min</b> (težina, cilj). Pravilo: 1st-min bridovi tvore šumu pokazivača u kojoj je svaka komponenta veličine $\ge2$; komponenta veličine <b>točno 2</b> je uzajamni par $i\leftrightarrow j$ — najlakši brid koji izlazi iz $\{i,j\}$ je <b>lakši od dvaju 2nd-mina</b>, pa ga smijemo usvojiti (svojstvo reza). Nakon runde 0 sve komponente imaju $\ge3$ vrha: $3\cdot2^6=192$, $N\le256\le2\cdot192-1$ ⇒ 7 emitiranja za MST. Težine usvojenih 1st-min bridova znaju samo krajnje točke ⇒ jedna krajnja točka nosi taj zbroj; 2nd-min težine znaju svi ⇒ vrh 0.</p>
+<h3>Tehnika (1): neka polje nosi i informaciju o usvojenim bridovima</h3>
+<p>Zapravo, polju</p>
+<ul>
+    <li>$\mathrm{leader}[i]:=$ predstavnik komponente povezanosti koja sadrži vrh $i$ (na primjer, najmanji vrh u komponenti)</li>
+</ul>
+<p>možemo dati da nosi i podatak „<b>koji su bridovi usvojeni?</b>”!</p>
+<p>Neka je $T$ šuma koju tvore trenutno usvojeni bridovi. Umjesto</p>
+<ul>
+    <li>$\mathrm{leader}[i]:=$ predstavnik komponente povezanosti koja sadrži vrh $i$ (na primjer, najmanji vrh u komponenti)</li>
+</ul>
+<p>držimo</p>
+<ul>
+    <li>$\mathrm{parent}[i]:=$ vrh do kojeg se u $T$ od vrha $i$ dođe <b>jednim korakom u smjeru $\mathrm{leader}[i]$</b></li>
+</ul>
+<p>(time $T$ prikazujemo kao usmjerenu šumu). Budući da se iz $\mathrm{parent}$ može rekonstruirati $\mathrm{leader}$, <b>informacija je dodana</b>!</p>
+<dodatak>
+<p>Za predstavnika uzmemo $\mathrm{parent}[\mathrm{leader}]=\mathrm{leader}$ (korijen pokazuje na sebe); $\mathrm{leader}[i]$ se dobije praćenjem pokazivača do korijena, a skup usvojenih bridova je točno $\{(i,\mathrm{parent}[i]) : \mathrm{parent}[i]\ne i\}$ — svaki brid šume $T$ pojavljuje se točno jednom, kao brid od djeteta prema roditelju. Kad se komponente spoje novim bridom $(u,v)$, šumu preusmjerimo tako da jedno stablo „objesimo” na drugo (okrenemo pokazivače na putu od $u$ do njegova korijena), što svi vrhovi rade jednako jer imaju iste podatke. Ovo će biti bitno kasnije (slajd 29): da bi se zbrojile težine usvojenih bridova, dovoljno je da svaki vrh $i$ zna težinu $A_{i,\mathrm{parent}[i]}$ svog brida prema roditelju.</p>
+</dodatak>
 
-<h2>Podzadatak 4: Borůvka ×3 u svakoj fazi <span class="bodovi">6 rundi</span></h2>
-<p>S 20-bitnim težinama u 56 bita stanu <b>dva</b> para (težina, cilj) po $28$ bita: svaki vrh emitira <code>leader</code> + 1st-min + 2nd-min. Po komponenti svi izračunaju njena dva najlakša izlazna brida i primijene trik s uzajamnim parovima ⇒ komponente se <b>utrostručuju</b>: $3^5=243\ge(256+1)/2$ ⇒ 5 emitiranja ⇒ <b>6 rundi</b>.</p>
+<h2>Podzadatak 3 <span class="bodovi">15</span> <span class="slajd-ref">slajdovi 19–24</span></h2>
+<h3>Podzadatak 3: $N\le64$, $A_{i,j}$ je $48$ bita, puni bodovi za $80$ rundi</h3>
+<p>Kad se kaže „algoritam za minimalno razapinjuće stablo”…?</p>
+<ul>
+    <li>Kruskalov algoritam (onaj uobičajeni)<info naslov="Kruskalov algoritam"><p>Bridove sortiramo po težini i redom ih usvajamo ako ne zatvaraju ciklus (provjera UnionFindom). Ispravnost slijedi iz svojstva reza sa slajda 22: brid koji usvajamo najlakši je brid između komponente jednog kraja i svih ostalih vrhova. Vrijeme $O(M\log M)$ za $M$ bridova. U distribuiranom okruženju ovog zadatka nije zgodan jer je u biti <i>sekvencijalan</i> — bridovi se gledaju jedan po jedan — dok Borůvkin algoritam obrađuje sve komponente paralelno.</p></info></li>
+    <li>Primov algoritam (sličan Dijkstrinu)</li>
+    <li>Borůvkin algoritam (?)</li>
+</ul>
+<ul>
+    <li>Kruskalov algoritam</li>
+    <li><b>Primov algoritam ← rješenje podzadatka 3</b></li>
+    <li>Borůvkin algoritam</li>
+</ul>
+<p>Moguće je i Kruskalovim algoritmom (izostavljeno jer nalikuje Borůvkinu).</p>
 
-<h2>Tehnika 5: kontrakcija u 2 runde <span class="bodovi">100</span></h2>
-<p>Nakon 4 obične faze komponente imaju $\ge16$ vrhova, dakle ima ih $\le16$ — a preostalih $2^4$ faza usvaja samo $8+4+2+1$ bridova. <b>Zamijeni ih dvjema rundama:</b></p>
+<h3>Svojstvo minimalnog razapinjućeg stabla</h3>
+<div class="tvrdnja">
+<p><strong>Teorem.</strong> Neka je $V$ skup vrhova. Za proizvoljan $S\subset V$ neka je $T:=V\setminus S$. Brid najmanje težine između $S$ i $T$ smije se usvojiti u minimalno razapinjuće stablo.</p>
+</div>
+<dodatak naslov="Dokaz teorema (svojstvo reza; na slajdu bez dokaza)">
+<p>Neka je $e=(u,v)$ najlakši brid između $S$ i $T$ i neka je $M$ bilo koje minimalno razapinjuće stablo. Ako $e\in M$, gotovo. Inače put u $M$ od $u$ do $v$ mora negdje prijeći iz $S$ u $T$ nekim bridom $f$; tada je $M'=M-f+e$ opet razapinjuće stablo (uklanjanjem $f$ stablo se raspada na dva dijela, po jedan s krajem $u$ i s krajem $v$, a $e$ ih ponovno spaja) i $w(M')=w(M)-w(f)+w(e)\le w(M)$ jer je $w(e)\le w(f)$. Dakle $M'$ je minimalno razapinjuće stablo koje sadrži $e$.</p>
+<p>Primjena u zadatku: ako se izbor „najlakšeg” brida radi uz <b>nedvosmislen poredak</b> (npr. leksikografski po $(A_{i,j},\min(i,j),\max(i,j))$), sve su težine „različite” i postoji jedinstveno MST, pa se bridovi koje istovremeno usvoje različite komponente (Borůvka) nikad ne sukobljavaju i ne stvaraju ciklus. Važno je da svi vrhovi koriste <i>isti</i> poredak.</p>
+</dodatak>
+
+<h3>Što je Primov algoritam?</h3>
+<p>Ponavljamo sljedeće $N-1$ puta:</p>
+<ul>
+    <li>Neka je $S$ skup vrhova povezanih s vrhom $0$, a $T$ skup ostalih vrhova. Na početku je $S=\{0\},\ T=\{1,2,\dots,N-1\}$.</li>
+    <li>Među bridovima $u-v$ između $S$ i $T$ odaberemo onaj najmanje težine.</li>
+    <li>Usvojimo brid $u-v$ i premjestimo $v$ iz $T$ u $S$.</li>
+</ul>
+
+<h3>Podzadatak 3: Primov algoritam</h3>
+<ul>
+    <li>Svaki vrh $i\in T$ emitira najmanju težinu između $i$ i $S$ ($48$ bita).<br>→ Vrh $i$ kod kojeg je ta težina najmanja dodaje se u $S$.</li>
+    <li>Da bi se to moglo emitirati, moraju biti poznati elementi skupova $S,T$<br>→ svaki vrh emitira $1$ bit: $i\in S$ ili $i\in T$.</li>
+    <li>Težine usvojenih bridova treba zbrojiti<br>→ vrh $0$ emitira zbroj težina usvojenih bridova ($56$ bita).</li>
+</ul>
+<p><b>Gotovo u $N$ rundi!</b></p>
+<dodatak>
+<p>Tijek: u rundi $r$ ($r=0,\dots,N-2$) svi znaju trenutni $S$ (iz primljenih bitova) i, iz emitiranih minimuma prethodne runde, koji je vrh upravo ušao u $S$ i s kojom težinom; vrh $0$ tu težinu pribraja zbroju koji emitira. Svaki $i\in T$ računa $\min_{j\in S}A_{i,j}$ iz vlastitog retka. Nakon $N-1$ emitiranja (runde $0,\dots,N-2$) svi su vrhovi u $S$ i u rundi $N-1$ zbroj je poznat, dakle ukupno $N$ rundi, što za $N\le64$ stane u dopuštenih $80$. Poruke: $48+1=49$ bita za $i\in T$; zbroj $\le(N-1)\cdot(2^{48}-1)\lt2^{56}$ stane u $56$ bita. Pri jednakim minimumima svi uzimaju npr. najmanji indeks $i$, da bi svi usvojili isti brid.</p>
+</dodatak>
+
+<h2>Borůvkin algoritam: $9$ i $10$ rundi <span class="bodovi">9 rundi → 40 %</span> <span class="slajd-ref">slajdovi 25–34</span></h2>
+<h3>Što je Borůvkin algoritam?</h3>
+<p>Ponavljamo sljedeće najviše $\mathrm{floor}(\log_2(N))$ puta:</p>
+<ol>
+    <li>Za svaku komponentu povezanosti nađemo, među bridovima koji prelaze iz te komponente van, onaj najmanje težine.</li>
+    <li>Te bridove usvojimo (osim ako bi nastao ciklus).</li>
+</ol>
+<p>U jednoj fazi svaka se komponenta poveže s barem još jednom komponentom.</p>
+<p><b>→ Nakon $k$ faza svaka komponenta ima veličinu barem $2^k$!</b></p>
+<dodatak>
+<p>Svaka komponenta usvoji brid prema nekoj drugoj komponenti, pa nova komponenta sadrži barem dvije stare; ako su sve stare veličine $\ge2^{k-1}$, nove su $\ge2^k$. Ciklus bi mogao nastati samo kad dvije komponente biraju bridove jednake težine u krug; uz nedvosmislen poredak bridova (dopuna uz teorem o rezu) to se ne događa: u ciklusu usvojenih bridova pogledajmo najteži brid — on je najlakši izlazni brid neke komponente, ali iz te komponente izlazi i drugi brid ciklusa, koji je lakši, kontradikcija. Zato se u praksi provjera „osim ako bi nastao ciklus” svodi na dosljedan tie-break (u zadatku težine mogu biti jednake!).</p>
+</dodatak>
+
+<h3>Tehnika (2): sitnica o Borůvkinu algoritmu</h3>
+<div class="tvrdnja">
+<p>Ako je veličina svake komponente povezanosti barem $x$ i vrijedi $N\le2x-1$, onda $\Longrightarrow$ <b>graf je povezan</b>.</p>
+</div>
+<p><b>Pazite da ne napravite $1$ fazu viška!</b></p>
+<dodatak>
+<p>Kad bi postojale barem dvije komponente, imale bi zajedno $\ge2x\gt N$ vrhova. Dakle čim veličine dosegnu $x$ s $2x-1\ge N$, komponenta je samo jedna i MST je već određen — ne treba emitirati još jednu fazu. Upravo ta granica daje brojeve $192$, $243$ i $12$ u nastavku.</p>
+</dodatak>
+
+<h3>Što je Borůvkin algoritam? (nastavak)</h3>
+<p>Ponavljamo najviše $\log_2(N)$ puta: (1) za svaku komponentu nađemo najlakši brid koji iz nje izlazi; (2) te bridove usvojimo (osim ako bi nastao ciklus).</p>
+<p><b>Bridovi se mogu tražiti paralelno → prikladno za distribuirano računanje!</b></p>
+
+<h3>Borůvkin algoritam: $9$ rundi</h3>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<p><b>Kako zbrojiti težine usvojenih bridova?</b></p>
+<dodatak>
+<p>$56=48+8$: težina brida i indeks odredišta. Iz emitiranih parova svi vrhovi za svaku komponentu odrede njezin najlakši izlazni brid (minimum preko članova komponente), usvoje te bridove i jednako ažuriraju $\mathrm{leader}$. Nakon $8$ faza komponente su veličine $\ge2^8=256\ge N$, pa je graf sigurno povezan: $8$ emitiranja (runde $0$–$7$) → odgovor u rundi $8$, tj. $9$ rundi. (Tehnika 2 ovdje ne štedi fazu: nakon $7$ faza veličine su $\ge128$, a $2\cdot128-1=255\lt256$.) Problem: polje $\mathrm{leader}$ pamti <i>koje</i> su komponente, ali ne i <i>koliko su teški</i> usvojeni bridovi iz ranijih faza.</p>
+</dodatak>
+
+<h3>Borůvkin algoritam + zbrajanje: $10$ rundi</h3>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{parent}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<p><b>U $8$ emitiranja odredi se minimalno razapinjuće stablo → u $1$ dodatnom emitiranju emitiraju se težine bridova usvojenih u minimalno razapinjuće stablo</b> (vrh $i$ emitira $A_{i,\mathrm{parent}[i]}$).</p>
+<p><b>$9$ emitiranja → gotovo u $10$ rundi!</b></p>
+<dodatak>
+<p>Zato je bila važna tehnika (1): kad svi znaju $\mathrm{parent}$, svaki brid MST-a je $(i,\mathrm{parent}[i])$ za točno jedan $i$, a težinu $A_{i,\mathrm{parent}[i]}$ zna vrh $i$ iz svog retka. Zbroj svih emitiranih vrijednosti (za $i$ s $\mathrm{parent}[i]\ne i$) upravo je $X$.</p>
+</dodatak>
+
+<h3>Borůvkin algoritam: $9$ rundi</h3>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<p><b>Ima li informacija koje nije potrebno slati?</b></p>
+
+<h3>Tehnika (3): promijenimo informaciju koju šaljemo samima sebi</h3>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).
+        <ul><li><b>Ovu informaciju nije potrebno slati samome sebi!</b></li></ul>
+    </li>
+</ul>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).
+        <ul><li><b>Samome sebi šalje „zbroj težina usvojenih bridova”</b> ($56$ bita).</li></ul>
+    </li>
+</ul>
+<p><b>$8$ emitiranja → gotovo u $9$ rundi!</b></p>
+<dodatak>
+<p>Zašto vrh smije sebi poslati nešto drugo: svoj $\mathrm{leader}[i]$ i svoj najlakši izlazni brid vrh $i$ može u sljedećoj rundi ponovno izračunati iz primljenog polja $\mathrm{leader}$ ostalih i vlastitog retka $A[i]$ (ako je $\mathrm{leader}$ najmanji vrh komponente, $\mathrm{leader}[i]$ se čita iz podataka bilo kojeg drugog člana komponente, a za jednočlanu komponentu je $i$). Zašto svi znaju zbroj: svaki usvojeni brid je nečiji emitirani par (težina, odredište), dakle težina mu je javna; zato svaki vrh sam vodi tekući zbroj i prenosi ga kroz poruku sebi ($\le255\cdot2^{48}\lt2^{56}$). U rundi $8$ svaki vrh zna i da je graf povezan i konačni zbroj → odgovor.</p>
+</dodatak>
+
+<h3>Za svaki slučaj, postoji i ovakav način…?</h3>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).
+        <ul><li><b>Nema ni $8$ bita različitih vrijednosti!</b> Komponente povezanosti smijemo prenumerirati u $0,1,2,\dots$ bez problema!</li></ul>
+    </li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($\mathrm{ceil}(\log_2N)-1$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($47+\mathrm{ceil}(\log_2N)$ bita).</li>
+    <li>Neka je $x:=18-2\,\mathrm{ceil}(\log_2N)$. Svaki vrh $i$ emitira $i$-tu znamenku „zbroja težina usvojenih bridova” u bazi $2^x$ ($x$ bita).
+        <ul><li>Za $N\ge4$ to je dovoljno!</li></ul>
+    </li>
+</ul>
+<p><b>$8$ emitiranja → gotovo u $9$ rundi!</b></p>
+<dodatak>
+<p>Nakon prve faze komponenata je najviše $N/2$, pa indeks komponente stane u $\mathrm{ceil}(\log_2N)-1$ bita; isto vrijedi za odredište ako se umjesto vrha šalje <i>komponenta</i> odredišta (dovoljno za Borůvku), pa par (težina, odredište) treba $48+\mathrm{ceil}(\log_2N)-1=47+\mathrm{ceil}(\log_2N)$ bita. Ostaje $64-(\mathrm{ceil}(\log_2N)-1)-(47+\mathrm{ceil}(\log_2N))=18-2\,\mathrm{ceil}(\log_2N)=x$ bita po vrhu. Zbroj ima najviše $56$ bita, a $N$ vrhova zajedno prenese $Nx$ bita: za $N=4$ je $x=14$ i $4\cdot14=56$ — točno dovoljno; za $N=256$ je $x=2$ i $256\cdot2=512\ge56$; općenito je $Nx$ rastuće u $N$ za $N\ge4$. Za $N\le3$ ne stane ($3\cdot14=42\lt56$), ali tada je zadatak trivijalan (vrh $0$ zna sve bridove osim eventualno brida $1$–$2$, koji mu vrh $1$ pošalje u rundi $0$). Ovaj je pristup alternativa tehnici (3): tekući zbroj umjesto u poruci sebi putuje raspodijeljen po svim emitiranjima.</p>
+</dodatak>
+
+<h2>Tehnika (4): prvi potez „$\times3$” <span class="bodovi">9 rundi → 40 %</span> <span class="slajd-ref">slajdovi 35–40</span></h2>
+<h3>Tehnika (4): prvi potez $\times3$</h3>
+<p><i>Borůvkin algoritam koji je maloprije ispao na $10$ rundi…?</i></p>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{parent}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+    <li>U $8$ emitiranja odredi se minimalno razapinjuće stablo → u $1$ dodatnom emitiranju emitiraju se težine bridova usvojenih u minimalno razapinjuće stablo.</li>
+</ul>
+<p><b>Ima li informacija koje nije potrebno slati?</b></p>
+<p><b>Što je s rundom $0$…?</b></p>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{parent}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<ul>
+    <li><s>Svaki vrh $i$ emitira $\mathrm{parent}[i]$ ($8$ bita).</s></li>
+    <li>Svaki vrh $i$ emitira (<s>najmanju težinu</s>, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) (<s>$56$ bita</s> $8$ bita).</li>
+</ul>
+<p><b>Potrebno je samo $8$ bita!</b></p>
+<dodatak>
+<p>U rundi $0$ sve su komponente jednočlane, pa je $\mathrm{parent}[i]=i$ poznat bez slanja. Najlakši brid vrha $i$ dovoljno je opisati odredištem $j$: za izgradnju šume usvojenih bridova težina nije potrebna, a sami krajevi $i$ i $j$ znaju $A_{i,j}$ iz svojih redaka. Težinu će kasnije emitirati vrh $i$ kao $A_{i,\mathrm{parent}[i]}$ (zbrajanje preko $\mathrm{parent}$ u završnom emitiranju).</p>
+</dodatak>
+
+<p><b>U rundi $0$ može se poslati još $1$ brid!</b></p>
+<ul>
+    <li>Svaki vrh $i$ emitira odredište <b>1st min</b> (najlakšeg) brida između $i$ i (vrhova koji nisu povezani s $i$) ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (težinu, odredište) <b>2nd min</b> (drugog najlakšeg) brida između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<div class="tvrdnja">
+<p><strong>Teorem.</strong> Neka je $V$ skup vrhova. Za proizvoljan $S\subset V$ neka je $T:=V\setminus S$. Brid najmanje težine između $S$ i $T$ smije se usvojiti u minimalno razapinjuće stablo.</p>
+</div>
+<p>Ako 1st min bridovi dvaju vrhova pokazuju jedan na drugoga, onda je, nakon što taj brid usvojimo, brid najmanje težine koji izlazi iz te komponente upravo „<b>lakši od dvaju 2nd min bridova</b>”. I taj brid možemo usvojiti!</p>
+<p><b>→ Veličina svake komponente povezanosti postaje barem $3$!</b></p>
+<dodatak naslov="Zašto je to točno">
+<p>Neka vrh $i$ ima 1st min prema $j$ i vrh $j$ 1st min prema $i$. Bridovi koji izlaze iz $S=\{i,j\}$ su bridovi iz $i$ prema $k\ne j$ i iz $j$ prema $k\ne i$. Najlakši brid iz $i$ bez brida $(i,j)$ je upravo 2nd min vrha $i$, analogno za $j$; dakle najlakši brid iz $S$ je lakši od ta dva 2nd min bridova, a po teoremu smije u MST. Svi vrhovi iz emitiranih podataka vide koji su parovi uzajamni i znaju oba 2nd min para (težina, odredište), pa svi jednako usvoje te bridove.</p>
+<p>Veličina $\ge3$: svaki vrh je kraj svog 1st min brida, pa u šumi 1st min bridova nema jednočlanih komponenata; komponenta veličine točno $2$ može nastati samo kad dva vrha pokazuju jedan na drugoga (uzajamni par), a takav par dobiva još jedan brid prema vrhu izvan para. Dakle svaka komponenta nakon runde $0$ ima $\ge3$ vrha. (Da istovremeno usvojeni bridovi ne stvaraju ciklus, slijedi kao kod Borůvke uz nedvosmislen poredak bridova.) Težina usvojenog 2nd min brida svima je poznata (emitirana je), a težina usvojenog 1st min brida samo njegovim krajevima — za $9$-rundni plan to ne smeta, jer se težine ionako zbrajaju završnim emitiranjem $A_{i,\mathrm{parent}[i]}$; za $6$-rundni plan to će postati pitanje (slajd 53).</p>
+</dodatak>
+
+<h3>Borůvkin algoritam + prvi potez $\times3$ + zbrajanje: $9$ rundi</h3>
+<p>Runda $0$: šalju se 1st min i 2nd min.</p>
+<p>Od runde $1$ nadalje:</p>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{parent}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+</ul>
+<p><b>Budući da je $3\times2^6=192$, minimalno razapinjuće stablo odredi se u $7$ emitiranja → u $1$ dodatnom emitiranju emitiraju se težine bridova usvojenih u minimalno razapinjuće stablo.</b></p>
+<p><b>Gotovo u $9$ rundi!</b></p>
+<dodatak>
+<p>Nakon runde $0$ komponente su $\ge3$, nakon još $6$ Borůvkinih faza $\ge3\cdot2^6=192$, a $N\le256\le2\cdot192-1=383$, pa je po tehnici (2) graf tada povezan: $1+6=7$ emitiranja za MST, osmo emitiranje nosi težine $A_{i,\mathrm{parent}[i]}$, odgovor u rundi $8$ — ukupno $9$ rundi. To je jednako kao tehnika (3), ali u kombinaciji s njom (poruka sebi nosi zbroj) završno emitiranje nije potrebno, što se koristi u nastavku.</p>
+</dodatak>
+
+<h2>Podzadatak 4 <span class="bodovi">40</span> <span class="slajd-ref">slajdovi 41–42</span></h2>
+<h3>Podzadatak 4: „$\times3$” Borůvkin algoritam</h3>
+<p>Ne može li se dobro iskoristiti ograničenje podzadatka 4, „$A_{i,j}$ je $20$ bita”?</p>
+<p>→ <b>Mogu se emitirati $2$ para (najmanja težina, odredište)!</b></p>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (težinu, odredište) 1st min i 2nd min brida između $i$ i (vrhova koji nisu povezani s $i$) ($28+28$ bita).</li>
+    <li>Za svaku komponentu povezanosti odredimo 1st min i 2nd min među bridovima koji spajaju njezinu unutrašnjost s vanjštinom.</li>
+    <li>Ako 1st min bridovi pokazuju uzajamno, nakon usvajanja tog brida najlakši brid koji izlazi iz te komponente je „lakši od dvaju 2nd min bridova”. I taj brid možemo usvojiti!</li>
+</ul>
+<p><b>Budući da je $3^5=243$, $5$ emitiranja → gotovo u $6$ rundi!</b></p>
+<dodatak>
+<p>$28=20+8$ (težina i odredište), $8+28+28=64$ bita — poruka je puna, pa zbroj težina putuje porukom samome sebi (tehnika 3); to je moguće jer su težine <i>svih</i> usvojenih bridova emitirane, dakle javne. Za komponentu $C$ dva najlakša izlazna brida uvijek su među 1st/2nd min bridovima njezinih članova (svaki drugi brid člana $v$ teži je od njegova 2nd min), pa ih svi vrhovi mogu odrediti. Argument sa slajda 39 primijenjen na <i>komponente</i> umjesto na vrhove daje da se svaka nova komponenta sastoji od barem $3$ starih, dakle veličine se u svakoj fazi barem utrostručuju: nakon $5$ faza $\ge3^5=243$, a $N\le256\le2\cdot243-1=485$ → graf je povezan (tehnika 2). Emitiranja u rundama $0$–$4$, odgovor u rundi $5$: $6$ rundi, a to je ujedno puni rezultat za podzadatak 4 ($40$ bodova). U podzadacima 5 i 6 ($40$- i $48$-bitne težine) dva para ne stanu u $56$ bita, pa treba nešto drugo.</p>
+</dodatak>
+
+<h2>Tehnika (5): kontrakcija vrhova u $2$ runde <span class="bodovi">7 rundi → 80 %</span> <span class="slajd-ref">slajdovi 43–52</span></h2>
+<h3>Borůvkin algoritam: $9$ rundi (ponovljeno)</h3>
+<ul>
+    <li>Svaki vrh $i$ emitira $\mathrm{leader}[i]$ ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (najmanju težinu, odredište) među bridovima između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).
+        <ul><li>Samome sebi šalje „zbroj težina usvojenih bridova” ($56$ bita).</li></ul>
+    </li>
+</ul>
+<p>$8$ emitiranja → gotovo u $9$ rundi!</p>
+<p><b>Gdje je rasipanje?</b></p>
+<p>Veličine komponenata povezanosti:</p>
+\[1\to2\to4\to8\to16\to32\to64\to128\to256\]
+<p>Broj usvojenih bridova:</p>
+\[1\xrightarrow{128}2\xrightarrow{64}4\xrightarrow{32}8\xrightarrow{16}16\xrightarrow{8}32\xrightarrow{4}64\xrightarrow{2}128\xrightarrow{1}256\]
+\[1\xrightarrow{128}2\xrightarrow{64}4\xrightarrow{32}8\xrightarrow{16}\underbrace{16\xrightarrow{8}32\xrightarrow{4}64\xrightarrow{2}128\xrightarrow{1}256}_{\text{ne može li se to odjednom?}}\]
+<dodatak>
+<p>Prikazan je najgori slučaj $N=256$ u kojem se veličine točno udvostručuju; u fazi u kojoj veličine idu s $s$ na $2s$ usvaja se $256/(2s)$ bridova. Zadnje četiri faze zajedno usvoje samo $8+4+2+1=15$ bridova, a troše četiri emitiranja po $N\cdot64$ bita — to je rasipanje.</p>
+</dodatak>
+
+<h3>Tehnika (5): kontrakcija vrhova u $2$ runde</h3>
+<p>Broj usvojenih bridova:</p>
+\[1\xrightarrow{128}2\xrightarrow{64}4\xrightarrow{32}8\xrightarrow{16}\underbrace{16\xrightarrow{8}32\xrightarrow{4}64\xrightarrow{2}128\xrightarrow{1}256}_{\text{ne može li se to odjednom?}}\]
+<p>Kad imamo $16$ komponenata povezanosti po $16$ vrhova, <b>čini se da informaciju o najmanjim težinama između svih parova komponenata može podijeliti i emitirati $256$ vrhova!</b></p>
+
+<h3>Borůvkin algoritam + kontrakcija: $7$ rundi</h3>
+<p>Borůvkinim algoritmom emitiramo $4$ puta, tako da postane (veličina svake komponente) $\ge16$.</p>
+<p><b>Cilj:</b> $k$-ti vrh komponente $i$ emitira najmanju težinu između (komponente $i$) i (komponente $k$).</p>
+<p>↑ Da bi to mogao, ($k$-ti vrh komponente $i$) od svakog vrha $j$ (komponente $k$) prima najmanju težinu između $j$ i (komponente $i$).</p>
+<p><b>Kako zbrojiti težine usvojenih bridova?</b></p>
+<p><b>Cilj:</b> $k$-ti vrh komponente $i$ emitira najmanju težinu između (komponente $i$) i (komponente $k$). <b>Ako je $i=k$, to nije potrebno emitirati!</b></p>
+<p>↑ Da bi to mogao, ($k$-ti vrh komponente $i$) od svakog vrha $j$ (komponente $k$) prima najmanju težinu između $j$ i (komponente $i$).</p>
+<p>Ovamo stavimo „zbroj težina usvojenih bridova”!</p>
+<p><b>Cilj:</b> $k$-ti vrh komponente $i$, <b>ako je $i=k$, emitira „zbroj težina usvojenih bridova”</b>.</p>
+<p>↑ Da bi to mogao, ($k$-ti vrh komponente $i$) <b>od bilo kojeg vrha prima „zbroj težina usvojenih bridova”</b>.</p>
+<p>Time možemo zbrojiti težine bridova!</p>
+<table>
+    <tr><th></th><th>$i\ne k$</th><th>$i=k$</th></tr>
+    <tr><td>$k$-ti vrh komponente $i$</td><td>emitira najmanju težinu između (komponente $i$) i (komponente $k$)</td><td>emitira „zbroj težina usvojenih bridova”</td></tr>
+    <tr><td>da bi to mogao, ($k$-ti vrh komponente $i$)</td><td>od svakog vrha $j$ (komponente $k$) prima najmanju težinu između $j$ i (komponente $i$)</td><td>od bilo kojeg vrha prima „zbroj težina usvojenih bridova”</td></tr>
+</table>
+<p><b>$6$ emitiranja → gotovo u $7$ rundi!</b></p>
+<p><i>Može li se to stvarno svesti na $6$ rundi?</i></p>
+<dodatak naslov="Kako kontrakcija točno teče">
+<p>Runde $0$–$3$: četiri Borůvkine faze (emitiranje $\mathrm{leader}$ + (težina, odredište), zbroj porukom sebi). U rundi $4$ svi znaju komponente; neka ih je $C\le16$ (jer su veličine $\ge16$) i numerirajmo ih $0,\dots,C-1$ (npr. po najmanjem vrhu), a vrhove unutar komponente $0,1,2,\dots$ po indeksu. Svaka komponenta ima $\ge16\ge C$ vrhova, pa „$k$-ti vrh komponente $i$” postoji za sve $k\lt C$.</p>
+<p><b>Runda $4$ (ciljane poruke, ne emitiranje):</b> vrh $j$ iz komponente $k$ šalje $k$-tom vrhu svake komponente $i\ne k$ vrijednost $\min_{v\in\text{komp. }i}A_{j,v}$ ($48$ bita; računa je iz svog retka), a $k$-tom vrhu vlastite komponente ($i=k$) šalje tekući zbroj težina usvojenih bridova ($56$ bita). Različiti primatelji dobivaju različite sadržaje — zato „$2$ runde”, jedna nije dovoljna.</p>
+<p><b>Runda $5$ (emitiranje):</b> $k$-ti vrh komponente $i$ ($i\ne k$) uzme minimum primljenih vrijednosti — to je najlakši brid između komponenata $i$ i $k$ — i emitira ga ($48$ bita; par $(i,k)$ svi znaju iz položaja pošiljatelja). Vrh s $i=k$ emitira zbroj. Svaki je par $(i,k)$ pokriven dvaput (iz obje strane), što ovdje ne smeta.</p>
+<p><b>Runda $6$:</b> svi znaju sažeti graf (vrhovi = komponente, težina brida = najlakši brid između njih) i zbroj dosad usvojenih bridova; MST sažetog grafa računaju „u glavi” (po svojstvu reza bridovi MST-a između komponenata uvijek su najlakši bridovi između tih komponenata) i odgovaraju $X=$ zbroj $+$ težina MST-a sažetog grafa. Slanja u rundama $0$–$5$ ($6$ „emitiranja”, od kojih je jedno ciljano) → $7$ rundi.</p>
+</dodatak>
+
+<h2>Puno rješenje: Borůvka + kontrakcija + prvi potez $\times3$ <span class="bodovi">100</span> <span class="slajd-ref">slajdovi 53–61</span></h2>
+<h3>Borůvkin algoritam + kontrakcija + prvi potez $\times3$: $6$ rundi</h3>
+<p><b>Zapravo se može iskoristiti prvi potez $\times3$!</b></p>
+<ul>
+    <li>Svaki vrh $i$ emitira odredište 1st min brida između $i$ i (vrhova koji nisu povezani s $i$) ($8$ bita).</li>
+    <li>Svaki vrh $i$ emitira (težinu, odredište) 2nd min brida između $i$ i (vrhova koji nisu povezani s $i$) ($56$ bita).</li>
+    <li>Ako 1st min bridovi pokazuju uzajamno, nakon usvajanja tog brida najlakši brid koji izlazi iz te komponente je „lakši od dvaju 2nd min bridova”. I taj brid možemo usvojiti!</li>
+</ul>
+<p><b>Kako zbrojiti težine usvojenih 1st min bridova?</b></p>
+<ul>
+    <li>Težinu usvojenog 1st min brida znaju samo dva kraja tog brida<br>→ <b>neka jedan od njih drži zbroj težina usvojenih 1st min bridova!</b></li>
+    <li>Težinu usvojenog 2nd min brida zna svatko<br>→ <b>neka zbroj drži vrh $0$!</b></li>
+</ul>
+<dodatak>
+<p>Konkretno: 1st min brid vrha $i$ (prema $j$) uvijek je usvojen; neka njegovu težinu $A_{i,j}$ drži vrh $i$, osim kod uzajamnog para $i\leftrightarrow j$, gdje je drži samo manji od njih (drugi drži $0$). Tako svaki vrh od runde $1$ nosi u poruci samome sebi „svoju čuvanu težinu” — to je dopušteno jer vrh svoje emitirane podatke može sam rekonstruirati (tehnika 3). Vrh $0$ uz to zbraja težine usvojenih 2nd min bridova (javne su) i težine usvojene u Borůvkinim fazama koje slijede (također javne).</p>
+</dodatak>
+
+<ul>
+    <li><b>Prvi potez $\times3$</b>
+        <ul>
+            <li>težinu usvojenog 1st min brida drži jedan kraj tog brida;</li>
+            <li>težinu usvojenog 2nd min brida drži vrh $0$.</li>
+        </ul>
+    </li>
+    <li><b>Borůvkin algoritam $2$ puta</b>
+        <ul><li>težine usvojenih bridova drži vrh $0$.</li></ul>
+    </li>
+    <li><b>Kako zbrojiti težine bridova koje drže pojedini vrhovi?</b></li>
+    <li><b>Kontrakcija</b>
+        <ul><li><b>Broj komponenata povezanosti veći je od veličine komponenata!</b></li></ul>
+    </li>
+</ul>
+
+<p><b>Kako zbrojiti težine bridova koje drže pojedini vrhovi?</b></p>
+<table>
+    <tr><th></th><th>$i\ne k$</th><th>$i=k$</th></tr>
+    <tr><td>$k$-ti vrh komponente $i$</td><td>emitira najmanju težinu između (komponente $i$) i (komponente $k$)</td><td>emitira „zbroj težina usvojenih bridova”</td></tr>
+    <tr><td>da bi to mogao, ($k$-ti vrh komponente $i$)</td><td>od svakog vrha $j$ (komponente $k$) prima najmanju težinu između $j$ i (komponente $i$)</td><td><b>od bilo kojeg vrha prima „zbroj težina usvojenih bridova”</b></td></tr>
+</table>
+<p>Istaknuto polje mijenjamo:</p>
+<table>
+    <tr><th></th><th>$i\ne k$</th><th>$i=k$</th></tr>
+    <tr><td>$k$-ti vrh komponente $i$</td><td>emitira najmanju težinu između (komponente $i$) i (komponente $k$)</td><td>emitira „zbroj težina usvojenih bridova”</td></tr>
+    <tr><td>da bi to mogao, ($k$-ti vrh komponente $i$)</td><td>od svakog vrha $j$ (komponente $k$) prima najmanju težinu između $j$ i (komponente $i$)</td><td><b>od svakog vrha prima „težinu koju taj vrh drži”</b></td></tr>
+</table>
+<dodatak>
+<p>Zbroj više ne zna nitko sam: dijelovi su raspršeni (svaki vrh drži težinu svog 1st min brida, vrh $0$ ostatak). Zato u rundi ciljanih poruka <i>svaki</i> vrh $j$ pošalje svoju čuvanu težinu vrhu s $i=k$ (odnosno, u konačnoj verziji, $0$-tom vrhu komponente), koji ih zbroji i emitira ukupni zbroj. Zbroj svih čuvanih težina upravo je zbroj težina svih dosad usvojenih bridova, jer je svaki usvojeni brid pribrojen točno jednom.</p>
+</dodatak>
+
+<p><b>Komponenata veličine $12$ ima najviše $21$, pa se ne mogu poslati sve informacije…?</b></p>
+<table>
+    <tr><th></th><th>$i\ne k$</th><th>$i=k$</th></tr>
+    <tr><td>$k$-ti vrh komponente $i$</td><td><b>emitira najmanju težinu između (komponente $i$) i (komponente $k$)</b></td><td>emitira „zbroj težina usvojenih bridova”</td></tr>
+    <tr><td>da bi to mogao, ($k$-ti vrh komponente $i$)</td><td>od svakog vrha $j$ (komponente $k$) prima najmanju težinu između $j$ i (komponente $i$)</td><td>od svakog vrha prima „težinu koju taj vrh drži”</td></tr>
+</table>
+<p>→ <b>Budući da je $\binom{21}{2}=210\lt256$, vrhova bi trebalo biti dovoljno!</b></p>
+<dodatak>
+<p>Nakon prvog poteza $\times3$ komponente su $\ge3$, nakon dvije Borůvkine faze $\ge12$, dakle ima ih najviše $\lfloor256/12\rfloor=21$. Shema „$k$-ti vrh komponente $i$ za svaki $k$” traži barem $21$ vrh po komponenti, a imamo ih samo $12$. No neuređenih parova komponenata ima najviše $\binom{21}{2}=210$, a vrhova je $N\le256$: ako svaki par pokrijemo samo <i>jednom</i> (a ne iz obje strane), vrhova ima dovoljno.</p>
+</dodatak>
+
+<p><b>Da ne bismo bridove slali u oba smjera, komponenta $i$ emitira bridove komponente $i\to i+\{1,2,\dots,10\}\ (\mathrm{mod}\ N)$!</b></p>
 <table>
     <tr><th></th><th>$k\ne0$</th><th>$k=0$</th></tr>
-    <tr><td>$k$-ti vrh komponente $i$ <b>emitira</b></td><td>min težinu (komp. $i$) – (komp. $i+k$)</td><td>zbroj težina usvojenih bridova</td></tr>
-    <tr><td>za to u prethodnoj rundi <b>prima</b> od</td><td>svakog vrha $j$ komponente $i+k$: min težinu $j$ – (komp. $i$)</td><td>svakog vrha: „težinu koju čuva”</td></tr>
+    <tr><td>$k$-ti vrh komponente $i$</td><td>emitira najmanju težinu između (komponente $i$) i <b>(komponente $i+k$)</b></td><td>emitira „zbroj težina usvojenih bridova”</td></tr>
+    <tr><td>da bi to mogao, ($k$-ti vrh komponente $i$)</td><td>od svakog vrha $j$ <b>(komponente $i+k$)</b> prima najmanju težinu između $j$ i (komponente $i$)</td><td>od svakog vrha prima „težinu koju taj vrh drži”</td></tr>
 </table>
-<p>Poruke prve runde nisu emitiranje nego <b>ciljane</b>: vrh $j$ svakom primatelju šalje drugačiji sadržaj (min od $j$ do primateljeve komponente, odnosno svoj čuvani zbroj $0$-tom vrhu). Nakon druge runde svi znaju sažeti graf komponenata (sve parne minimume) i zbroj ⇒ MST sažetog grafa u glavi ⇒ odgovor. Runde: $4+2=6$ emitiranja ⇒ 7 rundi.</p>
-<p><b>Punih 6 rundi:</b> prvi potez ×3 + 2 faze Borůvke daje komponente $\ge12$, dakle do $21$ komponenta — više komponenata nego vrhova po komponenti, pa „$k$-ti vrh za svaki $k$” ne postoji. Ali parova komponenata ima $\binom{21}{2}=210\lt256$: svaki par pokrij <b>jednom</b> — komponenta $i$ emitira minimume prema komponentama $i+1,\dots,i+10\pmod{C}$ (treba $\le10\le12$ vrhova). Ukupno $1+2+2=5$ emitiranja ⇒ <b>6 rundi</b>.</p>
-<p class="trener-umetak"><b>Bonus:</b> ista shema s $x$ vrhova po komponenti može emitirati do $(x-1)$-ti minimum iz komponente ⇒ komponente se množe s $x$ ⇒ $O(\log\log N)$ rundi. U CONGEST modelu (svaki brid prenosi $O(\log N)$ bita po rundi) MST je rješiv u $O((D+\sqrt N)\log N)$ rundi [Elkin 2020]; s neograničenim pamćenjem $O(1)$ rundi [Nowicki 2021].</p>
+<dodatak>
+<p>„$\mathrm{mod}\ N$” na slajdu odnosi se na broj komponenata (označimo ga $C\le21$), ne na broj vrhova: komponente numeriramo $0,\dots,C-1$ i komponenta $i$ pokriva parove $\{i,\,i+k \bmod C\}$ za $k=1,\dots,10$. Za $C=21$ razlike $k$ i $21-k$ ($k=1..10$) pokrivaju svih $20$ „udaljenosti”, pa je svaki neuređeni par pokriven točno jednom; za manji $C$ neki parovi budu pokriveni dvaput (ili $k$ ograničimo na $\lfloor (C-1)/2\rfloor$ odnosno $\lceil (C-1)/2\rceil$), što ne smeta. Potrebno je $11$ vrhova po komponenti ($k=0,\dots,10$), a svaka ih ima $\ge12$.</p>
+<p>Runda ciljanih poruka (runda $3$): vrh $j$ iz komponente $c$ šalje $k$-tom vrhu komponente $i$ vrijednost $\min_{v\in\text{komp. }i}A_{j,v}$ za svaki $k\in\{1,\dots,10\}$ s $i+k\equiv c\pmod C$, a $0$-tom vrhu <i>svake</i> komponente svoju čuvanu težinu; ostalim primateljima ne šalje ništa bitno. Nitko ne prima dvije različite stvari za isti slot jer su primatelji s $k=0$ i $k\ge1$ različiti vrhovi.</p>
+</dodatak>
 
-@@ trener
-<ol class="koraci">
-<li>
-    <details class="spoiler korak">
-        <summary>Što znači „emitirati”?</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Pošalji isto svima — tada svi u sljedećoj rundi računaju isto. Poruka sebi = jedino pamćenje.</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Koji MST algoritam je paralelan?</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Borůvka: svaka komponenta traži najlakši izlazni brid — jedna faza po rundi; $\log_2N=8$ faza. Kako smanjiti na 5?</p>
-        </div>
-    </details>
-</li>
-<li>
-    <details class="spoiler korak">
-        <summary>Štedi bitove i runde</summary>
-        <div class="spoiler-sadrzaj">
-            <p>Runda 0: cilj 1st-mina stane u 8 bita, ostatak za 2nd-min ⇒ komponente $\ge3$. Kad je komponenata malo, raspodijeli parove komponenata po vrhovima i sažmi graf u dvije runde.</p>
-        </div>
-    </details>
-</li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Nedeterminizam ili oslanjanje na redoslijed poziva — funkcija smije ovisiti samo o argumentima.</li>
-        <li>Tie-break: svi moraju identično birati bridove; koristi (težina, $i$, $j$) leksikografski.</li>
-        <li>Zbroj težina do $255\cdot2^{48}$ ⇒ 56 bita; ne gubi ga — netko ga mora nositi svaku rundu.</li>
-        <li>Suvišna faza Borůvke kad je graf već povezan (tehnika 2) košta rundu.</li>
-    </ul>
-</div>
+<h3>Borůvkin algoritam + kontrakcija + prvi potez $\times3$: $6$ rundi — sažetak</h3>
+<ul>
+    <li><b>Prvi potez $\times3$</b>
+        <ul>
+            <li>težinu usvojenog 1st min brida drži jedan kraj tog brida;</li>
+            <li>težinu usvojenog 2nd min brida drži vrh $0$.</li>
+        </ul>
+    </li>
+    <li><b>Borůvkin algoritam $2$ puta</b>
+        <ul><li>težine usvojenih bridova drži vrh $0$.</li></ul>
+    </li>
+    <li><b>Kontrakcija ($2$ runde)</b>
+        <ul><li>komponenta $i$ emitira bridove komponente $i\to i+\{1,2,\dots,10\}\ (\mathrm{mod}\ N)$.</li></ul>
+    </li>
+</ul>
+<p><b>$5$ emitiranja $=$ gotovo u $6$ rundi!</b></p>
+<dodatak naslov="Raspored rundi punog rješenja">
+<table>
+    <tr><th>runda</th><th>tko šalje što</th><th>stanje u sljedećoj rundi</th></tr>
+    <tr><td>$0$</td><td>svaki $i$: odredište 1st min ($8$ b) + 2nd min (težina, odredište) ($56$ b)</td><td>komponente $\ge3$</td></tr>
+    <tr><td>$1$</td><td>Borůvka: $\mathrm{leader}[i]$ ($8$ b) + (min težina, odredište) ($56$ b); sebi: čuvana težina</td><td>komponente $\ge6$</td></tr>
+    <tr><td>$2$</td><td>Borůvka kao u rundi $1$</td><td>komponente $\ge12$, najviše $21$</td></tr>
+    <tr><td>$3$</td><td>ciljano: minimumi prema komponentama $i+k$ i čuvane težine $0$-tim vrhovima</td><td>$k$-ti vrhovi znaju minimume parova, $0$-ti vrhovi znaju zbroj</td></tr>
+    <tr><td>$4$</td><td>emitiranje: najmanja težina para $(i,i+k)$ ($48$ b) odnosno zbroj ($56$ b)</td><td>svi znaju sažeti graf i zbroj</td></tr>
+    <tr><td>$5$</td><td>odgovor $X=$ zbroj $+$ MST sažetog grafa</td><td>—</td></tr>
+</table>
+<p>Bitovi: u rundi $0$ je $8+56=64$; u Borůvkinim rundama $8+48+8=64$; u rundi $3$ najviše $56$ (zbroj $\le255\cdot2^{48}\lt2^{56}$) ili $48$; u rundi $4$ najviše $56$. Poruka samome sebi u rundi $0$ ne postoji (sve je emitiranje), ali ni ne treba: čuvana težina je $A_{i,j}$ koju vrh zna iz retka; u rundama $1$ i $2$ vrh je nosi porukom sebi (vlastite emitirane podatke može rekonstruirati). Vrh $0$ zbroj 2nd min i Borůvkinih bridova nosi na isti način. Ovo vrijedi za svih $48$ bita težine, dakle za podzadatke 5 i 6, i daje $100$ bodova.</p>
+</dodatak>
 
-@@ analiza
-<slajdovi from="1" to="8" naslov="Zadatak i bodovanje">
-    <s n="1">Naslov; tatyam.</s>
-    <s n="2">Potpun težinski graf s $N$ vrhova.</s>
-    <s n="3">Težine skrivene; svaki vrh zna svoje bridove.</s>
-    <s n="4">Svi zajedno distribuirano računaju težinu MST-a $X$.</s>
-    <s n="5">Runda: primi 64 bita od svakog vrha prethodne runde; ako znaš $X$, odgovori; inače pošalji 64 bita svakom vrhu sljedeće runde (i sebi samo 64 bita!).</s>
-    <s n="6">Koliko rundi? $N\le256$, težine 48 bita.</s>
-    <s n="7">Tablica podzadataka: 6 rundi za 100 %, 7 → 80 %, 8 → 60 %, 9 → 40 %, 10 → 30 %.</s>
-    <s n="8">Je li 6 rundi uopće moguće?</s>
-</slajdovi>
+<h2>Dodatak: $O(\log\log N)$ rundi, $O(1)$ rundi, CONGEST model <span class="slajd-ref">slajdovi 62–65</span></h2>
+<h3>Dodatak: $O(\log\log N)$ rundi</h3>
+<p>Zapravo, uz malu izmjenu dobiva se $O(\log\log N)$ rundi.</p>
+<table>
+    <tr><th></th><th>$k\ne0$</th><th>$k=0$</th></tr>
+    <tr><td>$k$-ti vrh komponente $i$</td><td><b>emitira (težinu, odredište) $k$-tog najlakšeg ($k$-th min) brida koji izlazi iz komponente $i$ nakon kontrakcije</b></td><td>emitira „zbroj težina usvojenih bridova”</td></tr>
+    <tr><td>da bi to mogao, ($k$-ti vrh komponente $i$)</td><td>od svakog vrha $j$ prima najmanju težinu između $j$ i (komponente $i$)</td><td>od svakog vrha prima „težinu koju taj vrh drži”</td></tr>
+</table>
+<p><b>Ako je veličina komponente barem $x$, može se emitirati sve do $(x-1)$-tog najlakšeg brida, pa se veličina komponenata može pomnožiti s $x$!</b></p>
+<dodatak naslov="Zašto to daje $O(\log\log N)$ rundi">
+<p>Ovdje „$k$-ti najlakši brid koji izlazi iz komponente $i$ nakon kontrakcije” shvaćamo kao $k$-ti najlakši među bridovima sažetog grafa iz komponente $i$ (jedan brid po susjednoj komponenti — najlakši brid prema njoj). Svaki vrh $j$ u rundi ciljanih poruka pošalje $k$-tom vrhu komponente $i$ ($k\ge1$, za svaku komponentu $i$) najmanju težinu od $j$ do komponente $i$; $k$-ti vrh komponente $i$ tada zna sve bridove sažetog grafa iz $i$ i emitira $k$-ti najlakši. Nakon emitiranja svi znaju za svaku komponentu njezinih $x-1$ najlakših izlaznih bridova (prema različitim komponentama).</p>
+<p>Iz toga se „u glavi” simulira Borůvka na sažetom grafu: dok god neka nova (spojena) nadkomponenta sadrži $s\le x-1$ starih komponenata, svaka stara komponenta $c$ u njoj ima među svojih $x-1$ poznatih bridova najviše $s-1$ unutarnjih, dakle barem jedan prema van, i najlakši takav je pravi najlakši izlazni brid od $c$; minimum preko članova je pravi najlakši izlazni brid nadkomponente, koji se po svojstvu reza smije usvojiti. Ponavljamo dok sve nadkomponente ne sadrže $\ge x$ starih komponenata — svaka veličina pomnožila se barem s $x$. Kad je $x$ trenutna veličina, veličina ide $s\mapsto s^2$ svake dvije runde, pa nakon $O(\log\log N)$ rundi komponente obuhvate cijeli graf. (Ovo je naša rekonstrukcija „male izmjene”; slajd je ne razrađuje.)</p>
+</dodatak>
 
-<h2>Podzadaci 1–2 <span class="bodovi">15 bodova</span></h2>
-<slajdovi from="9" to="18" vrsta="koraci" naslov="Emitiranje, UnionFind, parent">
-    <s n="9">$N\le64$, 1-bitne težine: vrh $i$ spakira redak $A[i]$ u 64 bita i pošalje svima — „emitiranje”.</s>
-    <s n="10">U rundi 1 svi znaju sve bridove ⇒ MST ⇒ 2 runde.</s>
-    <s n="11">$N\le256$: redak ne stane; podijeli — ali ne možemo pamtiti sve primljeno…</s>
-    <s n="12">…dovoljno je usvojiti sve bridove težine 0 i pamtiti stanje komponenata.</s>
-    <s n="13">Reproducirajmo UnionFind.</s>
-    <s n="14">Dovoljno je polje <code>leader[i]</code> (npr. najmanji vrh komponente); vrh $i$ emitira <code>leader[i]</code> na kraju runde.</s>
-    <s n="15">Oprez: svi moraju jednako primiti, jednako usvojiti, jednako ažurirati.</s>
-    <s n="16">Vrh $i$ šalje redak u 5 dijelova po 52 bita + <code>leader[i]</code> (8 bita); odgovor iz broja komponenata; 5 emitiranja ⇒ 6 rundi.</s>
-    <s n="17">Tehnika 1: u polje predstavnika ugradi „koji su bridovi usvojeni”.</s>
-    <s n="18">Umjesto <code>leader[i]</code> šalji <code>parent[i]</code> — vrh za jedan korak prema predstavniku u šumi $T$; iz <code>parent</code> se dobije <code>leader</code>, a informacije je više.</s>
-</slajdovi>
+<h3>Dodatak: $O(1)$ rundi</h3>
+<p>Ako pretpostavimo da</p>
+<ul>
+    <li>svaki vrh može pamtiti neograničeno mnogo informacija,</li>
+    <li>svaki brid može prenijeti $O(\log N)$ bita informacija,</li>
+</ul>
+<p>onda se, navodno, zadatak može riješiti u konstantnom broju rundi [Nowicki, 2021].</p>
+<dodatak>
+<p>Riječ je o modelu <i>Congested Clique</i> (potpun komunikacijski graf, $O(\log N)$ bita po bridu i rundi, neograničeno pamćenje); K. Nowicki, „A Deterministic Algorithm for the MST Problem in Constant Rounds of Congested Clique”, STOC 2021. Zadatak Multi Communication 2 upravo je taj model s dodatnim ograničenjem da se između rundi pamti samo $64$ bita.</p>
+</dodatak>
 
-<h2>Podzadatak 3 <span class="bodovi">15 bodova</span></h2>
-<slajdovi from="19" to="24" vrsta="koraci" naslov="Prim u N rundi">
-    <s n="19">$N\le64$, 48-bitne težine, 80 rundi dopušteno.</s>
-    <s n="20">Kruskal, Prim, Borůvka?</s>
-    <s n="21">Prim je rješenje podzadatka 3 (Kruskal također moguć).</s>
-    <s n="22">Teorem: za svaki rez $S\,|\,T$ najlakši brid između $S$ i $T$ smije u MST.</s>
-    <s n="23">Prim: $S=\{0\}$; $N-1$ puta uzmi najlakši brid $S$–$T$, prebaci $v$ u $S$.</s>
-    <s n="24">Vrh $i\in T$ emitira min težinu do $S$ (48 bita) + bit pripadnosti; vrh 0 emitira zbroj (56 bita). $N$ rundi.</s>
-</slajdovi>
+<h3>Dodatak: CONGEST model</h3>
+<ul>
+    <li>Model u kojem je ulazni neusmjereni graf $=$ računalna mreža:
+        <ul>
+            <li>vrh $=$ računalo,</li>
+            <li>brid $=$ komunikacijski kanal.</li>
+        </ul>
+    </li>
+    <li>Svaki vrh u svakoj rundi može obaviti računanje u polinomnom vremenu i pamtiti neograničeno mnogo.</li>
+    <li>Svaki brid u svakoj rundi može prenijeti $O(\log N)$ bita.</li>
+</ul>
+<skica sirina="360px">
+<svg viewBox="0 0 320 300" role="img" aria-label="CONGEST model: graf čiji su vrhovi računala, a bridovi komunikacijski kanali">
+  <line class="brid" x1="110" y1="50" x2="210" y2="50"/><text class="oznaka-brida" x="160" y="42">3</text>
+  <line class="brid" x1="110" y1="50" x2="40" y2="160"/><text class="oznaka-brida" x="64" y="100">9</text>
+  <line class="brid" x1="210" y1="50" x2="280" y2="160"/><text class="oznaka-brida" x="256" y="100">6</text>
+  <line class="brid" x1="40" y1="160" x2="210" y2="50"/><text class="oznaka-brida" x="110" y="112">3</text>
+  <line class="brid" x1="110" y1="50" x2="280" y2="160"/><text class="oznaka-brida" x="214" y="112">6</text>
+  <line class="brid" x1="110" y1="50" x2="110" y2="260"/><text class="oznaka-brida" x="100" y="150">5</text>
+  <line class="brid" x1="110" y1="50" x2="210" y2="260"/><text class="oznaka-brida" x="150" y="200">1</text>
+  <line class="brid" x1="210" y1="50" x2="30" y2="260"/><text class="oznaka-brida" x="92" y="196">9</text>
+  <line class="brid" x1="280" y1="160" x2="110" y2="260"/><text class="oznaka-brida" x="222" y="196">9</text>
+  <line class="brid" x1="280" y1="160" x2="210" y2="260"/><text class="oznaka-brida" x="258" y="222">0</text>
+  <line class="brid" x1="30" y1="260" x2="110" y2="260"/><text class="oznaka-brida" x="70" y="280">4</text>
+  <line class="brid" x1="110" y1="260" x2="210" y2="260"/><text class="oznaka-brida" x="160" y="280">9</text>
+  <circle class="cvor-plavi" cx="110" cy="50" r="14"/><circle class="cvor-plavi" cx="210" cy="50" r="14"/>
+  <circle class="cvor-plavi" cx="40" cy="160" r="14"/><circle class="cvor-plavi" cx="280" cy="160" r="14"/>
+  <circle class="cvor-plavi" cx="30" cy="260" r="14"/><circle class="cvor-plavi" cx="110" cy="260" r="14"/><circle class="cvor-plavi" cx="210" cy="260" r="14"/>
+  <rect x="101" y="18" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="201" y="18" width="18" height="12" rx="2" fill="#2c5f8a"/>
+  <rect x="31" y="128" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="271" y="128" width="18" height="12" rx="2" fill="#2c5f8a"/>
+  <rect x="21" y="228" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="101" y="228" width="18" height="12" rx="2" fill="#2c5f8a"/><rect x="201" y="228" width="18" height="12" rx="2" fill="#2c5f8a"/>
+</svg>
+<natpis>Slajd 65: u CONGEST modelu sam ulazni graf (koji ne mora biti potpun) čini mrežu — svako računalo razgovara samo sa susjedima, po $O(\log N)$ bita po bridu i rundi.</natpis>
+</skica>
+<p>Literatura: <i>Distribuirani algoritmi na grafovima i optimizacija u mrežama</i> (ネットワーク上の分散グラフアルゴリズムと最適化) – COSS2017.</p>
+<p>Minimalno razapinjuće stablo navodno se može riješiti u $O\big((\text{promjer}+\sqrt N)\log N\big)$ rundi [Elkin, 2020].</p>
+<dodatak>
+<p>M. Elkin, „A Simple Deterministic Distributed MST Algorithm with Near-Optimal Time Complexity” (PODC 2017 / J. ACM 2020); za CONGEST je poznata i donja granica $\tilde\Omega(D+\sqrt N)$, pa je rezultat gotovo optimalan. U našem zadatku graf je potpun (promjer $1$), što je bitno lakši slučaj.</p>
+</dodatak>
 
-<h2>Borůvka <span class="bodovi">9–10 rundi</span></h2>
-<slajdovi from="25" to="35" vrsta="koraci" naslov="Faze, zbroj, poruka sebi">
-    <s n="25">Borůvka: svaka komponenta nađe najlakši izlazni brid; usvoji sve (bez ciklusa). Nakon $k$ faza komponente $\ge2^k$.</s>
-    <s n="26">Tehnika 2: komponente $\ge x$ i $N\le2x-1$ ⇒ povezano — ne radi fazu viška.</s>
-    <s n="27">Bridovi se traže paralelno — idealno za distribuirano računanje.</s>
-    <s n="28">Runda: vrh $i$ emitira <code>leader[i]</code> (8) + (min težina, cilj) izvan komponente (56). Kako zbrojiti?</s>
-    <s n="29">Slanjem <code>parent[i]</code>; 8 emitiranja za MST + 1 za težine $A_{i,\mathrm{parent}[i]}$: 10 rundi.</s>
-    <s n="30">Ima li nepotrebnih informacija?</s>
-    <s n="31">Tehnika 3: poruku sebi ne treba trošiti na isto.</s>
-    <s n="32">Sebi šalji „zbroj usvojenih težina” (56 bita): 8 emitiranja ⇒ 9 rundi.</s>
-    <s n="33">Alternativa: komponente prenumeriraj u $0,1,2,\dots$ — manje od 8 bita.</s>
-    <s n="34">Ušteđene bitove iskoristi tako da vrh $i$ emitira $i$-tu znamenku zbroja u bazi $2^x$; za $N\ge4$ dovoljno; 8 emitiranja ⇒ 9 rundi.</s>
-    <s n="35">Tehnika 4: prvi potez ×3 — što je nepotrebno u rundi 0?</s>
-</slajdovi>
-
-<slajdovi from="36" to="40" vrsta="koraci" naslov="Tehnika 4: prvi potez ×3">
-    <s n="36">Runda 0: <code>parent[i]</code> i (min težina, cilj)…</s>
-    <s n="37">…<code>parent</code> je nepotreban, a težina 1st-mina također — dovoljno je 8 bita cilja!</s>
-    <s n="38">Ostalih 56 bita: 2nd-min (težina, cilj).</s>
-    <s n="39">Ako 1st-min bridovi $i\leftrightarrow j$ pokazuju uzajamno, najlakši brid iz $\{i,j\}$ je lakši od dvaju 2nd-mina — i on smije u MST ⇒ komponente $\ge3$.</s>
-    <s n="40">Runda 0: 1st i 2nd min; dalje <code>parent</code>+(min, cilj). $3\cdot2^6=192$ ⇒ 7 emitiranja za MST + 1 za težine: 9 rundi.</s>
-</slajdovi>
-
-<h2>Podzadatak 4 <span class="bodovi">40 bodova</span></h2>
-<slajdovi from="41" to="42" vrsta="koraci" naslov="Borůvka ×3">
-    <s n="41">Težine 20 bita ⇒ dva para (težina, cilj) po emitiranju!</s>
-    <s n="42"><code>leader</code> + 1st i 2nd min ($28+28$); po komponenti dva najlakša izlazna brida; trik s uzajamnim parovima ⇒ ×3 po fazi; $3^5=243$ ⇒ 5 emitiranja ⇒ 6 rundi.</s>
-</slajdovi>
-
-<h2>Tehnika 5: kontrakcija <span class="bodovi">7 rundi</span></h2>
-<slajdovi from="43" to="52" vrsta="koraci" naslov="Zadnje faze u dvije runde">
-    <s n="43">Podsjetnik 9 rundi: gdje je rasipanje?</s>
-    <s n="44">Veličine $1\to2\to\dots\to256$; usvojenih bridova po fazi $128,64,\dots,1$.</s>
-    <s n="45">Zadnje četiri faze ($16\to256$) usvajaju samo $8+4+2+1$ bridova — spojiti?</s>
-    <s n="46">16 komponenata po 16 vrhova: minimume među komponentama može podijeliti 256 vrhova!</s>
-    <s n="47">Nakon 4 emitiranja komponente $\ge16$. Cilj: $k$-ti vrh komponente $i$ emitira min (komp. $i$)–(komp. $k$).</s>
-    <s n="48">Za to prima od svakog vrha $j$ komponente $k$ min težinu $j$–(komp. $i$). Kako zbrojiti težine?</s>
-    <s n="49">Za $i=k$ emitiranje nije potrebno — tu stavi zbroj usvojenih težina!</s>
-    <s n="50">$k$-ti vrh komponente $i$, ako je $i=k$, emitira zbroj; prije toga ga primi od nekog vrha.</s>
-    <s n="51">Tablica $i\ne k$ / $i=k$; 6 emitiranja ⇒ 7 rundi.</s>
-    <s n="52">Može li stvarno 6 rundi?</s>
-</slajdovi>
-
-<h2>Puno rješenje <span class="bodovi">6 rundi</span></h2>
-<slajdovi from="53" to="61" vrsta="koraci" naslov="Borůvka + kontrakcija + prvi potez ×3">
-    <s n="53">Prvi potez ×3 se može dodati — ali kako zbrojiti težine usvojenih 1st-min bridova?</s>
-    <s n="54">1st-min težinu znaju samo krajnje točke ⇒ jedna od njih čuva zbroj; 2nd-min težine znaju svi ⇒ čuva vrh 0.</s>
-    <s n="55">Plan: ×3 (1) + Borůvka (2) + kontrakcija (2). Problem: komponenata je više nego vrhova po komponenti!</s>
-    <s n="56">Kako zbrojiti raspršene težine? Za $i=k$: primi od nekog vrha.</s>
-    <s n="57">Bolje: $0$-ti vrh prima od <b>svakog</b> vrha njegovu čuvanu težinu (ciljane poruke).</s>
-    <s n="58">Do 21 komponenta veličine 12 — ne može svaki par $(i,k)$ imati svoj vrh?</s>
-    <s n="59">$\binom{21}{2}=210\lt256$ — vrhova je dovoljno.</s>
-    <s n="60">Ne šalji parove u oba smjera: komponenta $i$ emitira minimume prema $i+1,\dots,i+10\pmod C$; $k=0$ emitira zbroj.</s>
-    <s n="61">Sažetak: ×3, Borůvka ×2, kontrakcija ×2: 5 emitiranja = 6 rundi.</s>
-</slajdovi>
-
-<slajdovi from="62" to="66" naslov="Bonus i statistika">
-    <s n="62">Malom izmjenom $O(\log\log N)$ rundi.</s>
-    <s n="63">$k$-ti vrh komponente emitira $k$-ti minimum iz komponente; s veličinom $\ge x$ ide do $(x-1)$-tog ⇒ komponente $\times x$.</s>
-    <s n="64">S neograničenim pamćenjem i $O(\log N)$ bita po bridu: $O(1)$ rundi [Nowicki 2021].</s>
-    <s n="65">CONGEST model: MST u $O((D+\sqrt N)\log N)$ rundi [Elkin 2020].</s>
-    <s n="66">Raspodjela bodova: 1× 100, 1× 58, 2× 20, 1× 6, 10× 5, 15× 0.</s>
-</slajdovi>
+<h2>Raspodjela bodova <span class="slajd-ref">slajd 66</span></h2>
+<table>
+    <tr><th>bodovi</th><th>broj natjecatelja</th><th>kumulativno</th></tr>
+    <tr><td>66</td><td>1</td><td>1</td></tr>
+    <tr><td>58</td><td>1</td><td>2</td></tr>
+    <tr><td>20</td><td>2</td><td>4</td></tr>
+    <tr><td>6</td><td>1</td><td>5</td></tr>
+    <tr><td>5</td><td>10</td><td>15</td></tr>
+    <tr><td>0</td><td>15</td><td>30</td></tr>
+</table>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Emitiranje čini znanje zajedničkim; Borůvka faza = runda; poruka sebi nosi zbroj.</li>
-        <li>Runda 0 ×3 (2nd-min), dvije faze Borůvke, pa dvije runde kontrakcije s raspodjelom parova komponenata po vrhovima: 6 rundi.</li>
+        <li><b>Emitiranje</b> (ista $64$-bitna poruka svima) čini znanje zajedničkim, pa svi vrhovi deterministički računaju isto stanje komponenata ($\mathrm{leader}$/$\mathrm{parent}$, tehnika 1); jedna Borůvkina faza stane u jedno emitiranje: $8$ bita komponenta $+$ $56$ bita (najlakši brid, odredište).</li>
+        <li>Poruka samome sebi je jedino pamćenje — umjesto kopije emitiranja nosi tekući zbroj težina (tehnika 3); ne radi se faza viška kad je graf već sigurno povezan (tehnika 2).</li>
+        <li><b>Prvi potez $\times3$</b> (tehnika 4): u rundi $0$ komponente su jednočlane, pa $8$ bita odredišta opisuje 1st min brid, a ostalih $56$ bita nosi 2nd min; uzajamni parovi usvoje i lakši 2nd min → komponente $\ge3$. S $20$-bitnim težinama stanu dva para u svakoj fazi → $\times3$ po fazi, $3^5=243$ → $6$ rundi (podzadatak 4).</li>
+        <li><b>Kontrakcija u $2$ runde</b> (tehnika 5): kad je komponenata malo, parove komponenata raspodijelimo po vrhovima — ciljane poruke pa jedno emitiranje najmanjih težina između komponenata i zbroja — i MST sažetog grafa dovršimo „u glavi”.</li>
+        <li>Puno rješenje: $\times3$ ($1$) $+$ Borůvka ($2$) $+$ kontrakcija ($2$) $=5$ emitiranja $=6$ rundi; s $\le21$ komponentom veličine $\ge12$ parovi $\{i,i+k\}$, $k=1..10$, pokrivaju sve $\binom{21}{2}=210\lt256$ parova. Bonus: $k$-ti najlakši bridovi daju $O(\log\log N)$ rundi.</li>
     </ul>
 </div>
