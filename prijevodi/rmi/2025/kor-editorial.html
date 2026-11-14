@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RMI 2025 — Kralj štakora: analiza rješenja</title>
+    <script src="../../../assets/js/asset-errors.js"></script>
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../assets/css/pozadina.css">
+    <script defer src="../../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../../assets/css/joisc.css">
+    <script src="../../../assets/js/joisc.js"></script>
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="kor.html">← Natrag na zadatak</a> · <a href="index.html">RMI 2025</a> · <a href="../../../index.html">Početna</a></p>
+    <article class="analiza">
+        <header>
+            <p class="nadnaslov">Analiza rješenja · Romanian Master of Informatics 2025 · Dan 2</p>
+            <h1>Kralj štakora</h1>
+            <p class="meta"><i>King of Rats</i> · podzadaci: 10, 5, 5, 15, 10, 15, 40 (ukupno 100)</p>
+        </header>
+        <div class="uvodnik">
+            <h3>O ovom članku</h3>
+            <p>RMI ne objavljuje pisani editorial, pa je ova analiza napisana prema službenim rješenjima iz paketa zadatka i prema prihvaćenim (AC) rješenjima natjecatelja na QOJ-u (službena rješenja iz paketa: solidk.cpp, solkklog.cpp, solkk.cpp, solk.cpp; AC predaje s QOJ-a nisu bile dostupne). Svaki opisani pristup implementiran je i provjeren na službenim testovima. Rješenje je izloženo podzadatak po podzadatak. Gumb <span class="info-gumb-primjer" aria-hidden="true">i</span> otvara karticu s dodatnim objašnjenjem pojma.</p>
+        </div>
+<h2>Pregled zadatka</h2>
+<p>Na ploču $2\times n$ postavljamo točno $k$ vojnika (jedinica); svaki od $\binom{2n}{k}$ rasporeda jednako je vjerojatan. Traži se očekivani broj komponenti povezanosti (susjedne su ćelije koje dijele stranicu), kao ostatak modulo $M=998\,244\,353$. Funkcija <code>solve(n, k)</code> poziva se najviše $10$ puta, uz $n\le10^9$ i $k\le10^6$.</p>
+<p>Kroz cijeli članak koristimo ove oznake:</p>
+<ul>
+    <li>$S(n,k)$ je <b>zbroj</b> broja komponenti po svim konfiguracijama. Traženi je odgovor $S(n,k)\big/\binom{2n}{k}$, pa je dovoljno izračunati $S(n,k)$ modulo $M$ i pomnožiti ga modularnim inverzom od $\binom{2n}{k}$.</li>
+    <li>Redove označavamo s $1$ (gornji) i $2$ (donji), stupce s $1,\dots,n$. Za stupac $c$ neka je $A_c\subseteq\{1,2\}$ skup redova u kojima u tom stupcu stoji vojnik; dogovorno je $A_0=\emptyset$. Stupac ima četiri moguća stanja: $\emptyset$, $\{1\}$, $\{2\}$, $\{1,2\}$.</li>
+    <li>Dogovorno je $\binom{a}{b}=0$ za $b\lt0$ ili $b\gt a$, te $S(n,j)=0$ za $j\lt0$.</li>
+</ul>
+<p><b>Ključno zapažanje</b> (bez rješenja): ploča ima samo dva reda, pa se broj komponenti može odrediti <em>lokalno</em> — gledajući samo parove susjednih stupaca. Svi pristupi u nastavku počivaju na tome; razlikuju se samo po tome koliko pametno zbrajaju te lokalne doprinose.</p>
+<p>Bodovi po podzadacima: $n\le100$ (10), $n\le2000$ (5), $k\le3$ (5), $k\le40$ (15), $k\le400$ (10), $k\le2000$ (15), bez ograničenja (40).</p>
+
+<h3>Komponente i početni stupci</h3>
+<p>Stupac $c$ ($1\le c\le n$) zovemo <b>početnim</b> ako je $A_c\neq\emptyset$ i $A_{c-1}\cap A_c=\emptyset$, tj. ako u njemu postoji vojnik, a nijedan vojnik tog stupca nema vojnika neposredno lijevo od sebe.</p>
+<div class="tvrdnja">
+<p><strong>Lema 1.</strong> Broj komponenti povezanosti jednak je broju početnih stupaca.</p>
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Svakoj komponenti pridružimo njezin <em>najljeviji</em> stupac (najmanji $c$ u kojem komponenta ima ćeliju). Pokazujemo da je to pridruživanje bijekcija između komponenti i početnih stupaca.</p>
+<p class="dokaz"><em>Najljeviji stupac komponente je početni.</em> Neka komponenta $X$ ima najljeviji stupac $c$ i neka je $(r,c)\in X$. Pretpostavimo suprotno, da postoji red $r'\in A_{c-1}\cap A_c$. Ako je $r'=r$, ćelija $(r,c-1)$ susjedna je ćeliji $(r,c)$ pa pripada $X$. Ako je $r'\neq r$, onda je $A_c=\{1,2\}$, ćelije $(r,c)$ i $(r',c)$ su susjedne (jedna iznad druge), pa $(r',c)\in X$, a time i $(r',c-1)\in X$. U oba slučaja $X$ ima ćeliju u stupcu $c-1$, što je kontradikcija.</p>
+<p class="dokaz"><em>Različite komponente imaju različite najljevije stupce.</em> Kad bi dvije komponente imale isti najljeviji stupac $c$, svaka bi u njemu imala po jednu ćeliju, pa bi bilo $A_c=\{1,2\}$. No te su dvije ćelije susjedne, dakle u istoj komponenti — kontradikcija.</p>
+<p class="dokaz"><em>Svaki početni stupac je najljeviji stupac neke komponente.</em> Neka je $c$ početni stupac i $X$ komponenta koja sadrži neku ćeliju stupca $c$. Svaki put kroz susjedne jedinice od stupca $c$ do nekog stupca lijevo od njega morao bi u nekom trenutku prijeći iz stupca $c$ u stupac $c-1$, i to vodoravno, u istom redu $r$; tada bi bilo $r\in A_{c-1}\cap A_c$, što je nemoguće. Zato $X$ nema ćelija lijevo od stupca $c$. $\blacksquare$</p>
+
+<figure class="skica" style="max-width:420px">
+<svg viewBox="0 0 360 160" role="img" aria-label="Matrica 2 puta 8 s tri komponente i označenim početnim stupcima 1, 5 i 6">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46">0</text>
+  <rect class="cvor" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82">0</text>
+  <rect class="cvor" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46">0</text>
+  <rect class="cvor-zeleni" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82">1</text>
+  <rect class="cvor-istaknut" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46">1</text>
+  <rect class="cvor" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82">0</text>
+  <rect class="cvor-istaknut" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46">1</text>
+  <rect class="cvor-istaknut" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82">1</text>
+  <rect class="cvor-istaknut" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46">1</text>
+  <rect class="cvor-istaknut" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82">1</text>
+  <path class="brid-tezak" d="M54 132 V108" style="stroke-width:3"/><path d="M48 114 L54 104 L60 114 z" fill="#c0392b"/>
+  <path class="brid-tezak" d="M198 132 V108" style="stroke-width:3"/><path d="M192 114 L198 104 L204 114 z" fill="#c0392b"/>
+  <path class="brid-tezak" d="M234 132 V108" style="stroke-width:3"/><path d="M228 114 L234 104 L240 114 z" fill="#c0392b"/>
+  <text class="tekst-naglasen" x="180" y="150" style="text-anchor:middle">početni stupci: 1, 5 i 6</text>
+</svg>
+<figcaption>Primjer za $n=8$, $k=10$: tri komponente (plava, zelena, žuta) i tri početna stupca — $1$, $5$ i $6$. Stupac $6$ je početni iako je stupac $5$ neprazan, jer su vojnici u različitim redovima ($A_5\cap A_6=\emptyset$).</figcaption>
+</figure>
+
+<div class="slajdovi okviri" data-vrsta="koraci" role="group" aria-roledescription="prikaz skica" aria-label="Brojanje komponenti prolaskom po stupcima">
+    <div class="slajdovi-naslov">
+        <span class="oznaka">Koraci algoritma</span>
+        <span class="naslov-slajdova">Brojanje komponenti prolaskom po stupcima</span>
+        <span class="brojac">8 skica</span>
+    </div>
+    <ol class="slajd-popis">
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 1: obrađen stupac 1, brojač komponenti 1">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-sivi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="33" y="25" width="42" height="78"/>
+  <text class="tekst-naglasen" x="36" y="128">stupac 1: početni stupac: +1</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 1</text>
+</svg>
+                <figcaption><span class="broj-slajda">1</span>Stupac 1: $A_1=\{1\}$, a lijevo nema ničega ($A_0=\emptyset$). Stupac je početni — otvara se prva komponenta. Brojač: 1.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 2: obrađen stupac 2, brojač komponenti 1">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor-sivi" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="69" y="25" width="42" height="78"/>
+  <text class="tekst" x="36" y="128">stupac 2: nastavak komponente</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 1</text>
+</svg>
+                <figcaption><span class="broj-slajda">2</span>Stupac 2: $A_2=\{1,2\}$ i $A_1\cap A_2=\{1\}\neq\emptyset$. Gornja ćelija se nastavlja na stupac 1, a donja je s njom spojena okomito — nema nove komponente. Brojač: 1.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 3: obrađen stupac 3, brojač komponenti 1">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor-sivi" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="105" y="25" width="42" height="78"/>
+  <text class="tekst" x="36" y="128">stupac 3: nastavak komponente</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 1</text>
+</svg>
+                <figcaption><span class="broj-slajda">3</span>Stupac 3: $A_3=\{2\}$, $A_2\cap A_3=\{2\}$. Ćelija produljuje postojeću komponentu. Brojač: 1.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 4: obrađen stupac 4, brojač komponenti 1">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46">0</text>
+  <rect class="cvor" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82">0</text>
+  <rect class="cvor-sivi" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="141" y="25" width="42" height="78"/>
+  <text class="tekst" x="36" y="128">stupac 4: prazan stupac</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 1</text>
+</svg>
+                <figcaption><span class="broj-slajda">4</span>Stupac 4 je prazan ($A_4=\emptyset$), pa ne može biti početni. Brojač: 1.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 5: obrađen stupac 5, brojač komponenti 2">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46">0</text>
+  <rect class="cvor" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82">0</text>
+  <rect class="cvor" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46">0</text>
+  <rect class="cvor-zeleni" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82">1</text>
+  <rect class="cvor-sivi" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82" style="fill:#a9b4c0">0</text>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="177" y="25" width="42" height="78"/>
+  <text class="tekst-naglasen" x="36" y="128">stupac 5: početni stupac: +1</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 2</text>
+</svg>
+                <figcaption><span class="broj-slajda">5</span>Stupac 5: $A_5=\{2\}$, $A_4=\emptyset$, presjek je prazan — stupac je početni. Brojač: 2.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 6: obrađen stupac 6, brojač komponenti 3">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46">0</text>
+  <rect class="cvor" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82">0</text>
+  <rect class="cvor" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46">0</text>
+  <rect class="cvor-zeleni" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82">1</text>
+  <rect class="cvor-istaknut" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46">1</text>
+  <rect class="cvor" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82">0</text>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="213" y="25" width="42" height="78"/>
+  <text class="tekst-naglasen" x="36" y="128">stupac 6: početni stupac: +1</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 3</text>
+</svg>
+                <figcaption><span class="broj-slajda">6</span>Stupac 6: $A_6=\{1\}$, $A_5=\{2\}$. Stupci su neprazni, ali vojnici su u različitim redovima, pa se ne dodiruju: presjek je prazan i stupac 6 je početni. Brojač: 3.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 7: obrađen stupac 7, brojač komponenti 3">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46">0</text>
+  <rect class="cvor" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82">0</text>
+  <rect class="cvor" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46">0</text>
+  <rect class="cvor-zeleni" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82">1</text>
+  <rect class="cvor-istaknut" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46">1</text>
+  <rect class="cvor" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82">0</text>
+  <rect class="cvor-istaknut" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46">1</text>
+  <rect class="cvor-istaknut" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82">1</text>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46" style="fill:#a9b4c0">1</text>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82" style="fill:#a9b4c0">1</text>
+  <rect class="brid-istaknut" x="249" y="25" width="42" height="78"/>
+  <text class="tekst" x="36" y="128">stupac 7: nastavak komponente</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 3</text>
+</svg>
+                <figcaption><span class="broj-slajda">7</span>Stupac 7: $A_7=\{1,2\}$, $A_6\cap A_7=\{1\}$. Obje ćelije pripadaju komponenti iz stupca 6. Brojač: 3.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 360 140" role="img" aria-label="Korak 8: obrađen stupac 8, brojač komponenti 3">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="36" y="28" width="36" height="36"/><text class="oznaka-cvora" x="54" y="46">1</text>
+  <rect class="cvor" x="36" y="64" width="36" height="36"/><text class="oznaka-cvora" x="54" y="82">0</text>
+  <rect class="cvor-plavi" x="72" y="28" width="36" height="36"/><text class="oznaka-cvora" x="90" y="46">1</text>
+  <rect class="cvor-plavi" x="72" y="64" width="36" height="36"/><text class="oznaka-cvora" x="90" y="82">1</text>
+  <rect class="cvor" x="108" y="28" width="36" height="36"/><text class="oznaka-cvora" x="126" y="46">0</text>
+  <rect class="cvor-plavi" x="108" y="64" width="36" height="36"/><text class="oznaka-cvora" x="126" y="82">1</text>
+  <rect class="cvor" x="144" y="28" width="36" height="36"/><text class="oznaka-cvora" x="162" y="46">0</text>
+  <rect class="cvor" x="144" y="64" width="36" height="36"/><text class="oznaka-cvora" x="162" y="82">0</text>
+  <rect class="cvor" x="180" y="28" width="36" height="36"/><text class="oznaka-cvora" x="198" y="46">0</text>
+  <rect class="cvor-zeleni" x="180" y="64" width="36" height="36"/><text class="oznaka-cvora" x="198" y="82">1</text>
+  <rect class="cvor-istaknut" x="216" y="28" width="36" height="36"/><text class="oznaka-cvora" x="234" y="46">1</text>
+  <rect class="cvor" x="216" y="64" width="36" height="36"/><text class="oznaka-cvora" x="234" y="82">0</text>
+  <rect class="cvor-istaknut" x="252" y="28" width="36" height="36"/><text class="oznaka-cvora" x="270" y="46">1</text>
+  <rect class="cvor-istaknut" x="252" y="64" width="36" height="36"/><text class="oznaka-cvora" x="270" y="82">1</text>
+  <rect class="cvor-istaknut" x="288" y="28" width="36" height="36"/><text class="oznaka-cvora" x="306" y="46">1</text>
+  <rect class="cvor-istaknut" x="288" y="64" width="36" height="36"/><text class="oznaka-cvora" x="306" y="82">1</text>
+  <rect class="brid-istaknut" x="285" y="25" width="42" height="78"/>
+  <text class="tekst" x="36" y="128">stupac 8: nastavak komponente</text>
+  <text class="tekst" x="324" y="128" style="text-anchor:end">brojač = 3</text>
+</svg>
+                <figcaption><span class="broj-slajda">8</span>Stupac 8: $A_8=\{1,2\}$, $A_7\cap A_8=\{1,2\}$. Ništa novo. Na kraju je brojač 3 — točno koliko matrica ima komponenti.</figcaption>
+            </figure>
+        </li>
+    </ol>
+    <div class="kontrole">
+        <button type="button" class="prethodni" aria-label="Prethodna skica">◀</button>
+        <input type="range" min="0" max="1" value="0" step="1" aria-label="Odabir skice">
+        <button type="button" class="sljedeci" aria-label="Sljedeća skica">▶</button>
+        <button type="button" class="animiraj" aria-pressed="false">▶ Animiraj</button>
+        <span class="tipkovnica">← → tipke ili klik na skicu</span>
+    </div>
+</div>
+
+<p>Posljedica leme 1 koju ćemo stalno koristiti: je li stupac $c$ početni ovisi <b>samo o stupcima $c-1$ i $c$</b>.</p>
+
+<h2>Podzadaci 1 i 2 <span class="bodovi">15 bodova</span></h2>
+<h3>DP po stupcima ($n\le100$, odnosno $n\le2000$)</h3>
+<p>Ploču gradimo stupac po stupac slijeva nadesno. Da bismo znali je li novi stupac početni, dovoljno je pamtiti stanje zadnjeg stupca; uz to pamtimo koliko smo vojnika dosad postavili. Za svako stanje $(i,a)$ — $i$ postavljenih vojnika, zadnji stupac u stanju $a$ — čuvamo dvije vrijednosti:</p>
+<ul>
+    <li>$\mathrm{cnt}[i][a]$: broj načina da se popuni dosadašnji dio ploče;</li>
+    <li>$\mathrm{sum}[i][a]$: zbroj broja početnih stupaca (dakle, po lemi 1, komponenti) po svim tim načinima.</li>
+</ul>
+<p>Dodavanjem stupca u stanju $b$ prelazimo u stanje $(i+|b|,\,b)$. Broj načina se prenosi, a zbroju se, ako je novi stupac početni, dodaje $1$ za <em>svaki</em> način:</p>
+\[
+\begin{aligned}
+\mathrm{cnt}'[i+|b|][b] &\mathrel{+}= \mathrm{cnt}[i][a],\\
+\mathrm{sum}'[i+|b|][b] &\mathrel{+}= \mathrm{sum}[i][a]+[\,b\neq\emptyset,\ a\cap b=\emptyset\,]\cdot\mathrm{cnt}[i][a].
+\end{aligned}
+\]
+<p>Počinjemo od $\mathrm{cnt}[0][\emptyset]=1$ (zamišljeni prazni stupac $0$). Nakon $n$ stupaca je $S(n,k)=\sum_a\mathrm{sum}[k][a]$, a $\sum_a\mathrm{cnt}[k][a]=\binom{2n}{k}$, pa binomne koeficijente uopće ne trebamo računati.</p>
+<pre><code>int solve(int n, int k) {
+    static const int pc[4] = {0, 1, 1, 2};            // broj vojnika u stanju stupca (maska)
+    vector&lt;array&lt;int,4&gt;&gt; cnt(k + 1), sum(k + 1), nc(k + 1), ns(k + 1);
+    for (auto &amp;x : cnt) x.fill(0);
+    for (auto &amp;x : sum) x.fill(0);
+    cnt[0][0] = 1;                                    // prazni "nulti" stupac
+    for (int col = 1; col &lt;= n; col++) {
+        int hi = min(k, 2 * col);                     // više od 2*col vojnika ne stane
+        for (int i = 0; i &lt;= hi; i++) { nc[i].fill(0); ns[i].fill(0); }
+        for (int i = 0; i &lt;= min(k, 2 * col - 2); i++)
+            for (int a = 0; a &lt; 4; a++) {
+                int c = cnt[i][a], s = sum[i][a];
+                if (!c) continue;
+                for (int b = 0; b &lt; 4; b++) {
+                    int ni = i + pc[b];
+                    if (ni &gt; k) continue;
+                    int add = s;
+                    if (b &amp;&amp; !(a &amp; b)) add = (add + c) % M;   // stupac col je početni
+                    nc[ni][b] = (nc[ni][b] + c) % M;
+                    ns[ni][b] = (ns[ni][b] + add) % M;
+                }
+            }
+        swap(cnt, nc); swap(sum, ns);
+    }
+    long long S = 0, C = 0;
+    for (int a = 0; a &lt; 4; a++) { S += sum[k][a]; C += cnt[k][a]; }
+    return S % M * pw(C % M, M - 2) % M;              // S(n,k) / C(2n,k)
+}</code></pre>
+<p><b>Složenost.</b> $O(n\cdot k)$ vremena po pozivu (uz konstantu $16$ za parove stanja) i $O(k)$ memorije. Za $n\le100$ je $k\le200$ i to je zanemarivo. Za $n\le2000$ je $k\le4000$, pa deset poziva čini oko $1{,}3\cdot10^9$ elementarnih prijelaza: tu je implementacija bitna. Gornji kod (ravna polja, indeks $i$ ograničen na $\min(k,2\cdot\mathrm{col})$) na službenim testovima podzadatka 2 radi do $0{,}93$ s na našem računalu, dok službeni <code>solidk.cpp</code>, koji istu ideju provodi s <code>vector&lt;vector&lt;int&gt;&gt;</code>, na istim testovima treba više od $3$ s (točan je, ali spor).</p>
+<p>Za $n$ do $10^9$ DP po stupcima je beznadan, pa u nastavku tražimo načine da $n$ „preskočimo”.</p>
+
+<h2>Podzadatak 3 <span class="bodovi">5 bodova</span></h2>
+<h3>Najviše tri vojnika: komponente = vojnici − dodiri</h3>
+<p>Promatrajmo graf čiji su vrhovi vojnici, a bridovi parovi vojnika u susjednim ćelijama. Najkraći ciklus u mreži ćelija je kvadrat $2\times2$, za koji trebaju četiri vojnika. Za $k\le3$ graf stoga nema ciklusa — on je šuma — a u šumi je broj komponenti jednak broju vrhova umanjenom za broj bridova (svaki brid šume spaja dvije dotad odvojene komponente). Dakle</p>
+\[\text{broj komponenti}=k-(\text{broj parova susjednih vojnika}).\]
+<p>Očekivani broj parova susjednih vojnika računamo par po par ćelija. Ploča ima $n$ okomitih i $2(n-1)$ vodoravnih parova susjednih ćelija, ukupno $3n-2$. Za fiksni par ćelija, broj konfiguracija u kojima su obje zauzete je $\binom{2n-2}{k-2}$, pa je vjerojatnost toga</p>
+\[p_2=\frac{\binom{2n-2}{k-2}}{\binom{2n}{k}}=\frac{k(k-1)}{2n(2n-1)}.\]
+<p>Očekivanje zbroja je zbroj očekivanja<span class="info"><button type="button" class="info-gumb" aria-expanded="false" title="Linearnost očekivanja i tehnika doprinosa" aria-label="Više informacija: Linearnost očekivanja i tehnika doprinosa">i</button><span class="info-sadrzaj" role="note"><span class="info-naslov">Linearnost očekivanja i tehnika doprinosa</span><span class="odlomak">Ako se veličina koju brojimo može napisati kao zbroj jednostavnih pribrojnika $X=X_1+\dots+X_m$ (ovdje: $X_j=1$ ako su obje ćelije $j$-tog para zauzete, inače $0$), onda je $E[X]=E[X_1]+\dots+E[X_m]$, i to <b>bez obzira na to jesu li pribrojnici međusobno zavisni</b>.</span><span class="odlomak">Isto se može reći i bez vjerojatnosti: zbroj veličine $X$ po svim konfiguracijama jednak je zbroju, po svim pribrojnicima $j$, broja konfiguracija u kojima je $X_j=1$. Umjesto da za svaku konfiguraciju brojimo objekte, za svaki objekt brojimo konfiguracije u kojima se pojavljuje — to je „tehnika doprinosa”.</span><span class="odlomak">U ovom zadatku je to posebno zgodno jer je broj konfiguracija s unaprijed zadanih nekoliko ćelija obični binomni koeficijent: ako je zadano stanje $j$ ćelija, od kojih je $m$ zauzeto, preostalih $k-m$ vojnika biramo među preostalih $2n-j$ ćelija na $\binom{2n-j}{k-m}$ načina.</span></span></span>, pa je za $k\le3$</p>
+\[\text{odgovor}=k-\frac{(3n-2)\,k(k-1)}{2n(2n-1)}.\]
+<p>Provjera na primjeru iz teksta ($n=2$, $k=2$): $2-\frac{4\cdot2}{4\cdot3}=\frac43$. Za $k=0$ i $k=1$ formula daje $0$ i $1$, kao u drugom primjeru. Jedno potenciranje za modularni inverz daje složenost $O(\log M)$ po pozivu.</p>
+<p>Za $k\ge4$ ta formula više ne vrijedi (pojavljuju se ciklusi); kako je popraviti pokazujemo na samom kraju članka, kao drugi pristup punom rješenju.</p>
+
+<h2>Podzadaci 4 i 5 <span class="bodovi">25 bodova</span></h2>
+<h3>Spajanje dviju ploča i udvostručavanje ($k\le40$, odnosno $k\le400$)</h3>
+<p>Sad je $n$ golem, a $k$ malen. Ideja: ploču duljine $m$ ne gradimo stupac po stupac, nego je <b>sastavljamo od dviju kraćih ploča</b>, lijeve duljine $a$ i desne duljine $b$ ($a+b=m$). Tako do duljine $n$ dolazimo u $O(\log n)$ koraka, kao kod brzog potenciranja.</p>
+<div class="tvrdnja">
+<p><strong>Lema 2 (šav).</strong> Neka je ploča duljine $m=a+b$ sastavljena od lijeve ploče (stupci $1,\dots,a$) i desne ploče (stupci $a+1,\dots,m$). Tada je</p>
+\[\text{komp}(\text{cijela})=\text{komp}(\text{lijeva})+\text{komp}(\text{desna})-[\,A_a\cap A_{a+1}\neq\emptyset\,].\]
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Po lemi 1 brojimo početne stupce. Za stupce $1,\dots,a$ uvjet „početni” ovisi samo o stupcima lijeve ploče, pa je isti u cijeloj ploči i u lijevoj ploči promatranoj zasebno. Isto vrijedi za stupce $a+2,\dots,m$ i desnu ploču. Jedina razlika je stupac $a+1$: u desnoj ploči on je prvi stupac, pa je početni čim je neprazan, a u cijeloj ploči mora još biti $A_a\cap A_{a+1}=\emptyset$. Razlika je točno $1$ kad je $A_a\cap A_{a+1}\neq\emptyset$ (tada je $A_{a+1}$ nužno neprazan), a inače $0$. $\blacksquare$</p>
+
+<figure class="skica" style="max-width:420px">
+<svg viewBox="0 0 368 156" role="img" aria-label="Matrica podijeljena na lijevih šest i desna dva stupca; na šavu se komponente spajaju">
+  <text class="tekst-mali" x="42" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="78" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="114" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="150" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="186" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="222" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="286" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="322" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-plavi" x="24" y="28" width="36" height="36"/><text class="oznaka-cvora" x="42" y="46">1</text>
+  <rect class="cvor" x="24" y="64" width="36" height="36"/><text class="oznaka-cvora" x="42" y="82">0</text>
+  <rect class="cvor-plavi" x="60" y="28" width="36" height="36"/><text class="oznaka-cvora" x="78" y="46">1</text>
+  <rect class="cvor-plavi" x="60" y="64" width="36" height="36"/><text class="oznaka-cvora" x="78" y="82">1</text>
+  <rect class="cvor" x="96" y="28" width="36" height="36"/><text class="oznaka-cvora" x="114" y="46">0</text>
+  <rect class="cvor-plavi" x="96" y="64" width="36" height="36"/><text class="oznaka-cvora" x="114" y="82">1</text>
+  <rect class="cvor" x="132" y="28" width="36" height="36"/><text class="oznaka-cvora" x="150" y="46">0</text>
+  <rect class="cvor" x="132" y="64" width="36" height="36"/><text class="oznaka-cvora" x="150" y="82">0</text>
+  <rect class="cvor" x="168" y="28" width="36" height="36"/><text class="oznaka-cvora" x="186" y="46">0</text>
+  <rect class="cvor-zeleni" x="168" y="64" width="36" height="36"/><text class="oznaka-cvora" x="186" y="82">1</text>
+  <rect class="cvor-istaknut" x="204" y="28" width="36" height="36"/><text class="oznaka-cvora" x="222" y="46">1</text>
+  <rect class="cvor" x="204" y="64" width="36" height="36"/><text class="oznaka-cvora" x="222" y="82">0</text>
+  <rect class="cvor-istaknut" x="268" y="28" width="36" height="36"/><text class="oznaka-cvora" x="286" y="46">1</text>
+  <rect class="cvor-istaknut" x="268" y="64" width="36" height="36"/><text class="oznaka-cvora" x="286" y="82">1</text>
+  <rect class="cvor-istaknut" x="304" y="28" width="36" height="36"/><text class="oznaka-cvora" x="322" y="46">1</text>
+  <rect class="cvor-istaknut" x="304" y="64" width="36" height="36"/><text class="oznaka-cvora" x="322" y="82">1</text>
+  <rect class="brid-istaknut" x="201" y="25" width="106" height="78"/>
+  <text class="tekst" x="132" y="124" style="text-anchor:middle">lijevo: 3 komponente</text>
+  <text class="tekst" x="304" y="124" style="text-anchor:middle">desno: 1</text>
+  <text class="tekst-naglasen" x="184" y="146" style="text-anchor:middle">šav: A₆ ∩ A₇ ≠ ∅, pa 3 + 1 − 1 = 3</text>
+</svg>
+<figcaption>Ploča iz prethodnog primjera rastavljena na lijevih $6$ i desna $2$ stupca. Zasebno imaju $3$ i $1$ komponentu; na šavu vojnici u gornjem redu stoje jedan do drugoga, pa se dvije komponente stapaju u jednu.</figcaption>
+</figure>
+
+<p>Zbrojimo lemu 2 po svim konfiguracijama s ukupno $i$ vojnika, od kojih je $j$ u lijevoj ploči. Uz $C_m(i)=\binom{2m}{i}$ dobivamo</p>
+\[
+\begin{aligned}
+S(m,i)&=\sum_{j=0}^{i}\Big(S(a,j)\,C_b(i-j)+C_a(j)\,S(b,i-j)\Big)-T(m,i),\\
+C_m(i)&=\sum_{j=0}^{i}C_a(j)\,C_b(i-j),
+\end{aligned}
+\]
+<p>gdje je $T(m,i)$ broj konfiguracija s $i$ vojnika u kojima se stupci uz šav „dodiruju” ($A_a\cap A_{a+1}\neq\emptyset$). Njega računamo izravno: odaberemo stanja dvaju stupaca uz šav, a preostale vojnike rasporedimo po preostalih $2m-4$ ćelija. Parova stanja s nepraznim presjekom ima sedam:</p>
+<ul>
+    <li>isti jednočlani skup s obje strane — $2$ para, zauzete $2$ ćelije;</li>
+    <li>jednočlani skup s jedne i $\{1,2\}$ s druge strane — $4$ para, zauzete $3$ ćelije;</li>
+    <li>$\{1,2\}$ s obje strane — $1$ par, zauzete $4$ ćelije (i tada se stapaju točno dvije komponente, pa se oduzima $1$, kako i kaže lema 2).</li>
+</ul>
+\[T(m,i)=2\binom{2m-4}{i-2}+4\binom{2m-4}{i-3}+\binom{2m-4}{i-4}.\]
+<p>Uočimo da $T(m,i)$ ne ovisi o tome gdje je šav.</p>
+<p><b>Algoritam.</b> Rekurzivno računamo par nizova $\big(S(m,\cdot),C_m(\cdot)\big)$ za indekse $0,\dots,k$: za $m=1$ je $S(1,\cdot)=(0,2,1)$ i $C_1=(1,2,1)$, a za $m\ge2$ spajamo rezultate za $a=\lfloor m/2\rfloor$ i $b=\lceil m/2\rceil$. Na svakoj dubini rekurzije pojavljuju se najviše dvije različite duljine ($\lfloor n/2^d\rfloor$ i $\lceil n/2^d\rceil$), pa uz pamćenje već izračunatih duljina (memoizaciju) obrađujemo samo $O(\log n)$ duljina.</p>
+<p>Binomne koeficijente $\binom{2m-4}{j}$ za $j=0,\dots,k$ — s gornjim indeksom i do $2\cdot10^9$ — dobivamo redom iz $\binom{N}{j}=\binom{N}{j-1}\cdot\frac{N-j+1}{j}$, s unaprijed izračunatim inverzima brojeva $1,\dots,k$ (svi su manji od $M$, pa su invertibilni).</p>
+<pre><code>typedef pair&lt;vector&lt;ll&gt;, vector&lt;ll&gt;&gt; PV;   // (S(m,·), C_m(·)) za 0..K vojnika
+int K; map&lt;int, PV&gt; memo;
+
+const PV&amp; go(int m) {
+    auto it = memo.find(m);
+    if (it != memo.end()) return it-&gt;second;
+    PV r; r.first.assign(K + 1, 0); r.second.assign(K + 1, 0);
+    if (m == 1) {                                   // jedan stupac
+        ll s[3] = {0, 2, 1}, c[3] = {1, 2, 1};
+        for (int i = 0; i &lt;= min(K, 2); i++) { r.first[i] = s[i]; r.second[i] = c[i]; }
+        return memo[m] = r;
+    }
+    const PV L = go(m / 2), R = go(m - m / 2);      // lijeva i desna polovica
+    for (int a = 0; a &lt;= K; a++)
+        for (int b = 0; a + b &lt;= K; b++) {
+            r.first[a + b] = (r.first[a + b] + L.first[a] * R.second[b]
+                                             + L.second[a] * R.first[b]) % M;
+            r.second[a + b] = (r.second[a + b] + L.second[a] * R.second[b]) % M;
+        }
+    vector&lt;ll&gt; c = binomRow(2LL * m - 4, K);        // c[j] = C(2m-4, j)
+    for (int i = 2; i &lt;= K; i++) {                  // oduzmi stapanja na šavu: T(m,i)
+        ll t = 2 * c[i - 2];
+        if (i &gt;= 3) t += 4 * c[i - 3];
+        if (i &gt;= 4) t += c[i - 4];
+        r.first[i] = ((r.first[i] - t) % M + M) % M;
+    }
+    return memo[m] = r;
+}
+// odgovor: go(n).first[k] / go(n).second[k]</code></pre>
+<p><b>Složenost.</b> Svako spajanje je $O(k^2)$, duljina ima $O(\log n)$, ukupno $O(k^2\log n)$ po pozivu. Za $k\le400$ to je oko $10^7$ množenja po pozivu; na službenim testovima podzadataka 4 i 5 naša implementacija radi do $0{,}06$ s. (Za $k\le2000$ ista implementacija na testovima podzadatka 6 treba $0{,}9$–$1{,}2$ s na našem računalu, što je preblizu ograničenju od $2$ s da bismo na to računali.)</p>
+<p>To je ideja službenog rješenja <code>solkklog.cpp</code>; ono ima veličinu nizova fiksiranu na $k\le400$, pa je namijenjeno upravo ovim podzadacima.</p>
+
+<h2>Podzadatak 6 <span class="bodovi">15 bodova</span></h2>
+<h3>Rekurzija po $n$ i polinom u $n$ ($k\le2000$)</h3>
+<p>Za $O(k^2)$ treba se riješiti faktora $\log n$. Poseban slučaj leme 2 s desnom pločom duljine $1$ daje rekurziju po $n$.</p>
+<div class="tvrdnja">
+<p><strong>Lema 3.</strong> Za $n\ge2$ i svaki $j\ge0$ vrijedi</p>
+\[
+\begin{aligned}
+S(n,j)={}&S(n-1,j)+2\,S(n-1,j-1)+S(n-1,j-2)\\
+&+2\binom{2n-4}{j-1}+3\binom{2n-4}{j-2}.
+\end{aligned}
+\]
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Po lemi 1, broj komponenti jednak je broju početnih stupaca među prvih $n-1$ stupaca (što je broj komponenti ploče bez zadnjeg stupca) uvećanom za $1$ ako je stupac $n$ početni. Zbrojimo po svim konfiguracijama s $j$ vojnika. Prvi dio: zadnji stupac može biti $\emptyset$, $\{1\}$, $\{2\}$ ili $\{1,2\}$, a ostatak je ploča duljine $n-1$ s $j$, $j-1$, $j-1$, odnosno $j-2$ vojnika — to su prva tri pribrojnika. Drugi dio je broj konfiguracija u kojima je stupac $n$ početni. Nabrojimo parove $(A_{n-1},A_n)$ s $A_n\neq\emptyset$ i $A_{n-1}\cap A_n=\emptyset$: $(\emptyset,\{1\})$ i $(\emptyset,\{2\})$ zauzimaju jednu ćeliju, a $(\{2\},\{1\})$, $(\{1\},\{2\})$ i $(\emptyset,\{1,2\})$ dvije. Preostale vojnike raspoređujemo po preostalih $2n-4$ ćelija, što daje $2\binom{2n-4}{j-1}+3\binom{2n-4}{j-2}$. $\blacksquare$</p>
+
+<figure class="skica" style="max-width:420px">
+<svg viewBox="0 0 380 114" role="img" aria-label="Pet uzoraka susjednih stupaca c−1 i c u kojima je stupac c početni">
+  <rect class="cvor" x="14" y="30" width="28" height="28"/><text class="oznaka-cvora" x="28" y="44">0</text>
+  <rect class="cvor" x="14" y="58" width="28" height="28"/><text class="oznaka-cvora" x="28" y="72">0</text>
+  <rect class="cvor-plavi" x="42" y="30" width="28" height="28"/><text class="oznaka-cvora" x="56" y="44">1</text>
+  <rect class="cvor" x="42" y="58" width="28" height="28"/><text class="oznaka-cvora" x="56" y="72">0</text>
+  <text class="tekst-mali" x="28" y="22" style="text-anchor:middle">c−1</text>
+  <text class="tekst-mali" x="56" y="22" style="text-anchor:middle">c</text>
+  <text class="tekst-mali" x="42" y="106" style="text-anchor:middle">1 vojnik</text>
+  <rect class="cvor" x="88" y="30" width="28" height="28"/><text class="oznaka-cvora" x="102" y="44">0</text>
+  <rect class="cvor" x="88" y="58" width="28" height="28"/><text class="oznaka-cvora" x="102" y="72">0</text>
+  <rect class="cvor" x="116" y="30" width="28" height="28"/><text class="oznaka-cvora" x="130" y="44">0</text>
+  <rect class="cvor-plavi" x="116" y="58" width="28" height="28"/><text class="oznaka-cvora" x="130" y="72">1</text>
+  <text class="tekst-mali" x="102" y="22" style="text-anchor:middle">c−1</text>
+  <text class="tekst-mali" x="130" y="22" style="text-anchor:middle">c</text>
+  <text class="tekst-mali" x="116" y="106" style="text-anchor:middle">1 vojnik</text>
+  <rect class="cvor" x="162" y="30" width="28" height="28"/><text class="oznaka-cvora" x="176" y="44">0</text>
+  <rect class="cvor-sivi" x="162" y="58" width="28" height="28"/><text class="oznaka-cvora" x="176" y="72">1</text>
+  <rect class="cvor-plavi" x="190" y="30" width="28" height="28"/><text class="oznaka-cvora" x="204" y="44">1</text>
+  <rect class="cvor" x="190" y="58" width="28" height="28"/><text class="oznaka-cvora" x="204" y="72">0</text>
+  <text class="tekst-mali" x="176" y="22" style="text-anchor:middle">c−1</text>
+  <text class="tekst-mali" x="204" y="22" style="text-anchor:middle">c</text>
+  <text class="tekst-mali" x="190" y="106" style="text-anchor:middle">2 vojnika</text>
+  <rect class="cvor-sivi" x="236" y="30" width="28" height="28"/><text class="oznaka-cvora" x="250" y="44">1</text>
+  <rect class="cvor" x="236" y="58" width="28" height="28"/><text class="oznaka-cvora" x="250" y="72">0</text>
+  <rect class="cvor" x="264" y="30" width="28" height="28"/><text class="oznaka-cvora" x="278" y="44">0</text>
+  <rect class="cvor-plavi" x="264" y="58" width="28" height="28"/><text class="oznaka-cvora" x="278" y="72">1</text>
+  <text class="tekst-mali" x="250" y="22" style="text-anchor:middle">c−1</text>
+  <text class="tekst-mali" x="278" y="22" style="text-anchor:middle">c</text>
+  <text class="tekst-mali" x="264" y="106" style="text-anchor:middle">2 vojnika</text>
+  <rect class="cvor" x="310" y="30" width="28" height="28"/><text class="oznaka-cvora" x="324" y="44">0</text>
+  <rect class="cvor" x="310" y="58" width="28" height="28"/><text class="oznaka-cvora" x="324" y="72">0</text>
+  <rect class="cvor-plavi" x="338" y="30" width="28" height="28"/><text class="oznaka-cvora" x="352" y="44">1</text>
+  <rect class="cvor-plavi" x="338" y="58" width="28" height="28"/><text class="oznaka-cvora" x="352" y="72">1</text>
+  <text class="tekst-mali" x="324" y="22" style="text-anchor:middle">c−1</text>
+  <text class="tekst-mali" x="352" y="22" style="text-anchor:middle">c</text>
+  <text class="tekst-mali" x="338" y="106" style="text-anchor:middle">2 vojnika</text>
+</svg>
+<figcaption>Svih pet uzoraka stupaca $c-1$ i $c$ u kojima je stupac $c$ početni: dva s jednim i tri s dva vojnika. Otuda koeficijenti $2$ i $3$ u lemi 3.</figcaption>
+</figure>
+
+<p>Uz početne vrijednosti $S(1,0)=0$, $S(1,1)=2$, $S(1,2)=1$, lema 3 računa $S(x,j)$ za sve $x\le X$, $j\le k$ u $O(X\cdot k)$ — ali $X=n$ je prevelik. Spas je u sljedećoj tvrdnji.</p>
+<div class="tvrdnja">
+<p><strong>Lema 4.</strong> Za svaki fiksni $k\ge0$ postoji polinom $P_k$ stupnja najviše $k$ takav da je $S(n,k)=P_k(n)$ za sve cijele $n\ge1$.</p>
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Indukcijom po $k$; za negativne indekse je $S\equiv0$, što je nulpolinom. Neka tvrdnja vrijedi za sve indekse manje od $k$. Po lemi 3, za $n\ge2$ je</p>
+\[
+\begin{aligned}
+S(n,k)-S(n-1,k)={}&2\,S(n-1,k-1)+S(n-1,k-2)\\
+&+2\binom{2n-4}{k-1}+3\binom{2n-4}{k-2}.
+\end{aligned}
+\]
+<p class="dokaz">Prva dva pribrojnika su po pretpostavci polinomi u $n$ stupnja najviše $k-1$ (jer je $n-1\ge1$). Za cijeli $N\ge0$ vrijedi $\binom{N}{j}=\frac{N(N-1)\cdots(N-j+1)}{j!}$ (i kad je $N\lt j$: tada je jedan faktor nula), pa je $\binom{2n-4}{j}$ za $n\ge2$ polinom u $n$ stupnja $j$. Dakle postoji polinom $Q$ stupnja najviše $k-1$ takav da je $S(n,k)-S(n-1,k)=Q(n)$ za sve $n\ge2$, odnosno $S(n,k)=S(1,k)$ $+\,\sum_{x=2}^{n}Q(x)$. Zbroj vrijednosti polinoma stupnja najviše $k-1$ u točkama $2,\dots,n$ je polinom u $n$ stupnja najviše $k$, čime je korak indukcije dokazan. $\blacksquare$</p>
+<p><b>Oprez:</b> polinom je <em>zbroj</em> $S(n,k)$, a ne očekivanje. Već za $k=2$ očekivanje je $2-\frac{3n-2}{n(2n-1)}$, što nije polinom u $n$. Interpolirati se zato mora $S(n,k)$, a dijeliti s $\binom{2n}{k}$ tek na kraju.</p>
+<p><b>Algoritam.</b></p>
+<ol>
+    <li>Rekurzijom iz leme 3 izračunamo $y_x=S(x,k)$ za $x=1,\dots,k+1$. Dovoljan je jedan niz duljine $k+1$ koji se za svaki novi $x$ ažurira od većih indeksa prema manjima; binomni koeficijenti $\binom{2x-4}{\cdot}$ računaju se kao u prethodnom odjeljku. Ukupno $O(k^2)$.</li>
+    <li>Ako je $n\le k+1$, imamo $S(n,k)=y_n$. Inače polinom $P_k$ stupnja najviše $k$ poznajemo u $k+1$ točaka, pa $P_k(n)$ dobivamo <b>Lagrangeovom interpolacijom</b><span class="info"><button type="button" class="info-gumb" aria-expanded="false" title="Lagrangeova interpolacija u uzastopnim točkama" aria-label="Više informacija: Lagrangeova interpolacija u uzastopnim točkama">i</button><span class="info-sadrzaj" role="note"><span class="info-naslov">Lagrangeova interpolacija u uzastopnim točkama</span><span class="odlomak">Polinom $P$ stupnja najviše $d$ jednoznačno je određen vrijednostima u $d+1$ različitih točaka. Ako su poznate vrijednosti $y_i=P(x_i)$, onda je</span><span class="odlomak">\[P(n)=\sum_{i}y_i\prod_{j\neq i}\frac{n-x_j}{x_i-x_j}.\]</span><span class="odlomak">Svaki pribrojnik je polinom koji u točki $x_i$ ima vrijednost $y_i$, a u svim ostalim točkama $x_j$ vrijednost $0$; zbroj se stoga s $P$ podudara u svih $d+1$ točaka, pa je jednak $P$.</span><span class="odlomak">Kad su točke uzastopni cijeli brojevi $x_i=i$ za $i=1,\dots,m$, nazivnik je $\prod_{j\neq i}(i-j)=(i-1)!\cdot(-1)^{m-i}(m-i)!$, a brojnik $\prod_{j\neq i}(n-j)$ dobivamo kao umnožak prefiksa $\prod_{j\lt i}(n-j)$ i sufiksa $\prod_{j\gt i}(n-j)$. Tako se $P(n)$ računa u $O(m)$ operacija, bez dijeljenja brojevima koji ovise o $n$ — dijeli se samo faktorijelima.</span></span></span> u točkama $1,\dots,k+1$ u $O(k)$:
+    \[P_k(n)=\sum_{i=1}^{k+1}y_i\cdot\frac{\prod_{j\lt i}(n-j)\cdot\prod_{j\gt i}(n-j)}{(i-1)!\,(k+1-i)!}\cdot(-1)^{k+1-i}.\]</li>
+    <li>Odgovor je $P_k(n)\cdot\binom{2n}{k}^{-1}$; $\binom{2n}{k}$ računamo u $O(k)$ kao umnožak $k$ faktora podijeljen s $k!$.</li>
+</ol>
+<pre><code>// y[x-1] = S(x,k) za x = 1..k+1   (k &gt;= 1)
+vector&lt;ll&gt; s(k + 1, 0), y;
+s[1] = 2; if (k &gt;= 2) s[2] = 1;                  // ploča duljine 1
+y.push_back(s[k]);
+for (int x = 2; x &lt;= k + 1; x++) {
+    vector&lt;ll&gt; c = binomRow(2LL * x - 4, k);     // c[j] = C(2x-4, j)
+    for (int j = k; j &gt;= 1; j--) {               // odozgo prema dolje: s[j-1], s[j-2] su još "stari"
+        ll v = s[j] + 2 * s[j - 1] + 2 * c[j - 1];
+        if (j &gt;= 2) v += s[j - 2] + 3 * c[j - 2];
+        s[j] = v % M;
+    }
+    y.push_back(s[k]);
+}
+// Lagrange u točkama 1..m, m = k+1, za n &gt; m
+int m = k + 1;
+vector&lt;ll&gt; pre(m + 2, 1), suf(m + 2, 1);
+for (int i = 1; i &lt;= m; i++) pre[i] = pre[i - 1] * ((n - i) % M) % M;
+for (int i = m; i &gt;= 1; i--) suf[i] = suf[i + 1] * ((n - i) % M) % M;
+ll S = 0;                                        // fi[t] = inverz od t!
+for (int i = 1; i &lt;= m; i++) {
+    ll t = y[i - 1] * pre[i - 1] % M * suf[i + 1] % M * fi[i - 1] % M * fi[m - i] % M;
+    if ((m - i) &amp; 1) t = (M - t) % M;
+    S = (S + t) % M;
+}</code></pre>
+<p><b>Složenost.</b> $O(k^2)$ vremena i $O(k)$ memorije po pozivu, neovisno o $n$. Na službenim testovima podzadatka 6 naša implementacija radi $0{,}3$–$0{,}4$ s.</p>
+<p>Na toj je ideji (rekurzija iz leme 3 i Lagrangeova interpolacija) zasnovano službeno rješenje <code>solkk.cpp</code>. Datoteka iz paketa, međutim, u obliku u kojem je objavljena na našem računalu ne prolazi službene testove (WA odnosno pad); prema našem čitanju koda uzrok je to što interpolira omjer $S(n,k)/\binom{2n}{k}$ umjesto samog $S(n,k)$, no to nismo do kraja potvrdili. Gore opisana inačica, koja interpolira $S(n,k)$, prolazi sve testove.</p>
+
+<h2>Podzadatak 7 <span class="bodovi">40 bodova</span></h2>
+<h3>Puno rješenje: doprinos svakog stupca zasebno, $O(k)$</h3>
+<p>U dokazu leme 3 već smo napravili ključni korak: izbrojili smo konfiguracije u kojima je <em>zadnji</em> stupac početni. Nema razloga stati na zadnjem stupcu. Po lemi 1 je</p>
+\[S(n,k)=\sum_{c=1}^{n}\#\{\text{konfiguracije s }k\text{ vojnika u kojima je stupac }c\text{ početni}\},\]
+<p>jer svaka konfiguracija u desnom zbroju sudjeluje jednom za svaki svoj početni stupac. Svaki pribrojnik ovisi samo o stanju stupaca $c-1$ i $c$, a ostale ćelije su slobodne:</p>
+<ul>
+    <li><b>$c=1$.</b> Stupac je početni čim je neprazan. Stanja $\{1\}$ i $\{2\}$ zauzimaju jednu, a $\{1,2\}$ dvije ćelije; preostale vojnike raspoređujemo po $2n-2$ ćelija: $2\binom{2n-2}{k-1}+\binom{2n-2}{k-2}$.</li>
+    <li><b>$2\le c\le n$.</b> Točno račun iz leme 3 (pet uzoraka sa skice), neovisno o $c$: $2\binom{2n-4}{k-1}+3\binom{2n-4}{k-2}$.</li>
+</ul>
+<div class="tvrdnja">
+<p><strong>Teorem.</strong> Za sve $n\ge1$ i $0\le k\le2n$ vrijedi</p>
+\[
+\begin{aligned}
+S(n,k)={}&2\binom{2n-2}{k-1}+\binom{2n-2}{k-2}\\
+&+(n-1)\left(2\binom{2n-4}{k-1}+3\binom{2n-4}{k-2}\right),
+\end{aligned}
+\]
+<p>a traženo očekivanje je $S(n,k)\big/\binom{2n}{k}$.</p>
+</div>
+<p>(Za $n=1$ drugi red iščezava zbog faktora $n-1$.) Provjera na primjeru $n=2$, $k=2$:</p>
+\[2\binom21+\binom20+1\cdot\Big(2\binom01+3\binom00\Big)=4+1+3=8,\]
+<p>a $8/\binom42=\frac43$. Formulu smo dodatno usporedili s grubom silom (prebrojavanjem svih konfiguracija) za sve $n\le7$ i sve $k$.</p>
+<p><b>Računanje binomnih koeficijenata.</b> Gornji indeks ide do $2\cdot10^9$, pa tablica faktorijela ne dolazi u obzir, ali donji je najviše $k\le10^6$:</p>
+\[\binom{N}{j}=\frac{N(N-1)\cdots(N-j+1)}{j!}.\]
+<p>Brojnik je umnožak $j$ faktora (svaki reduciramo modulo $M$), a $j!$ je invertibilan jer je $j\lt M$. Potrebno je pet koeficijenata, svaki u $O(k)$.</p>
+<pre><code>// svi C(N, 0..k) mod M, za proizvoljno velik N &gt;= 0 (za N &lt; 0 sve nule)
+vector&lt;ll&gt; binomRow(ll N, int k) {
+    static vector&lt;ll&gt; inv(2, 1);                         // inv[i] = inverz od i
+    while ((int)inv.size() &lt;= k) {
+        int i = inv.size();
+        inv.push_back((M - (M / i) * inv[M % i] % M) % M);
+    }
+    vector&lt;ll&gt; c(k + 1, 0);
+    if (N &lt; 0) return c;
+    c[0] = 1;
+    for (int j = 1; j &lt;= k; j++)                         // C(N,j) = C(N,j-1) * (N-j+1) / j
+        c[j] = c[j - 1] * ((N - j + 1) % M + M) % M * inv[j] % M;
+    return c;
+}
+
+int solve(int n, int k) {
+    vector&lt;ll&gt; a = binomRow(2LL * n - 4, k), b = binomRow(2LL * n - 2, k), c = binomRow(2LL * n, k);
+    auto at = [](vector&lt;ll&gt; &amp;v, int j) { return j &lt; 0 ? 0LL : v[j]; };
+    ll S = ((n - 1) % M * ((2 * at(a, k - 1) + 3 * at(a, k - 2)) % M)   // stupci 2..n
+            + 2 * at(b, k - 1) + at(b, k - 2)) % M;                    // stupac 1
+    return S * pw(c[k], M - 2) % M;                                    // podijeli s C(2n,k)
+}</code></pre>
+<p><b>Složenost.</b> $O(k+\log M)$ po pozivu, $O(k)$ memorije; ukupno najviše $10^7$ koraka. Službeno rješenje <code>solk.cpp</code> računa istu formulu (u njemu se zbraja po parovima stanja $(A_{c-1},A_c)$ umjesto da su koeficijenti $2$ i $3$ upisani izravno). Na službenim testovima naša implementacija radi do $0{,}33$ s, a <code>solk.cpp</code> manje od $1$ s.</p>
+
+<h3>Drugi pristup: zatvorena formula (vojnici − dodiri + kvadrati)</h3>
+<p>Formula iz podzadatka 3 može se popraviti tako da vrijedi za svaki $k$, i tada odgovor više ne zahtijeva ni petlju po $k$. Kao i prije, promatramo graf vojnika. Neka je $V=k$ broj vojnika, $E$ broj parova susjednih vojnika, a $Q$ broj <b>punih kvadrata</b> — blokova $2\times2$ (stupci $c$, $c+1$) u kojima su sve četiri ćelije zauzete.</p>
+<div class="tvrdnja">
+<p><strong>Lema 5.</strong> U svakoj konfiguraciji je broj komponenti jednak $V-E+Q$.</p>
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Dodajemo stupce slijeva nadesno i pokazujemo da se pri dodavanju stupca $c$ lijeva strana (po lemi 1: povećava se za $1$ ako je stupac početni) i desna strana promijene jednako.</p>
+<p class="dokaz">Ako je $A_c=\emptyset$, ništa se ne mijenja. Ako je $A_c=\{r\}$: $V$ raste za $1$, $E$ raste za $1$ ako je $r\in A_{c-1}$, a novi puni kvadrat ne može nastati. Promjena desne strane je $1-[r\in A_{c-1}]$, što je $1$ točno kad je stupac početni. Ako je $A_c=\{1,2\}$: $V$ raste za $2$, $E$ raste za $1+|A_{c-1}|$ (okomiti brid i po jedan vodoravni za svakog vojnika u stupcu $c-1$), a $Q$ raste za $1$ točno kad je $|A_{c-1}|=2$. Promjena desne strane je $2-1-0=1$ za $|A_{c-1}|=0$, $2-2=0$ za $|A_{c-1}|=1$ i $2-3+1=0$ za $|A_{c-1}|=2$ — opet $1$ točno kad je stupac početni ($A_{c-1}=\emptyset$). $\blacksquare$</p>
+
+<figure class="skica" style="max-width:420px">
+<svg viewBox="0 0 360 156" role="img" aria-label="Graf vojnika: 10 vrhova, 8 bridova i jedan puni kvadrat 2 puta 2">
+  <text class="tekst-mali" x="54" y="20" style="text-anchor:middle">1</text><text class="tekst-mali" x="90" y="20" style="text-anchor:middle">2</text><text class="tekst-mali" x="126" y="20" style="text-anchor:middle">3</text><text class="tekst-mali" x="162" y="20" style="text-anchor:middle">4</text><text class="tekst-mali" x="198" y="20" style="text-anchor:middle">5</text><text class="tekst-mali" x="234" y="20" style="text-anchor:middle">6</text><text class="tekst-mali" x="270" y="20" style="text-anchor:middle">7</text><text class="tekst-mali" x="306" y="20" style="text-anchor:middle">8</text>
+  <rect class="cvor-sivi" x="36" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="36" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="72" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="72" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="108" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="108" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="144" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="144" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="180" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="180" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="216" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="216" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="252" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="252" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="288" y="28" width="36" height="36" style="fill:#ffffff"/>
+  <rect class="cvor-sivi" x="288" y="64" width="36" height="36" style="fill:#ffffff"/>
+  <rect x="270" y="46" width="36" height="36" style="fill:#fde9c4;stroke:none"/>
+  <line class="brid" x1="54" y1="46" x2="90" y2="46"/>
+  <line class="brid" x1="90" y1="46" x2="90" y2="82"/>
+  <line class="brid" x1="90" y1="82" x2="126" y2="82"/>
+  <line class="brid" x1="234" y1="46" x2="270" y2="46"/>
+  <line class="brid" x1="270" y1="46" x2="270" y2="82"/>
+  <line class="brid" x1="270" y1="46" x2="306" y2="46"/>
+  <line class="brid" x1="270" y1="82" x2="306" y2="82"/>
+  <line class="brid" x1="306" y1="46" x2="306" y2="82"/>
+  <circle class="cvor-plavi" cx="54" cy="46" r="8"/>
+  <circle class="cvor-plavi" cx="90" cy="46" r="8"/>
+  <circle class="cvor-plavi" cx="90" cy="82" r="8"/>
+  <circle class="cvor-plavi" cx="126" cy="82" r="8"/>
+  <circle class="cvor-zeleni" cx="198" cy="82" r="8"/>
+  <circle class="cvor-istaknut" cx="234" cy="46" r="8"/>
+  <circle class="cvor-istaknut" cx="270" cy="46" r="8"/>
+  <circle class="cvor-istaknut" cx="270" cy="82" r="8"/>
+  <circle class="cvor-istaknut" cx="306" cy="46" r="8"/>
+  <circle class="cvor-istaknut" cx="306" cy="82" r="8"/>
+  <text class="tekst" x="180" y="124" style="text-anchor:middle">V = 10, E = 8 bridova, Q = 1 kvadrat</text>
+  <text class="tekst-naglasen" x="180" y="146" style="text-anchor:middle">V − E + Q = 10 − 8 + 1 = 3</text>
+</svg>
+<figcaption>Isti primjer kao prije: $10$ vojnika, $8$ dodira (bridova) i jedan puni kvadrat (stupci $7$ i $8$). Kvadrat zatvara ciklus, pa jedan od njegova četiri brida ne spaja ništa novo — to ispravlja pribrojnik $+Q$.</figcaption>
+</figure>
+
+<p>Sada primijenimo linearnost očekivanja na svaki od triju brojeva. $E[V]=k$. Parova susjednih ćelija ima $3n-2$ i svaki je zauzet s vjerojatnošću $p_2=\frac{k(k-1)}{2n(2n-1)}$ (podzadatak 3). Blokova $2\times2$ ima $n-1$ i svaki je pun s vjerojatnošću</p>
+\[p_4=\frac{\binom{2n-4}{k-4}}{\binom{2n}{k}}=\frac{k(k-1)(k-2)(k-3)}{2n(2n-1)(2n-2)(2n-3)}.\]
+<p>Kako je $(n-1)\cdot p_4=\frac{k(k-1)(k-2)(k-3)}{4n(2n-1)(2n-3)}$ (za $n=1$ je $k\le2$, pa su obje strane $0$), dobivamo</p>
+<div class="tvrdnja">
+<p><strong>Zatvorena formula.</strong></p>
+\[
+\begin{aligned}
+\text{odgovor}={}&k-\frac{(3n-2)\,k(k-1)}{2n(2n-1)}\\
+&+\frac{k(k-1)(k-2)(k-3)}{4n(2n-1)(2n-3)}.
+\end{aligned}
+\]
+</div>
+<pre><code>int solve(int n, int k) {
+    ll N = 2LL * n % M, K = k;
+    ll d2 = N * ((N - 1 + M) % M) % M;                 // 2n(2n-1)
+    ll d4 = 2 * d2 % M * ((N - 3 + M) % M) % M;        // 4n(2n-1)(2n-3)
+    ll e = K * (K - 1) % M * ((3LL * n - 2) % M) % M * pw(d2, M - 2) % M;          // E[dodiri]
+    ll q = K * (K - 1) % M * ((K - 2 + M) % M) % M * ((K - 3 + M) % M) % M
+           * pw(d4, M - 2) % M;                                                    // E[kvadrati]
+    return (int)(((K - e + q) % M + M) % M);
+}</code></pre>
+<p><b>Složenost.</b> $O(\log M)$ po pozivu (dva modularna inverza), bez ikakve memorije. Ovo rješenje prolazi sve službene testove, a za $n\le39$ i sve $k$ provjerili smo egzaktnim razlomcima da se podudara s formulom iz teorema.</p>
+<p><b>Napomena o dijeljenju modulo $M$.</b> Zatvorena formula pretpostavlja da nijedan od brojeva $2n$, $2n-1$, $2n-3$ nije djeljiv s $M$, a formula iz teorema da $\binom{2n}{k}\not\equiv0\pmod M$, tj. da nijedan od brojeva $2n-k+1,\dots,2n$ nije djeljiv s $M$. Budući da je $2n$ do $2\cdot10^9\gt M$, takvi ulazi nisu isključeni samim ograničenjima, no u službenim testovima ih nema (provjerili smo sve testove iz paketa). Drugi je uvjet stroži: primjerice, za $n=499\,122\,180$, $k=10$ je $2n-7=M$, pa <code>solk.cpp</code> dijeli nulom i vraća $0$, dok zatvorena formula daje $213\,909\,511$.</p>
+
+<div class="rezime">
+    <h2>Sažetak</h2>
+    <ul>
+        <li>Na ploči s dva reda broj komponenti jednak je broju <em>početnih stupaca</em> — nepraznih stupaca $c$ s $A_{c-1}\cap A_c=\emptyset$ (lema 1). To je lokalan uvjet na dva susjedna stupca.</li>
+        <li>Iz toga redom slijede: DP po stupcima u $O(nk)$, spajanje ploča s ispravkom na šavu u $O(k^2\log n)$, te rekurzija po $n$ uz Lagrangeovu interpolaciju polinoma $S(\cdot,k)$ u $O(k^2)$.</li>
+        <li>Puno rješenje zbraja doprinos svakog stupca zasebno: prvi stupac daje $2\binom{2n-2}{k-1}+\binom{2n-2}{k-2}$, a svaki od preostalih $n-1$ stupaca $2\binom{2n-4}{k-1}+3\binom{2n-4}{k-2}$. Zbroj se dijeli s $\binom{2n}{k}$, a binomni koeficijenti s golemim gornjim indeksom računaju se u $O(k)$.</li>
+        <li>Alternativno, broj komponenti je $V-E+Q$ (vojnici − dodiri + puni kvadrati $2\times2$), što daje zatvorenu formulu izračunljivu u $O(\log M)$.</li>
+    </ul>
+</div>
+
+<h2>Izvori</h2>
+<ul>
+    <li><b>Službena rješenja iz paketa zadatka</b> (<code>solutions/</code>): <code>solidk.cpp</code> — DP po stupcima, $O(nk)$ (podzadaci 1 i 2; na našem računalu točan na testovima podzadatka 2, ali sporiji od ograničenja); <code>solkklog.cpp</code> — spajanje ploča, $O(k^2\log n)$ uz $k\le400$ (točan na testovima podzadataka 1, 3, 4 i 5); <code>solkk.cpp</code> — Lagrangeova interpolacija, $O(k^2)$ (u objavljenom obliku ne prolazi testove, vidi podzadatak 6); <code>solk.cpp</code> — puno rješenje, $O(k)$ (prolazi sve testove). Datoteka <code>fft.cpp</code> iz istog direktorija ne odnosi se na ovaj zadatak.</li>
+    <li><b>AC predaje s QOJ-a</b> (zadatak 16211, natjecanje 2905): kodovi prihvaćenih predaja nisu nam bili dostupni, pa analiza nije mogla biti uspoređena s njima.</li>
+    <li><b>Vlastite implementacije</b> svih opisanih pristupa (DP po stupcima, formula za $k\le3$, spajanje ploča, interpolacija, puno rješenje u $O(k)$, zatvorena formula) prevedene su sa službenim graderom i pokrenute na sva $23$ službena testa; svaka daje točne odgovore na testovima podzadataka za koje je namijenjena, a puno rješenje i zatvorena formula na svima.</li>
+</ul>
+        <footer>
+            Izvor: <a href="https://rmi.lbi.ro/rmi_2025/assets/tasks/kor.zip">službeni paket zadatka (ZIP)</a> · <a href="https://qoj.ac/contest/2905/problem/16211">zadatak na QOJ-u</a> · <a href="https://rmi.lbi.ro/rmi_2025/">RMI 2025 (Bukurešt, 26.–30. studenoga 2025.)</a>. Tekst zadatka i skice prevedeni su prema službenom engleskom tekstu; analiza je autorska, izvedena iz službenih i prihvaćenih rješenja.
+        </footer>
+    </article>
+</body>
+</html>

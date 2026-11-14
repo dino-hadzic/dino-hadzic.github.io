@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RMI 2025 — Naranče: analiza rješenja</title>
+    <script src="../../../assets/js/asset-errors.js"></script>
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../assets/css/pozadina.css">
+    <script defer src="../../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../../assets/css/joisc.css">
+    <script src="../../../assets/js/joisc.js"></script>
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="oranges.html">← Natrag na zadatak</a> · <a href="index.html">RMI 2025</a> · <a href="../../../index.html">Početna</a></p>
+    <article class="analiza">
+        <header>
+            <p class="nadnaslov">Analiza rješenja · Romanian Master of Informatics 2025 · Dan 2</p>
+            <h1>Naranče</h1>
+            <p class="meta"><i>Oranges</i> · podzadaci: 4, 11, 14, 9, 33, 29 (ukupno 100)</p>
+        </header>
+        <div class="uvodnik">
+            <h3>O ovom članku</h3>
+            <p>RMI ne objavljuje pisani editorial, pa je ova analiza napisana prema službenim rješenjima iz paketa zadatka i prema prihvaćenim (AC) rješenjima natjecatelja na QOJ-u (službena rješenja iz paketa: oranges100.cpp te djelomična oranges4/11/14/23/56/60.cpp; kodovi AC predaja s QOJ-a nisu bili dostupni). Svaki opisani pristup implementiran je i provjeren na službenim testovima. Rješenje je izloženo podzadatak po podzadatak. Gumb <span class="info-gumb-primjer" aria-hidden="true">i</span> otvara karticu s dodatnim objašnjenjem pojma.</p>
+        </div>
+<h2>Pregled zadatka</h2>
+<p>Zadano je stablo s $N\le 6000$ vrhova (izvora). Na nekim vrhovima stoje kapibare, na početku najviše jedna po vrhu. U svakoj rundi čuvari biraju vrh u koji bacaju naranču, a zatim se <em>najviše jedna</em> kapibara smije pomaknuti na susjedni vrh; ako nakon toga na vrhu s narančom nema kapibare, čuvari pobjeđuju. Početni skup $S$ vrhova s kapibarama je <b>siguran</b> ako se kapibare mogu braniti zauvijek. Za svaki $K$ treba prebrojiti sigurne skupove veličine $K$, modulo $998244353$.</p>
+<p>Vrhove s kapibarom zovemo <b>puni</b>, ostale <b>prazni</b>. Zadatak ima dva dijela koja se rješavaju odvojeno:</p>
+<ul>
+    <li><b>igra</b>: treba naći jednostavan, statičan opis sigurnih skupova — pokazat će se da je $S$ siguran točno onda kada svakom praznom vrhu možemo dodijeliti <em>vlastitu</em> kapibaru sa susjednog vrha;</li>
+    <li><b>brojanje</b>: takve skupove brojimo dinamičkim programiranjem na stablu s tri stanja po vrhu i brojem kapibara kao dodatnom dimenzijom; pažljivim granicama petlji složenost je $O(N^2)$.</li>
+</ul>
+<p>Prva dva podzadatka (zvijezda, put) mogu se riješiti čim znamo opis sigurnih skupova, podzadaci 3 i 4 dopuštaju prolazak po svim $2^N$ skupova, a podzadaci 5 i 6 traže DP na stablu u $O(N^3)$ odnosno $O(N^2)$. Zato najprije dokazujemo opis sigurnih skupova, a zatim idemo podzadatak po podzadatak.</p>
+
+<h2>Kada je konfiguracija sigurna?</h2>
+<p>Promotrimo primjer 2: put $0-1-2-3$ i kapibare na vrhovima $1$ i $2$. Kapibara s vrha $1$ „čuva” brid $\{0,1\}$, a kapibara s vrha $2$ brid $\{2,3\}$: gdje god naranča pala, kapibara zadužena za taj brid nalazi se na njemu i stigne do naranče jednim korakom ili već stoji na njoj.</p>
+<div class="slajdovi okviri" data-vrsta="koraci" role="group" aria-roledescription="prikaz skica" aria-label="Obrana na putu 0–1–2–3 s kapibarama na vrhovima 1 i 2">
+    <div class="slajdovi-naslov">
+        <span class="oznaka">Koraci algoritma</span>
+        <span class="naslov-slajdova">Obrana na putu 0–1–2–3 s kapibarama na vrhovima 1 i 2</span>
+        <span class="brojac">4 skice</span>
+    </div>
+    <ol class="slajd-popis">
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 340 125" role="img" aria-label="Put 0-1-2-3 s kapibarama i parovima">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid-tezak" x1="50" y1="60" x2="130" y2="60"/>
+  <line class="brid" x1="130" y1="60" x2="210" y2="60"/>
+  <line class="brid-tezak" x1="210" y1="60" x2="290" y2="60"/>
+  <circle class="cvor" cx="50" cy="60" r="15"/><text class="oznaka-cvora" x="50" y="60">0</text>
+  <circle class="cvor-istaknut" cx="130" cy="60" r="15"/><text class="oznaka-cvora" x="130" y="60">1</text>
+  <circle class="cvor-istaknut" cx="210" cy="60" r="15"/><text class="oznaka-cvora" x="210" y="60">2</text>
+  <circle class="cvor" cx="290" cy="60" r="15"/><text class="oznaka-cvora" x="290" y="60">3</text>
+  <text class="tekst-mali" x="170" y="112" style="text-anchor:middle">parovi: {0, 1} i {2, 3}</text>
+</svg>
+                <figcaption><span class="broj-slajda">1</span>Narančasti vrhovi su puni. Svaki prazan vrh ima svog <em>partnera</em>, kapibaru na susjednom vrhu (crveni bridovi): prazan vrh $0$ čuva kapibara s vrha $1$, a prazan vrh $3$ kapibara s vrha $2$.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 340 125" role="img" aria-label="Put 0-1-2-3 s kapibarama i parovima">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid-tezak" x1="50" y1="60" x2="130" y2="60"/>
+  <line class="brid" x1="130" y1="60" x2="210" y2="60"/>
+  <line class="brid-tezak" x1="210" y1="60" x2="290" y2="60"/>
+  <circle class="cvor" cx="50" cy="60" r="15"/><text class="oznaka-cvora" x="50" y="60">0</text>
+  <circle class="cvor-istaknut" cx="130" cy="60" r="15"/><text class="oznaka-cvora" x="130" y="60">1</text>
+  <circle class="cvor-istaknut" cx="210" cy="60" r="15"/><text class="oznaka-cvora" x="210" y="60">2</text>
+  <circle class="cvor" cx="290" cy="60" r="15"/><text class="oznaka-cvora" x="290" y="60">3</text>
+  <circle cx="64" cy="46" r="6" fill="#f39c12" stroke="#b9770e" stroke-width="1.5"/>
+  <line class="strelica" x1="112.0" y1="51.0" x2="70.0" y2="51.0"/>
+  <text class="tekst-mali" x="170" y="112" style="text-anchor:middle">naranča u 0: kapibara 1 → 0</text>
+</svg>
+                <figcaption><span class="broj-slajda">2</span>Naranča padne u prazan vrh $0$. Njegov partner prelazi $1\to0$. Sada je prazan vrh $1$, a njegov partner postaje upravo kapibara koja je otišla na $0$ — parovi su opet $\{0,1\}$ i $\{2,3\}$.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 340 125" role="img" aria-label="Put 0-1-2-3 s kapibarama i parovima">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid-tezak" x1="50" y1="60" x2="130" y2="60"/>
+  <line class="brid" x1="130" y1="60" x2="210" y2="60"/>
+  <line class="brid-tezak" x1="210" y1="60" x2="290" y2="60"/>
+  <circle class="cvor-istaknut" cx="50" cy="60" r="15"/><text class="oznaka-cvora" x="50" y="60">0</text>
+  <circle class="cvor" cx="130" cy="60" r="15"/><text class="oznaka-cvora" x="130" y="60">1</text>
+  <circle class="cvor-istaknut" cx="210" cy="60" r="15"/><text class="oznaka-cvora" x="210" y="60">2</text>
+  <circle class="cvor" cx="290" cy="60" r="15"/><text class="oznaka-cvora" x="290" y="60">3</text>
+  <circle cx="304" cy="46" r="6" fill="#f39c12" stroke="#b9770e" stroke-width="1.5"/>
+  <line class="strelica" x1="228.0" y1="69.0" x2="270.0" y2="69.0"/>
+  <text class="tekst-mali" x="170" y="112" style="text-anchor:middle">naranča u 3: kapibara 2 → 3</text>
+</svg>
+                <figcaption><span class="broj-slajda">3</span>Naranča padne u prazan vrh $3$: njegov partner prelazi $2\to3$. I dalje u svakom od parova $\{0,1\}$ i $\{2,3\}$ stoji točno jedna kapibara.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 340 125" role="img" aria-label="Put 0-1-2-3 s kapibarama i parovima">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid-tezak" x1="50" y1="60" x2="130" y2="60"/>
+  <line class="brid" x1="130" y1="60" x2="210" y2="60"/>
+  <line class="brid-tezak" x1="210" y1="60" x2="290" y2="60"/>
+  <circle class="cvor-istaknut" cx="50" cy="60" r="15"/><text class="oznaka-cvora" x="50" y="60">0</text>
+  <circle class="cvor" cx="130" cy="60" r="15"/><text class="oznaka-cvora" x="130" y="60">1</text>
+  <circle class="cvor" cx="210" cy="60" r="15"/><text class="oznaka-cvora" x="210" y="60">2</text>
+  <circle class="cvor-istaknut" cx="290" cy="60" r="15"/><text class="oznaka-cvora" x="290" y="60">3</text>
+  <circle cx="64" cy="46" r="6" fill="#f39c12" stroke="#b9770e" stroke-width="1.5"/>
+  <text class="tekst-mali" x="170" y="112" style="text-anchor:middle">naranča u 0: nitko se ne miče</text>
+</svg>
+                <figcaption><span class="broj-slajda">4</span>Naranča padne u pun vrh: nitko se ne miče. Ovako se kapibare mogu braniti beskonačno dugo, pa je $\{1,2\}$ siguran skup.</figcaption>
+            </figure>
+        </li>
+    </ol>
+    <div class="kontrole">
+        <button type="button" class="prethodni" aria-label="Prethodna skica">◀</button>
+        <input type="range" min="0" max="1" value="0" step="1" aria-label="Odabir skice">
+        <button type="button" class="sljedeci" aria-label="Sljedeća skica">▶</button>
+        <button type="button" class="animiraj" aria-pressed="false">▶ Animiraj</button>
+        <span class="tipkovnica">← → tipke ili klik na skicu</span>
+    </div>
+</div>
+<p>To vodi na sljedeću definiciju. <b>Dodjela partnera</b> za skup $S$ je pridruživanje koje svakom praznom vrhu $e$ dodjeljuje pun susjedni vrh $p(e)$, tako da različiti prazni vrhovi dobiju različite partnere. Drugim riječima, to je sparivanje<span class="info"><button type="button" class="info-gumb" aria-expanded="false" title="Sparivanje i Hallov teorem" aria-label="Više informacija: Sparivanje i Hallov teorem">i</button><span class="info-sadrzaj" role="note"><span class="info-naslov">Sparivanje i Hallov teorem</span><span class="odlomak"><b>Sparivanje</b> u grafu je skup bridova od kojih nikoja dva nemaju zajednički vrh. U bipartitnom grafu s dijelovima $A$ i $B$ sparivanje <em>zasićuje</em> $A$ ako je svaki vrh iz $A$ kraj nekog brida sparivanja.</span><span class="odlomak"><b>Hallov teorem.</b> Sparivanje koje zasićuje $A$ postoji ako i samo ako za svaki podskup $X\subseteq A$ vrijedi $|N(X)|\ge|X|$, gdje je $N(X)$ skup svih vrhova iz $B$ koji su susjedni barem jednom vrhu iz $X$.</span><span class="odlomak">Smjer „samo ako” je očit: vrhovi iz $X$ dobivaju različite partnere, a svi su partneri u $N(X)$. Netrivijalan je smjer „ako”: kad sparivanje ne postoji, uvijek postoji <em>svjedok</em> — skup $X$ s $|N(X)|\lt|X|$. Upravo takav svjedok ovdje čuvarima daje pobjedničku strategiju.</span><span class="odlomak">U našem zadatku $A$ su prazni vrhovi, $B$ su puni vrhovi, a bridovi su bridovi stabla između praznog i punog vrha.</span></span></span> između praznih i punih vrhova (po bridovima stabla) u kojem je svaki prazan vrh sparen.</p>
+<div class="tvrdnja">
+<p><strong>Teorem 1.</strong> Skup $S$ je siguran ako i samo ako za njega postoji dodjela partnera.</p>
+</div>
+<p class="dokaz"><em>(Dokaz, smjer „postoji dodjela $\Rightarrow$ siguran”.)</em> Kapibare održavaju invarijantu: <em>na svakom vrhu je najviše jedna kapibara i postoji dodjela partnera $p$</em>. Ako naranča padne u pun vrh, nitko se ne miče. Ako padne u prazan vrh $v$, na $v$ prelazi kapibara s vrha $u=p(v)$. Nakon toga je $v$ pun, a $u$ prazan. Kapibara s $u$ bila je partner samo vrhu $v$ (partneri su različiti), pa nijedan drugi prazan vrh nije izgubio partnera; novom praznom vrhu $u$ dodijelimo $p(u)=v$. Vrh $v$ prije je bio prazan, pa nije bio ničiji partner i dodjela je opet ispravna. Invarijanta vrijedi nakon svake runde, a dok vrijedi, kapibare na svaku naranču imaju odgovor. $\blacksquare$</p>
+<p class="dokaz"><em>(Dokaz, smjer „nema dodjele $\Rightarrow$ čuvari pobjeđuju”.)</em> Ako dodjela ne postoji, po Hallovu teoremu postoji skup praznih vrhova $X$ koji ima manje od $|X|$ punih susjeda. Stablo je bipartitan graf: obojimo vrhove u dvije boje po parnosti dubine i rastavimo $X=X_0\cup X_1$ po boji. Puni susjedi skupa $X_0$ imaju boju $1$, a puni susjedi skupa $X_1$ boju $0$, pa su ta dva skupa susjeda disjunktna i zajedno imaju manje od $|X_0|+|X_1|$ vrhova. Zato barem jedan od skupova $X_0$, $X_1$ i sam ima manje punih susjeda nego vrhova. Smijemo dakle pretpostaviti da su svi vrhovi iz $X$ iste boje, tj. da <b>nikoja dva vrha iz $X$ nisu susjedna</b>.</p>
+<p class="dokaz">Neka je $N(X)$ skup svih susjeda vrhova iz $X$ (on je disjunktan s $X$), $k$ broj praznih vrhova u $X$ i $c$ broj kapibara na vrhovima iz $N(X)$. Na početku je $k=|X|\gt c$. Čuvari u svakoj rundi bace naranču u bilo koji prazan vrh $x\in X$. Ako na susjedima od $x$ nema kapibare, čuvari su pobijedili. Inače se u toj rundi <em>mora</em> pomaknuti kapibara s nekog susjeda od $x$ na $x$, i to je jedini pomak u rundi: jedna kapibara napušta $N(X)$ i ulazi u $X$, nijedna kapibara ne ulazi u $N(X)$ niti izlazi iz $X$. Dakle se i $k$ i $c$ smanje točno za $1$, pa $k\gt c$ vrijedi i dalje; posebno je $k\ge1$, tj. čuvari uvijek imaju prazan vrh u $X$ za sljedeću naranču. Kako $c$ pada u svakoj rundi, najkasnije nakon $c$ rundi je $c=0$ i sljedeća naranča u prazan vrh iz $X$ donosi pobjedu. Argument ne ovisi o tome stoji li na nekom vrhu više kapibara. $\blacksquare$</p>
+<p>Strategija čuvara iz dokaza točno je ono što se događa u objašnjenju primjera 3 (konfiguracija $\{1,3,4\}$):</p>
+<div class="slajdovi okviri" data-vrsta="koraci" role="group" aria-roledescription="prikaz skica" aria-label="Strategija čuvara za konfiguraciju {1, 3, 4} u primjeru 3">
+    <div class="slajdovi-naslov">
+        <span class="oznaka">Koraci algoritma</span>
+        <span class="naslov-slajdova">Strategija čuvara za konfiguraciju {1, 3, 4} u primjeru 3</span>
+        <span class="brojac">4 skice</span>
+    </div>
+    <ol class="slajd-popis">
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 380 232" role="img" aria-label="Stablo iz trećeg primjera, strategija čuvara">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid" x1="190" y1="32" x2="110" y2="92"/>
+  <line class="brid" x1="110" y1="92" x2="60" y2="152"/>
+  <line class="brid" x1="110" y1="92" x2="160" y2="152"/>
+  <line class="brid" x1="190" y1="32" x2="270" y2="92"/>
+  <line class="brid" x1="270" y1="92" x2="320" y2="152"/>
+  <circle class="cvor-plavi" cx="190" cy="32" r="15"/><text class="oznaka-cvora" x="190" y="32">0</text>
+  <circle class="cvor-istaknut" cx="110" cy="92" r="15"/><text class="oznaka-cvora" x="110" y="92">1</text>
+  <circle class="cvor-istaknut" cx="270" cy="92" r="15"/><text class="oznaka-cvora" x="270" y="92">4</text>
+  <circle class="cvor-plavi" cx="60" cy="152" r="15"/><text class="oznaka-cvora" x="60" y="152">2</text>
+  <circle class="cvor-istaknut" cx="160" cy="152" r="15"/><text class="oznaka-cvora" x="160" y="152">3</text>
+  <circle class="cvor-plavi" cx="320" cy="152" r="15"/><text class="oznaka-cvora" x="320" y="152">5</text>
+  <text class="tekst" x="190" y="200" style="text-anchor:middle">X = {0, 2, 5}, susjedi: 1 i 4</text>
+  <text class="tekst-mali" x="190" y="220" style="text-anchor:middle">prazni u X: 3, kapibare uz X: 2</text>
+</svg>
+                <figcaption><span class="broj-slajda">1</span>Prazni vrhovi $0$, $2$, $5$ (plavo) čine skup $X$: međusobno nisu susjedni, a jedini su im puni susjedi vrhovi $1$ i $4$. Tri prazna vrha, a samo dvije kapibare uz njih — dodjela partnera ne postoji. Kapibara na vrhu $3$ nije susjedna nijednom vrhu iz $X$.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 380 232" role="img" aria-label="Stablo iz trećeg primjera, strategija čuvara">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid" x1="190" y1="32" x2="110" y2="92"/>
+  <line class="brid" x1="110" y1="92" x2="60" y2="152"/>
+  <line class="brid" x1="110" y1="92" x2="160" y2="152"/>
+  <line class="brid" x1="190" y1="32" x2="270" y2="92"/>
+  <line class="brid" x1="270" y1="92" x2="320" y2="152"/>
+  <circle class="cvor-plavi" cx="190" cy="32" r="15"/><text class="oznaka-cvora" x="190" y="32">0</text>
+  <circle class="cvor-istaknut" cx="110" cy="92" r="15"/><text class="oznaka-cvora" x="110" y="92">1</text>
+  <circle class="cvor-istaknut" cx="270" cy="92" r="15"/><text class="oznaka-cvora" x="270" y="92">4</text>
+  <circle class="cvor-plavi" cx="60" cy="152" r="15"/><text class="oznaka-cvora" x="60" y="152">2</text>
+  <circle class="cvor-istaknut" cx="160" cy="152" r="15"/><text class="oznaka-cvora" x="160" y="152">3</text>
+  <circle class="cvor-plavi" cx="320" cy="152" r="15"/><text class="oznaka-cvora" x="320" y="152">5</text>
+  <circle cx="334" cy="138" r="6" fill="#f39c12" stroke="#b9770e" stroke-width="1.5"/>
+  <line class="strelica" x1="274.6" y1="111.6" x2="300.3" y2="142.4"/>
+  <text class="tekst" x="190" y="200" style="text-anchor:middle">naranča u 5: mora 4 → 5</text>
+  <text class="tekst-mali" x="190" y="220" style="text-anchor:middle">prazni u X: 2, kapibare uz X: 1</text>
+</svg>
+                <figcaption><span class="broj-slajda">2</span>Naranča u vrh $5\in X$. Jedini susjed je vrh $4$, pa kapibara mora prijeći $4\to5$. Time je jedna kapibara napustila susjedstvo skupa $X$.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 380 232" role="img" aria-label="Stablo iz trećeg primjera, strategija čuvara">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid" x1="190" y1="32" x2="110" y2="92"/>
+  <line class="brid" x1="110" y1="92" x2="60" y2="152"/>
+  <line class="brid" x1="110" y1="92" x2="160" y2="152"/>
+  <line class="brid" x1="190" y1="32" x2="270" y2="92"/>
+  <line class="brid" x1="270" y1="92" x2="320" y2="152"/>
+  <circle class="cvor-plavi" cx="190" cy="32" r="15"/><text class="oznaka-cvora" x="190" y="32">0</text>
+  <circle class="cvor-istaknut" cx="110" cy="92" r="15"/><text class="oznaka-cvora" x="110" y="92">1</text>
+  <circle class="cvor" cx="270" cy="92" r="15"/><text class="oznaka-cvora" x="270" y="92">4</text>
+  <circle class="cvor-plavi" cx="60" cy="152" r="15"/><text class="oznaka-cvora" x="60" y="152">2</text>
+  <circle class="cvor-istaknut" cx="160" cy="152" r="15"/><text class="oznaka-cvora" x="160" y="152">3</text>
+  <circle class="cvor-istaknut" cx="320" cy="152" r="15"/><text class="oznaka-cvora" x="320" y="152">5</text>
+  <circle cx="74" cy="138" r="6" fill="#f39c12" stroke="#b9770e" stroke-width="1.5"/>
+  <line class="strelica" x1="91.6" y1="100.1" x2="65.9" y2="130.9"/>
+  <text class="tekst" x="190" y="200" style="text-anchor:middle">naranča u 2: mora 1 → 2</text>
+  <text class="tekst-mali" x="190" y="220" style="text-anchor:middle">prazni u X: 1, kapibare uz X: 0</text>
+</svg>
+                <figcaption><span class="broj-slajda">3</span>Naranča u vrh $2\in X$: mora prijeći kapibara $1\to2$ (kapibara s vrha $3$ nije susjedna vrhu $2$). Uz skup $X$ više nema nijedne kapibare, a vrh $0$ je još prazan.</figcaption>
+            </figure>
+        </li>
+        <li class="slajd">
+            <figure>
+<svg viewBox="0 0 380 232" role="img" aria-label="Stablo iz trećeg primjera, strategija čuvara">
+  <defs><marker id="strelica-glava" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <line class="brid" x1="190" y1="32" x2="110" y2="92"/>
+  <line class="brid" x1="110" y1="92" x2="60" y2="152"/>
+  <line class="brid" x1="110" y1="92" x2="160" y2="152"/>
+  <line class="brid" x1="190" y1="32" x2="270" y2="92"/>
+  <line class="brid" x1="270" y1="92" x2="320" y2="152"/>
+  <circle class="cvor-plavi" cx="190" cy="32" r="15"/><text class="oznaka-cvora" x="190" y="32">0</text>
+  <circle class="cvor" cx="110" cy="92" r="15"/><text class="oznaka-cvora" x="110" y="92">1</text>
+  <circle class="cvor" cx="270" cy="92" r="15"/><text class="oznaka-cvora" x="270" y="92">4</text>
+  <circle class="cvor-istaknut" cx="60" cy="152" r="15"/><text class="oznaka-cvora" x="60" y="152">2</text>
+  <circle class="cvor-istaknut" cx="160" cy="152" r="15"/><text class="oznaka-cvora" x="160" y="152">3</text>
+  <circle class="cvor-istaknut" cx="320" cy="152" r="15"/><text class="oznaka-cvora" x="320" y="152">5</text>
+  <circle cx="204" cy="18" r="6" fill="#f39c12" stroke="#b9770e" stroke-width="1.5"/>
+  <text class="tekst-naglasen" x="190" y="200" style="text-anchor:middle">naranča u 0: nema tko doći</text>
+  <text class="tekst-mali" x="190" y="220" style="text-anchor:middle">čuvari pobjeđuju u trećoj rundi</text>
+</svg>
+                <figcaption><span class="broj-slajda">4</span>Naranča u vrh $0$: oba susjeda ($1$ i $4$) su prazna, nijedna kapibara ne može doći. Čuvari pobjeđuju.</figcaption>
+            </figure>
+        </li>
+    </ol>
+    <div class="kontrole">
+        <button type="button" class="prethodni" aria-label="Prethodna skica">◀</button>
+        <input type="range" min="0" max="1" value="0" step="1" aria-label="Odabir skice">
+        <button type="button" class="sljedeci" aria-label="Sljedeća skica">▶</button>
+        <button type="button" class="animiraj" aria-pressed="false">▶ Animiraj</button>
+        <span class="tipkovnica">← → tipke ili klik na skicu</span>
+    </div>
+</div>
+<p>Od sada je zadatak čisto kombinatoran: <b>prebrojiti skupove $S$ veličine $K$ za koje postoji dodjela partnera</b>. Uoči da iz dodjele slijedi $N-K\le K$, pa je odgovor $0$ za sve $K\lt N/2$.</p>
+
+<h2>Podzadatak 1 <span class="bodovi">4 boda</span></h2>
+<h3>Zvijezda</h3>
+<p>Neka je $N\ge2$ i neka je središte zvijezde vrh spojen sa svim ostalima (listovima). Svaki list ima samo jednog susjeda — središte.</p>
+<ul>
+    <li>Ako je središte prazno, nijedan list ne može biti prazan (ne bi imao punog susjeda), pa su svi listovi puni; tada središte za partnera uzme bilo koji list. To je jedan skup, veličine $N-1$.</li>
+    <li>Ako je središte puno, svi prazni listovi trebaju istu, jedinu kapibaru sa središta, pa smije biti prazan najviše jedan list: ili nijedan (jedan skup veličine $N$) ili točno jedan ($N-1$ skupova veličine $N-1$).</li>
+</ul>
+<figure class="skica" style="max-width:390px">
+<svg viewBox="0 0 390 150" role="img" aria-label="Tri vrste sigurnih konfiguracija na zvijezdi">
+  <line class="brid" x1="65" y1="60" x2="65.0" y2="18.0"/>
+  <line class="brid" x1="65" y1="60" x2="104.9" y2="47.0"/>
+  <line class="brid" x1="65" y1="60" x2="89.7" y2="94.0"/>
+  <line class="brid" x1="65" y1="60" x2="40.3" y2="94.0"/>
+  <line class="brid" x1="65" y1="60" x2="25.1" y2="47.0"/>
+  <circle class="cvor-istaknut" cx="65.0" cy="60.0" r="11"/>
+  <circle class="cvor-istaknut" cx="65.0" cy="18.0" r="11"/>
+  <circle class="cvor-istaknut" cx="104.9" cy="47.0" r="11"/>
+  <circle class="cvor-istaknut" cx="89.7" cy="94.0" r="11"/>
+  <circle class="cvor-istaknut" cx="40.3" cy="94.0" r="11"/>
+  <circle class="cvor-istaknut" cx="25.1" cy="47.0" r="11"/>
+  <text class="tekst-mali" x="65" y="138" style="text-anchor:middle">sve puno</text>
+  <line class="brid" x1="195" y1="60" x2="195.0" y2="18.0"/>
+  <line class="brid" x1="195" y1="60" x2="234.9" y2="47.0"/>
+  <line class="brid" x1="195" y1="60" x2="219.7" y2="94.0"/>
+  <line class="brid" x1="195" y1="60" x2="170.3" y2="94.0"/>
+  <line class="brid" x1="195" y1="60" x2="155.1" y2="47.0"/>
+  <circle class="cvor-istaknut" cx="195.0" cy="60.0" r="11"/>
+  <circle class="cvor-istaknut" cx="195.0" cy="18.0" r="11"/>
+  <circle class="cvor" cx="234.9" cy="47.0" r="11"/>
+  <circle class="cvor-istaknut" cx="219.7" cy="94.0" r="11"/>
+  <circle class="cvor-istaknut" cx="170.3" cy="94.0" r="11"/>
+  <circle class="cvor-istaknut" cx="155.1" cy="47.0" r="11"/>
+  <text class="tekst-mali" x="195" y="138" style="text-anchor:middle">prazan jedan list</text>
+  <line class="brid" x1="325" y1="60" x2="325.0" y2="18.0"/>
+  <line class="brid" x1="325" y1="60" x2="364.9" y2="47.0"/>
+  <line class="brid" x1="325" y1="60" x2="349.7" y2="94.0"/>
+  <line class="brid" x1="325" y1="60" x2="300.3" y2="94.0"/>
+  <line class="brid" x1="325" y1="60" x2="285.1" y2="47.0"/>
+  <circle class="cvor" cx="325.0" cy="60.0" r="11"/>
+  <circle class="cvor-istaknut" cx="325.0" cy="18.0" r="11"/>
+  <circle class="cvor-istaknut" cx="364.9" cy="47.0" r="11"/>
+  <circle class="cvor-istaknut" cx="349.7" cy="94.0" r="11"/>
+  <circle class="cvor-istaknut" cx="300.3" cy="94.0" r="11"/>
+  <circle class="cvor-istaknut" cx="285.1" cy="47.0" r="11"/>
+  <text class="tekst-mali" x="325" y="138" style="text-anchor:middle">prazno središte</text>
+</svg>
+<figcaption>Jedine sigurne konfiguracije na zvijezdi (ovdje $N=6$): sve puno, prazan točno jedan list, ili prazno samo središte.</figcaption>
+</figure>
+<p>Dakle, odgovor je $1$ za $K=N$, $(N-1)+1=N$ za $K=N-1$ i $0$ inače. Za $N=1$ jedini vrh mora biti pun (odgovor <code>0 1</code>, primjer 1). Složenost je $O(N)$ samo zbog ispisa. Tako radi i službeno djelomično rješenje <code>oranges4.cpp</code>.</p>
+<pre><code>vector&lt;int&gt; ans(N + 1, 0);
+ans[N] = 1;                  // sve puno
+if (N &gt; 1) ans[N - 1] = N;   // prazan jedan list (N-1 načina) ili prazno središte (1 način)
+return ans;</code></pre>
+
+<h2>Podzadatak 2 <span class="bodovi">11 bodova</span></h2>
+<h3>Put: DP slijeva nadesno s tri stanja</h3>
+<p>Ako svaki vrh ima najviše dva susjeda, stablo je put. Odgovor ovisi samo o obliku stabla, pa vrhove puta možemo zvati $1,2,\dots,N$ redom s lijeva na desno, bez obzira na oznake u ulazu.</p>
+<p>Idemo slijeva nadesno i za prefiks $1,\dots,i$ pamtimo samo ono što je važno za nastavak. Promatrajmo dodjele partnera koje koriste samo bridove unutar prefiksa; prazan vrh $i$ jedini smije ostati bez partnera, jer njega još može spasiti vrh $i+1$. Prefiks je u jednom od tri stanja:</p>
+<ul>
+    <li><b>stanje 0</b> — vrh $i$ je prazan i unutar prefiksa <em>ne može</em> dobiti partnera: čeka kapibaru s vrha $i+1$;</li>
+    <li><b>stanje 1</b> — vrh $i$ je pun i njegova je kapibara <em>slobodna</em> (nije potrebna nikome u prefiksu), pa može biti partner vrhu $i+1$;</li>
+    <li><b>stanje 2</b> — sve ostalo što je ispravno: vrh $i$ je prazan i ima partnera $i-1$, ili je pun, ali njegovu kapibaru treba prazan vrh $i-1$.</li>
+</ul>
+<p>Dodavanjem vrha $i$ stanje se mijenja na jedini mogući način:</p>
+<ul>
+    <li>$i$ prazan: ako je prethodni prefiks u stanju $1$, vrh $i$ uzima slobodnu kapibaru (novo stanje $2$); ako je u stanju $2$, vrh $i$ nema od koga dobiti partnera slijeva (novo stanje $0$); ako je u stanju $0$, vrh $i-1$ zauvijek ostaje bez partnera — skup nije siguran;</li>
+    <li>$i$ pun: ako je prethodni prefiks u stanju $0$, kapibara s $i$ mora biti partner vrhu $i-1$ (novo stanje $2$); inače je slobodna (novo stanje $1$).</li>
+</ul>
+<p>Na kraju je skup siguran ako cijeli put nije u stanju $0$. (Da ovakvo „pohlepno” određivanje stanja zaista odgovara postojanju dodjele partnera, dokazujemo općenito za stabla u podzadatku 4, lema 2; put je poseban slučaj u kojem svaki vrh ima jedno dijete.)</p>
+<figure class="skica" style="max-width:400px">
+<svg viewBox="0 0 400 112" role="img" aria-label="Put od 7 vrhova sa stanjima prefiksa">
+  <line class="brid-tezak" x1="35" y1="38" x2="90" y2="38"/>
+  <line class="brid" x1="90" y1="38" x2="145" y2="38"/>
+  <line class="brid-tezak" x1="145" y1="38" x2="200" y2="38"/>
+  <line class="brid" x1="200" y1="38" x2="255" y2="38"/>
+  <line class="brid-tezak" x1="255" y1="38" x2="310" y2="38"/>
+  <line class="brid" x1="310" y1="38" x2="365" y2="38"/>
+  <circle class="cvor" cx="35" cy="38" r="15"/><text class="oznaka-cvora" x="35" y="38">1</text>
+  <circle class="cvor-istaknut" cx="90" cy="38" r="15"/><text class="oznaka-cvora" x="90" y="38">2</text>
+  <circle class="cvor-istaknut" cx="145" cy="38" r="15"/><text class="oznaka-cvora" x="145" y="38">3</text>
+  <circle class="cvor" cx="200" cy="38" r="15"/><text class="oznaka-cvora" x="200" y="38">4</text>
+  <circle class="cvor" cx="255" cy="38" r="15"/><text class="oznaka-cvora" x="255" y="38">5</text>
+  <circle class="cvor-istaknut" cx="310" cy="38" r="15"/><text class="oznaka-cvora" x="310" y="38">6</text>
+  <circle class="cvor-istaknut" cx="365" cy="38" r="15"/><text class="oznaka-cvora" x="365" y="38">7</text>
+  <text class="tekst-naglasen" x="35" y="78" style="text-anchor:middle">0</text>
+  <text class="tekst-naglasen" x="90" y="78" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="145" y="78" style="text-anchor:middle">1</text>
+  <text class="tekst-naglasen" x="200" y="78" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="255" y="78" style="text-anchor:middle">0</text>
+  <text class="tekst-naglasen" x="310" y="78" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="365" y="78" style="text-anchor:middle">1</text>
+  <text class="tekst-mali" x="200" y="102" style="text-anchor:middle">stanje prefiksa koji završava u tom vrhu</text>
+</svg>
+<figcaption>Put sa $7$ vrhova i kapibarama na vrhovima $2,3,6,7$. Ispod svakog vrha je stanje prefiksa: 0 2 1 2 0 2 1. Crveni bridovi su parovi (prazan vrh, partner). Zadnje stanje nije $0$, pa je skup siguran.</figcaption>
+</figure>
+<p>Neka je $f_i[k][s]$ broj izbora punih vrhova među prvih $i$ s točno $k$ kapibara i stanjem $s$. Početno je $f_1[0][0]=f_1[1][1]=1$, a prijelazi su</p>
+\[
+\begin{aligned}
+f_i[k][0]&=f_{i-1}[k][2],\\
+f_i[k][1]&=f_{i-1}[k-1][1]+f_{i-1}[k-1][2],\\
+f_i[k][2]&=f_{i-1}[k][1]+f_{i-1}[k-1][0].
+\end{aligned}
+\]
+<p>Odgovor za $K$ je $f_N[K][1]+f_N[K][2]$. Složenost je $O(N^2)$ vremena; dovoljno je pamtiti samo prethodni redak, pa je memorija $O(N)$. Isti DP je službeno djelomično rješenje <code>oranges11.cpp</code>.</p>
+<pre><code>// f[s][k]: prefiks u stanju s s točno k kapibara
+vector&lt;vector&lt;int&gt;&gt; f(3, vector&lt;int&gt;(N + 1, 0)), g;
+f[0][0] = 1; f[1][1] = 1;
+for (int i = 2; i &lt;= N; i++) {
+    g.assign(3, vector&lt;int&gt;(N + 1, 0));
+    for (int k = 0; k &lt;= i; k++) {
+        g[0][k] = f[2][k];                                   // i prazan, slijeva nema slobodne kapibare
+        if (k) g[1][k] = (f[1][k - 1] + f[2][k - 1]) % MOD;  // i pun, kapibara slobodna
+        g[2][k] = f[1][k];                                   // i prazan, uzima slobodnu kapibaru s i-1
+        if (k) g[2][k] = (g[2][k] + f[0][k - 1]) % MOD;      // i pun, čuva prazan vrh i-1
+    }
+    f = g;
+}
+for (int k = 0; k &lt;= N; k++) ans[k] = (f[1][k] + f[2][k]) % MOD;</code></pre>
+
+<h2>Podzadatak 3 <span class="bodovi">14 bodova</span></h2>
+<h3>$N\le10$: izravna analiza igre</h3>
+<p>Za ovako mala stabla ne treba ni teorem 1: igru možemo riješiti grubom silom. Stanje igre je skup punih vrhova (bitmaska, najviše $2^{10}=1024$ stanja). Skup sigurnih stanja je <b>najveći</b> skup $F$ sa svojstvom: za svako stanje iz $F$ i svaki vrh $v$ postoji dopušten potez (ili ostanak na mjestu) nakon kojeg je $v$ pun, a novo stanje je opet u $F$. Dobivamo ga tako da krenemo od svih $2^N$ stanja i izbacujemo ona koja to svojstvo krše<span class="info"><button type="button" class="info-gumb" aria-expanded="false" title="Zašto izbacivanje daje točno sigurna stanja" aria-label="Više informacija: Zašto izbacivanje daje točno sigurna stanja">i</button><span class="info-sadrzaj" role="note"><span class="info-naslov">Zašto izbacivanje daje točno sigurna stanja</span><span class="odlomak">Stanje izbacujemo kad postoji naranča (vrh $v$) na koju svaki odgovor ili odmah gubi ili vodi u već izbačeno stanje. Indukcijom po redoslijedu izbacivanja, iz svakog izbačenog stanja čuvari pobjeđuju u konačno mnogo rundi: bace tu naranču, a kapibare završe u ranije izbačenom stanju.</span><span class="odlomak">Obrnuto, kad se više ništa ne može izbaciti, kapibare iz svakog preostalog stanja na svaku naranču imaju odgovor koji ostaje među preostalim stanjima, pa se brane zauvijek. Zato su preostala stanja točno sigurna. Ovakvo računanje „unatrag”, od izgubljenih stanja prema ostalima, zove se <b>retrogradna analiza</b> igre.</span></span></span> dok se skup ne ustali.</p>
+<p>Ovdje stanja ograničavamo na skupove, tj. kapibari ne dopuštamo prelazak na pun vrh. To ne mijenja odgovor: zabrana poteza kapibarama može samo odmoći, a strategija iz dokaza teorema 1 ionako koristi samo pomak na prazan vrh s narančom. Na naranču u punom vrhu kapibare tada odgovaraju mirovanjem.</p>
+<pre><code>vector&lt;int&gt; nb(N, 0);                       // nb[v] = bitmaska susjeda vrha v
+for (int i = 0; i &lt; N - 1; i++) { nb[U[i]] |= 1 &lt;&lt; V[i]; nb[V[i]] |= 1 &lt;&lt; U[i]; }
+vector&lt;char&gt; safe(1 &lt;&lt; N, 1);
+bool changed = true;
+while (changed) {                           // izbacujemo dok se skup ne ustali
+    changed = false;
+    for (int m = 0; m &lt; (1 &lt;&lt; N); m++) {
+        if (!safe[m]) continue;
+        for (int v = 0; v &lt; N &amp;&amp; safe[m]; v++) {
+            if (m &gt;&gt; v &amp; 1) continue;       // naranča u pun vrh: nitko se ne miče
+            bool ok = false;                // naranča u prazan vrh v: netko mora doći
+            for (int u = 0; u &lt; N &amp;&amp; !ok; u++)
+                if ((m &amp; nb[v]) &gt;&gt; u &amp; 1) ok = safe[m ^ (1 &lt;&lt; u) ^ (1 &lt;&lt; v)];
+            if (!ok) { safe[m] = 0; changed = true; }
+        }
+    }
+}
+// ans[popcount(m)]++ za svaki m sa safe[m]</code></pre>
+<p>Jedan prolaz stoji $O(2^N\cdot N^2)$ operacija, a prolaza ima najviše koliko i stanja; za $N\le10$ to je zanemarivo. Službeno djelomično rješenje <code>oranges14.cpp</code> radi istu analizu nad parovima (skup punih vrhova, vrh s narančom), ali izgubljena stanja širi unatrag redom (BFS) s brojačima preostalih odgovora, pa svaki prijelaz obradi jednom: $O(2^N\cdot N^2)$ ukupno.</p>
+<p>Ovakav program koristan je i kao alat: ispis sigurnih skupova za mala stabla brzo navodi na teorem 1.</p>
+
+<h2>Podzadatak 4 <span class="bodovi">9 bodova</span></h2>
+<h3>$N\le20$: provjera svakog skupa pohlepnim obilaskom stabla</h3>
+<p>Uz $N\le20$ možemo proći svih $2^N\approx10^6$ skupova ako za svaki u $O(N)$ provjerimo postoji li dodjela partnera. Ukorijenimo stablo u vrhu $0$ i označimo s $T_u$ podstablo vrha $u$. Promatramo dodjele partnera koje koriste samo bridove unutar $T_u$. Jedini brid koji izlazi iz $T_u$ je brid od $u$ prema roditelju, pa izvana može doći samo partner za sam vrh $u$. Kao i na putu, podstablu pridružujemo stanje:</p>
+<ul>
+    <li><b>neispravno</b> — neki prazan vrh u $T_u$ različit od $u$ ne može dobiti partnera; tada skup sigurno nije siguran;</li>
+    <li><b>stanje 0</b> — $u$ je prazan i unutar $T_u$ ne može dobiti partnera (uz to da ga dobiju svi ostali prazni vrhovi): treba kapibaru roditelja;</li>
+    <li><b>stanje 1</b> — $u$ je pun i postoji dodjela za sve prazne vrhove u $T_u$ koja ne koristi kapibaru s $u$: ona je slobodna za roditelja;</li>
+    <li><b>stanje 2</b> — sve ostalo što je ispravno: $u$ je prazan i ima partnera među djecom, ili je $u$ pun, ali je njegova kapibara nužna nekom djetetu.</li>
+</ul>
+<div class="tvrdnja">
+<p><strong>Lema 2.</strong> Stanje vrha $u$ određeno je stanjima njegove djece:</p>
+<ul>
+    <li>ako je neko dijete neispravno, i $u$ je neispravan;</li>
+    <li>$u$ <b>prazan</b>: ako je neko dijete u stanju $0$, $u$ je neispravan; inače je $u$ u stanju $2$ ako ima barem jedno dijete u stanju $1$, a u stanju $0$ ako su sva djeca u stanju $2$ (ili ih nema);</li>
+    <li>$u$ <b>pun</b>: ako su barem dva djeteta u stanju $0$, $u$ je neispravan; ako je točno jedno, $u$ je u stanju $2$; ako nijedno, u stanju $1$.</li>
+</ul>
+<p>Cijeli skup je siguran ako i samo ako korijen nije neispravan i nije u stanju $0$.</p>
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Bridovi unutar $T_u$ su bridovi unutar podstabala djece i bridovi od $u$ do djece. Dodjela unutar $T_u$ zato se sastoji od neovisnih dodjela unutar podstabala djece i najviše <em>jednog</em> para na bridu $u$–dijete: prazan $u$ ima jednog partnera, a kapibara s punog $u$ partner je najviše jednom vrhu. Ako neki prazan vrh u podstablu djeteta $c$, različit od $c$, ne može dobiti partnera, ne pomaže mu ni $u$, pa je $u$ neispravan.</p>
+<p class="dokaz">Dijete u stanju $0$ može dobiti partnera samo od $u$. Ako je $u$ prazan, to je nemoguće; ako je $u$ pun, njegova kapibara može spasiti samo jedno takvo dijete, a tada je zauzeta (stanje $2$). Ako nema djece u stanju $0$, svako podstablo djeteta ima vlastitu potpunu dodjelu, pa je kapibara punog $u$ slobodna (stanje $1$). Prazan $u$ može dobiti partnera samo od djeteta čija kapibara nije nužna u vlastitom podstablu, a to je po definiciji dijete u stanju $1$; dijete u stanju $2$ ili je prazno ili mu je kapibara nužna unutar podstabla. Za korijen je $T_u$ cijelo stablo, pa dodjela za sve prazne vrhove postoji točno kad korijen nije neispravan ni u stanju $0$. $\blacksquare$</p>
+<figure class="skica" style="max-width:400px">
+<svg viewBox="0 0 400 300" role="img" aria-label="Stablo iz četvrtog primjera sa stanjima podstabala">
+  <line class="brid-tezak" x1="200" y1="26" x2="120" y2="72"/>
+  <line class="brid" x1="200" y1="26" x2="175" y2="72"/>
+  <line class="brid" x1="175" y1="72" x2="135" y2="118"/>
+  <line class="brid-tezak" x1="135" y1="118" x2="95" y2="164"/>
+  <line class="brid" x1="95" y1="164" x2="95" y2="210"/>
+  <line class="brid-tezak" x1="95" y1="210" x2="95" y2="256"/>
+  <line class="brid" x1="200" y1="26" x2="285" y2="72"/>
+  <line class="brid-tezak" x1="285" y1="72" x2="240" y2="118"/>
+  <line class="brid" x1="240" y1="118" x2="200" y2="164"/>
+  <line class="brid-tezak" x1="200" y1="164" x2="165" y2="210"/>
+  <line class="brid" x1="240" y1="118" x2="275" y2="164"/>
+  <line class="brid-tezak" x1="275" y1="164" x2="315" y2="210"/>
+  <line class="brid" x1="285" y1="72" x2="320" y2="118"/>
+  <line class="brid" x1="285" y1="72" x2="368" y2="118"/>
+  <circle class="cvor" cx="200" cy="26" r="14"/><text class="oznaka-cvora" x="200" y="26">0</text>
+  <circle class="cvor-istaknut" cx="120" cy="72" r="14"/><text class="oznaka-cvora" x="120" y="72">1</text>
+  <circle class="cvor-istaknut" cx="175" cy="72" r="14"/><text class="oznaka-cvora" x="175" y="72">2</text>
+  <circle class="cvor-istaknut" cx="285" cy="72" r="14"/><text class="oznaka-cvora" x="285" y="72">7</text>
+  <circle class="cvor" cx="135" cy="118" r="14"/><text class="oznaka-cvora" x="135" y="118">3</text>
+  <circle class="cvor" cx="240" cy="118" r="14"/><text class="oznaka-cvora" x="240" y="118">8</text>
+  <circle class="cvor-istaknut" cx="320" cy="118" r="14"/><text class="oznaka-cvora" x="320" y="118">13</text>
+  <circle class="cvor-istaknut" cx="368" cy="118" r="14"/><text class="oznaka-cvora" x="368" y="118">14</text>
+  <circle class="cvor-istaknut" cx="95" cy="164" r="14"/><text class="oznaka-cvora" x="95" y="164">4</text>
+  <circle class="cvor-istaknut" cx="200" cy="164" r="14"/><text class="oznaka-cvora" x="200" y="164">9</text>
+  <circle class="cvor-istaknut" cx="275" cy="164" r="14"/><text class="oznaka-cvora" x="275" y="164">11</text>
+  <circle class="cvor-istaknut" cx="95" cy="210" r="14"/><text class="oznaka-cvora" x="95" y="210">5</text>
+  <circle class="cvor" cx="165" cy="210" r="14"/><text class="oznaka-cvora" x="165" y="210">10</text>
+  <circle class="cvor" cx="315" cy="210" r="14"/><text class="oznaka-cvora" x="315" y="210">12</text>
+  <circle class="cvor" cx="95" cy="256" r="14"/><text class="oznaka-cvora" x="95" y="256">6</text>
+  <text class="tekst-naglasen" x="222" y="18" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="142" y="64" style="text-anchor:middle">1</text>
+  <text class="tekst-naglasen" x="197" y="64" style="text-anchor:middle">1</text>
+  <text class="tekst-naglasen" x="307" y="64" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="157" y="110" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="262" y="110" style="text-anchor:middle">0</text>
+  <text class="tekst-naglasen" x="342" y="110" style="text-anchor:middle">1</text>
+  <text class="tekst-naglasen" x="390" y="110" style="text-anchor:middle">1</text>
+  <text class="tekst-naglasen" x="117" y="156" style="text-anchor:middle">1</text>
+  <text class="tekst-naglasen" x="222" y="156" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="297" y="156" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="117" y="202" style="text-anchor:middle">2</text>
+  <text class="tekst-naglasen" x="187" y="202" style="text-anchor:middle">0</text>
+  <text class="tekst-naglasen" x="337" y="202" style="text-anchor:middle">0</text>
+  <text class="tekst-naglasen" x="117" y="248" style="text-anchor:middle">0</text>
+  <text class="tekst-mali" x="200" y="290" style="text-anchor:middle">broj uz vrh = stanje njegova podstabla</text>
+</svg>
+<figcaption>Stablo iz primjera 4 i skup $S=\{1,2,4,5,7,9,11,13,14\}$ ($K=9$). Listovi $6$, $10$, $12$ su prazni (stanje $0$), pa ih moraju čuvati roditelji $5$, $9$, $11$ (stanje $2$). Vrh $8$ je prazan, a kapibare njegove djece su zauzete, pa je u stanju $0$ i uzima kapibaru vrha $7$. Vrh $3$ uzima slobodnu kapibaru vrha $4$, a korijen $0$ kapibaru vrha $1$. Korijen je u stanju $2$: skup je siguran.</figcaption>
+</figure>
+<p>Stanja se računaju jednim DFS-om odozdo prema gore, pa cijelo rješenje radi u $O(2^N\cdot N)$. Na istoj se ideji temelji službeno djelomično rješenje <code>oranges23.cpp</code>.</p>
+<pre><code>int st[20]; bool bad;
+// 0 = prazan i čeka roditelja, 1 = slobodna kapibara, 2 = zbrinut prazan vrh ili zauzeta kapibara
+void dfs(int u, int p, int mask) {
+    st[u] = (mask &gt;&gt; u &amp; 1) ? 1 : 0;
+    for (int c : adj[u]) {
+        if (c == p) continue;
+        dfs(c, u, mask);
+        if (st[c] == 0) {                      // dijete treba kapibaru vrha u
+            if (st[u] != 1) bad = true;        // u je prazan ili mu je kapibara već zauzeta
+            st[u] = 2;
+        } else if (st[c] == 1 &amp;&amp; st[u] == 0) {
+            st[u] = 2;                         // prazan u uzima slobodnu kapibaru djeteta
+        }
+    }
+}
+// za svaku masku: bad = false; dfs(0, -1, mask);
+// ako je !bad &amp;&amp; st[0] != 0, ans[popcount(mask)]++</code></pre>
+
+<h2>Podzadatak 5 <span class="bodovi">33 boda</span></h2>
+<h3>$N\le200$: DP na stablu po stanju i broju kapibara</h3>
+<p>Po lemi 2, stanje vrha ovisi samo o tome je li on pun i o stanjima djece, i to tako da se djeca mogu dodavati jedno po jedno. Zato umjesto prolaska po svim skupovima možemo <em>brojiti</em>: neka je</p>
+\[
+dp_u[k][s]=\text{broj izbora punih vrhova u }T_u\text{ s točno }k\text{ kapibara za koje je }T_u\text{ u stanju }s\in\{0,1,2\}.
+\]
+<p>Neispravne izbore jednostavno ne brojimo. Prije obrade djece $T_u$ je samo vrh $u$: $dp_u[0][0]=1$ (prazan) i $dp_u[1][1]=1$ (pun). Kad vrhu $u$, čiji dosadašnji dio opisuje tablica $a$, dodamo dijete s tablicom $b$, broj kapibara se zbraja, a stanja se kombiniraju po lemi 2:</p>
+\[
+\begin{aligned}
+a'[i+j][0]&\mathrel{+}= a[i][0]\cdot b[j][2],\\
+a'[i+j][1]&\mathrel{+}= a[i][1]\cdot\big(b[j][1]+b[j][2]\big),\\
+a'[i+j][2]&\mathrel{+}= a[i][0]\cdot b[j][1]+a[i][1]\cdot b[j][0]+a[i][2]\cdot\big(b[j][1]+b[j][2]\big).
+\end{aligned}
+\]
+<p>Čitanje redaka: prazan $u$ ostaje bez partnera samo uz dijete u stanju $2$; slobodna kapibara ostaje slobodna uz dijete u stanju $1$ ili $2$; u stanje $2$ dolazimo kad prazan $u$ uzme slobodnu kapibaru djeteta, kad kapibara s $u$ postane partner djetetu u stanju $0$, ili smo u stanju $2$ već bili, a dijete ništa ne traži. Kombinacije kojih nema u formulama ($a$ u stanju $0$ ili $2$ uz dijete u stanju $0$) su neispravne. Svaki skup ima jednoznačno određena stanja, pa se nijedan ne broji dvaput.</p>
+<p>Odgovor za $K$ je $dp_{\text{korijen}}[K][1]+dp_{\text{korijen}}[K][2]$.</p>
+<p>Ako se u spajanju indeksi $i$ i $j$ puste do $N$ (ili do neke druge labave granice), jedno spajanje stoji $O(N^2)$, a spajanja ima $N-1$: ukupno $O(N^3)$, što je za $N\le200$ dovoljno. Službena djelomična rješenja <code>oranges56.cpp</code> i <code>oranges60.cpp</code> upravo su ovaj DP s labavim granicama petlji; na službenim testovima prolaze sve testove s $N\le200$, ali na dijelu velikih testova prekoračuju vrijeme.</p>
+
+<h2>Podzadatak 6 <span class="bodovi">29 bodova</span></h2>
+<h3>Granice petlji po veličinama podstabala: $O(N^2)$</h3>
+<p>DP ostaje isti; mijenja se samo to da tablica $dp_u$ ima onoliko redaka koliko je vrhova dosad spojeno u $T_u$. Ako dosadašnji dio vrha $u$ ima $x$ vrhova, a podstablo djeteta $y$ vrhova, petlje idu po $0\le i\le x$ i $0\le j\le y$.</p>
+<div class="tvrdnja">
+<p><strong>Lema 3.</strong> Ukupan broj koraka svih spajanja je $O(N^2)$.</p>
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Spajanje dijelova veličina $x,y\ge1$ stoji $(x+1)(y+1)\le4xy$ koraka. Broj $xy$ je broj parova (vrh iz dosadašnjeg dijela, vrh iz podstabla djeteta). Svaki par vrhova stabla pojavljuje se u točno jednom spajanju — u onome u kojem se prvi put nađu u istoj tablici (kod njihova najnižeg zajedničkog pretka). Zato je zbroj svih $xy$ najviše $\binom N2$, a ukupan broj koraka najviše $4\binom N2=O(N^2)$. $\blacksquare$</p>
+<p>Za $N=6000$ to je nekoliko desetaka milijuna množenja po modulu. Tablice djece nakon spajanja više nisu potrebne; ako ih odmah oslobodimo, u svakom trenutku žive samo tablice međusobno disjunktnih podstabala, pa je memorija $O(N)$.</p>
+<pre><code>typedef array&lt;vector&lt;ll&gt;, 3&gt; Dp;      // dp[s][k]: stanje s, k kapibara u podstablu
+
+Dp dfs(int u, int p) {
+    Dp a;
+    a[0] = {1, 0};                     // u prazan, čeka roditelja
+    a[1] = {0, 1};                     // u pun, kapibara slobodna
+    a[2] = {0, 0};
+    for (int c : adj[u]) {
+        if (c == p) continue;
+        Dp b = dfs(c, u);
+        int x = a[0].size(), y = b[0].size();   // (broj vrhova) + 1
+        Dp m;
+        for (auto &amp;v : m) v.assign(x + y - 1, 0);
+        for (int i = 0; i &lt; x; i++)
+            for (int j = 0; j &lt; y; j++) {
+                ll b12 = (b[1][j] + b[2][j]) % MOD;
+                m[0][i + j] = (m[0][i + j] + a[0][i] * b[2][j]) % MOD;
+                m[1][i + j] = (m[1][i + j] + a[1][i] * b12) % MOD;
+                m[2][i + j] = (m[2][i + j] + a[0][i] * b[1][j] % MOD
+                               + a[1][i] * b[0][j] % MOD + a[2][i] * b12) % MOD;
+            }
+        a = move(m);                   // tablica djeteta b ovdje se oslobađa
+    }
+    return a;
+}
+// u solve: Dp r = dfs(0, -1); ans[k] = (r[1][k] + r[2][k]) % MOD;</code></pre>
+<p>Službeno rješenje <code>oranges100.cpp</code> je isti DP s istim prijelazima, uz dvije tehničke razlike. Prvo, koristi jedno statičko polje <code>dp[6005][6005][3]</code> 64-bitnih brojeva i oslanja se na to da se memorija stvarno zauzima tek za retke koji se koriste. Drugo, petlje ne počinje od $0$ nego od $\lfloor \text{veličina}/2\rfloor-1$: u svakom ispravnom stanju svi prazni vrhovi u $T_u$ osim možda $u$ imaju različite partnere unutar $T_u$, pa uz $k$ kapibara i $m$ vrhova vrijedi $m-k-1\le k$, tj. $k\ge(m-1)/2$, i svi su niži reci jednaki nuli. To ubrzava program za konstantan faktor, ali ne mijenja složenost.</p>
+<p>Na službenim testovima oba programa daju točne odgovore na sva $33$ testa: <code>oranges100.cpp</code> za najviše oko $0{,}25$ s uz do oko $370$ MB memorije (najviše na dugom putu), a gornja inačica s vektorima za najviše oko $0{,}2$ s uz manje od $10$ MB (ograničenja su $2$ s i $512$ MiB).</p>
+
+<div class="rezime">
+<h2>Sažetak</h2>
+<ul>
+    <li><b>Igra $\to$ sparivanje.</b> Skup je siguran točno kad svaki prazan vrh može dobiti vlastitog partnera, kapibaru na susjednom vrhu. Kapibare se brane tako da na naranču dolazi partner; ako dodjele nema, Hallov svjedok od međusobno nesusjednih praznih vrhova daje čuvarima pobjedu u konačno mnogo rundi.</li>
+    <li><b>Zvijezda i put.</b> Na zvijezdi su sigurni samo skupovi s najviše jednim praznim vrhom ($N$ skupova veličine $N-1$ i jedan veličine $N$); na putu radi DP slijeva nadesno s tri stanja u $O(N^2)$.</li>
+    <li><b>Mali $N$.</b> Za $N\le10$ dovoljna je retrogradna analiza igre nad svim skupovima, a za $N\le20$ pohlepna provjera svakog skupa jednim DFS-om u $O(2^N\cdot N)$.</li>
+    <li><b>Tri stanja podstabla.</b> $0$ = prazan korijen čeka roditelja, $1$ = slobodna kapibara u korijenu, $2$ = sve ostalo ispravno; stanje vrha jednoznačno slijedi iz stanja djece.</li>
+    <li><b>Puno rješenje.</b> DP $dp_u[k][s]$ sa spajanjem djece kao u ruksaku; uz petlje ograničene veličinama podstabala ukupno $O(N^2)$ vremena, a uz oslobađanje tablica djece $O(N)$ memorije.</li>
+</ul>
+</div>
+
+<h2>Izvori</h2>
+<ul>
+    <li>Službeni paket zadatka, mapa <code>solutions/</code>: <code>oranges100.cpp</code> (puno rješenje, DP na stablu), <code>oranges4.cpp</code> (zvijezda), <code>oranges11.cpp</code> (put), <code>oranges14.cpp</code> (analiza igre nad bitmaskama), <code>oranges23.cpp</code> (pohlepna provjera svih skupova), <code>oranges56.cpp</code> i <code>oranges60.cpp</code> (DP na stablu s labavim granicama petlji).</li>
+    <li>Kodovi AC predaja s QOJ-a (zadatak 16212) u trenutku pisanja nisu bili dostupni, pa se analiza oslanja samo na službena rješenja. Dokazi teorema 1 te lema 2 i 3 su autorski; teorem 1 dodatno je provjeren grubom silom (igra s više kapibara na istom vrhu) na svim stablima s najviše $6$ vrhova.</li>
+    <li>Svi isječci koda iz ovog članka, dopunjeni u cijele programe, pokrenuti su na službenim testovima i prolaze testove svojih podzadataka.</li>
+</ul>
+        <footer>
+            Izvor: <a href="https://rmi.lbi.ro/rmi_2025/assets/tasks/oranges.zip">službeni paket zadatka (ZIP)</a> · <a href="https://qoj.ac/contest/2905/problem/16212">zadatak na QOJ-u</a> · <a href="https://rmi.lbi.ro/rmi_2025/">RMI 2025 (Bukurešt, 26.–30. studenoga 2025.)</a>. Tekst zadatka i skice prevedeni su prema službenom engleskom tekstu; analiza je autorska, izvedena iz službenih i prihvaćenih rješenja.
+        </footer>
+    </article>
+</body>
+</html>

@@ -25,6 +25,12 @@ YEAR_INFO = {
 DAY_LABEL = {'d1': 'Dan 1', 'd2': 'Dan 2'}
 
 
+def head_map(title, depth):
+    # kao joisc.head_map, ali bez trenerskog prekidača (RMI stranice nemaju trenerski način)
+    h = joisc.head_map(title, depth)
+    return '\n'.join(l for l in h.split('\n') if 'trener.css' not in l and 'coach-mode.js' not in l)
+
+
 def qoj_url(entry):
     return f'https://qoj.ac/contest/{entry["contest"]}/problem/{entry["qoj"]}'
 
@@ -40,7 +46,7 @@ def problem_page(year, entry, meta, blocks, ordinal, day_label):
     title_en = meta.get('engleski', '')
     tags = [x.strip() for x in meta.get('oznake', '').split(',') if x.strip()]
 
-    p = [joisc.head(f'RMI {year} — {title_hr}', 3)]
+    p = [joisc.head(f'RMI {year} — {title_hr}', 3, coach=False)]
     p.append('<body>')
     p.append('<div class="joisc-stranica">')
     p.append(f'    <p class="navigacija"><a href="index.html">← Natrag na RMI {year}</a> · <a href="../index.html">RMI</a> · '
@@ -95,7 +101,7 @@ def editorial_page(year, entry, meta, blocks, day_label):
     izvori = meta.get('izvori', '')
     body = joisc.expand_components(blocks['editorial'], f'rmi {year}/{slug}')
 
-    p = [joisc.head(f'RMI {year} — {title_hr}: analiza rješenja', 3)]
+    p = [joisc.head(f'RMI {year} — {title_hr}: analiza rješenja', 3, coach=False)]
     p.append('<body>')
     p.append(f'    <p class="navigacija-analize"><a href="{slug}.html">← Natrag na zadatak</a> · '
              f'<a href="index.html">RMI {year}</a> · <a href="../../../index.html">Početna</a></p>')
@@ -131,7 +137,7 @@ def editorial_page(year, entry, meta, blocks, day_label):
 
 def year_index(year, items):
     name, url = YEAR_INFO[year]
-    p = [joisc.head_map(f'RMI {year}', 3)]
+    p = [head_map(f'RMI {year}', 3)]
     p.append('<body>')
     p.append(f'    <h1>Romanian Master of Informatics {year}</h1>')
     p.append('    <p><a href="../index.html">← Natrag na popis godina</a> · <a href="../../../index.html">Početna</a></p>')
@@ -157,7 +163,7 @@ def year_index(year, items):
 
 
 def root_index(years):
-    p = [joisc.head_map('RMI — Romanian Master of Informatics', 2)]
+    p = [head_map('RMI — Romanian Master of Informatics', 2)]
     p.append('<body>')
     p.append('    <h1>RMI — Romanian Master of Informatics</h1>')
     p.append('    <p><a href="../index.html">← Natrag na prijevode</a> · <a href="../../index.html">Početna</a></p>')
