@@ -588,8 +588,11 @@ def year_index(year, items):
     p.append(f'    <h1>JOI Spring Camp {year}</h1>')
     p.append('    <p><a href="../index.html">← Natrag na popis godina</a> · <a href="../../../index.html">Početna</a></p>')
     p.append('    <div class="joisc-uvod">')
-    p.append(f'        <p>{esc(name)}: četiri natjecateljska dana, po tri zadatka dnevno. Svaki zadatak ima prevedeni tekst, '
-             'sažeto rješenje, trenerski mod i zasebnu analizu (editorial) s prevedenim slajdovima.</p>')
+    full = all('@@ editorial' in open(os.path.join(CONTENT, str(year), f"{it['slug']}.html"), encoding='utf-8').read()
+               for it in items if os.path.exists(os.path.join(CONTENT, str(year), f"{it['slug']}.html")))
+    p.append(f'        <p>{esc(name)}: četiri natjecateljska dana, po tri zadatka dnevno. Svaki zadatak ima prevedeni tekst '
+             + ('i potpuni prijevod službene analize rješenja (editorial), podzadatak po podzadatak.</p>' if full else
+                'te sažeto rješenje, trenerski mod i zasebnu analizu (editorial) s prevedenim slajdovima.</p>'))
     p.append('    </div>')
     p.append('    <div class="joisc-legenda" aria-hidden="true">')
     p.append('        <div>Boja kartice = težina po prosječnom rezultatu natjecatelja na kampu</div>')
