@@ -1,7 +1,7 @@
 @@ meta
 naslov = Put bijega 2
 engleski = Escape Route 2
-oznake = greedy najranijeg dolaska, jedinstveni sljedeći let, segmentno stablo / binarno dizanje s tablicama po letovima, obrat vremena, argument min(M_L, M_R) ≤ S/√k
+oznake = pohlepni algoritam, binarno dizanje, segmentno stablo, sqrt-dekompozicija, obrat vremena
 autor_analize = JOI komisija
 
 @@ zadatak
@@ -39,98 +39,323 @@ autor_analize = JOI komisija
 </div>
 <p>Član 3: $100\to300$, $300\to600$, pa let $500\to600$ <b>sljedećeg dana</b>: $10500$.</p>
 
-@@ rjesenje
-<h2>Jedinstven sljedeći let</h2>
-<p>Stanje putnika u gradu $i+1$ opisuje samo trenutak dolaska $b$; raniji dolazak nikad ne šteti. Zato je nakon leta $(a,b)$ iz $i$ sljedeći let iz $i+1$ <b>jedinstveno određen</b>: među letovima s $A'\ge b$ onaj s najmanjim $B'$ (isti dan), a ako takvog nema, let s najmanjim $B'$ uopće (sutradan). Čekanje: $A'-b$ odnosno $T-b+A'$. Priprema po gradu: sortiraj po $A$, izbaci dominirane letove (postoji $A'\ge A$, $B'\le B$) — tada su $A$ i $B$ rastući i sljedeći let je <code>lower_bound</code>. Odgovor upita = min po početnim letovima iz $L$ vremena greedy-puta do $R$.</p>
-<p>$M_i=1$: vrijeme od $i$ do $j$ je $B_{j-1}-A_i+T\cdot\#\{k\in[i,j-2]: A_{k+1}\lt B_k\}$ (dan se „prelomi” kad sljedeći let polazi prije dolaska) — prefiksne sume, $O(1)$ po upitu.</p>
+@@ editorial
+<p>Ovo je potpuni prijevod službene prezentacije rješenja zadatka „Put bijega 2” (Escape Route 2) s četvrtog dana proljetnog kampa JOI 2023/2024 (naslovni slajd sadrži samo naslov „Escape Route 2 — objašnjenje rješenja”, bez imena autora).</p>
 
-<h2>Sastavljive tablice <span class="bodovi">podzadatak 4</span></h2>
-<p>Za interval gradova $[l,r)$ čuvaj tablicu: za svaki let $f$ iz $l$ → (ukupno vrijeme do dolaska u $r$, indeks leta kojim se stiže u $r$). Spajanje $[l,m)$ i $[m,r)$: za let $f$ tablica lijevog daje $(t_1,g)$, $g$ stiže u $m$ u $B_g$; sljedeći let $h=\mathrm{next}_m(B_g)$ (predračunata tablica po dolaznim letovima u $m$); desna tablica daje $(t_2,\cdot)$ za $h$: ukupno $t_1+\text{čekanje}+t_2$. Spajanje košta $O(M_l)$, pa segmentno stablo ili binarno dizanje ima $O(\sum M\log N)$ pripreme i $O(M_L\log N)$ po upitu (prolazak $O(\log N)$ čvorova s $M_L$ „putnika”). Alternativa: korjenska dekompozicija s većom pripremom i bržim upitima.</p>
+<h2>Pregled zadatka <span class="slajd-ref">slajd 2</span></h2>
+<ul>
+    <li>Iz grada $i$ u grad $i+1$ postoji $M_i$ letova i za svaki je poznato vrijeme polaska $A_{i,j}$ i vrijeme dolaska $B_{i,j}$.
+        <ul>
+            <li>Svaki let označavamo s $E_{i,j}=(A_{i,j},B_{i,j})$.</li>
+            <li>$N\le100\,000$, $M=\Sigma M_i\le100\,000$.</li>
+        </ul>
+    </li>
+    <li>Vrijeme nakon $T$ otkucaja napravi jedan puni krug, a letovi u svakom krugu polaze u isto vrijeme.</li>
+    <li>Treba odgovoriti na $Q$ pitanja: koliko najmanje vremena, <b>uključujući vrijeme presjedanja</b>, treba za put iz grada $L_q$ u grad $R_q$?
+        <ul>
+            <li>$Q\le300\,000$.</li>
+        </ul>
+    </li>
+</ul>
 
-<h2>Obrat vremena i uravnoteženje <span class="bodovi">podzadaci 5–6</span></h2>
-<p>Problem: velik $M_L$ na koji ciljaju mnogi upiti. Obrni vrijeme: fiksiraj let kojim <b>stižeš</b> u $R$; prethodni let u $R-1$ jedinstven je simetričnim greedyjem (najkasniji dolazak $B\le A$, inače najkasniji uopće dan prije). Napravi obje strukture i za upit iteriraj po <b>manjoj</b> strani: $O(\min(M_L,M_{R-1})\log N)$. Za različite upite poredaj $m_k=\min(\cdot)$ padajuće: postoji $k$ parova gradova s barem $m_k$ letova, gradova s $\ge m_k$ letova je $\le S/m_k$ ($S=\sum M$), pa $k\le(S/m_k)^2$, tj. $m_k\le S/\sqrt k$. Ukupno $\sum_k m_k\le S\sqrt Q$ → $O(S\sqrt Q\log N)$ sa segmentnim stablom (ili $O(S\sqrt Q)$ korjenskom dekompozicijom). Jednake upite memoiziraj.</p>
+<h2>Zapažanje: vrijeme potrebno za presjedanje <span class="slajd-ref">slajd 3</span></h2>
+<p>Ako smo kao let iz grada $x$ odabrali $e_x=(a_x,b_x)$, a kao let iz grada $x+1$ odabrali $e_{x+1}=(a_{x+1},b_{x+1})$, vrijeme od dolaska u grad $x+1$ do dolaska u grad $x+2$, koje označavamo s $d(e_x,e_{x+1})$, dobiva se ovako:</p>
+<ul>
+    <li>ako je $b_{x+1}\le a_{x+2}$, traženo vrijeme je $b_{x+2}-b_{x+1}$;</li>
+    <li>ako je $b_{x+1}\gt a_{x+2}$, traženo vrijeme je $b_{x+2}-b_{x+1}+T$.</li>
+</ul>
+<dodatak naslov="Napomena o indeksima na slajdu 3">
+<p>Indeksi u dvjema stavkama na slajdu pomaknuti su za jedan u odnosu na oznake $e_x=(a_x,b_x)$, $e_{x+1}=(a_{x+1},b_{x+1})$ iz prve rečenice (na slajdu se $b_{x+1}$ očito čita kao „vrijeme dolaska u grad $x+1$”). Zapisano dosljedno s oznakama letova, tvrdnja glasi:</p>
+\[
+d(e_x,e_{x+1})=\begin{cases}
+b_{x+1}-b_x & \text{ako je } b_x\le a_{x+1},\\[2pt]
+b_{x+1}-b_x+T & \text{ako je } b_x\gt a_{x+1}.
+\end{cases}
+\]
+<p>U prvom slučaju na let $e_{x+1}$ stižemo još isti dan (presjedanje u trenutku dolaska je dopušteno, zato $\le$), a u drugom ga moramo čekati do sljedećeg dana. U nastavku se $d$ koristi upravo u tom obliku.</p>
+</dodatak>
 
-@@ trener
-<ol class="koraci">
-    <li>
-        <details class="spoiler korak">
-            <summary>Što je stanje?</summary>
-            <div class="spoiler-sadrzaj">
-                <p>U gradu si u nekom trenutku; je li raniji dolazak ikad lošiji? Zaključi da je sljedeći let determiniran i pronađi ga u $O(\log M)$.</p>
-            </div>
-        </details>
+<h2>Podzadatak 1 <span class="bodovi">6</span> <span class="slajd-ref">slajdovi 4–5</span></h2>
+<h3>$N\le2\,000$, $M_i=1$</h3>
+<p>Razmotrimo računanje sljedeće vrijednosti $dp[E_L][R]=X_{L,R}$:</p>
+<ul>
+    <li>$X_{L,R}$ je najkraće vrijeme od dolaska u grad $L+1$ letom $E_L$ do dolaska u grad $R$.</li>
+</ul>
+<skica sirina="420px">
+<svg viewBox="0 0 380 150" role="img" aria-label="Vremenska os: plavi interval leta L, zatim crni intervali letova L+1, L+2, …, R−1; crvena vitičasta zagrada ispod crnih intervala označena dp[E_L][R]">
+  <path d="M20 62 L20 38 L150 38 L150 62" fill="none" stroke="#2e86de" stroke-width="3"/>
+  <text x="85" y="26" style="font-size:15px;text-anchor:middle" fill="#2e86de">L</text>
+  <path d="M168 62 L168 52 L206 52 L206 62" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+  <text x="187" y="42" style="font-size:14px;text-anchor:middle" fill="#1b2a3a">L+1</text>
+  <path d="M220 62 L220 52 L258 52 L258 62" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+  <text x="239" y="42" style="font-size:14px;text-anchor:middle" fill="#1b2a3a">L+2</text>
+  <text x="279" y="60" style="font-size:16px;text-anchor:middle" fill="#1b2a3a">…</text>
+  <path d="M300 62 L300 52 L360 52 L360 62" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+  <text x="330" y="42" style="font-size:14px;text-anchor:middle" fill="#1b2a3a">R−1</text>
+  <path d="M150 70 Q152 84 170 84 L240 84 Q254 84 255 96 Q256 84 270 84 L340 84 Q358 84 360 70" fill="none" stroke="#c0392b" stroke-width="2.5"/>
+  <text x="255" y="122" style="font-size:16px;text-anchor:middle" fill="#c0392b">dp[E_L][R]</text>
+</svg>
+<natpis>Skica sa slajda 4. Vodoravna os je vrijeme: plavi interval je let $E_L$ (iz grada $L$), crni intervali su letovi iz gradova $L+1$, $L+2$, …, $R-1$. Crvena zagrada, od kraja plavog intervala do kraja posljednjeg crnog, jest $dp[E_L][R]$.</natpis>
+</skica>
+<p>Za svaku početnu točku $L$ vrijednosti $dp$ dobivaju se redom za $R=L+1,\dots,N$ (uzlazno po $R$): $O(N)$ vremena za svaki $L$, ukupno $O(N^2)$ vremena.</p>
+<ul>
+    <li>$dp[E_L][L+1]=0$,</li>
+    <li>$dp[E_L][R]=dp[E_L][R-1]$ $+\,d(E_{R-2},E_{R-1})$.</li>
+</ul>
+<p>Traženi odgovor je $(B_L-A_L)+dp[E_L][R]$, pa je time podzadatak riješen.</p>
+
+<h2>Zapažanje: kako odabrati let <span class="slajd-ref">slajdovi 6–7</span></h2>
+<p>Ako smo kao let iz grada $x$ odabrali $e_x=(a_x,b_x)$, let koji biramo iz grada $x+1$ <b>jednoznačno je određen</b>:</p>
+<ul>
+    <li>ako postoji $j$ takav da je $b_x\le A_{x+1,j}$, onda među letovima koji to zadovoljavaju još istog dana sjedamo na onaj s najranijim $B_{x+1,j}$;</li>
+    <li>ako ne postoji $j$ takav da je $b_x\le A_{x+1,j}$, onda sljedećeg dana sjedamo na let s najranijim $B_{x+1,j}$.</li>
+</ul>
+<p>(Usp. problem raspoređivanja intervala — <i>interval scheduling</i>.)</p>
+<skica sirina="420px">
+<svg viewBox="0 0 380 170" role="img" aria-label="Plavi let završava; desno od njegova kraja četiri crna intervala letova iz sljedećeg grada; crvena strelica od kraja plavog leta pokazuje na kraj crnog intervala koji najranije završava">
+  <defs><marker id="esc2-gl-1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <path d="M20 22 L122 26 L126 70" fill="none" stroke="#2e86de" stroke-width="3"/>
+  <path d="M136 58 Q200 30 286 52" fill="none" stroke="#c0392b" stroke-width="3" marker-end="url(#esc2-gl-1)"/>
+  <path d="M214 76 L214 64 L290 64 L290 76" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+  <path d="M156 98 L156 86 L320 86 L320 98" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+  <path d="M266 120 L266 108 L346 108 L346 120" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+  <path d="M202 142 L202 130 L368 130 L368 156" fill="none" stroke="#1b2a3a" stroke-width="3"/>
+</svg>
+<natpis>Skica sa slajda 6. Vodoravna os je vrijeme: plava crta je let $e_x$ koji završava u trenutku $b_x$, crni intervali su letovi iz grada $x+1$ koji polaze nakon $b_x$. Crvena strelica vodi do onoga koji najranije završava (najmanji $B_{x+1,j}$) — to je let na koji sjedamo.</natpis>
+</skica>
+<dodatak naslov="Zašto je pohlepni izbor ispravan i kako ga brzo naći">
+<p>Slajdovi tvrdnju navode bez dokaza. Promatrajmo apsolutno vrijeme (dan i trenutak u danu). Ako u neki grad stignemo ranije, možemo učiniti sve što bismo mogli i da smo stigli kasnije (jednostavno pričekamo), pa je najraniji mogući dolazak u bilo koji kasniji grad nepadajuća funkcija trenutka dolaska u trenutni grad. Zato je nakon leta $e_x$ dovoljno odabrati let iz grada $x+1$ kojim se <em>najranije stiže</em> u grad $x+2$. Letovi s $A_{x+1,j}\ge b_x$ dostupni su isti dan i stižu u trenutku $B_{x+1,j}\lt T$ tog dana; svi ostali dostupni su tek sutradan i stižu najranije u trenutku $T$ ili kasnije, mjereno od početka današnjeg dana. Dakle, ako postoji let dostupan isti dan, pobjeđuje takav let s najmanjim $B$; inače pobjeđuje let s najmanjim $B$ uopće, sutradan. Ako više letova ima isto najmanje vrijeme dolaska, svejedno je koji uzmemo (trenutak dolaska je isti), pa je izbor jednoznačan „do na izjednačenja”.</p>
+<p>Za brzo traženje: letove iz svakog grada sortiramo po $A$ i izračunamo sufiksni minimum po $B$ (zajedno s indeksom leta). Sljedeći let nakon dolaska u trenutku $b$ tada se nalazi binarnim pretraživanjem prvog leta s $A\ge b$ u $O(\log M)$; ako takvog nema, uzima se sufiksni minimum cijelog niza. Sljedeći let i pripadno $d$ izračunamo unaprijed za svih $M$ letova u ukupno $O(M\log M)$.</p>
+<p>Tvrdnju (i njezinu vremenski obrnutu inačicu sa slajda 16) provjerili smo i usporedbom s iscrpnim pretraživanjem na slučajnim malim primjerima.</p>
+</dodatak>
+
+<h2>Podzadatak 2 <span class="bodovi">8</span> <span class="slajd-ref">slajdovi 8–9</span></h2>
+<h3>$N\le2\,000$, $M_i\le5$</h3>
+<p>Ako smo kao let iz grada $x$ odabrali $e_x=(a_x,b_x)$, let koji biramo iz grada $x+1$ jednoznačno je određen.</p>
+<p>Promatramo sljedeći par vrijednosti:</p>
+\[
+dp[e=E_{L,j}][R]=\big(X[e][R],\ E'[e][R]\big)
+\]
+<ul>
+    <li>$X_{e,R}$ je najkraće vrijeme od dolaska u grad $L+1$ letom $e$ do dolaska u grad $R$;</li>
+    <li>$E'_{e,R}$ je let kojim se stiže u grad $R$, a kojim se to najkraće vrijeme postiže.</li>
+</ul>
+<p>Za svaki let $E_{L,j}$ vrijednosti $dp[E_{L,j}][R]$ dobivaju se redom za $R=L+1,\dots,N$ (uzlazno po $R$); kao i u podzadatku 1, ukupno u</p>
+\[
+O(N\,\Sigma M_i)=O(NM)
+\]
+<p>vremena.</p>
+<dodatak naslov="Prijelaz napisan eksplicitno">
+<p>Neka je $\mathrm{nx}(g)$ let iz sljedećeg grada koji se po zapažanju sa slajdova 6–7 bira nakon leta $g$. Tada je $dp[e][L+1]=(0,\ e)$, a za $R\gt L+1$, uz $g=E'[e][R-1]$:</p>
+\[
+X[e][R]=X[e][R-1]+d\big(g,\mathrm{nx}(g)\big),
+\]
+\[
+E'[e][R]=\mathrm{nx}(g).
+\]
+</dodatak>
+<p>Isprobamo sve letove $E_{L,j}$ koji polaze iz početne točke $L$; odgovor je najmanja vrijednost izraza</p>
+\[
+(B_{L,j}-A_{L,j})+dp[E_{L,j}][R].
+\]
+<p>Budući da je $M_i\le5$, to je dovoljno brzo.</p>
+
+<h2>Podzadatak 3 <span class="bodovi">17</span> <span class="slajd-ref">slajd 10</span></h2>
+<h3>$M_i=1$</h3>
+<p>Kada je $M_i=1$, vrijedi</p>
+\[
+dp[E_L][R]=\sum_{k=L}^{R-2}d(E_k,E_{k+1}),
+\]
+<p>a to je oblika $\displaystyle\sum_{k=\text{lijevi kraj}}^{\text{desni kraj}}d_k$.</p>
+<p>Segmentno stablo, prefiksne sume — što god.</p>
+<dodatak>
+<p>S prefiksnim sumama: neka je $d_k=d(E_k,E_{k+1})$ za $1\le k\le N-2$ i $P_k=d_1+\dots+d_k$ ($P_0=0$). Odgovor na upit $(L,R)$ je $(B_L-A_L)+P_{R-2}-P_{L-1}$, tj. $O(N)$ pripreme i $O(1)$ po upitu. Za $R=L+1$ zbroj je prazan i odgovor je samo $B_L-A_L$.</p>
+</dodatak>
+
+<h2>Podzadatak 4 <span class="bodovi">23</span> <span class="slajd-ref">slajdovi 11–14</span></h2>
+<h3>$M_i\le5$: može li se informacija o intervalima spajati?</h3>
+<p>To što rješenje sa segmentnim stablom prolazi znači da se iz informacije o intervalu $[l,m)$ i informacije o intervalu $[m,r)$ brzo dobiva informacija o intervalu $[l,r)$.</p>
+<p>Vrijedi li to i kada nije nužno $M_i=1$?</p>
+
+<h3>Spajanje dvaju intervala</h3>
+<p>Pretpostavimo da je za interval $[l,m)$ poznat $dp[E_{l,j}][m]$ ($1\le j\le M_l$), a za interval $[m,r)$ poznat $dp[E_{m,j}][r]$ ($1\le j\le M_m$).</p>
+<p>Tada, uz $e_l=E_{l,j}$ i $e_m=E'[e_l][m]$, vrijedi:</p>
+<ul>
+    <li>$X[e_l][r]=X[e_l][m]$ $+\,X[e_m][r]$,</li>
+    <li>$E'[e_l][r]=E'[e_m][r]$.</li>
+</ul>
+<p>Dakle, $dp[E_{l,j}][r]$ dobiva se u $O(1)$ vremena.</p>
+<skica sirina="420px">
+<svg viewBox="0 0 380 210" role="img" aria-label="Tri retka: u prvom strelica od plavog leta do narančastog leta u sredini; u drugom strelica od plavog leta u sredini do narančastog leta desno; ispod znaka plus i crte, u trećem strelica od plavog leta lijevo do narančastog leta desno">
+  <defs><marker id="esc2-gl-2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#c0392b"/></marker></defs>
+  <path d="M40 52 L40 40 L86 40 L86 52" fill="none" stroke="#2e86de" stroke-width="3"/>
+  <path d="M94 34 Q140 2 196 30" fill="none" stroke="#c0392b" stroke-width="3" marker-end="url(#esc2-gl-2)"/>
+  <path d="M160 52 L160 40 L206 40 L206 52" fill="none" stroke="#e67e22" stroke-width="3"/>
+  <path d="M160 116 L160 104 L206 104 L206 116" fill="none" stroke="#2e86de" stroke-width="3"/>
+  <path d="M214 98 Q270 66 340 96" fill="none" stroke="#c0392b" stroke-width="3" marker-end="url(#esc2-gl-2)"/>
+  <path d="M300 118 L300 106 L350 106 L350 118" fill="none" stroke="#e67e22" stroke-width="3"/>
+  <text x="22" y="118" style="font-size:22px;text-anchor:middle" fill="#1b2a3a">+</text>
+  <line x1="10" y1="138" x2="372" y2="138" stroke="#1b2a3a" stroke-width="3"/>
+  <path d="M40 190 L40 178 L86 178 L86 190" fill="none" stroke="#2e86de" stroke-width="3"/>
+  <path d="M94 172 Q210 136 344 170" fill="none" stroke="#c0392b" stroke-width="3" marker-end="url(#esc2-gl-2)"/>
+  <path d="M300 192 L300 180 L350 180 L350 192" fill="none" stroke="#e67e22" stroke-width="3"/>
+</svg>
+<natpis>Skica sa slajda 12 (vodoravna os je vrijeme). Prvi redak: informacija intervala $[l,m)$ vodi od plavog leta $e_l$ do narančastog leta $e_m$. Drugi redak: informacija intervala $[m,r)$ vodi od tog istog leta $e_m$ (sada plavog) do narančastog leta na kraju. „Zbroj” tih dvaju redaka (ispod crte) je informacija intervala $[l,r)$: od $e_l$ izravno do posljednjeg leta.</natpis>
+</skica>
+<dodatak naslov="Oprez s indeksima pri spajanju">
+<p>Formule sa slajda 12 vrijede doslovno ako se informacija intervala shvati kao na skici: polazni i završni let spojenih komada su <em>isti</em> let $e_m$, i to let koji <em>polazi</em> iz grada $m$ (jer je $dp[\cdot][r]$ desnog intervala indeksiran letovima $E_{m,j}$ iz grada $m$). Prema definiciji sa slajda 8, međutim, $E'[e_l][m]$ je let kojim se <em>stiže</em> u grad $m$, dakle let iz grada $m-1$. Uz tu definiciju treba umetnuti još jedan korak pohlepnog izbora: za $g=E'[e_l][m]$ i $e_m=\mathrm{nx}(g)$ vrijedi</p>
+\[
+X[e_l][r]=X[e_l][m]+d(g,e_m)+X[e_m][r],
+\]
+\[
+E'[e_l][r]=E'[e_m][r].
+\]
+<p>Najjednostavnije je zato razmišljati o „slojevima”: sloj $i$ čine letovi iz grada $i$, svaki let $e$ sloja $i$ ima jednoznačnog sljedbenika $\mathrm{nx}(e)$ u sloju $i+1$ i težinu $w(e)=d(e,\mathrm{nx}(e))$. Informacija „$s$ koraka od leta $e$” je par (zbroj težina na tih $s$ koraka, let u koji se stiže). Dvije takve informacije spajaju se točno formulama sa slajda, a upit $(L,R)$ traži $R-1-L$ koraka od svakog leta $e$ sloja $L$ i minimum od $(B_e-A_e)+{}$zbroj težina.</p>
+</dodatak>
+
+<h3>Segmentno stablo ili udvostručavanje</h3>
+<p>Budući da se iz informacija o intervalima $[l,m)$ i $[m,r)$ informacija o intervalu $[l,r)$ dobiva u $O(M_l)$ vremena, sve se može brzo izračunati tako da se to stavi u segmentno stablo ili da se primijeni <b>udvostručavanje</b> (<i>doubling</i>)<info naslov="Udvostručavanje (binarno dizanje)"><p>Kada svaki element $e$ ima jednoznačnog sljedbenika $\mathrm{nx}(e)$, za svaki $k=0,1,\dots,\lfloor\log_2 N\rfloor$ unaprijed se izračuna tablica $\mathrm{up}_k[e]$ = element u koji se stiže nakon $2^k$ koraka od $e$, zajedno sa zbrojem težina $\mathrm{sum}_k[e]$ na tom putu. Vrijedi $\mathrm{up}_0=\mathrm{nx}$ i $\mathrm{up}_{k+1}[e]=\mathrm{up}_k[\mathrm{up}_k[e]]$, $\mathrm{sum}_{k+1}[e]=\mathrm{sum}_k[e]+\mathrm{sum}_k[\mathrm{up}_k[e]]$.</p><p>Skok od $s$ koraka dobiva se tako da se $s$ zapiše binarno i za svaki postavljeni bit $k$ napravi skok $\mathrm{up}_k$ uz pribrajanje $\mathrm{sum}_k$. Priprema traje $O(n\log N)$ vremena i memorije za $n$ elemenata, a jedan skok $O(\log N)$.</p><p>U ovom zadatku elementi su letovi ($n=M$), sljedbenik je pohlepno odabrani let iz sljedećeg grada, a težina je $d(e,\mathrm{nx}(e))$.</p></info>.</p>
+<ul>
+    <li>Predračun traje $O(\Sigma M_i\log N)$ $=O(M\log N)$ vremena.</li>
+    <li>Jedan upit traje $O(M_L\log N)$ vremena.</li>
+</ul>
+<p>Budući da je $M_i\le5$, to je dovoljno brzo.</p>
+<dodatak naslov="Zašto segmentno stablo ima istu složenost">
+<p>Čvor segmentnog stabla nad intervalom gradova $[l,r)$ čuva tablicu veličine $M_l$ (po jedan par za svaki let iz grada $l$). Svaki grad je lijevi kraj najviše $O(\log N)$ čvorova, pa su ukupna veličina i vrijeme izgradnje $O(\Sigma M_i\log N)$. Upit rastavlja traženi raspon na $O(\log N)$ čvorova i svaki od $M_L$ početnih letova provede kroz njih slijeva nadesno, uz jedan korak $\mathrm{nx}$ na svakoj granici čvorova (vidi prethodnu dopunu).</p>
+</dodatak>
+
+<h3>Sqrt-dekompozicija</h3>
+<p>Može se napraviti i sqrt-dekompozicija.</p>
+<p>Općenito, ako uzmemo $B\simeq N^{1/K}$ i odlučimo odgovor računati u $K$ koraka:</p>
+<ul>
+    <li>predračun traje $O(\Sigma M_i\,BK)$ $=O(MN^{1/K}K)$ vremena;</li>
+    <li>jedan upit traje $O(M_LK)$ vremena.</li>
+</ul>
+<p>Troši se mnogo memorije i predračun je težak, ali upiti postaju brži.</p>
+<dodatak naslov="Kako izgleda tablica za „K koraka”">
+<p>Slajd konstrukciju samo spominje. Jedna mogućnost koja daje navedene složenosti: neka je $B=\lceil N^{1/K}\rceil$. Za svaki let $e$, svaku razinu $t=0,\dots,K-1$ i svaku znamenku $c=1,\dots,B-1$ pamti se par $J_t[c][e]$ = (zbroj težina, odredišni let) za skok od $c\cdot B^t$ koraka. Tablice se grade spajanjem: $J_t[c]$ nastaje iz $J_t[c-1]$ i $J_t[1]$, a $J_{t+1}[1]$ iz $J_t[B-1]$ i $J_t[1]$; to je $O(MBK)$ vremena i memorije. Broj koraka $s\lt N\le B^K$ zapiše se u bazi $B$ i za svaku znamenku različitu od nule napravi se jedan skok, dakle najviše $K$ skokova po početnom letu, tj. $O(M_LK)$ po upitu.</p>
+<p>Za $K=2$ i $N=M=10^5$ to je oko $6\cdot10^7$ zapisa, što objašnjava napomenu o memoriji; veći $K$ (npr. $K=3$, $B=47$) smanjuje tablicu.</p>
+</dodatak>
+
+<h2>Podzadaci 5 i 6 <span class="bodovi">46</span> <span class="slajd-ref">slajdovi 15–19</span></h2>
+<h3>Gdje je problem?</h3>
+<p>Zasad se upiti ovog zadatka pretvaraju u $\sum_q M_{L_q}$ obrada upita nad strukturom podataka.</p>
+<p>Ako se negdje lijevo nalazi golem $M_i$, u najgorem slučaju moramo ga gledati $O(N)$ puta i složenost se raspada.</p>
+<p>Trenutačno složenost ovisi o $M_L$ na strani početne točke; može li se ta ovisnost raspodijeliti i na $M_{R-1}$ na strani završne točke?</p>
+
+<h3>Zapažanje (ponovno): kako odabrati let</h3>
+<p>Ako smo kao let iz grada $x$ odabrali $e_x=(a_x,b_x)$, let koji biramo iz grada $x+1$ jednoznačno je određen.</p>
+<p>Okretanjem vremenske osi vidimo da se iz leta kojim se stiže u grad $x+2$ jednoznačno može odabrati let kojim se stiže u grad $x+1$!</p>
+<dodatak naslov="Obrnuto pravilo napisano eksplicitno">
+<p>Zamjenom $t\mapsto -t$ i obrtanjem redoslijeda gradova zadatak prelazi u zadatak istog oblika (polasci i dolasci zamijene uloge), pa pohlepno pravilo vrijedi i unatrag. Ako u grad $x+2$ stižemo letom $e=(a,b)$ iz grada $x+1$, prethodni let $\mathrm{pv}(e)$ iz grada $x$ je:</p>
+<ul>
+    <li>ako postoji let iz grada $x$ s $B_{x,j}\le a$: među takvima onaj s <em>najkasnijim</em> polaskom $A_{x,j}$ (isti dan);</li>
+    <li>inače: let s najkasnijim polaskom $A_{x,j}$ uopće (dan ranije).</li>
+</ul>
+<p>Težina koraka unatrag je vrijeme između polazaka: za $f=\mathrm{pv}(e)=(a_f,b_f)$ ona iznosi $a-a_f$ u prvom slučaju, odnosno $a-a_f+T$ u drugom. Odgovor na upit $(L,R)$ je minimum, po letovima $e$ iz grada $R-1$, izraza $(B_e-A_e)+{}$zbroj težina na $R-1-L$ koraka unatrag od $e$.</p>
+</dodatak>
+
+<h3>Dvije strukture: slijeva i zdesna</h3>
+<p>Pripremimo $2$ segmentna stabla (ili udvostručavanja, ili sqrt-dekompozicije), jedno slijeva i jedno zdesna, i upit obradimo iscrpnim isprobavanjem one strane koja ima manje letova; time se $M_L$ u složenosti upita zamjenjuje s $\min(M_L,M_{R-1})$.</p>
+<p>Je li to suštinsko poboljšanje?</p>
+
+<h3>Ocjena ukupnog broja obrada</h3>
+<p>Pretpostavimo da se upiti ne ponavljaju i neka su $M_i$ poredani silazno:</p>
+\[
+M'_1\ge\dots\ge M'_{N-1}.
+\]
+<p>Tada je gornja ograda za $\sum_{q=1}^{Q}\min(M_L,M_{R-1})$ jednaka</p>
+\[
+\sum_{k=1}^{\lfloor\sqrt{2Q}\rfloor}kM'_k\le\sqrt{2Q}\,M.
+\]
+<p>Dakle, broj obrada upita može se smanjiti na $O(M\sqrt Q)$!</p>
+<dodatak naslov="Izvod ograde (i mala nepreciznost međukoraka)">
+<p>Upit $(L,R)$ odgovara paru slojeva $(L,R-1)$, $L\le R-1$ (moguće i $L=R-1$); različiti upiti daju različite parove. Poredajmo slojeve silazno po broju letova i neka su $i\le j$ rangovi dvaju slojeva nekog upita. Njegova cijena je $\min(M'_i,M'_j)=M'_j$. Parova kojima je veći rang jednak $j$ ima najviše $j$ (to su $i=1,\dots,j$), pa je zbroj cijena najveći kada upiti redom popune sve parove s većim rangom $1$, zatim $2$, itd. Ako je $K$ najmanji broj za koji je $K(K+1)/2\ge Q$ i $c=Q-K(K-1)/2$ (dakle $1\le c\le K$), dobivamo</p>
+\[
+\sum_{q}\min(M_L,M_{R-1})\le\sum_{k=1}^{K-1}kM'_k+c\,M'_K.
+\]
+<p>Kako $k$ najvećih slojeva zajedno ima najviše $M$ letova, vrijedi $kM'_k\le M$, pa je desna strana najviše $M\,(K-1+c/K)$. Iz $2Q=K^2-K+2c$ izravnim računom slijedi</p>
+\[
+\Big(K-1+\frac cK\Big)^2\le 2Q
+\iff \Big(1-\frac cK\Big)^2\le K,
+\]
+<p>što uvijek vrijedi. Time je dokazana završna ograda $\sqrt{2Q}\,M$ sa slajda.</p>
+<p>Međukorak sa slajda, sa zbrojem do $\lfloor\sqrt{2Q}\rfloor$, nije sasvim točan kao gornja ograda: za $Q=4$ i tri sloja s po $m$ letova upiti s parovima slojeva $(1,1),(1,2),(2,2),(1,3)$ koštaju ukupno $4m$, a $\sum_{k=1}^{2}kM'_k=3m$. Gornja granica zbroja treba biti $K$ (koji može biti $\lfloor\sqrt{2Q}\rfloor+1$); na zaključak $O(M\sqrt Q)$ to ne utječe.</p>
+<p>Pretpostavka da se upiti ne ponavljaju ostvaruje se tako da se odgovori na jednake upite zapamte (npr. sortiranjem upita ili hash-tablicom).</p>
+</dodatak>
+
+<h3>Ukupna složenost</h3>
+<p>Budući da se broj obrada upita može smanjiti na $O(M\sqrt Q)$:</p>
+<ul>
+    <li>sa segmentnim stablom ili udvostručavanjem ukupno je
+        \[O(M\log N+Q\sqrt M\log N)\]
+        vremena;</li>
+    <li>s inačicama sqrt-dekompozicije ukupno je
+        \[O(MN^{1/K}K+M\sqrt Q\,K)\]
+        vremena;
+        <ul>
+            <li>posebno, uz $K=2$ to je $O(MK(\sqrt N+\sqrt Q))$ vremena.</li>
+        </ul>
     </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Sastavi intervale</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Kakvu informaciju o $[l,r)$ treba čuvati da se $[l,m)$ i $[m,r)$ spoje? Ključ je da izlaz lijevog (dolazni let) određuje ulaz desnog.</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Skupi početni gradovi</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Ako svi upiti kreću iz grada sa $10^5$ letova, što učiniti? Razmisli o simetriji problema u vremenu i o tome koliko puta se „veliki” grad može pojaviti u različitim upitima.</p>
-            </div>
-        </details>
-    </li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Birati sljedeći let po najranijem polasku umjesto po najranijem dolasku (ili bez uklanjanja dominiranih letova).</li>
-        <li>Zaboraviti čekanje preko ponoći ($T-b+A'$) i 64-bitno vrijeme ($T\cdot N$).</li>
-        <li>Iterirati po $M_L$ umjesto po $\min(M_L,M_{R-1})$; bez memoizacije jednaki upiti ruše argument $S\sqrt Q$.</li>
-    </ul>
+</ul>
+<p>U svakom slučaju, dovoljno brzo.</p>
+<dodatak>
+<p>U prvoj stavci na slajdu piše $Q\sqrt M\log N$. Iz ograde s prethodnog slajda ($O(M\sqrt Q)$ obrada, svaka $O(\log N)$) izravno slijedi $O(M\log N+M\sqrt Q\log N)$, što je i u skladu s drugom stavkom; izraz $Q\sqrt M$ vjerojatno je omaška u izvorniku (npr. jedan jedini upit između dvaju slojeva s po $M/2$ letova zahtijeva $M/2\gt\sqrt M$ obrada).</p>
+</dodatak>
+
+<h2>Raspodjela bodova <span class="slajd-ref">slajd 20</span></h2>
+<p>Posljednji slajd je šaljivi kolaž s naslovom „Raspodjela bodova”: isječci raznih prikaza istih rezultata (stupčasti grafikon sa stupcem visine 4 iznad 0 bodova, redak „60 - - - - -”, natpisi „23 boda” i „(90 bodova)”, stepenice s oznakama „100, 100, 100”, strelica „podzadaci 1–4” iznad polja 31 i 54) te, pod natpisom „Raspodjela bodova pristojnog izgleda”, sljedeći popis:</p>
+<div style="overflow-x:auto">
+<table style="overflow-wrap:normal">
+    <thead><tr><th>Bodovi</th><th>Broj natjecatelja</th></tr></thead>
+    <tbody>
+        <tr><td>100</td><td>6</td></tr>
+        <tr><td>90</td><td>2</td></tr>
+        <tr><td>54</td><td>7</td></tr>
+        <tr><td>31</td><td>3</td></tr>
+        <tr><td>23</td><td>2</td></tr>
+        <tr><td>6</td><td>1</td></tr>
+        <tr><td>0</td><td>4</td></tr>
+    </tbody>
+</table>
 </div>
-
-@@ analiza
-<slajdovi from="1" to="3" naslov="Zadatak i presjedanje">
-    <s n="1">Naslov.</s>
-    <s n="2">Letovi $i\to i+1$ s polaskom $A$ i dolaskom $B$; vrijeme ciklički s periodom $T$; $Q$ upita: najkraće vrijeme $L\to R$ uključujući presjedanja.</s>
-    <s n="3">Presjedanje: nakon leta $(a,b)$ iz $i$ i leta $(a',b')$ iz $i+1$: ako $b\le a'$, vrijeme od dolaska u $i+1$ do dolaska u $i+2$ je $b'-b$; inače $T+b'-b$ (sutradan).</s>
-</slajdovi>
-
-<h2>Podzadaci 1–3 <span class="bodovi">31 bod</span></h2>
-<slajdovi from="4" to="10" vrsta="koraci" naslov="Greedy po letovima">
-    <s n="4">Podzadatak 1: $d(f,j)$ = najkraće vrijeme od dolaska letom $f$ do dolaska u grad $j$.</s>
-    <s n="5">Za svaki početak, $d$ po rastućem $j$ u $O(N)$; ukupno $O(N^2)$; odgovor $=d+ $ trajanje prvog leta.</s>
-    <s n="6">Nakon leta $(A,B)$ iz $i$, let iz $i+1$ je jedinstven: ako postoji let s $A'\ge B$, uzmi među njima onaj s najranijim $B'$ isti dan.</s>
-    <s n="7">Inače uzmi let s najranijim $B'$ sutradan (usp. intervalno raspoređivanje).</s>
-    <s n="8">Podzadatak 2: par (najkraće vrijeme, let kojim se stiže) za svaki let $f$ i svaki $j$, kao u podzadatku 1: $O(N\sum M)$.</s>
-    <s n="9">Probaj sve letove iz $L$, uzmi minimum — dovoljno brzo.</s>
-    <s n="10">Podzadatak 3 ($M_i=1$): vrijeme je „desni kraj − lijevi kraj” + $T\cdot$(broj prijeloma dana) → prefiksne sume ili segmentno stablo.</s>
-</slajdovi>
-
-<h2>Podzadatak 4 <span class="bodovi">23 boda</span></h2>
-<slajdovi from="11" to="14" vrsta="koraci" naslov="Tablice se sastavljaju">
-    <s n="11">Segmentno stablo radi jer se informacija $[l,r)$ dobiva iz $[l,m)$ i $[m,r)$; vrijedi li to i za $M_i\gt1$?</s>
-    <s n="12">Za $[l,m)$ znamo (vrijeme, dolazni let) po početnom letu; dolazni let u $m$ određuje sljedeći let iz $m$, a za njega desni interval daje ostatak → $O(1)$ po početnom letu.</s>
-    <s n="13">Spajanje u $O(M_l)$ → segmentno stablo ili binarno dizanje: priprema $O(\sum M\log N)$, upit $O(M_L\log N)$.</s>
-    <s n="14">Može i korjenska dekompozicija: korak $k$, priprema $O(\sum M\cdot N/k)$, upit brži; više memorije.</s>
-</slajdovi>
-
-<h2>Podzadaci 5–6 <span class="bodovi">46 bodova</span></h2>
-<slajdovi from="15" to="20" vrsta="koraci" naslov="Manja strana i $S\sqrt{Q}$">
-    <s n="15">Upit se pretvara u $O(M_L)$ strukturnih upita; veliki $M_L$ lijevo može se pojaviti $Q$ puta. Može li se ovisnost prebaciti i na $R$?</s>
-    <s n="16">Obrat vremena: iz leta kojim se stiže u $R$ jedinstveno se bira prethodni let u $R-1$.</s>
-    <s n="17">Dvije strukture (slijeva i zdesna); iteriraj po strani s manje letova: $M_L\to\min(M_L,M_{R-1})$. Je li to bitno poboljšanje?</s>
-    <s n="18">Da: za različite upite, sortirano padajuće $m_1\ge m_2\ge\dots$, vrijedi $m_k\le S/\sqrt k$, pa je ukupno $O(S\sqrt Q)$ strukturnih upita.</s>
-    <s n="19">Segmentno stablo/dizanje: $O(S\sqrt Q\log N)$; korjenska dekompozicija: $O(S\sqrt Q)$ uz prikladan $k$. Dovoljno brzo.</s>
-    <s n="20">Kraj.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Dokaz ocjene sa slajda 18.</b> Neka je $S=\sum M_i$. Ako je $m_k$ $k$-ti najveći među $\min(M_L,M_{R-1})$ različitih upita, tada barem $k$ različitih parova $(L,R-1)$ ima oba grada s $\ge m_k$ letova. Takvih gradova je najviše $S/m_k$, dakle parova najviše $(S/m_k)^2$, pa $k\le (S/m_k)^2\iff m_k\le S/\sqrt k$. Zbroj $\sum_{k\le Q}S/\sqrt k\le 2S\sqrt Q$. S $S=10^5$, $Q=3\cdot10^5$: oko $10^8$ koraka puta $\log N$ — prolazi uz lagane tablice (nizovi, ne mape).</p>
-    <p><b>Zašto greedy po najranijem dolasku.</b> Neka su dva plana u gradu $i+1$ u trenucima $b_1\le b_2$ (isti dan). Sve što drugi plan može nadalje, može i prvi (može čekati). Zato je stanje samo trenutak dolaska, a optimalno je uvijek minimizirati ga — i unaprijed i, obrnuto, maksimizirati trenutak polaska kad gledamo unatrag.</p>
-</div>
+<skica sirina="420px">
+<svg viewBox="0 0 380 196" role="img" aria-label="Raspodjela bodova: 6 natjecatelja sa 100, 2 s 90, 7 s 54, 3 s 31, 2 s 23, 1 sa 6 i 4 s 0 bodova">
+  <line x1="92" y1="8" x2="92" y2="190" stroke="#1b2a3a" stroke-width="1.5"/>
+  <text x="86" y="27" style="font-size:12px;text-anchor:end" fill="#1b2a3a">100 bodova</text>
+  <rect x="93" y="12" width="144" height="20" fill="#c0392b"/>
+  <text x="243" y="27" style="font-size:12px;text-anchor:start" fill="#c0392b">6</text>
+  <text x="86" y="53" style="font-size:12px;text-anchor:end" fill="#1b2a3a">90 bodova</text>
+  <rect x="93" y="38" width="48" height="20" fill="#9aa5b1"/>
+  <text x="147" y="53" style="font-size:12px;text-anchor:start" fill="#5b6b7d">2</text>
+  <text x="86" y="79" style="font-size:12px;text-anchor:end" fill="#1b2a3a">54 boda</text>
+  <rect x="93" y="64" width="168" height="20" fill="#9aa5b1"/>
+  <text x="267" y="79" style="font-size:12px;text-anchor:start" fill="#5b6b7d">7</text>
+  <text x="86" y="105" style="font-size:12px;text-anchor:end" fill="#1b2a3a">31 bod</text>
+  <rect x="93" y="90" width="72" height="20" fill="#9aa5b1"/>
+  <text x="171" y="105" style="font-size:12px;text-anchor:start" fill="#5b6b7d">3</text>
+  <text x="86" y="131" style="font-size:12px;text-anchor:end" fill="#1b2a3a">23 boda</text>
+  <rect x="93" y="116" width="48" height="20" fill="#9aa5b1"/>
+  <text x="147" y="131" style="font-size:12px;text-anchor:start" fill="#5b6b7d">2</text>
+  <text x="86" y="157" style="font-size:12px;text-anchor:end" fill="#1b2a3a">6 bodova</text>
+  <rect x="93" y="142" width="24" height="20" fill="#9aa5b1"/>
+  <text x="123" y="157" style="font-size:12px;text-anchor:start" fill="#5b6b7d">1</text>
+  <text x="86" y="183" style="font-size:12px;text-anchor:end" fill="#1b2a3a">0 bodova</text>
+  <rect x="93" y="168" width="96" height="20" fill="#9aa5b1"/>
+  <text x="195" y="183" style="font-size:12px;text-anchor:start" fill="#5b6b7d">4</text>
+</svg>
+<natpis>Raspodjela bodova sa slajda 20 prikazana kao jedan grafikon: broj natjecatelja po osvojenim bodovima.</natpis>
+</skica>
+<dodatak>
+<p>Prema bodovima podzadataka (6, 8, 17, 23, 36, 10): 90 bodova odgovara svim podzadacima osim šestog, 54 podzadacima 1–4, 31 podzadacima 1–3, 23 podzadacima 1 i 3 (slučaj $M_i=1$), a 6 samo podzadatku 1. Ukupno je na popisu 25 natjecatelja.</p>
+</dodatak>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Sljedeći let jedinstven (najraniji dolazak) → put je funkcija početnog leta.</li>
-        <li>Tablice po letovima za intervale gradova sastavljive u $O(M_l)$ → segmentno stablo/dizanje.</li>
-        <li>Obrat vremena + iteracija po manjoj strani: $\sum\min\le S\sqrt Q$.</li>
+        <li>Nakon odabranog leta sljedeći je let jednoznačno određen pohlepno (najraniji dolazak; isti dan ako je moguće, inače sutradan), pa letovi čine „funkcijski graf” s težinama $d(e,\mathrm{nx}(e))$.</li>
+        <li>Informacija o intervalu gradova (za svaki početni let: ukupno vrijeme i završni let) spaja se u $O(M_l)$, pa segmentno stablo ili udvostručavanje daju $O(M\log N)$ predračuna i $O(M_L\log N)$ po upitu; sqrt-dekompozicija u $K$ razina daje $O(M_LK)$ po upitu.</li>
+        <li>Okretanjem vremena dobiva se ista struktura zdesna; upit se obrađuje sa strane s manje letova, u $\min(M_L,M_{R-1})$ obrada.</li>
+        <li>Za različite upite je $\sum_q\min(M_L,M_{R-1})$ $\le\sqrt{2Q}\,M$, pa je ukupno $O(M\sqrt Q)$ obrada — dovoljno za pune bodove.</li>
     </ul>
 </div>
