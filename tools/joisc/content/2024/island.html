@@ -1,7 +1,7 @@
 @@ meta
 naslov = Otočno skakutanje
 engleski = Island Hopping
-oznake = interaktivni zadatak, rekonstrukcija stabla, BFS poredak, k-ti najbliži vrh, brojanje upita po bridovima, ponovna upotreba informacije
+oznake = interaktivni zadatak, rekonstrukcija stabla, BFS poredak, brojanje upita
 tip = Interaktivni zadatak (island.cpp)
 autor_analize = blackyuki
 
@@ -25,151 +25,900 @@ autor_analize = blackyuki
 <h3>Primjer</h3>
 <p>$N=4$, bridovi $1\text{-}2$, $2\text{-}4$, $4\text{-}3$: <code>query(2,1)</code>$=1$, <code>query(2,2)</code>$=4$ (udaljenosti od 2: $1,2,1$ za otoke $1,3,4$).</p>
 
-@@ rjesenje
-<h2>Alati</h2>
-<p>Tipični pristupi za rekonstrukciju stabla: dodavanje vrhova redom $1..N$; pretraga od vrha 1 po udaljenosti (BFS/DFS); ljuštenje listova; korištenje dijametra. Ovdje: <code>query(1,k)</code> za $k=1..N-1$ daje <b>BFS poredak</b> od vrha 1 ($N-1$ upita); <code>query(v,N-1)</code> daje najudaljeniji vrh (uvijek list).</p>
-<p><b>Put</b>: najudaljeniji od bilo kojeg vrha je kraj puta; od njega <code>query(kraj,k)</code> nabraja put redom: $N$ upita. <b>Pauk</b> (vrh 1 stupnja 3): tri susjeda od 1, pa DFS po nogama pitajući dva najbliža (jedan je prethodni): $\le3N$. <b>$L=N^2$</b>: skidaj najudaljeniji list od 1; njegov susjed među neuklonjenim = prvi neuklonjeni u njegovoj listi susjeda.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–6</span></h2>
+<p>Službenu analizu rješenja zadatka (naslovni slajd: „Islands”) napisao je <b>blackyuki</b>; zadatak je postavljen na 4. natjecateljskom danu (Contest 4) proljetnog kampa JOI 2024. Drugi slajd sadrži samo fotografiju ulaza na izletište s natpisom „Onigashima” („Otok demona”), bez teksta o zadatku.</p>
 
-<h2>$3N$ i $2N$</h2>
-<p>Obradi vrhove u BFS poretku. Za vrh $u$ pitaj <code>query(u,1)</code>, <code>query(u,2)</code>, … dok se ne pojavi <b>već poznat</b> vrh — to je roditelj: svi susjedi $u$ su na udaljenosti 1, djeca su BFS-kasnija (nepoznata), a jedini susjed koji je ranije u poretku je roditelj. Odgovori prije roditelja su djeca $u$ (s manjim indeksom od roditelja). Trošak: svaki brid se pita s obje strane → $N+2N=3N$.</p>
-<p><b>Ponovna upotreba</b>: dijete $c$ otkriveno u listi roditelja $p$ već ima roditelja — <b>preskoči</b> ga u obradi. Ostaje točno jedan upit po bridu: obrađeni vrh troši $1+(\text{broj otkrivene djece})$, a svako otkriveno dijete ništa. Korektnost: „poznat” = BFS-raniji ili već ima roditelja; ako poznati $c$ (dijete nekog $p\ne u$) susjed je od $u$, onda je $u$ dijete od $c$, pa je $c$ roditelj od $u$. Ukupno $(N-1)+(N-1)=2N-2\le2N$.</p>
+<h3>Pregled zadatka</h3>
+<ul>
+    <li>Postoji stablo s $N$ vrhova.</li>
+    <li>Podaci o stablu nisu zadani.</li>
+    <li>Želimo odrediti oblik stabla.</li>
+    <li>Smijemo postavljati pitanja oblika „Koji je broj vrha koji je $k$-ti najbliži vrhu $i$?”<br>… među vrhovima na jednakoj udaljenosti poredak je određen veličinom njihovih brojeva.</li>
+</ul>
 
-@@ trener
-<ol class="koraci">
-    <li>
-        <details class="spoiler korak">
-            <summary>Što daje jedan vrh?</summary>
-            <div class="spoiler-sadrzaj">
-                <p>$N-1$ upita iz vrha 1 daje cijeli BFS poredak. Što znaš o susjedima vrha $u$ u odnosu na taj poredak?</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Broji upite po bridovima</summary>
-            <div class="spoiler-sadrzaj">
-                <p>U $3N$ pristupu svaki brid platiš dvaput. Koju informaciju bacaš kad pitaš „s krive strane”?</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Dokaz korektnosti</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Pokaži da je prvi poznati vrh u listi susjeda od $u$ nužno roditelj — i kad su „poznati” i vrhovi otkriveni kao djeca.</p>
-            </div>
-        </details>
-    </li>
+<h3>Svojstva zadatka</h3>
+<ul>
+    <li><b>interaktivni</b> zadatak,</li>
+    <li><b>stablo</b>.</li>
+</ul>
+
+<h3>Tipična zapažanja kod interaktivnih zadataka</h3>
+<ul>
+    <li>Isprobati razna rješenja i odabrati ono koje dobro prolazi.</li>
+    <li>Šteta je tvrdoglavo se držati jednog jedinog rješenja.</li>
+    <li>Simulacija tipičnih algoritama iz običnih (batch) zadataka<br>… BFS, DFS, Dijkstra i slično.</li>
+</ul>
+
+<h2>Tipična zapažanja kod zadataka određivanja stabla <span class="slajd-ref">slajdovi 7–24</span></h2>
+<p>Četiri tipična pristupa zadacima u kojima treba odrediti nepoznato stablo:</p>
+<ul>
+    <li><b>A.</b> Vrhove dodajemo redom $1, 2, \dots, N$.</li>
+    <li><b>B.</b> Pretražujemo redom od vrhova najbližih vrhu $1$.</li>
+    <li><b>C.</b> Skidamo vrhove počevši od listova.</li>
+    <li><b>D.</b> Korištenje dijametra.</li>
+</ul>
+
+<h3>A. Vrhove dodajemo redom $1, 2, \dots, N$</h3>
+<okviri naslov="A. Vrhove dodajemo redom 1, 2, …, N" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 230" role="img" aria-label="Samo vrh 1">
+  <circle class="cvor-plavi" cx="90" cy="25" r="15"/><text class="oznaka-cvora" x="90" y="25">1</text>
+</svg>
+<natpis>Na početku je u stablu samo vrh $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 230" role="img" aria-label="Vrhovi 1 i 2 spojeni isprekidanom crtom; vrh 2 je nov">
+  <line class="brid-lak" x1="90.0" y1="25.0" x2="90.0" y2="205.0"/>
+  <circle class="cvor-plavi" cx="90" cy="25" r="15"/><text class="oznaka-cvora" x="90" y="25">1</text>
+  <circle class="cvor-istaknut" cx="90" cy="205" r="15"/><text class="oznaka-cvora" x="90" y="205">2</text>
+</svg>
+<natpis>Dodaje se vrh $2$ (narančasto) i isprekidanom crtom povezuje s vrhom $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 230" role="img" aria-label="Vrhovi 1, 6, 2 u stupcu, novi vrh 3 spojen s vrhom 6">
+  <line class="brid-lak" x1="90.0" y1="25.0" x2="90.0" y2="100.0"/>
+  <line class="brid-lak" x1="90.0" y1="100.0" x2="90.0" y2="205.0"/>
+  <line class="brid-lak" x1="90.0" y1="100.0" x2="300.0" y2="115.0"/>
+  <circle class="cvor-plavi" cx="90" cy="25" r="15"/><text class="oznaka-cvora" x="90" y="25">1</text>
+  <circle class="cvor-plavi" cx="90" cy="100" r="15"/><text class="oznaka-cvora" x="90" y="100">6</text>
+  <circle class="cvor-plavi" cx="90" cy="205" r="15"/><text class="oznaka-cvora" x="90" y="205">2</text>
+  <circle class="cvor-istaknut" cx="300" cy="115" r="15"/><text class="oznaka-cvora" x="300" y="115">3</text>
+</svg>
+<natpis>Dodaje se vrh $3$ (narančasto): pripaja se na vrh $6$ koji leži između vrhova $1$ i $2$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 230" role="img" aria-label="Vrhovi 1, 6, 2 u stupcu, 6–9–3 u retku, novi vrh 4 spojen s vrhom 9">
+  <line class="brid-lak" x1="90.0" y1="25.0" x2="90.0" y2="100.0"/>
+  <line class="brid-lak" x1="90.0" y1="100.0" x2="90.0" y2="205.0"/>
+  <line class="brid-lak" x1="90.0" y1="100.0" x2="185.0" y2="107.0"/>
+  <line class="brid-lak" x1="185.0" y1="107.0" x2="300.0" y2="115.0"/>
+  <line class="brid-lak" x1="185.0" y1="107.0" x2="225.0" y2="195.0"/>
+  <circle class="cvor-plavi" cx="90" cy="25" r="15"/><text class="oznaka-cvora" x="90" y="25">1</text>
+  <circle class="cvor-plavi" cx="90" cy="100" r="15"/><text class="oznaka-cvora" x="90" y="100">6</text>
+  <circle class="cvor-plavi" cx="90" cy="205" r="15"/><text class="oznaka-cvora" x="90" y="205">2</text>
+  <circle class="cvor-plavi" cx="185" cy="107" r="15"/><text class="oznaka-cvora" x="185" y="107">9</text>
+  <circle class="cvor-plavi" cx="300" cy="115" r="15"/><text class="oznaka-cvora" x="300" y="115">3</text>
+  <circle class="cvor-istaknut" cx="225" cy="195" r="15"/><text class="oznaka-cvora" x="225" y="195">4</text>
+</svg>
+<natpis>Dodaje se vrh $4$ (narančasto): pripaja se na vrh $9$ koji leži između vrhova $6$ i $3$.</natpis>
+</okvir>
+</okviri>
+<dodatak>
+<p>Slajdovi 8–11 nemaju teksta osim naslova. Skica prikazuje ideju pristupa A: u svakom koraku poznat je dio stabla koji povezuje dosad dodane vrhove (isprekidane crte su putovi među njima), a novi vrh pripaja se na neko mjesto tog dijela; pritom se mogu pojaviti i međuvrhovi većeg broja (ovdje $6$ i $9$) koji još nisu „na redu”.</p>
+</dodatak>
+
+<h3>B. Pretražujemo redom od vrhova najbližih vrhu $1$</h3>
+<p>Pretraživati se može na dva načina: <b>BFS</b> (pretraživanje u širinu) i <b>DFS</b> (pretraživanje u dubinu).</p>
+<okviri naslov="B. BFS (pretraživanje u širinu) od vrha 1" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="Samo korijen 1">
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+</svg>
+<natpis>BFS (pretraživanje u širinu): krećemo iz vrha $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="BFS: posjećeni vrhovi 1, 6; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-istaknut" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+</svg>
+<natpis>BFS: otkriva se vrh $6$, susjed vrha $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="BFS: posjećeni vrhovi 1, 6, 9; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-istaknut" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+</svg>
+<natpis>BFS: otkriva se vrh $9$, drugi susjed vrha $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="BFS: posjećeni vrhovi 1, 6, 9, 2; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-plavi" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+  <circle class="cvor-istaknut" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+</svg>
+<natpis>BFS: otkriva se vrh $2$, dijete vrha $6$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="BFS: posjećeni vrhovi 1, 6, 9, 2, 4; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <line class="brid" x1="250.0" y1="95.0" x2="205.0" y2="170.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-plavi" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+  <circle class="cvor-plavi" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+  <circle class="cvor-istaknut" cx="205" cy="170" r="15"/><text class="oznaka-cvora" x="205" y="170">4</text>
+</svg>
+<natpis>BFS: otkriva se vrh $4$, dijete vrha $9$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="BFS: posjećeni vrhovi 1, 6, 9, 2, 4, 3; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <line class="brid" x1="250.0" y1="95.0" x2="205.0" y2="170.0"/>
+  <line class="brid" x1="250.0" y1="95.0" x2="310.0" y2="170.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-plavi" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+  <circle class="cvor-plavi" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+  <circle class="cvor-plavi" cx="205" cy="170" r="15"/><text class="oznaka-cvora" x="205" y="170">4</text>
+  <circle class="cvor-istaknut" cx="310" cy="170" r="15"/><text class="oznaka-cvora" x="310" y="170">3</text>
+</svg>
+<natpis>BFS: otkriva se vrh $3$, drugo dijete vrha $9$. Redoslijed otkrivanja: $1, 6, 9, 2, 4, 3$.</natpis>
+</okvir>
+</okviri>
+<okviri naslov="B. DFS (pretraživanje u dubinu) od vrha 1" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="DFS: posjećeni vrhovi 1, 6; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-istaknut" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+</svg>
+<natpis>DFS (pretraživanje u dubinu): iz vrha $1$ otkriva se vrh $6$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="DFS: posjećeni vrhovi 1, 6, 2; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-istaknut" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+</svg>
+<natpis>DFS: idemo dalje u dubinu, otkriva se vrh $2$, dijete vrha $6$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="DFS: posjećeni vrhovi 1, 6, 2, 9; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-plavi" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+  <circle class="cvor-istaknut" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+</svg>
+<natpis>DFS: vraćamo se do vrha $1$ i otkrivamo vrh $9$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="DFS: posjećeni vrhovi 1, 6, 2, 9, 4; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <line class="brid" x1="250.0" y1="95.0" x2="205.0" y2="170.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-plavi" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+  <circle class="cvor-plavi" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+  <circle class="cvor-istaknut" cx="205" cy="170" r="15"/><text class="oznaka-cvora" x="205" y="170">4</text>
+</svg>
+<natpis>DFS: otkriva se vrh $4$, dijete vrha $9$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 200" role="img" aria-label="DFS: posjećeni vrhovi 1, 6, 2, 9, 4, 3; zadnji je nov">
+  <line class="brid" x1="180.0" y1="25.0" x2="120.0" y2="95.0"/>
+  <line class="brid" x1="120.0" y1="95.0" x2="75.0" y2="170.0"/>
+  <line class="brid" x1="180.0" y1="25.0" x2="250.0" y2="95.0"/>
+  <line class="brid" x1="250.0" y1="95.0" x2="205.0" y2="170.0"/>
+  <line class="brid" x1="250.0" y1="95.0" x2="310.0" y2="170.0"/>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">1</text>
+  <circle class="cvor-plavi" cx="120" cy="95" r="15"/><text class="oznaka-cvora" x="120" y="95">6</text>
+  <circle class="cvor-plavi" cx="75" cy="170" r="15"/><text class="oznaka-cvora" x="75" y="170">2</text>
+  <circle class="cvor-plavi" cx="250" cy="95" r="15"/><text class="oznaka-cvora" x="250" y="95">9</text>
+  <circle class="cvor-plavi" cx="205" cy="170" r="15"/><text class="oznaka-cvora" x="205" y="170">4</text>
+  <circle class="cvor-istaknut" cx="310" cy="170" r="15"/><text class="oznaka-cvora" x="310" y="170">3</text>
+</svg>
+<natpis>DFS: otkriva se vrh $3$, drugo dijete vrha $9$. Redoslijed otkrivanja: $1, 6, 2, 9, 4, 3$.</natpis>
+</okvir>
+</okviri>
+
+<h3>C. Skidamo vrhove počevši od listova</h3>
+<p>Najprije na neki način pronađemo jedan list i vrh na koji je on spojen.</p>
+<p>→ Taj vrh uklonimo i time zadatak svedemo na zadatak s jednim vrhom manje.</p>
+
+<h3>D. Korištenje dijametra</h3>
+<skica sirina="420px">
+<svg viewBox="0 0 360 115" role="img" aria-label="Dijametar 2–4–5–1–3–7–6; o svakom unutarnjem vrhu dijametra visi podstablo (trokut)">
+  <polygon class="cvor-plavi" points="80,47 61,105 99,105"/><polygon class="cvor-plavi" points="130,47 111,105 149,105"/><polygon class="cvor-plavi" points="180,47 161,105 199,105"/><polygon class="cvor-plavi" points="230,47 211,105 249,105"/><polygon class="cvor-plavi" points="280,47 261,105 299,105"/>
+  <line class="brid-lak" x1="30.0" y1="30.0" x2="80.0" y2="30.0"/>
+  <line class="brid-lak" x1="80.0" y1="30.0" x2="130.0" y2="30.0"/>
+  <line class="brid-lak" x1="130.0" y1="30.0" x2="180.0" y2="30.0"/>
+  <line class="brid-lak" x1="180.0" y1="30.0" x2="230.0" y2="30.0"/>
+  <line class="brid-lak" x1="230.0" y1="30.0" x2="280.0" y2="30.0"/>
+  <line class="brid-lak" x1="280.0" y1="30.0" x2="330.0" y2="30.0"/>
+  <circle class="cvor-plavi" cx="30" cy="30" r="15"/><text class="oznaka-cvora" x="30" y="30">2</text>
+  <circle class="cvor-istaknut" cx="80" cy="30" r="15"/><text class="oznaka-cvora" x="80" y="30">4</text>
+  <circle class="cvor-istaknut" cx="130" cy="30" r="15"/><text class="oznaka-cvora" x="130" y="30">5</text>
+  <circle class="cvor-istaknut" cx="180" cy="30" r="15"/><text class="oznaka-cvora" x="180" y="30">1</text>
+  <circle class="cvor-istaknut" cx="230" cy="30" r="15"/><text class="oznaka-cvora" x="230" y="30">3</text>
+  <circle class="cvor-istaknut" cx="280" cy="30" r="15"/><text class="oznaka-cvora" x="280" y="30">7</text>
+  <circle class="cvor-plavi" cx="330" cy="30" r="15"/><text class="oznaka-cvora" x="330" y="30">6</text>
+</svg>
+<natpis>Slajd 24: dijametar<info naslov="Dijametar stabla"><p><b>Dijametar</b> stabla je najdulji put između dva vrha stabla (ovdje mjeren brojem bridova). Njegova su oba kraja listovi.</p><p>Standardno se nalazi u dva koraka: iz bilo kojeg vrha $a$ nađemo najudaljeniji vrh $b$, zatim iz $b$ nađemo najudaljeniji vrh $c$; put od $b$ do $c$ je dijametar. U ovom zadatku „najudaljeniji vrh od $v$” dobivamo jednim upitom <code>query(v, N - 1)</code>.</p><p>Svako stablo izgleda kao dijametar o čijim unutarnjim vrhovima vise podstabla; podstablo koje visi o vrhu udaljenom $d$ od bližeg kraja dijametra ima dubinu najviše $d$ (inače bi postojao dulji put).</p></info> stabla je put $2$–$4$–$5$–$1$–$3$–$7$–$6$; o svakom njegovu unutarnjem vrhu (narančasto) visi podstablo (trokut).</natpis>
+</skica>
+
+<h2>Podzadatak 1 <span class="bodovi">2</span> <span class="slajd-ref">slajdovi 25–28</span></h2>
+<p>Ograničenje podzadatka: $N=3$.</p>
+<h3>Zapažanje</h3>
+<p>Stabala s $3$ vrha ima malo vrsta i lako ih je sve nabrojiti.</p>
+<skica sirina="400px">
+<svg viewBox="0 0 360 190" role="img" aria-label="Tri stabla s 3 vrha: A = 2–1–3, B = 1–2–3, C = 2–3–1">
+  <line class="brid" x1="80.0" y1="30.0" x2="80.0" y2="95.0"/>
+  <line class="brid" x1="80.0" y1="95.0" x2="80.0" y2="160.0"/>
+  <line class="brid" x1="190.0" y1="30.0" x2="190.0" y2="95.0"/>
+  <line class="brid" x1="190.0" y1="95.0" x2="190.0" y2="160.0"/>
+  <line class="brid" x1="300.0" y1="30.0" x2="300.0" y2="95.0"/>
+  <line class="brid" x1="300.0" y1="95.0" x2="300.0" y2="160.0"/>
+  <circle class="cvor-plavi" cx="80" cy="30" r="15"/><text class="oznaka-cvora" x="80" y="30">2</text>
+  <circle class="cvor-istaknut" cx="80" cy="95" r="15"/><text class="oznaka-cvora" x="80" y="95">1</text>
+  <circle class="cvor-plavi" cx="80" cy="160" r="15"/><text class="oznaka-cvora" x="80" y="160">3</text>
+  <circle class="cvor-plavi" cx="190" cy="30" r="15"/><text class="oznaka-cvora" x="190" y="30">1</text>
+  <circle class="cvor-istaknut" cx="190" cy="95" r="15"/><text class="oznaka-cvora" x="190" y="95">2</text>
+  <circle class="cvor-plavi" cx="190" cy="160" r="15"/><text class="oznaka-cvora" x="190" y="160">3</text>
+  <circle class="cvor-plavi" cx="300" cy="30" r="15"/><text class="oznaka-cvora" x="300" y="30">2</text>
+  <circle class="cvor-istaknut" cx="300" cy="95" r="15"/><text class="oznaka-cvora" x="300" y="95">3</text>
+  <circle class="cvor-plavi" cx="300" cy="160" r="15"/><text class="oznaka-cvora" x="300" y="160">1</text>
+  <text class="tekst" x="35" y="35" style="text-anchor:start">A</text>
+  <text class="tekst" x="145" y="35" style="text-anchor:start">B</text>
+  <text class="tekst" x="255" y="35" style="text-anchor:start">C</text>
+</svg>
+<natpis>Slajdovi 26–27: sva tri stabla s $3$ vrha. A: središnji vrh je $1$; B: središnji vrh je $2$; C: središnji vrh je $3$ (središnji vrh je narančast).</natpis>
+</skica>
+<p>Za svaki vrh $i$ pitamo koji mu je vrh najbliži:</p>
+<div style="overflow-x:auto">
+<table style="overflow-wrap:normal">
+    <thead><tr><th></th><th>$i=1$</th><th>$i=2$</th><th>$i=3$</th></tr></thead>
+    <tbody>
+        <tr><th>A</th><td>$2$</td><td>$1$</td><td>$1$</td></tr>
+        <tr><th>B</th><td>$2$</td><td>$1$</td><td>$2$</td></tr>
+        <tr><th>C</th><td>$3$</td><td>$3$</td><td>$1$</td></tr>
+    </tbody>
+</table>
+</div>
+<p>Kod sa slajda 28:</p>
+<pre><code>void solve(int N, int L) {
+    // N = 3, L = N^2
+    if (query(1, 1) == 3) {
+        answer(1, 3);
+        answer(2, 3);
+    }
+    else {
+        answer(1, 2);
+        answer(query(3, 1), 3);
+    }
+}</code></pre>
+<p>→ Podzadatak 1 je riješen (AC)!</p>
+<dodatak naslov="Zašto kod radi">
+<p>Stupac $i=1$ tablice razlikuje stablo C (odgovor $3$) od stabala A i B (odgovor $2$). U stablu C bridovi su $1$–$3$ i $2$–$3$. Stabla A i B oba sadrže brid $1$–$2$, a razlikuju se po tome na koji je vrh spojen vrh $3$: to je upravo vrh najbliži vrhu $3$ (stupac $i=3$: u A je to $1$, u B je $2$), pa je drugi brid <code>(query(3, 1), 3)</code>. Troše se najviše $2$ upita od dopuštenih $L=9$.</p>
+</dodatak>
+
+<h2>Podzadaci 2 i 3 <span class="bodovi">11</span> <span class="slajd-ref">slajdovi 29–34</span></h2>
+<p>Ograničenje podzadataka: stablo je <b>put</b> (graf-put).</p>
+<skica sirina="420px">
+<svg viewBox="0 0 360 60" role="img" aria-label="Put 2–4–5–1–3–7–6">
+  <line class="brid" x1="30.0" y1="30.0" x2="80.0" y2="30.0"/>
+  <line class="brid" x1="80.0" y1="30.0" x2="130.0" y2="30.0"/>
+  <line class="brid" x1="130.0" y1="30.0" x2="180.0" y2="30.0"/>
+  <line class="brid" x1="180.0" y1="30.0" x2="230.0" y2="30.0"/>
+  <line class="brid" x1="230.0" y1="30.0" x2="280.0" y2="30.0"/>
+  <line class="brid" x1="280.0" y1="30.0" x2="330.0" y2="30.0"/>
+  <circle class="cvor-plavi" cx="30" cy="30" r="15"/><text class="oznaka-cvora" x="30" y="30">2</text>
+  <circle class="cvor-plavi" cx="80" cy="30" r="15"/><text class="oznaka-cvora" x="80" y="30">4</text>
+  <circle class="cvor-plavi" cx="130" cy="30" r="15"/><text class="oznaka-cvora" x="130" y="30">5</text>
+  <circle class="cvor-plavi" cx="180" cy="30" r="15"/><text class="oznaka-cvora" x="180" y="30">1</text>
+  <circle class="cvor-plavi" cx="230" cy="30" r="15"/><text class="oznaka-cvora" x="230" y="30">3</text>
+  <circle class="cvor-plavi" cx="280" cy="30" r="15"/><text class="oznaka-cvora" x="280" y="30">7</text>
+  <circle class="cvor-plavi" cx="330" cy="30" r="15"/><text class="oznaka-cvora" x="330" y="30">6</text>
+</svg>
+<natpis>Slajd 30: graf-put $2$–$4$–$5$–$1$–$3$–$7$–$6$.</natpis>
+</skica>
+<okviri naslov="Rješenje za put" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 60" role="img" aria-label="Put s nepoznatim vrhovima; poznat je samo vrh 5">
+  <line class="brid" x1="30.0" y1="30.0" x2="80.0" y2="30.0"/>
+  <line class="brid" x1="80.0" y1="30.0" x2="130.0" y2="30.0"/>
+  <line class="brid" x1="130.0" y1="30.0" x2="180.0" y2="30.0"/>
+  <line class="brid" x1="180.0" y1="30.0" x2="230.0" y2="30.0"/>
+  <line class="brid" x1="230.0" y1="30.0" x2="280.0" y2="30.0"/>
+  <line class="brid" x1="280.0" y1="30.0" x2="330.0" y2="30.0"/>
+  <circle class="cvor" cx="30" cy="30" r="15"/><text class="oznaka-cvora" x="30" y="30">?</text>
+  <circle class="cvor" cx="80" cy="30" r="15"/><text class="oznaka-cvora" x="80" y="30">?</text>
+  <circle class="cvor-istaknut" cx="130" cy="30" r="15"/><text class="oznaka-cvora" x="130" y="30">5</text>
+  <circle class="cvor" cx="180" cy="30" r="15"/><text class="oznaka-cvora" x="180" y="30">?</text>
+  <circle class="cvor" cx="230" cy="30" r="15"/><text class="oznaka-cvora" x="230" y="30">?</text>
+  <circle class="cvor" cx="280" cy="30" r="15"/><text class="oznaka-cvora" x="280" y="30">?</text>
+  <circle class="cvor" cx="330" cy="30" r="15"/><text class="oznaka-cvora" x="330" y="30">?</text>
+</svg>
+<natpis>Za neki proizvoljan vrh (ovdje $5$) pitamo koji mu je vrh najudaljeniji.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 60" role="img" aria-label="Put; najudaljeniji vrh od vrha 5 je krajnji vrh 6">
+  <line class="brid" x1="30.0" y1="30.0" x2="80.0" y2="30.0"/>
+  <line class="brid" x1="80.0" y1="30.0" x2="130.0" y2="30.0"/>
+  <line class="brid" x1="130.0" y1="30.0" x2="180.0" y2="30.0"/>
+  <line class="brid" x1="180.0" y1="30.0" x2="230.0" y2="30.0"/>
+  <line class="brid" x1="230.0" y1="30.0" x2="280.0" y2="30.0"/>
+  <line class="brid" x1="280.0" y1="30.0" x2="330.0" y2="30.0"/>
+  <circle class="cvor" cx="30" cy="30" r="15"/><text class="oznaka-cvora" x="30" y="30">?</text>
+  <circle class="cvor" cx="80" cy="30" r="15"/><text class="oznaka-cvora" x="80" y="30">?</text>
+  <circle class="cvor-istaknut" cx="130" cy="30" r="15"/><text class="oznaka-cvora" x="130" y="30">5</text>
+  <circle class="cvor" cx="180" cy="30" r="15"/><text class="oznaka-cvora" x="180" y="30">?</text>
+  <circle class="cvor" cx="230" cy="30" r="15"/><text class="oznaka-cvora" x="230" y="30">?</text>
+  <circle class="cvor" cx="280" cy="30" r="15"/><text class="oznaka-cvora" x="280" y="30">?</text>
+  <circle class="cvor-plavi" cx="330" cy="30" r="15"/><text class="oznaka-cvora" x="330" y="30">6</text>
+</svg>
+<natpis>Za neki proizvoljan vrh pitamo koji mu je vrh najudaljeniji: odgovor je vrh $6$, jedan kraj puta.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 60" role="img" aria-label="Put 2–4–5–1–3–7–6 određen od kraja 6">
+  <line class="brid" x1="30.0" y1="30.0" x2="80.0" y2="30.0"/>
+  <line class="brid" x1="80.0" y1="30.0" x2="130.0" y2="30.0"/>
+  <line class="brid" x1="130.0" y1="30.0" x2="180.0" y2="30.0"/>
+  <line class="brid" x1="180.0" y1="30.0" x2="230.0" y2="30.0"/>
+  <line class="brid" x1="230.0" y1="30.0" x2="280.0" y2="30.0"/>
+  <line class="brid" x1="280.0" y1="30.0" x2="330.0" y2="30.0"/>
+  <circle class="cvor" cx="30" cy="30" r="15"/><text class="oznaka-cvora" x="30" y="30">2</text>
+  <circle class="cvor" cx="80" cy="30" r="15"/><text class="oznaka-cvora" x="80" y="30">4</text>
+  <circle class="cvor" cx="130" cy="30" r="15"/><text class="oznaka-cvora" x="130" y="30">5</text>
+  <circle class="cvor" cx="180" cy="30" r="15"/><text class="oznaka-cvora" x="180" y="30">1</text>
+  <circle class="cvor" cx="230" cy="30" r="15"/><text class="oznaka-cvora" x="230" y="30">3</text>
+  <circle class="cvor" cx="280" cy="30" r="15"/><text class="oznaka-cvora" x="280" y="30">7</text>
+  <circle class="cvor-plavi" cx="330" cy="30" r="15"/><text class="oznaka-cvora" x="330" y="30">6</text>
+</svg>
+<natpis>Iz tog vrha redom pitamo za vrhove od najbližeg prema daljima: dobivamo cijeli put.</natpis>
+</okvir>
+</okviri>
+<p>Kod sa slajda 34:</p>
+<pre><code>void solve(int N, int L){
+    // put, L = 2N
+    int a = query(1, N - 1), b;
+    b = a;
+    for(int i = 0; i &lt; N - 1; i++){
+        int c = query(a, i + 1);
+        answer(min(b, c), max(b, c));
+        b = c;
+    }
+}</code></pre>
+<p>→ Podzadaci 2 i 3 su riješeni (AC)!</p>
+<dodatak naslov="Obrazloženje i broj upita">
+<p>Na putu je vrh najudaljeniji od bilo kojeg vrha uvijek jedan od dvaju krajeva puta (ako su oba kraja jednako daleko, upit vraća onaj s većim brojem, što je i dalje kraj). Od kraja $a$ na svakoj udaljenosti $d=1,\dots,N-1$ leži točno jedan vrh, pa <code>query(a, d)</code> vraća upravo $d$-ti vrh puta gledano od $a$; uzastopni odgovori su susjedni vrhovi.</p>
+<p>Kod kao „proizvoljan vrh” uzima vrh $1$ i troši $1+(N-1)=N$ upita, što stane i u $L=N^2$ (podzadatak 2) i u $L=2N$ (podzadatak 3).</p>
+</dodatak>
+
+<h2>Podzadaci 4 i 5 <span class="bodovi">22</span> <span class="slajd-ref">slajdovi 35–47</span></h2>
+<p>Ograničenje podzadataka: graf posebnog oblika.</p>
+<h3>Graf posebnog oblika</h3>
+<skica sirina="420px">
+<svg viewBox="0 0 360 180" role="img" aria-label="Vrh 1 sa susjedima 2, 4, 5; iz svakog susjeda nastavlja se put nepoznate duljine">
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="25.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="90.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="155.0"/>
+  <line class="brid-lak" x1="100.0" y1="25.0" x2="335.0" y2="25.0"/>
+  <line class="brid-lak" x1="100.0" y1="90.0" x2="275.0" y2="90.0"/>
+  <line class="brid-lak" x1="100.0" y1="155.0" x2="352.0" y2="155.0"/>
+  <circle class="cvor-plavi" cx="30" cy="90" r="15"/><text class="oznaka-cvora" x="30" y="90">1</text>
+  <circle class="cvor-plavi" cx="100" cy="25" r="15"/><text class="oznaka-cvora" x="100" y="25">2</text>
+  <circle class="cvor-plavi" cx="100" cy="90" r="15"/><text class="oznaka-cvora" x="100" y="90">4</text>
+  <circle class="cvor-plavi" cx="100" cy="155" r="15"/><text class="oznaka-cvora" x="100" y="155">5</text>
+</svg>
+<natpis>Slajd 36: vrh $1$ ima tri susjeda (ovdje $2$, $4$ i $5$), a iz svakog od njih nastavlja se put (isprekidano) — tri „kraka”.</natpis>
+</skica>
+<p>Od tipičnih zapažanja kod zadataka određivanja stabla</p>
+<ul>
+    <li>A. Vrhove dodajemo redom $1, 2, \dots, N$.</li>
+    <li><b>B. Pretražujemo redom od vrhova najbližih vrhu $1$.</b></li>
+    <li>C. Skidamo vrhove počevši od listova.</li>
+    <li>D. Korištenje dijametra.</li>
+</ul>
+<p>ovdje koristimo pristup <b>B</b> (na slajdu 37 istaknut crveno).</p>
+<okviri naslov="Rješenje DFS-om po krakovima" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 180" role="img" aria-label="Vrh 1 i njegova tri susjeda 2, 4, 5">
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="25.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="90.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="155.0"/>
+  <circle class="cvor-plavi" cx="30" cy="90" r="15"/><text class="oznaka-cvora" x="30" y="90">1</text>
+  <circle class="cvor-plavi" cx="100" cy="25" r="15"/><text class="oznaka-cvora" x="100" y="25">2</text>
+  <circle class="cvor-plavi" cx="100" cy="90" r="15"/><text class="oznaka-cvora" x="100" y="90">4</text>
+  <circle class="cvor-plavi" cx="100" cy="155" r="15"/><text class="oznaka-cvora" x="100" y="155">5</text>
+</svg>
+<natpis>Najprije odredimo brojeve triju vrhova spojenih s vrhom $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 180" role="img" aria-label="DFS po krakovima: 1–2–6–3–8, 1–4–9, 1–5">
+  <defs><marker id="isl-str-25" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="25.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="90.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="155.0"/>
+  <line class="brid" x1="115.0" y1="25.0" x2="162.0" y2="25.0" marker-end="url(#isl-str-25)"/>
+  <line class="brid" x1="195.0" y1="25.0" x2="237.0" y2="25.0" marker-end="url(#isl-str-25)"/>
+  <line class="brid" x1="270.0" y1="25.0" x2="312.0" y2="25.0" marker-end="url(#isl-str-25)"/>
+  <line class="brid" x1="115.0" y1="90.0" x2="162.0" y2="90.0" marker-end="url(#isl-str-25)"/>
+  <circle class="cvor-plavi" cx="30" cy="90" r="15"/><text class="oznaka-cvora" x="30" y="90">1</text>
+  <circle class="cvor-plavi" cx="100" cy="25" r="15"/><text class="oznaka-cvora" x="100" y="25">2</text>
+  <circle class="cvor-plavi" cx="100" cy="90" r="15"/><text class="oznaka-cvora" x="100" y="90">4</text>
+  <circle class="cvor-plavi" cx="100" cy="155" r="15"/><text class="oznaka-cvora" x="100" y="155">5</text>
+  <circle class="cvor-plavi" cx="180" cy="25" r="15"/><text class="oznaka-cvora" x="180" y="25">6</text>
+  <circle class="cvor-plavi" cx="255" cy="25" r="15"/><text class="oznaka-cvora" x="255" y="25">3</text>
+  <circle class="cvor-plavi" cx="330" cy="25" r="15"/><text class="oznaka-cvora" x="330" y="25">8</text>
+  <circle class="cvor-plavi" cx="180" cy="90" r="15"/><text class="oznaka-cvora" x="180" y="90">9</text>
+</svg>
+<natpis>Radimo DFS (za vrh u kojem se trenutno nalazimo pitamo koja su mu dva najbliža vrha).</natpis>
+</okvir>
+</okviri>
+<p>Kod sa slajda 40:</p>
+<pre><code>void solve(int N, int L){
+    vector&lt;int&gt; ok(N + 1, 0);
+    vector&lt;int&gt; v = {query(1, 1), query(1, 2), query(1, 3)};
+    for(int i = 0; i &lt; 3; i++){
+        answer(1, v[i]);
+    }
+    ok[1] = 1;
+
+    for(int i = 0; i &lt; 3; i++){
+        while(true){
+            int b = query(v[i], 1);
+            int c = query(v[i], 2);
+            if(ok[b] == 0){
+                ok[v[i]] = 1;
+                answer(v[i], b);
+                v[i] = b;
+            }
+            else if(ok[c] == 0){
+                ok[v[i]] = 1;
+                answer(v[i], c);
+                v[i] = c;
+            }
+            else{
+                break;
+            }
+        }
+    }
+}</code></pre>
+<p>→ Podzadaci 4 i 5 su riješeni (AC)!</p>
+<dodatak naslov="Obrazloženje, broj upita i jedan rubni slučaj koda">
+<p><b>Zašto radi.</b> Tri susjeda vrha $1$ jedini su vrhovi na udaljenosti $1$ od njega, pa su to odgovori na <code>query(1, 1)</code>, <code>query(1, 2)</code> i <code>query(1, 3)</code>. Svaki drugi vrh $x$ ima stupanj najviše $2$. Ako je stupanj $2$, dva najbliža vrha su njegova dva susjeda: onaj iz kojeg smo došli (već označen u <code>ok</code>) i sljedeći vrh kraka (neoznačen) — na njega prelazimo i javljamo brid. Ako je $x$ list na dubini barem $2$, najbliži mu je prethodnik, a drugi najbliži prethodnikov prethodnik; oba su označena, pa se krak završava.</p>
+<p><b>Broj upita.</b> $3$ upita za susjede vrha $1$ i po $2$ upita za svaki od preostalih $N-1$ vrhova: ukupno $2N+1\le 3N$, što zadovoljava i $L=N^2$ (podzadatak 4) i $L=3N$ (podzadatak 5).</p>
+<p><b>Rubni slučaj.</b> Kod je prepisan točno kako stoji na slajdu, ali u njemu tri susjeda vrha $1$ na početku <em>nisu</em> označena u <code>ok</code>. Ako je neki susjed $x$ vrha $1$ list (krak duljine $1$), tada je <code>b</code>$=1$ (označen), a <code>c</code> je drugi susjed vrha $1$ (na udaljenosti $2$ od $x$) koji još može biti neoznačen — kod bi tada javio nepostojeći brid $(x, c)$. To se događa primjerice u zvijezdi $N=4$ s bridovima $1$–$2$, $1$–$3$, $1$–$4$, a i u drugom primjeru iz teksta zadatka vrh $1$ ima susjede-listove. Provjerili smo to simulacijom. Popravak je jedan redak nakon <code>ok[1] = 1;</code>:</p>
+<pre><code>for(int i = 0; i &lt; 3; i++) ok[v[i]] = 1;</code></pre>
+<p>S tim retkom rješenje je na nasumičnim stablima ovog oblika uvijek točno i troši najviše $2N+1$ upita.</p>
+</dodatak>
+
+<h3>(Drugo rješenje)</h3>
+<skica sirina="420px">
+<svg viewBox="0 0 360 180" role="img" aria-label="Vrh 1 sa susjedima 2, 4, 5; iz svakog susjeda nastavlja se put nepoznate duljine">
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="25.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="90.0"/>
+  <line class="brid" x1="30.0" y1="90.0" x2="100.0" y2="155.0"/>
+  <line class="brid-lak" x1="100.0" y1="25.0" x2="335.0" y2="25.0"/>
+  <line class="brid-lak" x1="100.0" y1="90.0" x2="275.0" y2="90.0"/>
+  <line class="brid-lak" x1="100.0" y1="155.0" x2="352.0" y2="155.0"/>
+  <circle class="cvor-plavi" cx="30" cy="90" r="15"/><text class="oznaka-cvora" x="30" y="90">1</text>
+  <circle class="cvor-plavi" cx="100" cy="25" r="15"/><text class="oznaka-cvora" x="100" y="25">2</text>
+  <circle class="cvor-plavi" cx="100" cy="90" r="15"/><text class="oznaka-cvora" x="100" y="90">4</text>
+  <circle class="cvor-plavi" cx="100" cy="155" r="15"/><text class="oznaka-cvora" x="100" y="155">5</text>
+</svg>
+<natpis>Slajd 41: isti graf posebnog oblika — vrh $1$ s tri kraka.</natpis>
+</skica>
+<p>Od tipičnih zapažanja kod zadataka određivanja stabla</p>
+<ul>
+    <li>A. Vrhove dodajemo redom $1, 2, \dots, N$.</li>
+    <li>B. Pretražujemo redom od vrhova najbližih vrhu $1$.</li>
+    <li>C. Skidamo vrhove počevši od listova.</li>
+    <li><b>D. Korištenje dijametra.</b></li>
+</ul>
+<p>ovaj put koristimo pristup <b>D</b> (na slajdu 42 istaknut crveno).</p>
+<okviri naslov="Drugo rješenje: pomoću dijametra" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 210" role="img" aria-label="Vrh 1 i najudaljeniji vrh 6, spojeni isprekidanom crtom">
+  <line class="brid-lak" x1="30.0" y1="95.0" x2="330.0" y2="95.0"/>
+  <circle class="cvor-plavi" cx="30" cy="95" r="15"/><text class="oznaka-cvora" x="30" y="95">1</text>
+  <circle class="cvor-plavi" cx="330" cy="95" r="15"/><text class="oznaka-cvora" x="330" y="95">6</text>
+</svg>
+<natpis>Pitamo koji je vrh najudaljeniji od vrha $1$ (ovdje $6$).<br>→ Od tog vrha određujemo vrhove redom od najbližeg.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 210" role="img" aria-label="Određen krak 1–4–5–2–3–7–6">
+  <line class="brid" x1="30.0" y1="95.0" x2="80.0" y2="95.0"/>
+  <line class="brid" x1="80.0" y1="95.0" x2="130.0" y2="95.0"/>
+  <line class="brid" x1="130.0" y1="95.0" x2="180.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="95.0" x2="230.0" y2="95.0"/>
+  <line class="brid" x1="230.0" y1="95.0" x2="280.0" y2="95.0"/>
+  <line class="brid" x1="280.0" y1="95.0" x2="330.0" y2="95.0"/>
+  <circle class="cvor-plavi" cx="30" cy="95" r="15"/><text class="oznaka-cvora" x="30" y="95">1</text>
+  <circle class="cvor-plavi" cx="80" cy="95" r="15"/><text class="oznaka-cvora" x="80" y="95">4</text>
+  <circle class="cvor-plavi" cx="130" cy="95" r="15"/><text class="oznaka-cvora" x="130" y="95">5</text>
+  <circle class="cvor-plavi" cx="180" cy="95" r="15"/><text class="oznaka-cvora" x="180" y="95">2</text>
+  <circle class="cvor-plavi" cx="230" cy="95" r="15"/><text class="oznaka-cvora" x="230" y="95">3</text>
+  <circle class="cvor-plavi" cx="280" cy="95" r="15"/><text class="oznaka-cvora" x="280" y="95">7</text>
+  <circle class="cvor-plavi" cx="330" cy="95" r="15"/><text class="oznaka-cvora" x="330" y="95">6</text>
+</svg>
+<natpis>Pitamo koji je vrh najudaljeniji od vrha $1$.<br>→ Od tog vrha određujemo vrhove redom od najbližeg.<br>→ Kad se pojavi vrh $1$, prekidamo.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 210" role="img" aria-label="Krak 1–4–5–2–3–7–6 i vrh 8, najudaljeniji od vrha 6">
+  <line class="brid" x1="30.0" y1="95.0" x2="80.0" y2="95.0"/>
+  <line class="brid" x1="80.0" y1="95.0" x2="130.0" y2="95.0"/>
+  <line class="brid" x1="130.0" y1="95.0" x2="180.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="95.0" x2="230.0" y2="95.0"/>
+  <line class="brid" x1="230.0" y1="95.0" x2="280.0" y2="95.0"/>
+  <line class="brid" x1="280.0" y1="95.0" x2="330.0" y2="95.0"/>
+  <line class="brid-lak" x1="30.0" y1="95.0" x2="250.0" y2="186.0"/>
+  <circle class="cvor-plavi" cx="30" cy="95" r="15"/><text class="oznaka-cvora" x="30" y="95">1</text>
+  <circle class="cvor-plavi" cx="80" cy="95" r="15"/><text class="oznaka-cvora" x="80" y="95">4</text>
+  <circle class="cvor-plavi" cx="130" cy="95" r="15"/><text class="oznaka-cvora" x="130" y="95">5</text>
+  <circle class="cvor-plavi" cx="180" cy="95" r="15"/><text class="oznaka-cvora" x="180" y="95">2</text>
+  <circle class="cvor-plavi" cx="230" cy="95" r="15"/><text class="oznaka-cvora" x="230" y="95">3</text>
+  <circle class="cvor-plavi" cx="280" cy="95" r="15"/><text class="oznaka-cvora" x="280" y="95">7</text>
+  <circle class="cvor-plavi" cx="330" cy="95" r="15"/><text class="oznaka-cvora" x="330" y="95">6</text>
+  <circle class="cvor-plavi" cx="250" cy="186" r="15"/><text class="oznaka-cvora" x="250" y="186">8</text>
+</svg>
+<natpis>Pitamo koji je vrh najudaljeniji od vrha $6$ (ovdje $8$).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 210" role="img" aria-label="Krakovi 1–4–5–2–3–7–6 i 1–9–11–10–8">
+  <line class="brid" x1="30.0" y1="95.0" x2="80.0" y2="95.0"/>
+  <line class="brid" x1="80.0" y1="95.0" x2="130.0" y2="95.0"/>
+  <line class="brid" x1="130.0" y1="95.0" x2="180.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="95.0" x2="230.0" y2="95.0"/>
+  <line class="brid" x1="230.0" y1="95.0" x2="280.0" y2="95.0"/>
+  <line class="brid" x1="280.0" y1="95.0" x2="330.0" y2="95.0"/>
+  <line class="brid" x1="30.0" y1="95.0" x2="85.0" y2="135.0"/>
+  <line class="brid" x1="85.0" y1="135.0" x2="140.0" y2="152.0"/>
+  <line class="brid" x1="140.0" y1="152.0" x2="195.0" y2="169.0"/>
+  <line class="brid" x1="195.0" y1="169.0" x2="250.0" y2="186.0"/>
+  <circle class="cvor-plavi" cx="30" cy="95" r="15"/><text class="oznaka-cvora" x="30" y="95">1</text>
+  <circle class="cvor-plavi" cx="80" cy="95" r="15"/><text class="oznaka-cvora" x="80" y="95">4</text>
+  <circle class="cvor-plavi" cx="130" cy="95" r="15"/><text class="oznaka-cvora" x="130" y="95">5</text>
+  <circle class="cvor-plavi" cx="180" cy="95" r="15"/><text class="oznaka-cvora" x="180" y="95">2</text>
+  <circle class="cvor-plavi" cx="230" cy="95" r="15"/><text class="oznaka-cvora" x="230" y="95">3</text>
+  <circle class="cvor-plavi" cx="280" cy="95" r="15"/><text class="oznaka-cvora" x="280" y="95">7</text>
+  <circle class="cvor-plavi" cx="330" cy="95" r="15"/><text class="oznaka-cvora" x="330" y="95">6</text>
+  <circle class="cvor-plavi" cx="85" cy="135" r="15"/><text class="oznaka-cvora" x="85" y="135">9</text>
+  <circle class="cvor-plavi" cx="140" cy="152" r="15"/><text class="oznaka-cvora" x="140" y="152">11</text>
+  <circle class="cvor-plavi" cx="195" cy="169" r="15"/><text class="oznaka-cvora" x="195" y="169">10</text>
+  <circle class="cvor-plavi" cx="250" cy="186" r="15"/><text class="oznaka-cvora" x="250" y="186">8</text>
+</svg>
+<natpis>I od vrha $8$ pitamo na isti način (prekidamo kod vrha $1$).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 210" role="img" aria-label="Krakovi 1–4–5–2–3–7–6, 1–9–11–10–8 i 1–12–13">
+  <line class="brid" x1="30.0" y1="95.0" x2="80.0" y2="95.0"/>
+  <line class="brid" x1="80.0" y1="95.0" x2="130.0" y2="95.0"/>
+  <line class="brid" x1="130.0" y1="95.0" x2="180.0" y2="95.0"/>
+  <line class="brid" x1="180.0" y1="95.0" x2="230.0" y2="95.0"/>
+  <line class="brid" x1="230.0" y1="95.0" x2="280.0" y2="95.0"/>
+  <line class="brid" x1="280.0" y1="95.0" x2="330.0" y2="95.0"/>
+  <line class="brid" x1="30.0" y1="95.0" x2="85.0" y2="135.0"/>
+  <line class="brid" x1="85.0" y1="135.0" x2="140.0" y2="152.0"/>
+  <line class="brid" x1="140.0" y1="152.0" x2="195.0" y2="169.0"/>
+  <line class="brid" x1="195.0" y1="169.0" x2="250.0" y2="186.0"/>
+  <line class="brid" x1="30.0" y1="95.0" x2="150.0" y2="52.0"/>
+  <line class="brid" x1="150.0" y1="52.0" x2="250.0" y2="22.0"/>
+  <circle class="cvor-plavi" cx="30" cy="95" r="15"/><text class="oznaka-cvora" x="30" y="95">1</text>
+  <circle class="cvor-plavi" cx="80" cy="95" r="15"/><text class="oznaka-cvora" x="80" y="95">4</text>
+  <circle class="cvor-plavi" cx="130" cy="95" r="15"/><text class="oznaka-cvora" x="130" y="95">5</text>
+  <circle class="cvor-plavi" cx="180" cy="95" r="15"/><text class="oznaka-cvora" x="180" y="95">2</text>
+  <circle class="cvor-plavi" cx="230" cy="95" r="15"/><text class="oznaka-cvora" x="230" y="95">3</text>
+  <circle class="cvor-plavi" cx="280" cy="95" r="15"/><text class="oznaka-cvora" x="280" y="95">7</text>
+  <circle class="cvor-plavi" cx="330" cy="95" r="15"/><text class="oznaka-cvora" x="330" y="95">6</text>
+  <circle class="cvor-plavi" cx="85" cy="135" r="15"/><text class="oznaka-cvora" x="85" y="135">9</text>
+  <circle class="cvor-plavi" cx="140" cy="152" r="15"/><text class="oznaka-cvora" x="140" y="152">11</text>
+  <circle class="cvor-plavi" cx="195" cy="169" r="15"/><text class="oznaka-cvora" x="195" y="169">10</text>
+  <circle class="cvor-plavi" cx="250" cy="186" r="15"/><text class="oznaka-cvora" x="250" y="186">8</text>
+  <circle class="cvor-plavi" cx="150" cy="52" r="15"/><text class="oznaka-cvora" x="150" y="52">12</text>
+  <circle class="cvor-plavi" cx="250" cy="22" r="15"/><text class="oznaka-cvora" x="250" y="22">13</text>
+</svg>
+<natpis>Preostale vrhove povezujemo redom od najbližeg vrhu $1$.</natpis>
+</okvir>
+</okviri>
+<dodatak naslov="Obrazloženje drugog rješenja i broj upita">
+<p>Neka krakovi imaju duljine $\ell_1,\ell_2,\ell_3$ (broj vrhova bez vrha $1$). Vrh $a$ najudaljeniji od vrha $1$ je kraj nekog kraka. Od kraja kraka na svakoj udaljenosti $d\le\ell_1$ leži točno jedan vrh (vrhovi tog kraka i na kraju vrh $1$), pa upiti <code>query(a, 1)</code>, <code>query(a, 2)</code>, … redom vraćaju vrhove kraka sve do vrha $1$ — to je $\ell_1$ upita i $\ell_1$ bridova.</p>
+<p>Vrh najudaljeniji od $a$ je kraj $b$ nekog drugog kraka (svi vrhovi vlastitog kraka su bliži od bilo kojeg vrha drugih krakova), pa isti postupak od $b$ daje drugi krak s $\ell_2$ upita. Put od $a$ do $b$ ujedno je dijametar stabla.</p>
+<p>Preostali vrhovi čine treći krak; poredani po udaljenosti od vrha $1$ čine lanac koji počinje u vrhu $1$. Taj poredak dobivamo upitima <code>query(1, k)</code> za $k=1,\dots,N-1$ preskačući već određene vrhove. Ukupno najviše</p>
+\[
+1+\ell_1+1+\ell_2+(N-1)\le 2N-1
+\]
+<p>upita (jer je $\ell_1+\ell_2\le N-2$), što je manje od $3N$. Ovakvu implementaciju provjerili smo simulacijom na nasumičnim stablima ovog oblika.</p>
+</dodatak>
+
+<h2>Podzadatak 6 <span class="bodovi">15</span> <span class="slajd-ref">slajdovi 48–52</span></h2>
+<p>Ograničenje podzadatka: $L=N^2$.</p>
+<p>Od tipičnih zapažanja kod zadataka određivanja stabla</p>
+<ul>
+    <li>A. Vrhove dodajemo redom $1, 2, \dots, N$.</li>
+    <li>B. Pretražujemo redom od vrhova najbližih vrhu $1$.</li>
+    <li><b>C. Skidamo vrhove počevši od listova.</b></li>
+    <li>D. Korištenje dijametra.</li>
+</ul>
+<p>ovdje koristimo pristup <b>C</b> (na slajdu 49 istaknut crveno).</p>
+<okviri naslov="Skidanje listova" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 60" role="img" aria-label="Vrh 1 i najudaljeniji vrh 6">
+  <line class="brid-lak" x1="30.0" y1="30.0" x2="330.0" y2="30.0"/>
+  <circle class="cvor-plavi" cx="30" cy="30" r="15"/><text class="oznaka-cvora" x="30" y="30">1</text>
+  <circle class="cvor-plavi" cx="330" cy="30" r="15"/><text class="oznaka-cvora" x="330" y="30">6</text>
+</svg>
+<natpis>Pitamo koji je vrh najudaljeniji od vrha $1$.<br>→ Taj je vrh list, a doznajemo i na koji je vrh spojen.<br>→ Taj list zanemarimo, a ostatak stabla odredimo rekurzivno.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 150" role="img" aria-label="List 6 pokazuje strelicom na susjeda 5; ostatak stabla s vrhovima 1 i 5 zaokružen je elipsom">
+  <defs><marker id="isl-str-32" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <ellipse class="brid" cx="145" cy="75" rx="130" ry="62"/>
+  <line class="brid" x1="315.0" y1="75.0" x2="253.0" y2="75.0" marker-end="url(#isl-str-32)"/>
+  <circle class="cvor-plavi" cx="45" cy="75" r="15"/><text class="oznaka-cvora" x="45" y="75">1</text>
+  <circle class="cvor-plavi" cx="235" cy="75" r="15"/><text class="oznaka-cvora" x="235" y="75">5</text>
+  <circle class="cvor-plavi" cx="330" cy="75" r="15"/><text class="oznaka-cvora" x="330" y="75">6</text>
+</svg>
+<natpis>Pitamo koji je vrh najudaljeniji od vrha $1$.<br>→ Taj je vrh list (ovdje $6$), a doznajemo i na koji je vrh spojen (ovdje $5$).<br>→ Taj list zanemarimo, a ostatak stabla (unutar elipse) odredimo rekurzivno.</natpis>
+</okvir>
+</okviri>
+<p>Kod sa slajda 52:</p>
+<pre><code>vector&lt;int&gt; used(N, 0);
+int a = Q[0][N - 1];
+
+for(int i = 0; i &lt; N - 1; i++){
+    for(int j = 1; j &lt; N; j++){
+        int b = Q[a][j];
+        if(!used[b]){
+            used[a] = 1;
+            answer(a + 1, b + 1);
+            for(int k = N - 1; k &gt;= 0; k--){
+                int c = Q[b][k];
+                if(!used[c]){
+                    a = c;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+}</code></pre>
+<p>→ Podzadatak 6 je riješen (AC)!</p>
+<dodatak naslov="Što je Q, zašto radi i broj upita">
+<p><b>Tablica <code>Q</code>.</b> Slajd ne prikazuje kako nastaje <code>Q</code>. Iz načina uporabe slijedi da su vrhovi u kodu numerirani od $0$ i da je <code>Q[v][k]</code> vrh koji je $k$-ti najbliži vrhu <code>v</code>, uz <code>Q[v][0] = v</code>; tablica se na početku popuni svim mogućim upitima:</p>
+<pre><code>vector&lt;vector&lt;int&gt;&gt; Q(N, vector&lt;int&gt;(N));
+for(int v = 0; v &lt; N; v++){
+    Q[v][0] = v;
+    for(int k = 1; k &lt; N; k++) Q[v][k] = query(v + 1, k) - 1;
+}</code></pre>
+<p>To je $N(N-1)\le N^2$ upita; nakon toga se više ništa ne pita.</p>
+<p><b>Najudaljeniji vrh je list.</b> Neka je $a$ vrh najudaljeniji od vrha $x$ u stablu s barem dva vrha. Kad bi $a$ imao susjeda $w$ koji nije na putu prema $x$, taj bi $w$ bio još dalji od $x$; dakle $a$ ima samo jednog susjeda, tj. list je.</p>
+<p><b>Na koji je vrh list spojen.</b> Uklanjanjem lista stablo ostaje povezano i udaljenosti među preostalim vrhovima se ne mijenjaju. Zato je za list $a$ trenutačnog (preostalog) stabla njegov jedini susjed upravo prvi <em>neuklonjeni</em> vrh u popisu <code>Q[a][1], Q[a][2], …</code> — to je vrh <code>b</code>, i kod javlja brid $(a,b)$.</p>
+<p><b>Sljedeći list.</b> Kod za sljedeći list ne uzima vrh najudaljeniji od vrha $1$, nego neuklonjeni vrh najudaljeniji od <code>b</code> (popis <code>Q[b]</code> čita se unatrag). Po gornjoj tvrdnji i to je list preostalog stabla, pa je postupak ispravan. Kad ostane samo vrh <code>b</code>, petlja po <code>k</code> stiže do <code>Q[b][0] = b</code>, ali tada je vanjska petlja već javila svih $N-1$ bridova. Ovakav kod provjerili smo simulacijom na nasumičnim stablima.</p>
+</dodatak>
+
+<h2>Podzadaci 7 i 8 <span class="bodovi">50</span> <span class="slajd-ref">slajdovi 53–65</span></h2>
+<p>Ograničenja podzadataka: $L=3N$ (podzadatak 7) i $L=2N$ (podzadatak 8).</p>
+<p>Od tipičnih zapažanja kod zadataka određivanja stabla</p>
+<ul>
+    <li>A. Vrhove dodajemo redom $1, 2, \dots, N$.</li>
+    <li><b>B. Pretražujemo redom od vrhova najbližih vrhu $1$.</b></li>
+    <li>C. Skidamo vrhove počevši od listova.</li>
+    <li>D. Korištenje dijametra.</li>
+</ul>
+<p>ovdje ponovno koristimo pristup <b>B</b> (na slajdu 54 istaknut crveno).</p>
+<okviri naslov="Dodavanje vrhova redom od najbližeg vrhu 1" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Vrh 2 spojen strelicom na vrh 1">
+  <defs><marker id="isl-str-33" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line class="brid" x1="84.0" y1="50.2" x2="43.2" y2="87.8" marker-end="url(#isl-str-33)"/>
+  <circle class="cvor-plavi" cx="30" cy="100" r="15"/><text class="oznaka-cvora" x="30" y="100">1</text>
+  <circle class="cvor-plavi" cx="95" cy="40" r="15"/><text class="oznaka-cvora" x="95" y="40">2</text>
+</svg>
+<natpis>Vrh najbliži vrhu $1$ (ovdje $2$) povezujemo s vrhom $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Dvije mogućnosti: lijevo je vrh 3 dijete vrha 1, desno je vrh 3 dijete vrha 2">
+  <defs><marker id="isl-str-34" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line x1="170" y1="15" x2="170" y2="180" stroke="#1b2a3a" stroke-width="3" stroke-dasharray="3 4"/>
+  <line class="brid" x1="84.0" y1="50.2" x2="43.2" y2="87.8" marker-end="url(#isl-str-34)"/>
+  <line class="brid" x1="84.0" y1="149.8" x2="43.2" y2="112.2" marker-end="url(#isl-str-34)"/>
+  <line class="brid" x1="255.4" y1="51.5" x2="226.5" y2="86.2" marker-end="url(#isl-str-34)"/>
+  <line class="brid" x1="320.0" y1="40.0" x2="283.0" y2="40.0" marker-end="url(#isl-str-34)"/>
+  <circle class="cvor-plavi" cx="30" cy="100" r="15"/><text class="oznaka-cvora" x="30" y="100">1</text>
+  <circle class="cvor-plavi" cx="95" cy="40" r="15"/><text class="oznaka-cvora" x="95" y="40">2</text>
+  <circle class="cvor-plavi" cx="95" cy="160" r="15"/><text class="oznaka-cvora" x="95" y="160">3</text>
+  <circle class="cvor-plavi" cx="215" cy="100" r="15"/><text class="oznaka-cvora" x="215" y="100">1</text>
+  <circle class="cvor-plavi" cx="265" cy="40" r="15"/><text class="oznaka-cvora" x="265" y="40">2</text>
+  <circle class="cvor-plavi" cx="335" cy="40" r="15"/><text class="oznaka-cvora" x="335" y="40">3</text>
+  <text class="tekst" x="180" y="205" style="text-anchor:middle">(ne znamo koja od dviju)</text>
+</svg>
+<natpis>Povezujemo sljedeći najbliži vrh vrhu $1$ (ovdje $3$): spojen je ili izravno s vrhom $1$ (lijevo) ili s vrhom $2$ (desno) — ne znamo koja je od dviju mogućnosti točna.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Iste dvije mogućnosti: vrh 3 je dijete vrha 1 ili dijete vrha 2">
+  <defs><marker id="isl-str-35" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line x1="170" y1="15" x2="170" y2="180" stroke="#1b2a3a" stroke-width="3" stroke-dasharray="3 4"/>
+  <line class="brid" x1="84.0" y1="50.2" x2="43.2" y2="87.8" marker-end="url(#isl-str-35)"/>
+  <line class="brid" x1="84.0" y1="149.8" x2="43.2" y2="112.2" marker-end="url(#isl-str-35)"/>
+  <line class="brid" x1="255.4" y1="51.5" x2="226.5" y2="86.2" marker-end="url(#isl-str-35)"/>
+  <line class="brid" x1="320.0" y1="40.0" x2="283.0" y2="40.0" marker-end="url(#isl-str-35)"/>
+  <circle class="cvor-plavi" cx="30" cy="100" r="15"/><text class="oznaka-cvora" x="30" y="100">1</text>
+  <circle class="cvor-plavi" cx="95" cy="40" r="15"/><text class="oznaka-cvora" x="95" y="40">2</text>
+  <circle class="cvor-plavi" cx="95" cy="160" r="15"/><text class="oznaka-cvora" x="95" y="160">3</text>
+  <circle class="cvor-plavi" cx="215" cy="100" r="15"/><text class="oznaka-cvora" x="215" y="100">1</text>
+  <circle class="cvor-plavi" cx="265" cy="40" r="15"/><text class="oznaka-cvora" x="265" y="40">2</text>
+  <circle class="cvor-plavi" cx="335" cy="40" r="15"/><text class="oznaka-cvora" x="335" y="40">3</text>
+</svg>
+<natpis>Iz vrha $3$ redom pitamo za vrhove od najbližeg i odlučujemo po tome koji se od vrhova $1$ i $2$ pojavi prvi.</natpis>
+</okvir>
+</okviri>
+
+<h3>Ukratko…</h3>
+<ol>
+    <li>Vrhove dodajemo redom od najbližeg vrhu $1$.</li>
+    <li>Iz vrha koji želimo dodati redom pitamo za vrhove od najbližeg.</li>
+    <li>Čim se pojavi vrh koji smo već vidjeli, on je sigurno roditelj.</li>
 </ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Prekidati listu susjeda na prvom „viđenom” vrhu koji je samo bio <i>odgovor</i>, a ne dodan/roditeljski — pažljivo definiraj „poznat”.</li>
-        <li>Zaboraviti da <code>query(v,1)</code> može vratiti uklonjeno dijete (pristup ljuštenja listova).</li>
-        <li>Prijaviti isti brid dvaput ili pozvati <code>answer</code> manje od $N-1$ puta.</li>
-    </ul>
+<skica sirina="420px">
+<svg viewBox="0 0 360 215" role="img" aria-label="Poznati vrhovi 1, 2, 4, 5, 6, 9; novi vrh 3 isprekidanim strelicama pokazuje na moguće roditelje 6, 2, 9, 4, 5">
+  <defs><marker id="isl-str-36" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line class="brid" x1="89.4" y1="50.6" x2="42.7" y2="97.3" marker-end="url(#isl-str-36)"/>
+  <line class="brid" x1="85.0" y1="110.0" x2="48.0" y2="110.0" marker-end="url(#isl-str-36)"/>
+  <line class="brid" x1="89.4" y1="169.4" x2="42.7" y2="122.7" marker-end="url(#isl-str-36)"/>
+  <line class="brid" x1="175.0" y1="40.0" x2="118.0" y2="40.0" marker-end="url(#isl-str-36)"/>
+  <line class="brid" x1="175.0" y1="110.0" x2="118.0" y2="110.0" marker-end="url(#isl-str-36)"/>
+  <line class="brid-lak" x1="308.5" y1="140.3" x2="203.7" y2="51.6" marker-end="url(#isl-str-36)"/>
+  <line class="brid-lak" x1="306.6" y1="143.3" x2="116.1" y2="48.0" marker-end="url(#isl-str-36)"/>
+  <line class="brid-lak" x1="305.7" y1="145.6" x2="207.2" y2="115.3" marker-end="url(#isl-str-36)"/>
+  <line class="brid-lak" x1="305.2" y1="147.3" x2="117.7" y2="113.2" marker-end="url(#isl-str-36)"/>
+  <line class="brid-lak" x1="305.1" y1="152.0" x2="117.8" y2="177.6" marker-end="url(#isl-str-36)"/>
+  <circle class="cvor-plavi" cx="30" cy="110" r="15"/><text class="oznaka-cvora" x="30" y="110">1</text>
+  <circle class="cvor-plavi" cx="100" cy="40" r="15"/><text class="oznaka-cvora" x="100" y="40">2</text>
+  <circle class="cvor-plavi" cx="100" cy="110" r="15"/><text class="oznaka-cvora" x="100" y="110">4</text>
+  <circle class="cvor-plavi" cx="100" cy="180" r="15"/><text class="oznaka-cvora" x="100" y="180">5</text>
+  <circle class="cvor-plavi" cx="190" cy="40" r="15"/><text class="oznaka-cvora" x="190" y="40">6</text>
+  <circle class="cvor-plavi" cx="190" cy="110" r="15"/><text class="oznaka-cvora" x="190" y="110">9</text>
+  <circle class="cvor-istaknut" cx="320" cy="150" r="15"/><text class="oznaka-cvora" x="320" y="150">3</text>
+</svg>
+<natpis>Slajd 59: vrhovi $1,2,4,5,6,9$ već su dodani (strelice pokazuju prema roditelju). Dodajemo vrh $3$ (narančasto); isprekidane strelice pokazuju već viđene vrhove koji bi mu mogli biti roditelj.</natpis>
+</skica>
+<dodatak naslov="Zašto je prvi već viđeni vrh roditelj">
+<p>Ukorijenimo stablo u vrhu $1$. Upiti <code>query(1, k)</code> za $k=1,\dots,N-1$ daju sve vrhove poredane po udaljenosti od vrha $1$ (BFS poredak). Svaki vrh $u\ne1$ ima u tom poretku svog roditelja <em>ispred</em> sebe (roditelj je za $1$ bliži vrhu $1$), a svu svoju djecu <em>iza</em> sebe.</p>
+<p>Kad dodajemo $u$, „već viđeni” su točno vrhovi ispred njega u poretku. Odgovori na <code>query(u, 1)</code>, <code>query(u, 2)</code>, … najprije nabrajaju susjede vrha $u$ (udaljenost $1$) po rastućem broju. Među susjedima je viđen jedino roditelj, a nijedan vrh na udaljenosti $2$ ili više ne može doći na red prije roditelja. Dakle prvi viđeni odgovor je roditelj, a svi odgovori prije njega su djeca vrha $u$ s brojem manjim od roditeljeva.</p>
+</dodatak>
+
+<h3>Ukratko… (broj upita)</h3>
+<ol>
+    <li>Vrhove promatramo redom od najbližeg vrhu $1$.</li>
+    <li>Iz vrha koji želimo dodati redom pitamo za vrhove od najbližeg.</li>
+    <li>Čim se pojavi vrh koji smo već vidjeli, on je sigurno roditelj.</li>
+</ol>
+<p>Prvih $N$ upita $+$ $2N$ upita → ukupno $3N$ upita.</p>
+<p>Zašto?</p>
+<skica sirina="420px">
+<svg viewBox="0 0 360 215" role="img" aria-label="Stablo sa strelicama prema roditelju: 2, 4, 5 prema 1; 6 prema 2; 9 prema 4; 3 prema 6">
+  <defs><marker id="isl-str-37" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line class="brid" x1="89.4" y1="50.6" x2="42.7" y2="97.3" marker-end="url(#isl-str-37)"/>
+  <line class="brid" x1="85.0" y1="110.0" x2="48.0" y2="110.0" marker-end="url(#isl-str-37)"/>
+  <line class="brid" x1="89.4" y1="169.4" x2="42.7" y2="122.7" marker-end="url(#isl-str-37)"/>
+  <line class="brid" x1="175.0" y1="40.0" x2="118.0" y2="40.0" marker-end="url(#isl-str-37)"/>
+  <line class="brid" x1="175.0" y1="110.0" x2="118.0" y2="110.0" marker-end="url(#isl-str-37)"/>
+  <line class="brid" x1="265.0" y1="40.0" x2="208.0" y2="40.0" marker-end="url(#isl-str-37)"/>
+  <circle class="cvor-plavi" cx="30" cy="110" r="15"/><text class="oznaka-cvora" x="30" y="110">1</text>
+  <circle class="cvor-plavi" cx="100" cy="40" r="15"/><text class="oznaka-cvora" x="100" y="40">2</text>
+  <circle class="cvor-plavi" cx="100" cy="110" r="15"/><text class="oznaka-cvora" x="100" y="110">4</text>
+  <circle class="cvor-plavi" cx="100" cy="180" r="15"/><text class="oznaka-cvora" x="100" y="180">5</text>
+  <circle class="cvor-plavi" cx="190" cy="40" r="15"/><text class="oznaka-cvora" x="190" y="40">6</text>
+  <circle class="cvor-plavi" cx="190" cy="110" r="15"/><text class="oznaka-cvora" x="190" y="110">9</text>
+  <circle class="cvor-plavi" cx="280" cy="40" r="15"/><text class="oznaka-cvora" x="280" y="40">3</text>
+</svg>
+<natpis>Slajdovi 61–63: stablo sa strelicama od svakog vrha prema roditelju; „ulijevo” je smjer prema roditelju (prema vrhu $1$), „udesno” smjer prema djeci.</natpis>
+</skica>
+<p>Za svaki brid postavit ćemo po dva upita: jedan „ulijevo” i jedan „udesno”.</p>
+<p>Odbaciti informaciju dobivenu kad smo pitali za brid „udesno” je rasipanje.</p>
+<p>→ Ako je ponovno iskoristimo, ukupno je dovoljno $2N$ upita i dobivaju se puni bodovi.</p>
+<dodatak naslov="Točno brojanje: 3N i 2N">
+<p><b>$3N$.</b> Prva faza (poredak po udaljenosti od vrha $1$) troši $N-1$ upita. U drugoj fazi svaki je odgovor na upit iz vrha $u$ susjed vrha $u$: ili roditelj (upit „ulijevo” po bridu $u$–roditelj) ili dijete (upit „udesno” po bridu $u$–dijete). Svaki se brid tako pita najviše jednom u svakom smjeru, pa druga faza troši najviše $2(N-1)$ upita, a sve zajedno manje od $3N$. To rješava podzadatak 7.</p>
+<p><b>$2N$.</b> Ako se pri obradi vrha $u$ prije roditelja pojavi dijete $c$, već tada znamo brid $u$–$c$, tj. roditelja vrha $c$. Zato taj brid odmah javimo, a vrh $c$ označimo (<code>ok[c] = 1</code>) i kad dođe na red <em>preskočimo</em> ga. Tada svaki upit druge faze otkriva novi brid: brid prema djetetu javlja se samo iz roditelja (dijete se nakon toga preskače), a brid prema roditelju samo iz vrha koji nije preskočen, dakle čiji brid prema roditelju još nije bio javljen. Bridova je $N-1$, pa druga faza troši točno $N-1$ upita, a ukupno</p>
+\[
+(N-1)+(N-1)=2N-2\le 2N .
+\]
+<p>Ispravnost se ne mijenja: odluku „je li odgovor $a$ roditelj” kod donosi usporedbom položaja u poretku (<code>dist[a] &lt; dist[i]</code>), a ona ne ovisi o tome koji su vrhovi preskočeni.</p>
+</dodatak>
+<p>Kod sa slajda 64:</p>
+<pre><code>for(int i = 1; i &lt; N; i++){
+    int a = query(1, i) - 1;
+    dist[a] = i;
+    near[i] = a;
+}
+
+for(int t = 1; t &lt; N; t++){
+    int i = near[t];
+    if(ok[i]){
+        continue;
+    }
+    for(int j = 1; j &lt; N; j++){
+        int a = query(i + 1, j) - 1;
+        if(dist[a] &lt; dist[i]){
+            answer(i + 1, a + 1);
+            break;
+        }
+        else{
+            answer(i + 1, a + 1);
+            ok[a] = 1;
+        }
+    }
+}</code></pre>
+<p>→ 100 bodova!</p>
+<dodatak naslov="Napomene uz kod">
+<p>Vrhovi su u kodu numerirani od $0$ (vrh $1$ iz zadatka je indeks $0$). Polja <code>dist</code>, <code>near</code> i <code>ok</code> veličine $N$ nisu deklarirana na slajdu i moraju biti inicijalizirana nulama. <code>dist[a]</code> nije prava udaljenost nego <em>redni broj</em> vrha <code>a</code> u poretku po udaljenosti od vrha $1$ (za sam vrh $1$ ostaje $0$), a <code>near[t]</code> je $t$-ti vrh tog poretka. Uvjet <code>dist[a] &lt; dist[i]</code> znači „vrh <code>a</code> je u poretku ispred vrha <code>i</code>”, tj. <code>a</code> je roditelj; inače je <code>a</code> dijete, brid se javlja odmah i dijete se označava da se kasnije preskoči. Simulacijom na nasumičnim stablima provjerili smo da kod uvijek javi točno $N-1$ ispravnih bridova uz točno $2N-2$ upita.</p>
+</dodatak>
+
+<h3>Rješenje koje vješto koristi veličinu brojeva vrhova</h3>
+<p>… pitamo za vrhove susjedne vrhu $N$.</p>
+<skica sirina="340px">
+<svg viewBox="0 0 300 180" role="img" aria-label="Vrh N i njegov susjed 3; vrhovi 6, 1, 4 pokazuju na vrh 3">
+  <defs><marker id="isl-str-38" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+  <line class="brid" x1="115.0" y1="90.0" x2="58.0" y2="90.0" marker-end="url(#isl-str-38)"/>
+  <line class="brid" x1="217.1" y1="37.7" x2="145.4" y2="80.7" marker-end="url(#isl-str-38)"/>
+  <line class="brid" x1="225.0" y1="90.0" x2="148.0" y2="90.0" marker-end="url(#isl-str-38)"/>
+  <line class="brid" x1="217.1" y1="142.3" x2="145.4" y2="99.3" marker-end="url(#isl-str-38)"/>
+  <circle class="cvor-plavi" cx="40" cy="90" r="15"/><text class="oznaka-cvora" x="40" y="90">N</text>
+  <circle class="cvor-plavi" cx="130" cy="90" r="15"/><text class="oznaka-cvora" x="130" y="90">3</text>
+  <circle class="cvor-plavi" cx="230" cy="30" r="15"/><text class="oznaka-cvora" x="230" y="30">6</text>
+  <circle class="cvor-plavi" cx="240" cy="90" r="15"/><text class="oznaka-cvora" x="240" y="90">1</text>
+  <circle class="cvor-plavi" cx="230" cy="150" r="15"/><text class="oznaka-cvora" x="230" y="150">4</text>
+</svg>
+<natpis>Slajd 65: vrh $N$, njegov susjed $3$ i vrhovi $6$, $1$, $4$ spojeni na vrh $3$ (strelice pokazuju prema vrhu $N$).</natpis>
+</skica>
+<p>→ Uz $L=2{,}5N$ teško je dobiti pune bodove.</p>
+<dodatak>
+<p>Slajd ovu ideju ne razrađuje dalje. Polazište je vjerojatno ovo: budući da se vrhovi na jednakoj udaljenosti vraćaju po rastućem broju, vrh najvećeg broja $N$ pojavljuje se zadnji među susjedima, pa se iz poretka odgovora može iščitati dodatna informacija. Kako točno izgleda rješenje na koje autor misli i na što se odnosi granica $2{,}5N$, iz slajda se ne može pouzdano zaključiti, pa to ovdje ne rekonstruiramo.</p>
+</dodatak>
+
+<h2>Raspodjela bodova <span class="slajd-ref">slajdovi 66–68</span></h2>
+<div style="overflow-x:auto">
+<table style="overflow-wrap:normal">
+    <thead><tr><th>JOI: bodovi</th><th>natjecatelja</th><th>JOIG: bodovi</th><th>natjecatelja</th></tr></thead>
+    <tbody>
+        <tr><td>$100$</td><td>$5$</td><td>$66$</td><td>$1$</td></tr>
+        <tr><td>$72$</td><td>$9$</td><td>$52$</td><td>$1$</td></tr>
+        <tr><td>$50$</td><td>$3$</td><td>$41$</td><td>$1$</td></tr>
+        <tr><td>$26$</td><td>$7$</td><td>$20$</td><td>$1$</td></tr>
+        <tr><td>$4$</td><td>$4$</td><td>$4$</td><td>$4$</td></tr>
+        <tr><td>$0$</td><td>$0$</td><td>$0$</td><td>$1$</td></tr>
+    </tbody>
+</table>
 </div>
-
-@@ analiza
-<slajdovi from="1" to="7" naslov="Zadatak i tipični pristupi">
-    <s n="1">Naslov; analiza: blackyuki.</s>
-    <s n="2">(prazno)</s>
-    <s n="3">Pregled zadatka.</s>
-    <s n="4">Stablo s $N$ vrhova nepoznato; pitanje „koji je $k$-ti najbliži vrh vrhu $i$?”; jednake udaljenosti razrješava indeks.</s>
-    <s n="5">Interaktivno · stablo · svojstva zadatka.</s>
-    <s n="6">Tipično za interaktivne: simuliraj klasične algoritme (BFS, DFS, Dijkstra…); probaj više pristupa, ne fiksiraj se na jedan.</s>
-    <s n="7">Za rekonstrukciju stabla: A) dodavanje vrhova $1,2,\dots,N$; B) pretraga od vrha 1 po blizini; C) ljuštenje listova; D) dijametar.</s>
-</slajdovi>
-<slajdovi from="8" to="24" vrsta="koraci" naslov="Ilustracije pristupa A–D">
-    <s n="8">A: dodaj vrh 1.</s>
-    <s n="9">A: dodaj 2.</s>
-    <s n="10">A: dodaj 3, 6.</s>
-    <s n="11">A: dodaj 4, 9.</s>
-    <s n="12">B (BFS): 1.</s>
-    <s n="13">B: 1, 6.</s>
-    <s n="14">B: 1, 6, 9.</s>
-    <s n="15">B: 1, 2, 6, 9.</s>
-    <s n="16">B: 1, 2, 4, 6, 9.</s>
-    <s n="17">B: 1, 2, 3, 4, 6, 9.</s>
-    <s n="18">B (DFS): 1, 6.</s>
-    <s n="19">B: 1, 2, 6.</s>
-    <s n="20">B: 1, 2, 6, 9.</s>
-    <s n="21">B: 1, 2, 4, 6, 9.</s>
-    <s n="22">B: sve.</s>
-    <s n="23">C: nađi list i njegov susjed, ukloni ga, rekurzivno na $N-1$ vrhova.</s>
-    <s n="24">D: dijametar 2-6-4-5-1-3-7.</s>
-</slajdovi>
-
-<h2>Podzadaci 1–5 <span class="bodovi">35 bodova</span></h2>
-<slajdovi from="25" to="47" vrsta="koraci" naslov="Mali slučajevi, put, pauk">
-    <s n="25">Podzadatak 1: $N=3$.</s>
-    <s n="26">Samo tri stabla (A, B, C: središnji vrh 1, 2 ili 3).</s>
-    <s n="27">Pitaj najbliži vrh svakom $i$: tablica odgovora razlikuje A, B, C.</s>
-    <s n="28">AC.</s>
-    <s n="29">Podzadaci 2, 3: put.</s>
-    <s n="30">Put 2-6-4-5-1-3-7.</s>
-    <s n="31">Pitaj najudaljeniji vrh od bilo kojeg vrha…</s>
-    <s n="32">…dobiješ kraj puta (6).</s>
-    <s n="33">Od kraja pitaj vrhove redom po blizini: cijeli put.</s>
-    <s n="34">AC ($N$ upita).</s>
-    <s n="35">Podzadaci 4, 5: poseban oblik.</s>
-    <s n="36">Vrh 1 stupnja 3, ostali $\le2$ (tri noge).</s>
-    <s n="37">Pristupi A–D.</s>
-    <s n="38">Prvo tri susjeda vrha 1.</s>
-    <s n="39">DFS: iz trenutnog vrha pitaj dva najbliža (jedan je prethodni, drugi sljedeći).</s>
-    <s n="40">AC ($\le3N$).</s>
-    <s n="41">Alternativa.</s>
-    <s n="42">Pristupi A–D.</s>
-    <s n="43">Najudaljeniji od 1 (6) → od njega nabrajaj po blizini…</s>
-    <s n="44">…dok ne dođe vrh 1: to je jedna noga.</s>
-    <s n="45">Najudaljeniji od 6 (8) — kraj druge noge.</s>
-    <s n="46">Od 8 nabrajaj do vrha 1.</s>
-    <s n="47">Preostali vrhovi (treća noga) spajaju se redom po udaljenosti od 1.</s>
-</slajdovi>
-
-<h2>Podzadatak 6 <span class="bodovi">15 bodova</span></h2>
-<slajdovi from="48" to="52" vrsta="koraci" naslov="Ljuštenje listova">
-    <s n="48">$L=N^2$.</s>
-    <s n="49">Pristupi A–D.</s>
-    <s n="50">Najudaljeniji vrh od 1 je list i njegov susjed se može doznati.</s>
-    <s n="51">Ignoriraj taj list i rekurzivno riješi ostatak.</s>
-    <s n="52">AC.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Detalj slajda 50.</b> Susjed lista $v$ nije nužno <code>query(v,1)</code> u <i>ostatku</i> stabla: upiti se odnose na cijelo stablo, pa <code>query(v,1)</code> može vratiti već uklonjeno dijete od $v$. Ispravno: pitaj <code>query(v,k)</code> za $k=1,2,\dots$ dok ne dobiješ neuklonjeni vrh (svi susjedi su na udaljenosti 1, uklonjeni su djeca od $v$). Ukupno takvih „promašaja” ima najviše $N-1$ (svaki uklonjeni vrh je dijete jednog vrha), pa je i ovaj pristup zapravo $O(N)$ upita.</p>
-</div>
-
-<h2>Podzadaci 7–8 <span class="bodovi">50 bodova</span></h2>
-<slajdovi from="53" to="65" vrsta="koraci" naslov="$3N$ pa $2N$">
-    <s n="53">$L=3N$, $2N$.</s>
-    <s n="54">Pristupi A–D.</s>
-    <s n="55">Spoji najbliži vrh vrhu 1 (2).</s>
-    <s n="56">Sljedeći najbliži (3): roditelj 1 ili 2 — ne zna se.</s>
-    <s n="57">Pitaj od 3 susjede po blizini: pojavi li se prije 1 ili 2 — to je roditelj.</s>
-    <s n="58">Sažetak: 1. dodaj vrhove po blizini od 1; 2. za novi vrh pitaj njegove susjede redom; 3. prvi već viđeni vrh je roditelj.</s>
-    <s n="59">Primjer.</s>
-    <s n="60">Prvih $N$ upita + $2N$ → $3N$. Zašto $2N$?</s>
-    <s n="61">Svaki brid pitamo dvaput: „ulijevo” i „udesno”.</s>
-    <s n="62">Bacati informaciju iz upita „udesno” (otkrivena djeca) je rasipno.</s>
-    <s n="63">Iskoristi je → ukupno $2N$, puni bodovi.</s>
-    <s n="64">100 bodova!</s>
-    <s n="65">Drugi pristup preko indeksa (pitati susjede vrha $N$…) daje oko $2.5N$ — teško za 100.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Precizno brojanje (slajd 63).</b> Vrh $u$ (u BFS poretku) obrađujemo samo ako mu roditelj još nije poznat; tada pitamo susjede redom do prvog poznatog vrha (roditelja) i troši se $1+d_u$ upita, gdje je $d_u$ broj djece koja su se pojavila prije roditelja — ta djeca time dobivaju roditelja i <i>ne obrađuju se</i>. Svaki od $N-1$ ne-korijenskih vrhova ili je obrađen (plaća 1) ili otkriven kao dijete (plaćen u $d$ roditelja): točno $N-1$ upita, plus $N-1$ za BFS poredak.</p>
-    <p><b>Zašto je prvi poznati susjed roditelj.</b> Susjedi od $u$: roditelj $p$ (BFS-raniji, dakle poznat) i djeca (BFS-kasnija). Dijete $c$ od $u$ moglo bi biti „poznato” samo ako je otkriveno u listi svog roditelja — a to je $u$, koji se tek obrađuje. Dakle nijedno dijete nije poznato, a $p$ jest.</p>
-</div>
-<slajdovi from="66" to="68" naslov="Statistika">
-    <s n="66">Raspodjela bodova.</s>
-    <s n="67">JOI: 100 — 5, 72 — 9, 50 — 3, 26 — 7, 4 — 4.</s>
-    <s n="68">JOIG: 66, 52, 41, 20 po 1; 4 — 4; 0 — 1.</s>
-</slajdovi>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>$N-1$ upita iz vrha 1 daje BFS poredak; roditelj je prvi poznati susjed.</li>
-        <li>Djeca otkrivena prije roditelja ne trebaju vlastite upite → jedan upit po bridu.</li>
-        <li>Ukupno $2N-2$ upita.</li>
+        <li>Kod interaktivnih zadataka isplati se simulirati poznate algoritme (BFS, DFS, skidanje listova, dijametar) i isprobati više pristupa.</li>
+        <li>Mali i posebni slučajevi: $N=3$ rješava se s dva upita; put se čita od jednog kraja ($N$ upita); stablo s tri kraka DFS-om po krakovima ili pomoću dijametra.</li>
+        <li>$L=N^2$: uzastopno skidanje listova — najudaljeniji vrh je list, a spojen je na najbliži neuklonjeni vrh.</li>
+        <li>$L=3N$: vrhove dodajemo po udaljenosti od vrha $1$; prvi već viđeni vrh među najbližima je roditelj.</li>
+        <li>$L=2N$: djecu otkrivenu prije roditelja ne obrađujemo ponovno, pa svaki brid stoji jedan upit — ukupno $2N-2$.</li>
     </ul>
 </div>
