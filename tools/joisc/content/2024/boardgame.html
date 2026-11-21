@@ -1,7 +1,7 @@
 @@ meta
 naslov = Društvena igra
 engleski = Board Game
-oznake = najkraći putevi, BFS/0-1 BFS, funkcija troška kao minimum pravaca, konkavna omotnica, slojeviti graf, podrezivanje stanja, balansiranje sqrt
+oznake = najkraći putovi, BFS, 0-1 BFS, minimum pravaca, sqrt-balansiranje
 autor_analize = Nishimoto Masaki (maspy)
 
 @@ zadatak
@@ -41,172 +41,913 @@ autor_analize = Nishimoto Masaki (maspy)
 </div>
 <p>$T=3$: igrač 1 ide $1\to2$ (zaustavno, potez gotov); igrač 2 ide $5\to3\to2$ (staje); igrač 1 ide $2\to3$. Ukupno 4.</p>
 
-@@ rjesenje
-<h2>Razdvajanje igrača 1 i ostalih</h2>
-<p>Igra nema natjecateljski element — svi surađuju. Ako igrač 1 do $T$ stane na zaustavno polje $n$ puta (dolazak na $T$ ne broji se), svaki od ostalih $K-1$ igrača odigra <b>točno $n$ poteza</b>. Zato</p>
-<p class="formula">$\displaystyle \text{ans}(T) = \min_{n\ge0}\Big(\mathit{dist}_n(T) + G(n)\Big),\quad G(n) = \sum_{p\ge2} g_p(n),$</p>
-<p>gdje je $\mathit{dist}_n(T)$ najmanje pomaka igrača 1 do $T$ uz točno $n$ zaustavljanja, a $g_p(n)$ najmanje pomaka igrača $p$ za $n$ poteza.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–15</span></h2>
+<p>Službenu analizu rješenja zadatka „Društvena igra” (ボードゲーム) pripremio je <b>Nishimoto Masaki (maspy)</b>; zadatak je bio na 2. natjecateljskom danu (Contest 2) proljetnog kampa JOI 2024.</p>
 
-<h2>Trošak drugog igrača: minimum dvaju pravaca</h2>
-<p>Potez počinje na nekom polju i završava prvim dolaskom na zaustavno polje; svaki potez košta $\ge1$. Iz zaustavnog polja potez košta $1$ ako ima <b>zaustavnog susjeda</b> („dobro” polje: par susjednih zaustavnih polja omogućuje $1$ po potezu zauvijek — skači tamo-amo), inače $2$ (na susjeda i natrag). Zato za $n\ge1$</p>
-<p class="formula">$g_p(n) = \min\big(2n + \alpha_p,\; n + \beta_p\big),\qquad \alpha_p = D_p - 2,\quad g_p(0)=0,$</p>
-<p>gdje je $D_p\ge1$ najmanje pomaka od $X_p$ do zaustavnog polja (za $X_p$ zaustavno: 1 ako ima zaustavnog susjeda, inače 2), a $\beta_p$ najmanja vrijednost $\ell - t$ po šetnjama od $X_p$ do dobrog polja s $\ell$ pomaka i $t$ završenih poteza. $\beta_p$ je najkraći put gdje pomak na zaustavno polje košta 0, a na ponovno aktivirajuće 1 (0-1 BFS unatrag od dobrih polja). <b>Zašto točno min:</b> strategija „bez jedinica” košta $D_p + 2(n-1)$; strategija s jedinicama prvo stigne do dobrog polja ($\ell$ pomaka, $t$ poteza) pa dalje po 1: $n + (\ell - t)$ za $n\ge t$, a za $n \lt t$ skraćena šetnja (prvih $n$ poteza) košta $\le \ell-(t-n)$ jer svaki izbačeni potez košta $\ge1$. Donja granica: potez košta 1 samo s dobrog polja.</p>
+<h3>Sažetak zadatka</h3>
+<ul>
+    <li>Imamo $K$ figura.</li>
+    <li>Postoje pravila po kojima se figure pomiču (pažljivo pročitajte tekst zadatka).</li>
+    <li>Treba odrediti najmanji broj operacija (pomaka) potreban da se postigne cilj.</li>
+</ul>
+<p>Zadatak govori o igri za $K$ igrača, ali u njoj nema nikakvog elementa nadmetanja.</p>
+<p>Možemo zamisliti i da sve figure pomiče jedna osoba.</p>
 
-<h2>$K$ malen: $G$ je minimum od $K$ pravaca <span class="bodovi">podzadaci 5–6</span></h2>
-<p>$\sum_p \min(f_p,h_p) = \min$ po svim izborima $\sum$ odabranih — a među $2^{K-1}$ zbrojeva pravaca donju omotnicu čine samo $K$: sortiraj pragove $d_p = \beta_p-\alpha_p$ i za $j=0..K-1$ uzmi pravac $a_j n + b_j$ s $a_j = 2(K-1)-j$, $b_j = \sum_p\alpha_p + \sum_{i\le j} d_{(i)}$. Za fiksni pravac zadatak igrača 1 je najkraći put u kojem <b>svako zaustavljanje košta $1 + a_j$</b>, običan pomak 1: Dijkstra ili linearni „dva reda” BFS (dvije težine). Sloj $n=0$ ($G(0)=0$, $b_j$ može biti negativan!) obradi zasebno: BFS bez zaustavnih polja. $O(K(N+M))$.</p>
+<h3>Sažetak zadatka (pravila pomicanja)</h3>
+<p>Slajdovi 3–15 nemaju teksta: prikazuju istu ploču s pet polja i tri figure kroz trinaest uzastopnih stanja. Natpis pod svakom skicom opisuje što se na tom slajdu vidi.</p>
+<okviri naslov="Pravila pomicanja na primjeru s tri igrača (slajdovi 3–15)" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 3">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="295" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">2</text>
+  <circle cx="65" cy="48" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="65" y="48" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 3: početno stanje. Figura igrača 1 je gore lijevo, figura igrača 2 dolje desno, a figura igrača 3 na zaustavnom polju (obojeno plavo; na slajdu u njemu piše „stani”). Ostala polja su ponovno aktivirajuća.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 4">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <polygon points="114,41 117,41 117,33 131,48 117,63 117,55 114,55" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="295" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">2</text>
+  <circle cx="65" cy="48" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="65" y="48" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 4: na potezu je igrač 1 — pomiče figuru na susjedno polje (crvena strelica).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 5">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="295" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">2</text>
+  <circle cx="180" cy="48" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="48" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 5: figura igrača 1 je na srednjem gornjem polju. To nije zaustavno polje, pa potez igrača 1 još traje.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 6">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <polygon points="173,80 173,106 165,106 180,120 195,106 187,106 187,80" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="295" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">2</text>
+  <circle cx="180" cy="48" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="48" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 6: igrač 1 nastavlja potez i pomiče figuru prema dolje, na zaustavno polje.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 7">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="295" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 7: figura igrača 1 stala je na zaustavno polje — potez igrača 1 time završava.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 8">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <polygon points="246,145 243,145 243,137 229,152 243,167 243,159 246,159" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="295" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 8: na potezu je igrač 2 — pomiče figuru ulijevo, na zaustavno polje (narančasta strelica).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 9">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 9: figura igrača 2 je na zaustavnom polju — potez igrača 2 završava. Sve tri figure su na istom polju.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 10">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <polygon points="173,120 173,94 165,94 180,80 195,94 187,94 187,120" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 10: na potezu je igrač 3. Iako stoji na zaustavnom polju, mora se pomaknuti: pomiče figuru prema gore (žuta strelica).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 11">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="180" cy="48" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="48" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 11: figura igrača 3 je na srednjem gornjem polju, koje nije zaustavno, pa potez igrača 3 još traje.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 12">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <polygon points="173,80 173,106 165,106 180,120 195,106 187,106 187,80" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="180" cy="48" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="48" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 12: igrač 3 vraća figuru prema dolje, na zaustavno polje.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 13">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 13: figura igrača 3 opet je na zaustavnom polju — potez igrača 3 završava i red je ponovno na igraču 1.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 14">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <polygon points="231,145 232,145 232,137 246,152 232,167 232,159 231,159" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="208" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="208" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 14: igrač 1 pomiče figuru udesno (crvena strelica).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 215" role="img" aria-label="Ploča s pet polja i tri figure, stanje sa slajda 15">
+  <line class="brid" x1="65" y1="48" x2="180" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="295" y2="48"/>
+  <line class="brid" x1="180" y1="48" x2="180" y2="152"/>
+  <line class="brid" x1="180" y1="152" x2="295" y2="152"/>
+  <rect x="20" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="20" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="135" y="124" width="90" height="56" style="fill:#cfeffd;stroke:#1b2a3a;stroke-width:1.5"/>
+  <rect x="250" y="124" width="90" height="56" style="fill:#ffffff;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="tekst-mali" x="180" y="198" style="text-anchor:middle">zaustavno polje</text>
+  <circle cx="152" cy="152" r="12" style="fill:#fdd835;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="152" y="152" style="fill:#1b2a3a">3</text>
+  <circle cx="180" cy="152" r="12" style="fill:#fb8c00;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="180" y="152" style="fill:#ffffff">2</text>
+  <circle cx="295" cy="152" r="12" style="fill:#e53935;stroke:#1b2a3a;stroke-width:1.5"/>
+  <text class="oznaka-cvora" x="295" y="152" style="fill:#ffffff">1</text>
+</svg>
+<natpis>Slajd 15: figura igrača 1 stigla je na polje dolje desno.</natpis>
+</okvir>
+</okviri>
+<dodatak naslov="Pravila i cilj, precizno (iz teksta zadatka)">
+<p>Ploča je povezan graf s $N$ polja i $M$ staza. Niz $S$ određuje vrstu polja: $S_i=0$ je <b>ponovno aktivirajuće</b> polje, $S_i=1$ je <b>zaustavno</b> polje. Igrač $p$ počinje na polju $X_p$; igrači su na potezu redom $1,2,\dots,K,1,2,\dots$</p>
+<p>U svom potezu igrač <em>mora</em> pomaknuti figuru na susjedno polje. Ako je to polje ponovno aktivirajuće, ponavlja pomak (potez se nastavlja); ako je zaustavno, potez završava i na redu je sljedeći igrač. Za svaki $T=1,\dots,N$ traži se najmanji <b>ukupni broj pomaka svih igrača</b> nakon kojeg figura igrača 1 stoji na polju $T$ — računa se i ako se to dogodi usred poteza.</p>
+<p>U ovom prijevodu „pomak” znači jedno premještanje figure na susjedno polje, a „potez” cijeli niz pomaka jednog igrača do dolaska na zaustavno polje.</p>
+</dodatak>
 
-<h2>$K$ velik: podrezivanje po broju zaustavljanja <span class="bodovi">podzadaci 7–8</span></h2>
-<p>Svako zaustavljanje košta ostale bar $K-1$. Ako optimalan put prolazi stanjem $(v,n)$, zamjena prefiksa putem s najmanje zaustavljanja do $v$ ($n_{\min}(v)$, $\le N$ pomaka) mijenja pomake za $\le N$, a $G$ smanjuje za $\ge (n-n_{\min}(v))(K-1)$; dakle $n \le n_{\min}(v) + N/(K-1)$. BFS po stanjima $(v,n)$ (težina 1, pomak na zaustavno polje $n\to n+1$) s tim podrezivanjem ima $O(N^2/K)$ stanja i $O(MN/K)$ prijelaza. Zatim $\text{ans}(T)=\min_n \mathit{dist}_n(T)+G(n)$, gdje $G(n) = 2n(K-1)+\sum\alpha_p - \sum_p\max(0,n-d_p)$ računaj sortiranjem pragova.</p>
-<p><b>Balans</b>: $K \le \sqrt{N+M}$ → $K$ najkraćih puteva; inače slojeviti BFS. Ukupno $O((N+M)^{1.5})$. Za brzinu: linearni algoritmi umjesto Dijkstre, pažljiva granica podrezivanja, $O(N)$ memorije po sloju.</p>
-
-@@ trener
-<ol class="koraci">
-    <li>
-        <details class="spoiler korak">
-            <summary>Rastavi trošak</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Ako igrač 1 stane $n$ puta, što točno rade ostali? Zapiši ukupni trošak kao „igrač 1 s $n$ zaustavljanja” + „ostali s $n$ poteza”.</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Kako izgleda $g_p(n)$?</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Koliko najmanje košta potez iz zaustavnog polja? Kada je moguće 1? Nacrtaj graf $g_p$: nagib 2 pa nagib 1. Dokaži da je točno minimum dvaju pravaca.</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Zbroj minimuma pravaca</summary>
-            <div class="spoiler-sadrzaj">
-                <p>$\sum_p\min(\cdot,\cdot)$ je minimum od $2^{K-1}$ pravaca — ali samo $K$ ih je na omotnici. Zašto se onda trošak igrača 1 s fiksiranim pravcem rješava jednom Dijkstrom?</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Kad je $K$ velik</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Svako dodatno zaustavljanje košta $\ge K-1$; koliko se maksimalno dodatnih zaustavljanja isplati u odnosu na put s najmanje zaustavljanja?</p>
-            </div>
-        </details>
-    </li>
-</ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Dolazak na $T$ <b>ne broji se</b> kao zaustavljanje; početno polje $X_1$ nije zaustavljanje.</li>
-        <li>Igrač koji stoji na zaustavnom polju mora se pomaknuti: udaljenost 0 ne postoji, potez košta 1 ili 2.</li>
-        <li>$n=0$ posebno: $G(0)=0$, ali pravci daju $b_j$ (može biti i negativan zbog $\alpha_p=-1$).</li>
-        <li>Nema zaustavnih polja (podzadatak 1): nema dobrih polja, $\beta=\infty$; igrač 1 samo BFS-a.</li>
-        <li>Odgovori do $\approx N\cdot 2K \approx 5\cdot10^9$: 64-bitni tip.</li>
-    </ul>
+<h2>Podzadatak 1: nema zaustavnih polja <span class="bodovi">3</span> <span class="slajd-ref">slajdovi 16–18</span></h2>
+<p>Podzadatak 1: broj zaustavnih polja je $0$ (JOI 3 boda, JOIG 7 bodova).</p>
+<ul>
+    <li>To je jednostavno zadatak u kojem se igrač 1 neprestano kreće.</li>
+    <li>Riječ je o problemu najkraćih putova iz jednog izvora u kojem su težine svih bridova jednake $1$.</li>
+    <li>Rješava se pretraživanjem u širinu (BFS).</li>
+    <li>Složenost je $O(N+M)$.</li>
+</ul>
+<p>Kao metode za određivanje najkraćih putova poznate su ove:</p>
+<ul>
+    <li>(0-1) BFS,</li>
+    <li>Dijkstra,</li>
+    <li>Warshall–Floyd,</li>
+    <li>Bellman–Ford, SPFA.</li>
+</ul>
+<p>Kolika je složenost? Smiju li postojati negativni bridovi? Može li se otkriti negativan ciklus?</p>
+<dodatak naslov="Odgovori na pitanja sa slajda 18">
+<div style="overflow-x:auto">
+<table style="overflow-wrap:normal">
+    <thead><tr><th>Algoritam</th><th>Složenost</th><th>Negativni bridovi</th><th>Negativan ciklus</th></tr></thead>
+    <tbody>
+        <tr><td>BFS</td><td>$O(N+M)$</td><td>ne (sve težine $1$)</td><td>—</td></tr>
+        <tr><td>0-1 BFS</td><td>$O(N+M)$</td><td>ne (težine $0$ ili $1$)</td><td>—</td></tr>
+        <tr><td>Dijkstra</td><td>$O((N+M)\log N)$</td><td>ne</td><td>—</td></tr>
+        <tr><td>Warshall–Floyd</td><td>$O(N^3)$, svi parovi</td><td>da</td><td>da ($d[v][v]\lt0$)</td></tr>
+        <tr><td>Bellman–Ford</td><td>$O(NM)$</td><td>da</td><td>da</td></tr>
+        <tr><td>SPFA</td><td>$O(NM)$ u najgorem slučaju</td><td>da</td><td>da</td></tr>
+    </tbody>
+</table>
 </div>
+<p>U 0-1 BFS-u umjesto reda koristimo dvostrani red (deque): vrh do kojeg smo došli bridom težine $0$ stavljamo na početak, a bridom težine $1$ na kraj. U ovom zadatku dovoljni su BFS, 0-1 BFS i (po želji) Dijkstra.</p>
+</dodatak>
 
-@@ analiza
-<slajdovi from="1" to="15" naslov="Zadatak">
-    <s n="1">Naslov; analiza: Nishimoto Masaki (maspy).</s>
-    <s n="2">$K$ figura, pravila pomicanja (pročitaj tekst pažljivo), najmanji broj poteza do cilja. Igra je „za $K$ igrača”, ali bez natjecanja — sve pomiče jedna osoba.</s>
-    <s n="3">Pravila pomicanja — ilustracija.</s>
-    <s n="4">Ilustracija.</s>
-    <s n="5">Ilustracija.</s>
-    <s n="6">Ilustracija.</s>
-    <s n="7">Ilustracija.</s>
-    <s n="8">Ilustracija.</s>
-    <s n="9">Ilustracija.</s>
-    <s n="10">Ilustracija.</s>
-    <s n="11">Ilustracija.</s>
-    <s n="12">Ilustracija.</s>
-    <s n="13">Ilustracija.</s>
-    <s n="14">Ilustracija.</s>
-    <s n="15">Ilustracija.</s>
-</slajdovi>
+<h2>Podzadatak 2: jedno zaustavno polje <span class="bodovi">7</span> <span class="slajd-ref">slajdovi 19–24</span></h2>
+<p>Podzadatak 2: broj zaustavnih polja je $1$ (JOI 7 bodova, JOIG 12 bodova).</p>
+<ul>
+    <li>Igrač 1 radi <b>jedno od ovoga</b> → to razmatramo na kraju:
+        <ul>
+            <li>ide do polja $T$ ne stajući na zaustavno polje → izračunljivo;</li>
+            <li>ide do polja $T$ i pritom jedanput stane na zaustavno polje → izračunljivo.</li>
+        </ul>
+    </li>
+    <li>Ostali igrači:
+        <ul>
+            <li>idu do (jedinog) zaustavnog polja → izračunljivo.</li>
+        </ul>
+    </li>
+</ul>
+<p>(Slajd 20 donosi samo popis, a slajd 21 mu crvenom bojom dodaje napomene iza strelica.)</p>
 
-<h2>Podzadaci 1–3 <span class="bodovi">17 bodova</span></h2>
-<slajdovi from="16" to="28" vrsta="koraci" naslov="0, 1, 2 zaustavna polja">
-    <s n="16">Podzadatak 1: bez zaustavnih polja.</s>
-    <s n="17">Igrač 1 se samo kreće: najkraći put s jediničnim težinama, BFS, $O(N+M)$.</s>
-    <s n="18">Podsjetnik na algoritme najkraćih puteva (0-1 BFS, BFS, Dijkstra, Floyd–Warshall, Bellman–Ford/SPFA): složenosti, negativni bridovi, negativni ciklusi.</s>
-    <s n="19">Podzadatak 2: jedno zaustavno polje.</s>
-    <s n="20">Igrač 1: do $T$ bez gaženja zaustavnog polja ili s jednim gaženjem. Ostali: do (jedinog) zaustavnog polja.</s>
-    <s n="21">Sve troje je izračunljivo; odluku ostavi za kraj.</s>
-    <s n="22">Rješenje: za igrača 1 izračunaj pomake s 0 i 1 zaustavljanjem; za ostale pomake do zaustavljanja.</s>
-    <s n="23">Igrač 1: najkraći put na $2N$ stanja; ostali: najkraći put od zaustavnog polja.</s>
-    <s n="24">Oprez: za igrača 1 dolazak na $T$ ne broji se; za ostale udaljenost 0 od zaustavnog polja znači potez od 2 pomaka.</s>
-    <s n="25">Podzadatak 3: dva zaustavna polja.</s>
-    <s n="26">Igrač 1: 0, 1 ili 2 zaustavljanja. Ostali: do jednog od dva zaustavna polja; drugi potez završi u 1 ili 2 pomaka.</s>
-    <s n="27">Sve izračunljivo.</s>
-    <s n="28">Igrač 1: najkraći put na $3N$ stanja; ostali: dva najkraća puta + provjera jesu li zaustavna polja susjedna.</s>
-</slajdovi>
+<h3>Rješenje</h3>
+<ul>
+    <li>Igrač 1: izračunamo broj pomaka potreban da dođe do $T$ ako na zaustavno polje stane $0$ puta, odnosno $1$ put.<br>→ <b>problem najkraćih putova s $2N$ stanja</b>.</li>
+    <li>Ostali igrači: izračunamo broj pomaka do zaustavljanja.<br>→ <b>najkraći putovi s izvorom u zaustavnom polju</b>.</li>
+</ul>
 
-<h2>Podzadatak 4 <span class="bodovi">19 bodova</span></h2>
-<slajdovi from="29" to="34" vrsta="koraci" naslov="$N^2$ stanja">
-    <s n="29">Podzadatak 4: $N,M,K\le3000$.</s>
-    <s n="30">Fiksiraj broj zaustavljanja $n$ igrača 1: treba (a) pomaci igrača 1 do $T$ s $n$ zaustavljanja, (b) pomaci ostalih za $n$ poteza; za sve $n=0..N$.</s>
-    <s n="31">(a) najkraći put na $N^2$ stanja: $\mathit{dist}[k][T]$ = najmanje pomaka do $T$ uz $k$ zaustavljanja prije dolaska (zaustavljanje na $T$ ne broji se).</s>
-    <s n="32">(b) dva pristupa; drugi dolazi u podzadatku 5.</s>
-    <s n="33">Stanje $(v,k)$: potez počinje na $v$, cilj još $k$ poteza; $(v,k)\to(w,k)$ ili $(w,k-1)$ za susjedne $v,w$. Udaljenost do $(\cdot,0)$?</s>
-    <s n="34">Najkraći put unatrag od $(\cdot,0)$.</s>
-</slajdovi>
-<slajdovi from="35" to="40" naslov="Savjeti za implementaciju">
-    <s n="35">Podzadaci 1–4 (36): tko je dotle stigao, razumije sve elemente zadatka; stanja su jednostavna, sve je BFS, ali točna implementacija je zahtjevna.</s>
-    <s n="36">Precizno definiraj varijable: „$\mathit{dist}[k][T]$ = najmanje pomaka do $T$ uz $k$ zaustavljanja prije dolaska (bez $T$)”.</s>
-    <s n="37">Prije kodiranja provjeri odgovara li definicija na pitanje broji li se zaustavljanje na $T$; komentari u kodu pomažu.</s>
-    <s n="38">Oporavak od grešaka: brzo napiši (1) naivno rješenje točno po tekstu zadatka, (2) generator malih slučajnih testova.</s>
-    <s n="39">Naivno: stanje = položaji svih figura + čiji je red; najkraći put po svim stanjima.</s>
-    <s n="40">Generator u Pythonu; ne mora strogo poštovati ograničenja (npr. višestruki bridovi).</s>
-</slajdovi>
+<h3>Napomena za implementaciju</h3>
+<p>Pazite kako postupate sa zaustavnim poljem.</p>
+<ul>
+    <li>Za igrača 1: trenutak dolaska (na $T$) se ne broji.</li>
+    <li>Za ostale igrače: ako je udaljenost od zaustavnog polja $0$, do kraja poteza trebaju $2$ pomaka.</li>
+</ul>
+<dodatak naslov="Zašto je to dovoljno i kako se odgovor sastavlja">
+<p><b>Rastav troška.</b> Neka igrač 1 na putu do $T$ ukupno $n$ puta završi potez, tj. $n$ puta stane na zaustavno polje <em>prije</em> dolaska na $T$ (sam dolazak na $T$ ne broji se, a ni početno polje $X_1$, jer na njega nije „stao”). Između dvaju poteza igrača 1 svaki od preostalih $K-1$ igrača mora odigrati točno jedan cijeli potez, pa svaki od njih odigra točno $n$ poteza. Igrači ne smetaju jedni drugima, pa je</p>
+\[
+\mathrm{odgovor}(T)=\min_{n\ge0}\Big(\mathrm{dist}[n][T]+\sum_{p=2}^{K}g_p(n)\Big),
+\]
+<p>gdje je $\mathrm{dist}[n][T]$ najmanji broj pomaka igrača 1 do $T$ uz točno $n$ zaustavljanja, a $g_p(n)$ najmanji broj pomaka u kojem igrač $p$ odigra $n$ poteza ($g_p(0)=0$). Ove oznake slajdovi uvode tek u podzadatku 4; $g_p$ je naša oznaka.</p>
+<p><b>Zašto najviše jedno zaustavljanje.</b> U optimalnom rješenju put igrača 1 ne posjećuje nijedno polje dvaput: kad bismo izrezali ciklus, broj pomaka bi se smanjio, broj zaustavljanja se ne bi povećao, a $g_p$ je neopadajuća funkcija. Zato igrač 1 na svako zaustavno polje stane najviše jedanput, pa je ovdje $n\in\{0,1\}$. Posebno, nikad se ne vraća na početno polje $X_1$, pa se $X_1$ smije tretirati kao da nije zaustavno, čak i kad jest.</p>
+<p><b>$2N$ stanja.</b> Stanje je (polje, je li igrač 1 već napustio zaustavno polje). BFS kreće iz $(X_1,0)$; pomak s polja $v$ na susjedno polje $w$ vodi u sloj $1$ ako je $v$ zaustavno polje različito od početnog položaja, a inače ostaje u istom sloju. Tako dolazak na zaustavno polje $T$ još ne povećava $n$.</p>
+<p><b>Ostali igrači.</b> BFS iz zaustavnog polja $s$ daje udaljenosti $d(v)$. Igrač koji počinje na $v\ne s$ završi potez u $d(v)$ pomaka; ako počinje na samom polju $s$, mora otići na susjedno polje i vratiti se, što su $2$ pomaka (na to upozorava slajd). Dakle</p>
+\[
+\mathrm{odgovor}(T)=\min\Big(\mathrm{dist}[0][T],\ \mathrm{dist}[1][T]+\sum_{p=2}^{K}g_p(1)\Big).
+\]
+</dodatak>
 
-<h2>Podzadatak 5 <span class="bodovi">23 boda</span></h2>
-<slajdovi from="41" to="52" vrsta="koraci" naslov="$K=2$: trošak kao pravac">
-    <s n="41">Od podzadatka 5 traži se bolja složenost.</s>
-    <s n="42">$N^2$ vrijednosti za igrača 1 je previše; ograničiti $n$ nije lako (velik $n$ vs. malen nije očito usporediv). Odvojeno računanje ne prolazi.</s>
-    <s n="43">Ideja: pomaci ostalih su prilično jednostavna funkcija od $n$ → radi izravno s ukupnim troškom.</s>
-    <s n="44">Od drugog poteza nadalje: završi potez u 1 pomaku, u 2 pomaka, ili putuj da bi kasnije završavao u 1.</s>
-    <s n="45">Funkcija: $0$ za $n=0$; nagib 2 do nekud, zatim nagib 1.</s>
-    <s n="46">Nagib 2: najkraći put (lako). Nagib 1: $\mathit{dp}[v]$ = najmanji $c$ takav da od $v$ trošak postane $n+c$ — također najkraći put.</s>
-    <s n="47">Lijevo i desno ponašanje se razlikuju — treba li točno znati broj zaustavljanja?</s>
-    <s n="48">Minimum je min dvaju pravaca; smijemo dopustiti i odabir „ne-minimalnog” pravca (samo precjenjuje), pa riješi s oba.</s>
-    <s n="49">Za igrača 2 nađi dva pravca; za svaki odluči da se koristi i riješi dvaput; ukupni trošak postaje najkraći put na $2N$ stanja.</s>
-    <s n="50">S pravcem $an+b$: pomak $v\to w$ košta $1+a$ ako između dolazi potez igrača 2 (tj. $S[v]=1$, $v\ne X_1$), inače 1.</s>
-    <s n="51">Dijkstra $O((N+M)\log N)$; s dvije težine i linearno: dva reda (po zadnjoj težini), uzimaj manji vrh.</s>
-    <s n="52">Oprez: 0 zaustavljanja odvojeno. Ako je početak uz zaustavno polje: $n=0,1,2,3,4 \mapsto 0,1,3,5,7$.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Zašto smijemo „odabrati pravac”.</b> $\text{ans}(T)=\min_n[\mathit{dist}_n(T)+\min(2n+\alpha, n+\beta)] = \min\big(\min_n[\mathit{dist}_n(T)+2n+\alpha],\ \min_n[\mathit{dist}_n(T)+n+\beta]\big)$ — minimumi komutiraju. A $\min_n[\mathit{dist}_n(T)+an]$ je jedan najkraći put gdje svako zaustavljanje košta dodatnih $a$: nema potrebe pamtiti $n$. Za $K-1$ igrača isto vrijedi po komponentama, pa dobivamo $2^{K-1}$ pravaca, od kojih samo $K$ leži na donjoj omotnici (izbor „nagib 1” isplati se za igrače s najmanjim pragom $d_p=\beta_p-\alpha_p$, i to za prefiks sortiranog niza).</p>
+<h2>Podzadatak 3: dva zaustavna polja <span class="bodovi">7</span> <span class="slajd-ref">slajdovi 25–28</span></h2>
+<p>Podzadatak 3: broj zaustavnih polja je $2$ (JOI 7 bodova, JOIG 12 bodova).</p>
+<ul>
+    <li>Igrač 1 radi <b>nešto od ovoga</b> → o tome odlučujemo na kraju:
+        <ul>
+            <li>ide do polja $T$ ne stajući na zaustavno polje → izračunljivo;</li>
+            <li>ide do polja $T$ i pritom $1$ put stane na zaustavno polje → izračunljivo;</li>
+            <li>ide do polja $T$ i pritom $2$ puta stane na zaustavno polje → izračunljivo.</li>
+        </ul>
+    </li>
+    <li>Ostali igrači:
+        <ul>
+            <li>idu do jednog od dvaju zaustavnih polja → izračunljivo;</li>
+            <li>drugi potez završavaju u $1$ ili $2$ pomaka → izračunljivo.</li>
+        </ul>
+    </li>
+</ul>
+<p>(Slajd 26 donosi popis, a slajd 27 mu crvenom bojom dodaje napomene iza strelica.)</p>
+<p>Da bismo dobili odgovor:</p>
+<ul>
+    <li>Igrač 1: izračunamo broj pomaka potreban da dođe do $T$ ako na zaustavno polje stane $0$ puta, $1$ put, odnosno $2$ puta.<br>→ <b>problem najkraćih putova s $3N$ stanja</b>.</li>
+    <li>Ostali igrači: izračunamo broj pomaka do zaustavljanja i vrijeme potrebno da završe drugi potez.<br>→ <b>dva problema najkraćih putova / provjera jesu li zaustavna polja susjedna</b>.</li>
+</ul>
+<dodatak naslov="Trošak ostalih igrača s dva zaustavna polja">
+<p>Neka su $s_1,s_2$ zaustavna polja, a $D_p$ najmanji broj pomaka (barem $1$) u kojem igrač $p$ iz $X_p$ stane na neko zaustavno polje. Dva BFS-a (iz $s_1$ i iz $s_2$) daju udaljenosti $d_1,d_2$. Za $X_p\notin\{s_1,s_2\}$ je $D_p=\min(d_1(X_p),d_2(X_p))$. Ako je $X_p$ zaustavno polje, onda je $D_p=1$ kad su $s_1$ i $s_2$ susjedna, a inače $D_p=2$ (odlazak na susjedno polje i povratak; drugo zaustavno polje tada je udaljeno barem $2$).</p>
+<p>Drugi potez počinje na zaustavnom polju: stoji $1$ pomak ako su $s_1$ i $s_2$ susjedna (prijeđemo na drugo zaustavno polje), a inače $2$ pomaka. Zato je $g_p(0)=0$, $g_p(1)=D_p$ te $g_p(2)=D_p+1$ ako su zaustavna polja susjedna, odnosno $g_p(2)=D_p+2$ ako nisu.</p>
+<p>Je li za $n=2$ uvijek najbolje prvi potez završiti što prije? Da: prvi potez stoji barem $D_p$, a drugi barem onoliko koliko je gore navedeno, i obje se granice postižu istodobno. Kao i u podzadatku 2, igrač 1 na svako zaustavno polje stane najviše jedanput, pa je $n\le2$ i</p>
+\[
+\mathrm{odgovor}(T)=\min_{n\in\{0,1,2\}}\Big(\mathrm{dist}[n][T]+\sum_{p=2}^{K}g_p(n)\Big).
+\]
+</dodatak>
+
+<h2>Podzadatak 4: $N,M,K\le3000$ <span class="bodovi">19</span> <span class="slajd-ref">slajdovi 29–34</span></h2>
+<p>Podzadatak 4: $N$, $M$ i $K$ su najviše $3000$ (JOI 19 bodova, JOIG 23 boda).</p>
+<p>Kao i u dosadašnjim rješenjima, razmotrimo što treba izračunati kad fiksiramo broj $n$ — koliko puta igrač 1 stane na zaustavno polje.</p>
+<ul>
+    <li><b>Što želimo izračunati za igrača 1:</b>
+        <ul><li>broj pomaka potreban da dođe do polja $T$ ako na zaustavno polje stane $n$ puta.</li></ul>
+    </li>
+    <li><b>Što želimo izračunati za ostale igrače:</b>
+        <ul><li>broj pomaka potreban da „potroše” $n$ vlastitih poteza.</li></ul>
+    </li>
+    <li>Ako to znamo za sve $n=0,1,\dots,N$, zadatak je riješen.</li>
+</ul>
+
+<h3>Igrač 1</h3>
+<p><b>Što želimo izračunati za igrača 1:</b> broj pomaka potreban da dođe do polja $T$ ako na zaustavno polje stane $n$ puta.</p>
+<p>→ To je <b>problem najkraćih putova s $N^2$ stanja</b>.</p>
+<p>$\mathrm{dist}[k][T]$ := najmanji broj pomaka uz koji igrač 1 dođe na polje $T$ tako da je do trenutka dolaska obavio $k$ zaustavljanja (zaustavljanje na samom polju $T$ ne ubraja se).</p>
+<dodatak naslov="Prijelazi u grafu stanja igrača 1">
+<p>Stanja su parovi $(k,v)$, početno je $(0,X_1)$, a svaki pomak ima težinu $1$, pa je dovoljan BFS. S polja $v$ na susjedno polje $w$ prelazimo ovako:</p>
+<ul>
+    <li>ako je $v$ zaustavno polje i nije početni položaj $X_1$: $(k,v)\to(k+1,w)$ — zaustavljanje na $v$ ubraja se tek kad s njega krenemo dalje;</li>
+    <li>inače: $(k,v)\to(k,w)$.</li>
+</ul>
+<p>Stanja ima $O(N^2)$, a prijelaza $O(NM)$, što je za $N,M\le3000$ dovoljno brzo. Vrijednosti $k\gt N$ ne trebaju jer optimalan put ne posjećuje nijedno polje dvaput (vidi dopunu uz podzadatak 2).</p>
+</dodatak>
+
+<h3>Ostali igrači</h3>
+<p><b>Što želimo izračunati za ostale igrače:</b> broj pomaka potreban da „potroše” $n$ vlastitih poteza.</p>
+<p>Za taj dio prikazat ćemo dva rješenja. „Drugo” ćemo obraditi u podzadatku 5.</p>
+<p>Možemo ga shvatiti kao sljedeći problem najkraćih putova s $N^2$ stanja.</p>
+<ul>
+    <li>Stanje $(v,k)$: igrač počinje svoj potez na polju $v$ i cilj mu je potrošiti $k$ poteza.</li>
+    <li>Ako su $v$ i $w$ susjedna polja, iz $(v,k)$ možemo prijeći u $(w,k)$ ili u $(w,k-1)$.</li>
+    <li>Kolika je udaljenost od $(v,k)$ do $(\text{bilo koje polje},0)$?</li>
+</ul>
+<p>→ <b>Dovoljno je najkraće putove odrediti unatrag, polazeći od stanja $(\text{bilo koje polje},0)$.</b></p>
+<dodatak naslov="Koji prijelaz kada vrijedi i kako se sve sastavlja">
+<p>Pomak s $v$ na susjedno polje $w$ vodi u $(w,k-1)$ ako je $w$ zaustavno polje (potez je upravo završio), a u $(w,k)$ ako je $w$ ponovno aktivirajuće polje (isti potez se nastavlja; stanje „usred poteza na $w$” ponaša se jednako kao „početak poteza na $w$”). Svi prijelazi imaju težinu $1$.</p>
+<p>BFS unatrag kreće istodobno iz svih stanja $(w,0)$ s udaljenošću $0$ i ide po obrnutim prijelazima. Tako za svako polje $v$ i svaki $k\le N$ dobijemo vrijednost $c[v][k]$, najmanji broj pomaka u kojem igrač s polja $v$ odigra $k$ poteza. Složenost je $O(N(N+M))$.</p>
+<p>Zatim je $G(n)=\sum_{p=2}^{K}c[X_p][n]$ (to je $O(NK)$ zbrajanja) i</p>
+\[
+\mathrm{odgovor}(T)=\min_{0\le n\le N}\big(\mathrm{dist}[n][T]+G(n)\big),
+\]
+<p>što je još $O(N^2)$ operacija. Ako zaustavnih polja nema, ostali igrači ne mogu završiti nijedan potez, ali tada je i $\mathrm{dist}[n][T]=\infty$ za $n\ge1$.</p>
+</dodatak>
+
+<h2>Sažetak podzadataka 1–4 i savjeti za implementaciju <span class="slajd-ref">slajdovi 35–40</span></h2>
+<p>Sažetak podzadataka 1–4 (JOI 36 bodova, JOIG 54 boda).</p>
+<p>Tko je riješio sve do ovdje, za njega se može reći da je ispravno razumio sve elemente koji se pojavljuju u zadatku i da ih je uspio ugraditi u račun.</p>
+<p>Stanja o kojima treba razmišljati sasvim su osnovna, a i račun je osnovan — samo BFS — ali mislim da je ipak prilično teško svu implementaciju izvesti bez greške.</p>
+<p>Zato ću, iz svog kuta, dati nekoliko <b>savjeta za implementaciju</b>.</p>
+
+<h3>Savjeti za implementaciju: točne definicije</h3>
+<p>Da bismo sitne formule izveli točno, najprije je važno precizno definirati značenje varijabli i zatim razmišljati u skladu s tim definicijama.</p>
+<p>$\mathrm{dist}[k][T]$ := broj pomaka kad smo na polju $T$ uz $k$ zaustavnih polja</p>
+<p style="text-align:center">⬇</p>
+<p>$\mathrm{dist}[k][T]$ := najmanji broj pomaka uz koji dođemo na polje $T$ tako da smo do trenutka dolaska obavili $k$ zaustavljanja (zaustavljanje na samom polju $T$ ne ubraja se)</p>
+<p>Prije nego što krenete u implementaciju, provjerite možete li jasno odgovoriti na pitanja poput: uzima li vaša definicija $\mathrm{dist}[k][T]$ u obzir trenutak u kojem se stane na zaustavno polje $T$? Mislim da je korisno i u izvorni kod upisati komentar.</p>
+<pre><code>// dist[k][v]
+// - do dolaska na v potez je završen k puta
+// - završetak poteza na samom v ne ubraja se
+vc&lt;vc&lt;int&gt;&gt; dist(N, vc&lt;int&gt;(N, infty&lt;int&gt;));</code></pre>
+
+<h3>Savjeti za implementaciju: oporavak od grešaka</h3>
+<p>Važno je smanjiti broj grešaka u implementaciji, ali iznimno je važan i oporavak nakon što se greška dogodi. Vrlo je korisno znati brzo napisati ove dvije stvari.</p>
+<p><b>Izravno (naivno) rješenje</b></p>
+<ul>
+    <li>Implementirati što je moguće doslovnije ono što piše u tekstu zadatka.</li>
+    <li>Ne brinuti o složenosti.</li>
+</ul>
+<p><b>Generiranje slučajnih primjera</b></p>
+<ul>
+    <li>Na neki jednostavan način napraviti male primjere koji zadovoljavaju ograničenja.</li>
+</ul>
+<p><b>【Izravno rješenje】</b> Na primjer, dovoljno je riješiti problem najkraćih putova u kojem je stanje „položaji figura i redni broj figure koja se sljedeća smije pomaknuti”. „U svakom slučaju uzmi u obzir sva stanja i riješi problem najkraćih putova” — to se koristi prilično često.</p>
+<pre><code>using T = pair&lt;vc&lt;int&gt;, int&gt;; // položaji figura · figura koja se sljedeća smije pomaknuti
+map&lt;T, int&gt; dist;
+deque&lt;T&gt; que;
+auto upd = [&amp;](vc&lt;int&gt; X, int k, int x) -&gt; void {
+  T t = {X, k};
+  if (!dist.count(t)) { chmin(ANS[X[0]], x), dist[t] = x, que.push_back(t); }
+};
+upd(X, 0, 0);
+while (!que.empty()){</code></pre>
+<p>(Slika koda na slajdu ovdje je odrezana, usred petlje.)</p>
+<dodatak naslov="Nastavak odrezanog koda">
+<p>Na slajdu se tijelo petlje ne vidi. U istom stilu (autorove pokrate: <code>vc</code> = <code>vector</code>, <code>chmin(a,b)</code> postavlja <code>a=min(a,b)</code>) nastavak bi mogao izgledati ovako; <code>G</code> je lista susjedstva, a <code>S</code> niz vrsta polja, uz polja numerirana od $0$:</p>
+<pre><code>  auto [X, k] = que.front();
+  que.pop_front();
+  int x = dist[{X, k}];
+  for (int w : G[X[k]]) {
+    vc&lt;int&gt; Y = X;
+    Y[k] = w;                              // figura k ide na susjedno polje w
+    upd(Y, S[w] == '1' ? (k + 1) % K : k, x + 1);
+  }
+}</code></pre>
+<p>Stanja ima do $N^K\cdot K$, pa je ovo upotrebljivo samo za sasvim male primjere — upravo za usporedbu s pravim rješenjem.</p>
+</dodatak>
+<p><b>【Generiranje slučajnih primjera】</b> Ja često koristim Python. Naviknite se na rad sa slučajnim brojevima u nekom jeziku. Ako je riječ o primjerima za koje smatrate da ih vaša implementacija ionako obrađuje, ne morate se ni strogo držati ograničenja iz zadatka. Kod na slici stvara i višestruke bridove.</p>
+<pre><code>N = randint(2, 8)
+M = randint(N - 1, N + 3)
+K = randint(2, 4)
+print(N, M, K)
+
+for v in range(2, N + 1):
+    print(randint(1, v - 1), v)
+for _ in range(M - (N - 1)):
+    a = randint(1, N - 1)
+    b = randint(a + 1, N)
+    print(a, b)
+
+print("".join(random.choice("01")for _ in range(N)))
+print(*[randint(1, N) for _ in range(K)])</code></pre>
+<dodatak>
+<p>Kod sa slajda pretpostavlja da su na početku datoteke uvezeni <code>import random</code> i <code>from random import randint</code>. Prva petlja stvara slučajno stablo (vrh $v$ spaja se s nekim manjim vrhom), pa je graf sigurno povezan; druga dodaje preostalih $M-(N-1)$ bridova $a\lt b$, među kojima se neki mogu ponoviti — to su višestruki bridovi koje spominje slajd, a kojih u pravim testnim podacima nema.</p>
+</dodatak>
+
+<h2>Podzadatak 5: $K=2$ <span class="bodovi">23</span> <span class="slajd-ref">slajdovi 41–52</span></h2>
+<p>Podzadatak 5: $K=2$ (JOI 24 boda, JOIG 26 bodova). Od podzadatka 5 nadalje traži se poboljšanje složenosti rješenja koja smo imali do podzadatka 4.</p>
+<dodatak>
+<p>Na slajdu 41 piše „JOI 24 boda”, ali u tekstu zadatka podzadatak 5 nosi $23$ boda; tako se slaže i zbroj svih podzadataka ($100$) i raspodjela bodova na kraju ($68=36+23+9$). Riječ je o tipfeleru na slajdu.</p>
+</dodatak>
+<ul>
+    <li>Rješenje iz podzadatka 4.</li>
+    <li>Što želimo izračunati za igrača 1:
+        <ul><li>broj pomaka potreban da dođe do polja $T$ ako na zaustavno polje stane $n$ puta.</li></ul>
+    </li>
+</ul>
+<p>→ <b>Vrijednosti koje želimo izračunati ima čak $N^2$, pa je to neizvedivo.</b></p>
+<p>Teško je i suziti raspon vrijednosti $n$ (nije očito ni kako usporediti rješenje s golemim $n$ i rješenje s malim $n$).</p>
+<p>→ Ako trošak igrača 1 i trošak ostalih igrača pokušavamo odrediti zasebno, ne ide.</p>
+
+<h3>Glavna ideja rješenja</h3>
+<ul>
+    <li>Broj pomaka ostalih igrača prilično je jednostavna funkcija od $n$.</li>
+    <li>→ Možemo izravno raditi s izrazom „<b>ukupni trošak</b> = broj pomaka igrača 1 + broj pomaka ostalih igrača”.</li>
+</ul>
+
+<h3>O broju pomaka ostalih igrača</h3>
+<p>Kako igrač može provesti drugi i svaki sljedeći potez?</p>
+<ul>
+    <li>Završi potez u $1$ pomaku.</li>
+    <li>Završi potez u $2$ pomaka.</li>
+    <li>Kreće se s ciljem da ubuduće može završavati poteze u $1$ pomaku.</li>
+</ul>
+<p>Funkcija ima otprilike ovakav oblik:</p>
+<ul>
+    <li>za $0$ poteza vrijednost je $0$;</li>
+    <li>do nekog mjesta nagib je $2$;</li>
+    <li>od tog mjesta nadalje nagib je $1$.</li>
+</ul>
+<skica sirina="380px">
+<svg viewBox="0 0 340 240" role="img" aria-label="Graf funkcije: točka u ishodištu, zatim četiri točke na dijelu nagiba 2 i pet točaka na dijelu nagiba 1">
+  <line x1="30" y1="215" x2="325" y2="215" style="stroke:#1b2a3a;stroke-width:1.2"/>
+  <polyline points="58,165 142,105 310,45" style="fill:none;stroke:#5b6b7d;stroke-width:1.5"/>
+  <circle cx="30" cy="215" r="4" style="fill:#1b2a3a"/>
+  <circle cx="58" cy="165" r="4" style="fill:#1b2a3a"/>
+  <circle cx="86" cy="145" r="4" style="fill:#1b2a3a"/>
+  <circle cx="114" cy="125" r="4" style="fill:#1b2a3a"/>
+  <circle cx="142" cy="105" r="4" style="fill:#1b2a3a"/>
+  <circle cx="170" cy="95" r="4" style="fill:#1b2a3a"/>
+  <circle cx="198" cy="85" r="4" style="fill:#1b2a3a"/>
+  <circle cx="226" cy="75" r="4" style="fill:#1b2a3a"/>
+  <circle cx="254" cy="65" r="4" style="fill:#1b2a3a"/>
+  <circle cx="282" cy="55" r="4" style="fill:#1b2a3a"/>
+</svg>
+<natpis>Skica sa slajda 45 (na slajdu bez oznaka): na vodoravnoj osi je broj poteza $n$, na okomitoj broj pomaka. Točka za $n=0$ leži na osi (vrijednost $0$); slijede točke na dijelu nagiba $2$, a zatim na dijelu nagiba $1$.</natpis>
+</skica>
+<ul>
+    <li>Do nekog mjesta nagib $2$ → <b>problem najkraćih putova (jednostavan)</b>.</li>
+    <li>Od tog mjesta nadalje nagib $1$.</li>
+</ul>
+<p>→ <b>$\mathrm{dp}[v]$ := najmanja vrijednost $c$ takva da, krenuvši iz vrha $v$, trošak od nekog mjesta možemo učiniti jednakim $f(n)=n+c$.</b></p>
+<p>→ I to se može izračunati slično problemu najkraćih putova.</p>
+<dodatak naslov="Točan oblik funkcije troška i kako se računaju oba pravca">
+<p>Neka je $g_v(n)$ najmanji broj pomaka u kojem igrač koji počinje na polju $v$ odigra $n$ poteza. Zaustavno polje koje ima <em>susjedno zaustavno polje</em> zovimo <b>dobrim</b>: s njega se potez može završiti u $1$ pomaku, i to zauvijek (skačemo između dvaju susjednih zaustavnih polja).</p>
+<div class="tvrdnja">
+<p><strong>Tvrdnja.</strong> $g_v(0)=0$, a za svaki $n\ge1$ vrijedi</p>
+\[
+g_v(n)=\min\big(2n+\alpha_v,\ n+\beta_v\big),\qquad \alpha_v=D_v-2 .
+\]
+<p>Ovdje je $D_v\ge1$ najmanji broj pomaka u kojem se iz $v$ stane na neko zaustavno polje. Broj $\beta_v$ je najmanja vrijednost razlike $\ell-t$ po svim šetnjama od $v$ do nekog dobrog polja, gdje je $\ell$ broj pomaka šetnje, a $t$ broj poteza koji se u njoj završe; ako dobrog polja nema, $\beta_v=\infty$.</p>
 </div>
+<p class="dokaz"><em>(Dokaz, gornja ograda.)</em> Pravac nagiba $2$: prvi potez završimo u $D_v$ pomaka, a svaki sljedeći u najviše $2$ pomaka (na susjedno polje i natrag, ili na susjedno zaustavno polje i odmah još jedan potez); ukupno najviše $D_v+2(n-1)=2n+\alpha_v$. Pravac nagiba $1$: uzmimo šetnju do dobrog polja s $\ell$ pomaka i $t$ završenih poteza za koju je $\ell-t=\beta_v$. Za $n\ge t$ nakon nje odigramo još $n-t$ poteza po $1$ pomak, ukupno $\ell+(n-t)=n+\beta_v$. Za $n\lt t$ uzmemo samo početak šetnje do $n$-tog završenog poteza; izbačeni ostatak sadrži $t-n$ poteza, dakle barem $t-n$ pomaka, pa početak ima najviše $\ell-(t-n)=n+\beta_v$ pomaka.</p>
+<p class="dokaz"><em>(Dokaz, donja ograda.)</em> Promotrimo optimalan niz od $n$ poteza. Svaki potez stoji barem $1$ pomak, a točno $1$ samo ako počinje na dobrom polju. Ako nijedan potez ne počinje na dobrom polju, prvi stoji barem $D_v$, a svaki od ostalih barem $2$, pa je trošak barem $2n+\alpha_v$. Inače neka je $i$-ti potez prvi koji počinje na dobrom polju; prije njega napravljena je šetnja do dobrog polja s $\ell'$ pomaka i $i-1$ završenih poteza, pa je $\ell'-(i-1)\ge\beta_v$. Preostalih $n-i+1$ poteza stoji barem po $1$ pomak, pa je trošak barem $\ell'+n-i+1\ge n+\beta_v$.</p>
+<p><b>Računanje $D_v$.</b> BFS iz svih zaustavnih polja odjednom daje udaljenost do najbližeg zaustavnog polja; to je $D_v$ za ponovno aktivirajuća polja. Za zaustavno polje $v$ je $D_v=1$ ako je dobro, a inače $D_v=2$.</p>
+<p><b>Računanje $\beta_v$</b> (to je $\mathrm{dp}[v]$ sa slajda). Pomak na zaustavno polje mijenja $\ell-t$ za $1-1=0$, a pomak na ponovno aktivirajuće polje za $1$. Zato je $\beta_v$ duljina najkraćeg puta od $v$ do nekog dobrog polja u grafu u kojem pomak <em>na</em> zaustavno polje ima težinu $0$, a pomak na ponovno aktivirajuće polje težinu $1$. Računa se jednim 0-1 BFS-om unatrag iz svih dobrih polja (početna vrijednost $0$) u $O(N+M)$.</p>
+<p>Obje smo formule provjerili i programom: usporedbom s iscrpnim pretraživanjem na slučajnim malim grafovima.</p>
+</dodatak>
 
-<h2>Podzadatak 6 <span class="bodovi">9 bodova</span></h2>
-<slajdovi from="53" to="55" vrsta="koraci" naslov="$K\le100$">
-    <s n="53">Podzadatak 6.</s>
-    <s n="54">Rješenje podzadatka 5 generalizira: svaki igrač ima pravce nagiba 1 i 2; za svakog odaberi jedan i zbroji.</s>
-    <s n="55">Strategije ostalih opisuju pravci nagiba $K-1, K, \dots, 2(K-1)$; za svaki riješi kao u podzadatku 5: $O(K(N+M))$.</s>
-</slajdovi>
+<p>Ponašanje se razlikuje na lijevom i na desnom dijelu.</p>
+<p>→ Ne moramo li onda na kraju ipak točno znati koliko se puta igrač 1 zaustavio?</p>
+<skica sirina="380px">
+<svg viewBox="0 0 340 240" role="img" aria-label="Isti graf: lijevi dio nagiba 2, desni dio nagiba 1">
+  <line x1="30" y1="215" x2="325" y2="215" style="stroke:#1b2a3a;stroke-width:1.2"/>
+  <polyline points="58,165 142,105 310,45" style="fill:none;stroke:#5b6b7d;stroke-width:1.5"/>
+  <circle cx="30" cy="215" r="4" style="fill:#1b2a3a"/>
+  <circle cx="58" cy="165" r="4" style="fill:#1b2a3a"/>
+  <circle cx="86" cy="145" r="4" style="fill:#1b2a3a"/>
+  <circle cx="114" cy="125" r="4" style="fill:#1b2a3a"/>
+  <circle cx="142" cy="105" r="4" style="fill:#1b2a3a"/>
+  <circle cx="170" cy="95" r="4" style="fill:#1b2a3a"/>
+  <circle cx="198" cy="85" r="4" style="fill:#1b2a3a"/>
+  <circle cx="226" cy="75" r="4" style="fill:#1b2a3a"/>
+  <circle cx="254" cy="65" r="4" style="fill:#1b2a3a"/>
+  <circle cx="282" cy="55" r="4" style="fill:#1b2a3a"/>
+</svg>
+<natpis>Skica sa slajda 47: ista funkcija kao na slajdu 45 — lijevo nagib $2$, desno nagib $1$.</natpis>
+</skica>
+<ul>
+    <li>Najmanji broj pomaka je minimum dviju funkcija.</li>
+    <li>Dovoljno je zadatak riješiti kao da smijemo po volji odabrati i onu koja nije minimum.</li>
+</ul>
+<skica sirina="380px">
+<svg viewBox="0 0 340 240" role="img" aria-label="Dva pravca koji se sijeku: crveni nagiba 2 i plavi nagiba 1, s točkama za cjelobrojne n">
+  <line x1="30" y1="215" x2="325" y2="215" style="stroke:#1b2a3a;stroke-width:1.2"/>
+  <line x1="58" y1="165" x2="254" y2="25" style="stroke:#e53935;stroke-width:2.5"/>
+  <line x1="58" y1="135" x2="310" y2="45" style="stroke:#1e40ff;stroke-width:2.5"/>
+  <circle cx="30" cy="215" r="4" style="fill:#1b2a3a"/>
+  <circle cx="58" cy="165" r="4" style="fill:#1b2a3a"/>
+  <circle cx="86" cy="145" r="4" style="fill:#1b2a3a"/>
+  <circle cx="114" cy="125" r="4" style="fill:#1b2a3a"/>
+  <circle cx="142" cy="105" r="4" style="fill:#1b2a3a"/>
+  <circle cx="170" cy="85" r="4" style="fill:#1b2a3a"/>
+  <circle cx="198" cy="65" r="4" style="fill:#1b2a3a"/>
+  <circle cx="226" cy="45" r="4" style="fill:#1b2a3a"/>
+  <circle cx="254" cy="25" r="4" style="fill:#1b2a3a"/>
+  <circle cx="58" cy="135" r="4" style="fill:#1b2a3a"/>
+  <circle cx="86" cy="125" r="4" style="fill:#1b2a3a"/>
+  <circle cx="114" cy="115" r="4" style="fill:#1b2a3a"/>
+  <circle cx="142" cy="105" r="4" style="fill:#1b2a3a"/>
+  <circle cx="170" cy="95" r="4" style="fill:#1b2a3a"/>
+  <circle cx="198" cy="85" r="4" style="fill:#1b2a3a"/>
+  <circle cx="226" cy="75" r="4" style="fill:#1b2a3a"/>
+  <circle cx="254" cy="65" r="4" style="fill:#1b2a3a"/>
+  <circle cx="282" cy="55" r="4" style="fill:#1b2a3a"/>
+  <circle cx="310" cy="45" r="4" style="fill:#1b2a3a"/>
+</svg>
+<natpis>Skica sa slajda 48: dva pravca — crveni nagiba $2$ i plavi nagiba $1$ — s točkama za cjelobrojne $n$. Lijevo od sjecišta manji je crveni, desno plavi; funkcija sa slajda 45 je njihov minimum. Točka za $n=0$ ostaje zasebno na osi.</natpis>
+</skica>
 
-<h2>Podzadaci 7–8 <span class="bodovi">32 boda</span></h2>
-<slajdovi from="56" to="61" vrsta="koraci" naslov="Podrezivanje i balans">
-    <s n="56">Zadnja dva podzadatka slična su; ista ideja.</s>
-    <s n="57">Podsjetnik: $N^2$ stanja igrača 1 je previše…</s>
-    <s n="58">…ali za velik $K$ raspon $n$ se <b>može</b> ograničiti.</s>
-    <s n="59">Svako zaustavljanje košta bar $K-1$; $n$ dodatnih zaustavljanja mora uštedjeti $n(K-1)$ pomaka igrača 1 — nemoguće za $n > N/(K-1)$. Dakle $n \le n_{\min} + N/(K-1)$: $O(N^2/K)$ stanja.</s>
-    <s n="60">Sažetak: izračunaj funkcije troška ostalih i zbroji ih (prefiksni zbrojevi); $K$ malen (malo nagiba) → podzadatak 6; $K$ velik → slojeviti najkraći put s podrezivanjem; kombinacija $O((N+M)^{1.5})$.</s>
-    <s n="61">Ako TLE: prilagodi prag između pristupa, linearni najkraći putevi umjesto Dijkstre, preciznije podrezivanje, $O(N)$ memorije.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Precizna granica podrezivanja.</b> Neka optimalan put za $T$ prolazi stanjem $(v,n)$, a $n_{\min}(v)$ je najmanji broj zaustavljanja do $v$ (0-1 BFS: pomak na zaustavno polje težine 1, inače 0; taj put je jednostavan, dakle $\le N-1$ pomaka). Zamijeni prefiks: pomaci se povećaju za $\le N$, a $G$ padne za $\ge (n-n_{\min}(v))(K-1)$ jer je $g_p(n+1)-g_p(n)\ge1$ za svakog igrača. Za optimalnost mora biti $(n-n_{\min}(v))(K-1)\le N$. U BFS-u po $(v,n)$ jednostavno ne guraj stanja s $n > n_{\min}(v) + \lfloor N/(K-1)\rfloor$.</p>
+<h3>Rješenje</h3>
+<ul>
+    <li>Odredimo dvije linearne funkcije koje opisuju funkciju najmanjeg broja pomaka igrača 2.</li>
+    <li>Za svaku od njih odlučimo da ćemo koristiti upravo nju i zadatak riješimo dvaput.</li>
+    <li>Zbroj pomaka obaju igrača tada se može odrediti kao problem najkraćih putova s $2N$ stanja.</li>
+</ul>
+<p>Kad koristimo linearnu funkciju $an+b$, za pomak s $v$ na $w$ uzimamo:</p>
+<ul>
+    <li>ako se između umeće potez igrača 2: trošak $1+a$;</li>
+    <li>ako se potez igrača 1 nastavlja: trošak $1$;</li>
+</ul>
+<p>i s tim težinama računamo najkraće putove.</p>
+<p>(Trošak $a$ nastaje kad je $S[v]=1$ i $v$ nije $X[0]$.)</p>
+<dodatak naslov="Zašto smijemo „odabrati pravac” i što je $2N$ stanja">
+<p>Oznaka $X[0]$ na slajdu je početno polje igrača 1 uz numeriranje od nule, tj. $X_1$. Uz $g(n)=\min(2n+\alpha,\ n+\beta)$ za $n\ge1$ i $g(0)=0$ odgovor je</p>
+\[
+\min\Big(\mathrm{dist}[0][T],\ \min_{n\ge1}\big(\mathrm{dist}[n][T]+2n+\alpha\big),\ \min_{n\ge1}\big(\mathrm{dist}[n][T]+n+\beta\big)\Big),
+\]
+<p>jer minimumi smiju zamijeniti redoslijed. Odabir pravca koji u nekom $n$ nije manji samo precjenjuje trošak, pa ne može dati vrijednost manju od pravog odgovora, a za optimalni $n$ jedan od dvaju pravaca daje točno $g(n)$.</p>
+<p>Za fiksni pravac $an+b$ izraz $\mathrm{dist}[n][T]+an$ zbroj je težina po putu ako svaki odlazak sa zaustavnog polja (osim s početnog) stoji $1+a$ umjesto $1$ — broj $n$ više ne treba pamtiti. Slučaj $n=0$ ipak se mora odvojiti (pravac ondje ne vrijedi, vidi slajd 52), pa je stanje par (polje, zastavica „je li $n\ge1$”): to je $2N$ stanja. U sloju $0$ krećemo se samo s polja koja nisu zaustavna (i s početnog), a prvi odlazak sa zaustavnog polja vodi u sloj $1$. Konstanta $b$ može biti i negativna ($\alpha=-1$ kad je $D=1$), pa je najjednostavnije ne stavljati je na brid nego je dodati na kraju:</p>
+\[
+\mathrm{odgovor}(T)=\min\big(d_0(T),\ d_1^{(2,\alpha)}(T)+\alpha,\ d_1^{(1,\beta)}(T)+\beta\big),
+\]
+<p>gdje je $d_0$ udaljenost u sloju $0$, a $d_1^{(a,b)}$ udaljenost u sloju $1$ za pravac $an+b$. Ako je $\beta=\infty$, drugi pravac se preskače.</p>
+</dodatak>
+
+<h3>Složenost</h3>
+<ul>
+    <li>Dijkstra → $O((N+M)\log N)$.</li>
+    <li>Koristeći to što postoje samo dvije različite težine, može se riješiti i u vremenu $O(N+M)$:
+        <ul>
+            <li>red $\mathrm{que}_1$ u koji stavljamo stanja čiji je posljednji pomak imao težinu $c_1$;</li>
+            <li>red $\mathrm{que}_2$ u koji stavljamo stanja čiji je posljednji pomak imao težinu $c_2$;</li>
+            <li>vadimo manji od elemenata na početku tih dvaju redova.</li>
+        </ul>
+    </li>
+</ul>
+<dodatak naslov="Zašto su dva reda dovoljna">
+<p>Ovdje je $c_1=1$ i $c_2=1+a$. Stanja vadimo po neopadajućoj udaljenosti $d$, a u $\mathrm{que}_i$ upisujemo vrijednosti $d+c_i$; one su zato u svakom redu već sortirane, pa je najmanji neobrađeni kandidat uvijek na početku jednog od redova. Stanje koje je već obrađeno s manjom udaljenošću pri vađenju preskočimo. Svaki brid upiše najviše jedan element, pa je ukupno vrijeme $O(N+M)$, bez prioritetnog reda.</p>
+</dodatak>
+
+<h3>Na što paziti u implementaciji</h3>
+<ul>
+    <li>Slučaj s $0$ zaustavljanja treba razlikovati od ostalih.</li>
+    <li>Ako je početni položaj susjedan zaustavnom polju, funkcija izgleda ovako.</li>
+</ul>
+<div style="overflow-x:auto">
+<table style="overflow-wrap:normal">
+    <tbody>
+        <tr><th>Broj zaustavljanja</th><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td></tr>
+        <tr><th>Broj pomaka</th><td>0</td><td>1</td><td>3</td><td>5</td><td>7</td></tr>
+    </tbody>
+</table>
 </div>
-<slajdovi from="62" to="63" naslov="Statistika">
-    <s n="62">Raspodjela bodova (JOI, 23 natjecatelja).</s>
-    <s n="63">Raspodjela bodova (JOIG, 9 natjecatelja).</s>
-</slajdovi>
+<dodatak>
+<p>U tablici je $D=1$, pa je pravac $2n+\alpha=2n-1$: za $n\ge1$ daje $1,3,5,7$, ali za $n=0$ dao bi $-1$ umjesto $0$. Zato se $n=0$ obrađuje zasebno. (Tablica prikazuje slučaj u kojem dobrog polja nema ili je predaleko, pa se vidi samo nagib $2$.)</p>
+</dodatak>
+
+<h2>Podzadatak 6: $K\le100$ <span class="bodovi">9</span> <span class="slajd-ref">slajdovi 53–55</span></h2>
+<p>Podzadatak 6: $K\le100$ (JOI 9 bodova, JOIG 7 bodova).</p>
+<p>Rješenje podzadatka 5 može se bez izmjena poopćiti na $K\le100$.</p>
+<p>Zbroj pomaka igrača $2,3,4,\dots$ možemo promatrati u ovom obliku:</p>
+<ul>
+    <li>svaki igrač ima linearne funkcije nagiba $1$ i $2$;</li>
+    <li>za svakog igrača odaberemo po jednu linearnu funkciju koju koristi i te funkcije zbrojimo.</li>
+</ul>
+<p>Strategije igrača različitih od igrača 1 mogu se opisati linearnim funkcijama nagiba $K-1,\ K,\ \dots,\ 2(K-1)$.</p>
+<p>Za te linearne funkcije odgovor možemo izračunati jednako kao u podzadatku 5.</p>
+<p>Rješava se u vremenu $O(K(N+M))$.</p>
+<dodatak naslov="Kojih je $K$ pravaca dovoljno">
+<p>Neka je za igrača $p$ funkcija troška $\min(2n+\alpha_p,\ n+\beta_p)$ (za $n\ge1$), s $\alpha_p,\beta_p$ izračunanima za polje $X_p$. Izbor pravca za svakog igrača daje $2^{K-1}$ zbrojeva, ali ako $j$ igrača koristi nagib $1$, zbroj ima nagib $2(K-1)-j$ i slobodni član</p>
+\[
+\sum_{p=2}^{K}\alpha_p+\sum_{p\in J}(\beta_p-\alpha_p),
+\]
+<p>gdje je $J$ skup tih $j$ igrača. Za zadani $j$ najmanji slobodni član dobijemo ako u $J$ stavimo $j$ igrača s najmanjim <b>pragom</b> $\delta_p=\beta_p-\alpha_p$. Dakle: sortiramo pragove, $\delta_{(1)}\le\delta_{(2)}\le\dots\le\delta_{(K-1)}$, i za $j=0,1,\dots,K-1$ uzmemo pravac</p>
+\[
+a_j=2(K-1)-j,\qquad b_j=\sum_{p=2}^{K}\alpha_p+\sum_{i=1}^{j}\delta_{(i)} .
+\]
+<p>To je $K$ pravaca nagiba $K-1,\dots,2(K-1)$, kao na slajdu. Njihov minimum u svakom $n\ge1$ jednak je $G(n)=\sum_{p}\min(2n+\alpha_p,\ n+\beta_p)$: za fiksni $n$ igrač bira nagib $1$ upravo kad je $\delta_p\lt n$, a takvi igrači čine početni dio sortiranog niza. Pravce s $\delta_{(j)}=\infty$ (igrač bez dostupnog dobrog polja) preskačemo.</p>
+<p>Za svaki pravac $(a_j,b_j)$ pokrenemo najkraće putove iz podzadatka 5 (težina $1+a_j$ za odlazak sa zaustavnog polja), pa je</p>
+\[
+\mathrm{odgovor}(T)=\min\Big(d_0(T),\ \min_{j}\big(d_1^{(a_j)}(T)+b_j\big)\Big).
+\]
+<p>Sloj $0$ ne ovisi o pravcu, pa se računa jedanput. Odgovori mogu biti reda veličine $N\cdot2K$, što premašuje 32 bita — treba 64-bitni tip.</p>
+</dodatak>
+
+<h2>Podzadaci 7 i 8: $N,M,K\le30\,000$ i $N,M,K\le50\,000$ <span class="bodovi">32</span> <span class="slajd-ref">slajdovi 56–61</span></h2>
+<p>Podzadatak 7: $N,M,K\le30\,000$ (JOI 23 boda, JOIG 12 bodova).<br>Podzadatak 8: $N,M,K\le50\,000$ (JOI 9 bodova, JOIG 4 boda).</p>
+<p>Ograničenja posljednjih dvaju podzadataka su slična i u potrebnim zapažanjima nema velike razlike.</p>
+<ul>
+    <li>Rješenje iz podzadatka 4.</li>
+    <li>Što želimo izračunati za igrača 1:
+        <ul><li>broj pomaka potreban da dođe do polja $T$ ako na zaustavno polje stane $n$ puta.</li></ul>
+    </li>
+</ul>
+<p>→ Vrijednosti koje želimo izračunati ima čak $N^2$, pa je to neizvedivo.</p>
+<p>Teško je i suziti raspon vrijednosti $n$ (nije očito ni kako usporediti rješenje s golemim $n$ i rješenje s malim $n$).</p>
+<p>→ <b>Ali ako je $K$ velik, raspon vrijednosti $n$ može se suziti.</b></p>
+<ul>
+    <li>Svako stajanje na zaustavno polje stoji barem $K-1$.</li>
+    <li>Ako zaustavna polja iskoristimo $n$ puta više, taj se gubitak ne može nadoknaditi ako igrač 1 pritom ne uštedi $n(K-1)$ pomaka.</li>
+    <li>Možemo se ograničiti na slučajeve u kojima je broj zaustavljanja najviše za $N/(K-1)$ veći od najmanjeg mogućeg.</li>
+</ul>
+<p>Problem najkraćih putova s $O(N^2/K)$ stanja → brz ako je $K$ velik.</p>
+<dodatak naslov="Precizna granica podrezivanja i dokaz">
+<p>Neka je $n_{\min}(v)$ najmanji broj zaustavljanja s kojim igrač 1 može doći na polje $v$ (u smislu definicije $\mathrm{dist}$: zaustavljanje na samom $v$ ne ubraja se). Računa se 0-1 BFS-om iz $X_1$: odlazak sa zaustavnog polja različitog od početnog ima težinu $1$, svaki drugi pomak težinu $0$.</p>
+<div class="tvrdnja">
+<p><strong>Tvrdnja.</strong> Postoji optimalno rješenje u kojem za svako stanje $(n,v)$ kroz koje igrač 1 prolazi vrijedi</p>
+\[
+n\le n_{\min}(v)+\Big\lfloor\frac{N-1}{K-1}\Big\rfloor .
+\]
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Uzmimo optimalno rješenje za $T$ i pretpostavimo da prolazi stanjem $(n,v)$ koje krši nejednakost. Početak puta (do $v$) zamijenimo putem do $v$ s $n_{\min}(v)$ zaustavljanja; njega možemo odabrati bez ponavljanja polja, pa ima najviše $N-1$ pomaka. Broj pomaka igrača 1 time se poveća za najviše $N-1$, a ukupni broj zaustavljanja smanji se za $n-n_{\min}(v)$. Svaki od $K-1$ ostalih igrača za svaki potez manje uštedi barem $1$ pomak (svaki potez stoji barem $1$ pomak), pa trošak ostalih padne za barem $(n-n_{\min}(v))(K-1)\gt N-1$. Novo rješenje bilo bi strogo bolje, što je proturječje.</p>
+<p>Zato je dovoljan BFS po stanjima $(n,v)$ iz podzadatka 4 u kojem jednostavno ne stvaramo stanja iznad te granice. Po polju ostaje najviše $\lfloor\frac{N-1}{K-1}\rfloor+1$ vrijednosti $n$, pa stanja ima $O(N^2/K+N)$, a prijelaza $O(NM/K+M)$. Na kraju je $\mathrm{odgovor}(T)=\min_n\big(\mathrm{dist}[n][T]+G(n)\big)$ po sačuvanim stanjima. I ovo smo podrezivanje provjerili programom (usporedba s iscrpnim pretraživanjem na slučajnim malim primjerima).</p>
+</dodatak>
+
+<h3>Sažetak rješenja</h3>
+<ul>
+    <li>Odredimo funkciju troška svakog od ostalih igrača.</li>
+    <li>Odredimo funkciju troška koja je njihov zbroj (koristeći prefiksne sume i slično).</li>
+    <li>Ako je $K$ malen (ili je broj različitih nagiba funkcije troška malen):<br>→ koristimo rješenje podzadatka 6.</li>
+    <li>Ako je $K$ velik (ili je broj različitih nagiba funkcije troška velik):<br>→ problem najkraćih putova u kojem je i broj zaustavljanja dio stanja;<br>→ uz prikladno podrezivanje to je $O(N^2/K)$ stanja.</li>
+    <li>Ako ta dva rješenja prikladno kombiniramo, zadatak se rješava u vremenu $O((N+M)^{1.5})$.</li>
+</ul>
+<dodatak naslov="Zbrojena funkcija troška i izbor praga">
+<p><b>Računanje $G(n)$ za sve $n$.</b> Uz pragove $\delta_p=\beta_p-\alpha_p$ iz dopune uz podzadatak 6, za $n\ge1$ vrijedi</p>
+\[
+G(n)=2n(K-1)+\sum_{p}\alpha_p-\sum_{p}\max(0,\ n-\delta_p),
+\]
+<p>a $G(0)=0$. Posljednji zbroj za sve $n=1,\dots,N$ dobijemo sortiranjem pragova (ili brojanjem po vrijednostima) i prefiksnim sumama: dok $n$ raste, pamtimo koliko je pragova manjih od $n$ i njihov zbroj. Ukupno $O(N+K\log K)$.</p>
+<p><b>Broj različitih nagiba.</b> Pravac $(a_j,b_j)$ iz podzadatka 6 najmanji je samo za $n$ između $\delta_{(j)}$ i $\delta_{(j+1)}$. Ako je više pragova jednako, ili su izvan raspona $1,\dots,N$, dio pravaca nikad nije potreban; stvarno potrebnih pravaca ima onoliko koliko $G$ ima različitih nagiba na $1\le n\le N$. Zato slajd kaže „ili je broj različitih nagiba malen”.</p>
+<p><b>Prag.</b> Prvo rješenje radi u $O(K(N+M))$, drugo u $O\big((N+M)\cdot N/K\big)$. Ako prvo koristimo za $K\le\sqrt N$, a drugo inače, oba su $O((N+M)\sqrt N)$, što je unutar $O((N+M)^{1.5})$ sa slajda.</p>
+</dodatak>
+<p>Uz donekle brzu implementaciju prolazi se sve do podzadatka 8. Ako dobijete TLE, dobro je isprobati neke od ovih tehnika ubrzanja:</p>
+<ul>
+    <li>podesiti prag između dvaju rješenja;</li>
+    <li>izbjeći Dijkstrin algoritam i koristiti algoritam najkraćih putova linearnog vremena;</li>
+    <li>pažljivije izvesti formulu za podrezivanje;</li>
+    <li>posljednje rješenje implementirati s $O(N)$ memorije;</li>
+    <li>…</li>
+</ul>
+<dodatak naslov="Kako posljednje rješenje stane u $O(N)$ memorije">
+<p>Slajd to samo spominje; evo jednog načina. Sloj $n+1$ ovisi samo o sloju $n$: u njega se ulazi isključivo odlaskom sa zaustavnog polja $v$ (različitog od $X_1$) iz sloja $n$, s vrijednošću $\mathrm{dist}[n][v]+1$, a unutar sloja kreće se samo s polja koja nisu zaustavna (i s $X_1$). Slojeve zato možemo računati redom po $n$, držeći u memoriji samo trenutni i sljedeći sloj:</p>
+<ul>
+    <li>sloj $n$ je BFS s više izvora koji imaju različite početne udaljenosti — izvore poredamo po udaljenosti i spajamo ih s BFS-redom (opet „dva reda”), pa nema prioritetnog reda;</li>
+    <li>čim je sloj gotov, za svako dosegnuto polje $T$ popravimo $\mathrm{odgovor}(T)$ vrijednošću $\mathrm{dist}[n][T]+G(n)$ i pripremimo izvore sljedećeg sloja;</li>
+    <li>u sloju $n$ sudjeluju samo polja $v$ s $n_{\min}(v)\le n\le n_{\min}(v)+\lfloor\frac{N-1}{K-1}\rfloor$; ako se za svaki $n$ obilaze samo ta polja (npr. polja poredana po $n_{\min}$), ukupan rad ostaje $O((N+M)\cdot N/K)$.</li>
+</ul>
+</dodatak>
+
+<h2>Raspodjela bodova <span class="slajd-ref">slajdovi 62–63</span></h2>
+<p>Raspodjela bodova (JOI, 23 natjecatelja).</p>
+<skica sirina="400px">
+<svg viewBox="0 0 380 190" role="img" aria-label="Raspodjela bodova JOI: stupci 0, 3, 10, 17, 36, 40, 68, 100 s krugom za svakog natjecatelja">
+  <text class="tekst-mali" x="212" y="14" style="text-anchor:middle">podzadaci 1–4</text>
+  <polygon points="206,20 218,20 218,30 225,30 212,40 199,30 206,30" style="fill:#6b5f4a"/>
+  <rect x="14" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="14" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="36" y="61" style="text-anchor:middle">0</text>
+  <circle cx="26" cy="82" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="58" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="58" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="80" y="61" style="text-anchor:middle">3</text>
+  <circle cx="70" cy="82" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="90" cy="82" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="70" cy="107" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="90" cy="107" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="70" cy="132" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="90" cy="132" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="102" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="102" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="124" y="61" style="text-anchor:middle">10</text>
+  <circle cx="114" cy="82" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="134" cy="82" r="8" style="fill:#4a86e8;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="146" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="146" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="168" y="61" style="text-anchor:middle">17</text>
+  <circle cx="158" cy="82" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="178" cy="82" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="158" cy="107" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="178" cy="107" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="158" cy="132" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="178" cy="132" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="158" cy="157" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="178" cy="157" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="190" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="190" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="212" y="61" style="text-anchor:middle">36</text>
+  <circle cx="202" cy="82" r="8" style="fill:#ff9900;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="222" cy="82" r="8" style="fill:#ff9900;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="202" cy="107" r="8" style="fill:#ff9900;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="234" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="234" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="256" y="61" style="text-anchor:middle">40</text>
+  <circle cx="246" cy="82" r="8" style="fill:#ee1111;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="266" cy="82" r="8" style="fill:#ee1111;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="278" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="278" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="300" y="61" style="text-anchor:middle">68</text>
+  <circle cx="290" cy="82" r="8" style="fill:#ee1111;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="322" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="322" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="344" y="61" style="text-anchor:middle">100</text>
+</svg>
+<natpis>Slajd 62: svaki krug je jedan natjecatelj (na slajdu figurica) u stupcu sa svojim brojem bodova. Strelica „podzadaci 1–4” pokazuje na stupac $36$. Po stupcima: $0$ bodova — 1, $3$ — 6, $10$ — 2, $17$ — 8, $36$ — 3, $40$ — 2, $68$ — 1, $100$ — nitko.</natpis>
+</skica>
+<p>Raspodjela bodova (JOIG, 9 natjecatelja).</p>
+<skica sirina="400px">
+<svg viewBox="0 0 380 190" role="img" aria-label="Raspodjela bodova JOIG: stupci 0, 7, 19, 31, 54, 100 s krugom za svakog natjecatelja">
+  <text class="tekst-mali" x="212" y="14" style="text-anchor:middle">podzadaci 1–4</text>
+  <polygon points="206,20 218,20 218,30 225,30 212,40 199,30 206,30" style="fill:#6b5f4a"/>
+  <rect x="14" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="14" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="36" y="61" style="text-anchor:middle">0</text>
+  <rect x="58" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="58" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="80" y="61" style="text-anchor:middle">7</text>
+  <circle cx="70" cy="82" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="90" cy="82" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="70" cy="107" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="90" cy="107" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="70" cy="132" r="8" style="fill:#ffee33;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="102" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="102" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="124" y="61" style="text-anchor:middle">19</text>
+  <circle cx="114" cy="82" r="8" style="fill:#ff9900;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="134" cy="82" r="8" style="fill:#ff9900;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="146" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="146" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="168" y="61" style="text-anchor:middle">31</text>
+  <circle cx="158" cy="82" r="8" style="fill:#ee1111;stroke:#1b2a3a;stroke-width:1"/>
+  <circle cx="178" cy="82" r="8" style="fill:#ee1111;stroke:#1b2a3a;stroke-width:1"/>
+  <rect x="190" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="190" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="212" y="61" style="text-anchor:middle">54</text>
+  <rect x="234" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="234" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="278" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="278" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="322" y="44" width="44" height="24" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <rect x="322" y="68" width="44" height="112" style="fill:#ffffff;stroke:#8a97a5;stroke-width:1"/>
+  <text class="tekst" x="344" y="61" style="text-anchor:middle">100</text>
+</svg>
+<natpis>Slajd 63: strelica „podzadaci 1–4” pokazuje na stupac $54$; dva stupca između $54$ i $100$ na slajdu su prazna i bez oznake. Po stupcima: $7$ bodova — 5, $19$ — 2, $31$ — 2, ostali stupci su prazni.</natpis>
+</skica>
+<dodatak>
+<p>Stupci odgovaraju zbrojevima bodova po podzadacima. JOI: $3$ (podzadatak 1), $10$ (1–2), $17$ (1–3), $36$ (1–4), $40=17+23$ (1–3 i 5), $68=36+23+9$ (1–6). JOIG: $7$, $19$, $31$, $54$ (podzadaci 1, 1–2, 1–3, 1–4). Brojevi natjecatelja očitani su prebrojavanjem figurica na slajdu.</p>
+</dodatak>
 
 <div class="rezime">
-    <h2>Sažetak</h2>
-    <ul>
-        <li>Ukupno = pomaci igrača 1 s $n$ zaustavljanja + $\sum_p g_p(n)$, $g_p(n)=\min(2n+\alpha_p, n+\beta_p)$.</li>
-        <li>$G(n)$ je minimum od $K$ pravaca → $K$ najkraćih puteva sa „zaustavljanje košta $1+a$”.</li>
-        <li>Velik $K$: BFS po $(v,n)$ s $n\le n_{\min}(v)+N/(K-1)$; balans daje $O((N+M)^{1.5})$.</li>
-    </ul>
+<h2>Sažetak</h2>
+<ul>
+    <li>Ako igrač 1 do $T$ stane na zaustavno polje $n$ puta, svaki drugi igrač odigra točno $n$ poteza; ukupni trošak je (pomaci igrača 1) + (pomaci ostalih za $n$ poteza).</li>
+    <li>Podzadaci 1–4: BFS po stanjima (polje, broj zaustavljanja) za igrača 1 i BFS unatrag po stanjima (polje, preostali potezi) za ostale.</li>
+    <li>Trošak jednog igrača za $n\ge1$ poteza je minimum dvaju pravaca (nagiba $2$ i $1$); zbroj po igračima je minimum $K$ pravaca nagiba $K-1,\dots,2(K-1)$, a za fiksni pravac zadatak je običan problem najkraćih putova s težinama $1$ i $1+a$.</li>
+    <li>Za velik $K$ svako zaustavljanje stoji barem $K-1$, pa je dovoljno promatrati najviše $N/(K-1)$ zaustavljanja više od najmanjeg mogućeg: $O(N^2/K)$ stanja.</li>
+    <li>Kombinacija dvaju rješenja ovisno o $K$ daje $O((N+M)^{1.5})$.</li>
+</ul>
 </div>
