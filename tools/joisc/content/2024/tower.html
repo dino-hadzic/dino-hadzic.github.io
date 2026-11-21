@@ -1,7 +1,7 @@
 @@ meta
 naslov = Toranj
 engleski = Tower
-oznake = mrežni prikaz mod D, kompresija koordinata, DP po redovima, potencijal (pomak za konstantu), lijeno segmentno stablo, invarijanta oblika DP niza
+oznake = mreža mod D, kompresija koordinata, DP po redovima, lijeno segmentno stablo, pomak za konstantu
 autor_analize = Sugai
 
 @@ zadatak
@@ -27,101 +27,747 @@ autor_analize = Sugai
 </div>
 <p>Za sobu na stubi 13: $0\to1\to2\to3$ (30 s), skok na 7 (35), $7\to8\to9$ (20), skok na 13 (35).</p>
 
-@@ rjesenje
-<h2>Mreža širine $D$</h2>
-<p>Stuba $s=qD+r$ je ćelija (red $q$, stupac $r$). Potezi: <b>desno</b> za 1 ($A$), <b>dolje</b> za 1 ($B$), i „<b>prijelaz</b>” s desnog kraja reda $q$ na lijevi kraj reda $q+1$ ($A$). Kompresijom stupaca i redova (samo oni na kojima su krajevi gradilišta ili upiti; susjedni jednaki stupci spajaju se u blok širine $w$ s cijenom $wA$) mreža ima $O(N+Q)$ redaka i stupaca → DP $O((N+Q)^2)$ (podzadatak 2). Gradilište koje pokriva cijeli red blokira sve iznad. Oprez pri brisanju praznih redaka: i u njima se događaju prijelazi.</p>
+@@ editorial
+<h2>Pregled zadatka <span class="slajd-ref">slajdovi 1–3</span></h2>
+<p>Službenu analizu rješenja zadatka <i>Toranj</i> (Tower) za 3. dan proljetnog kampa JOI 2023/2024 pripremio je <b>Sugai</b>.</p>
 
-<h2>Potencijal</h2>
-<p>Do stube $X$ s $s$ koraka i $j$ skokova: $s+jD=X$, vrijeme $As+Bj$. Postavi $f(q,r)=\mathit{dp}(q,r)-(Bq+Ar)$: potez dolje i desno ne mijenjaju $f$, a prijelaz dodaje $x:=AD-B$. Dakle $f=w\cdot x$, gdje je $w$ broj prijelaza; za $x\gt0$ minimiziramo $w$, za $x\lt0$ maksimiziramo, za $x=0$ (podzadatak 3: $A=1,B=D$) vrijeme je uvijek $X$ i treba samo <b>dostižnost</b>.</p>
-<p><b>DP po redovima na dostižnosti</b> (lijeno segmentno stablo nad kompresiranim stupcima, čuva poziciju najljevije jedinice u segmentu): ① kopiraj red ($f$ nepromijenjen), ② stupce gradilišta postavi na nedostižno, ③ ako je desni kraj prethodnog reda dostižan, lijevi kraj postaje dostižan (prijelaz), ④ za svaki interval bez gradilišta nađi najljeviju jedinicu i sve desno od nje postavi na 1. Intervali bez gradilišta: $O(N+Q)$ ukupno, jer gradilište dira najviše dva reda djelomično (inače blokira sve).</p>
+<h3>Sažetak zadatka</h3>
+<ul>
+    <li>Penjemo se stubama.</li>
+    <li>Moguće je „za $A$ sekundi popeti se 1 stubu” ili „za $B$ sekundi popeti se $D$ stuba”.</li>
+    <li>Na $N$ intervala izvode se radovi i na te se stube ne može stupiti.</li>
+    <li>$Q$ upita: može li se stići do stube $X_j$? Ako može, koliko sekundi za to treba?</li>
+    <li>Ograničenja: (broj radova) $\le 2\cdot10^5$, (broj upita) $\le 2\cdot10^5$, (broj stuba) $\le 10^{12}$.</li>
+</ul>
+<skica sirina="380px">
+<svg viewBox="0 0 340 240" role="img" aria-label="Stube: JOI na dnu, luk A za jednu stubu i luk B za D stuba">
+<defs><marker id="str-tower-1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+<polyline points="40,225 70,225 70,193 110,193 110,161 150,161 150,129 190,129 190,97 230,97 230,65 270,65 270,33 310,33" fill="none" stroke="#1b2a3a" stroke-width="1.6"/>
+<circle cx="54" cy="191" r="5" fill="none" stroke="#1b2a3a" stroke-width="1.4"/>
+<path d="M54 196 L54 213 M46 202 L62 202 M54 213 L47 225 M54 213 L61 225" fill="none" stroke="#1b2a3a" stroke-width="1.4"/>
+<text x="22" y="195" style="font-size:12px;text-anchor:middle;fill:#1b2a3a">JOI</text>
+<path d="M62 185 Q68 167 88 187" fill="none" stroke="#1b2a3a" stroke-width="1.3" marker-end="url(#str-tower-1)"/>
+<text x="92" y="177" style="font-size:14px;text-anchor:middle;fill:#e0453a;font-weight:700">A</text>
+<path d="M54 183 Q64 29 250 59" fill="none" stroke="#1b2a3a" stroke-width="1.3" marker-end="url(#str-tower-1)"/>
+<text x="150" y="52" style="font-size:14px;text-anchor:middle;fill:#e0453a;font-weight:700">B</text>
+</svg>
+<natpis>Slajd 2: JOI stoji na dnu stubišta. Kraći luk (oznaka $A$) vodi jednu stubu više, a dulji luk (oznaka $B$) preskače nekoliko stuba odjednom, tj. vodi $D$ stuba više.</natpis>
+</skica>
 
-<h2>Puno rješenje</h2>
-<p>Iste operacije u terminima $f$: ② nedostižno $=\infty$, ③ $f_q[0]\leftarrow\min(f_q[0],\,f_{q-1}[D-1]+x)$, ④ po intervalima $f[j+1]\leftarrow\min(f[j+1],f[j])$. <b>Invarijanta</b>: svaki red je oblika (prefiks od vrijednosti $(k+1)x$ i $\infty$) + (sufiks od $kx$ i $\infty$), za neki $k$ i granicu $b$. Indukcija: prijelaz stavi $(k+1)x$ u stupac 0 (ili $(k+2)x$ ako je cijeli red bio „visoki” dio — tada $k$ raste), a propagacija udesno mijenja vrijednosti samo unutar intervala bez gradilišta koji <b>sadrži granicu</b>: za $x\gt0$ popunjava $\infty$-ćelije do prve $kx$, za $x\lt0$ prepisuje $kx$ do kraja intervala — u oba slučaja samo pomakni $b$. Dostižnost drži segmentno stablo iz podzadatka 3, uz to čuvaj $k$ i $b$ i ažuriraj ih pretragom „prva dostižna ćelija u intervalu od $b$” / „kraj intervala”. Prazni redovi u bloku: nakon najviše dva reda stanje je stabilno (sve dostižno; za $x\lt0$ svaki daljnji red povećava $k$ za 1, za $x\ge0$ ništa). Odgovor za $X=qD+r$: $\infty$ → $-1$, inače $Bq+Ar+wx$, $w\in\{k,k+1\}$ prema strani granice. $O((N+Q)\log(N+Q))$.</p>
+<h3>Podzadaci</h3>
+<ul>
+    <li>Podzadatak 1 (5 bodova): broj stuba je najviše $10^6$.</li>
+    <li>Podzadatak 2 (38 bodova): $N,Q\le2000$.</li>
+    <li>Podzadatak 3 (25 bodova): $A=1$, $B=D$.</li>
+    <li>Podzadatak 4 (32 boda): nema dodatnih ograničenja.</li>
+</ul>
 
-@@ trener
-<ol class="koraci">
-    <li>
-        <details class="spoiler korak">
-            <summary>Skok za konstantu $D$</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Ostatak mod $D$ je ključan: nacrtaj stube u mreži širine $D$. Koji su potezi u mreži? Zašto je „prijelaz” s kraja retka poseban?</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Što zapravo biramo?</summary>
-            <div class="spoiler-sadrzaj">
-                <p>$s+jD=X$ fiksira odnos koraka i skokova: vrijeme je linearno u broju prijelaza. Oduzmi $Bq+Ar$ i vidi što ostaje.</p>
-            </div>
-        </details>
-    </li>
-    <li>
-        <details class="spoiler korak">
-            <summary>Oblik DP reda</summary>
-            <div class="spoiler-sadrzaj">
-                <p>Ispiši $f$ za sample 1 po redovima. Koliko različitih konačnih vrijednosti vidiš po redu i kako su raspoređene?</p>
-            </div>
-        </details>
-    </li>
+<h2>Podzadatak 1 <span class="bodovi">5</span> <span class="slajd-ref">slajd 4</span></h2>
+<ul>
+    <li>Broj stuba je najviše $10^6$.</li>
+    <li>Može se napraviti DP.</li>
+    <li>$dp[i]=$ (najkraće vrijeme potrebno da se od stube $0$ dođe do stube $i$; $\mathrm{INF}$ ako je to nemoguće).</li>
+    <li>Time se dobiva 5 bodova.</li>
+</ul>
+<dodatak naslov="Prijelaz DP-a">
+<p>Slajd navodi samo definiciju stanja. Prijelaz je: $dp[0]=0$; ako je stuba $i$ pod radovima, $dp[i]=\mathrm{INF}$; inače</p>
+\[
+dp[i]=\min\big(dp[i-1]+A,\ dp[i-D]+B\big),
+\]
+<p>pri čemu se član $dp[i-D]+B$ uzima samo za $i\ge D$. Odgovor na upit je $dp[X_j]$, odnosno $-1$ ako je $dp[X_j]=\mathrm{INF}$. Složenost je $O(\max_j X_j+N+Q)$.</p>
+</dodatak>
+
+<h2>Podzadatak 2 <span class="bodovi">38</span> <span class="slajd-ref">slajdovi 5–9</span></h2>
+<h3>DP za primjer 1</h3>
+<p>Pogledajmo DP za primjer 1.</p>
+<skica sirina="420px">
+<svg viewBox="0 0 380 78" role="img" aria-label="DP niz za primjer 1: stube 0 do 15, sive su pod radovima">
+<defs><marker id="str-tower-2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+<text x="17.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="6" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="17.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">0</text>
+<text x="40.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="29" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="40.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">10</text>
+<text x="63.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">2</text>
+<rect x="52" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="63.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">20</text>
+<text x="86.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">3</text>
+<rect x="75" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="86.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">30</text>
+<text x="109.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">4</text>
+<rect x="98" y="24" width="23" height="26" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="132.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">5</text>
+<rect x="121" y="24" width="23" height="26" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="155.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">6</text>
+<rect x="144" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="155.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">55</text>
+<text x="178.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">7</text>
+<rect x="167" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="178.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">65</text>
+<text x="201.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">8</text>
+<rect x="190" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="201.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">75</text>
+<text x="224.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">9</text>
+<rect x="213" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="224.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">85</text>
+<text x="247.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">10</text>
+<rect x="236" y="24" width="23" height="26" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="270.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">11</text>
+<rect x="259" y="24" width="23" height="26" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="293.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">12</text>
+<rect x="282" y="24" width="23" height="26" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="316.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">13</text>
+<rect x="305" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="316.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">120</text>
+<text x="339.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">14</text>
+<rect x="328" y="24" width="23" height="26" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="362.5" y="16" style="font-size:11px;text-anchor:middle;fill:#1b2a3a">15</text>
+<rect x="351" y="24" width="23" height="26" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="362.5" y="41" style="font-size:10.5px;text-anchor:middle;fill:#1b2a3a">INF</text>
+<path d="M20.5 51 Q29 65 37.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M43.5 51 Q52 65 60.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M66.5 51 Q75 65 83.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M66.5 51 Q109.5 85 152.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M89.5 51 Q132.5 85 175.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M158.5 51 Q167 65 175.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M181.5 51 Q190 65 198.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M204.5 51 Q213 65 221.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+<path d="M227.5 51 Q270.5 85 313.5 52" fill="none" stroke="#1b2a3a" stroke-width="1.1" marker-end="url(#str-tower-2)"/>
+</svg>
+<natpis>Slajd 5: vrijednosti $dp[0..15]$ za primjer 1 ($D=4$, $A=10$, $B=35$). Siva polja su stube pod radovima ($4$–$5$, $10$–$12$, $14$). Kratki lukovi su koraci za jednu stubu, dugi lukovi skokovi za $D=4$ stube; $dp[15]=\mathrm{INF}$.</natpis>
+</skica>
+<p>Velika posebnost ovog zadatka: „penjanje za $D$ stuba”.</p>
+<p>$D$ je konstanta → čini se da će biti važna vrijednost $\bmod D$.</p>
+
+<h3>Mreža s $D$ stupaca</h3>
+<p>Usredotočimo se na ostatak i količnik pri dijeljenju s $D$.</p>
+<p>Polja (stube) možemo rasporediti u mrežu koja ima $D$ stupaca.</p>
+<p>Potezi koji su mogući u mreži:</p>
+<ul>
+    <li>pomak za 1 udesno;</li>
+    <li>pomak za 1 prema dolje;</li>
+    <li>teleport s desnog kraja reda na lijevi kraj sljedećeg reda.</li>
+</ul>
+<p>Želimo u mrežu smjestiti prepreke i upite te provesti DP.</p>
+<p>Kompresijom koordinata mreža se i po visini i po širini može svesti na $O(N+Q)$ polja.</p>
+<p>→ Ukupno $O((N+Q)^2)$.</p>
+<okviri naslov="Stube primjera 1 posložene u mrežu širine D = 4" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 340 244" role="img" aria-label="Mreža 4 puta 4, siva polja su prepreke">
+<defs><marker id="str-tower-3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+<rect x="58" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="170" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="58" y="66" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="66" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="170" y="66" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="66" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="58" y="122" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="122" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="170" y="122" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="122" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="58" y="178" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="170" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+</svg>
+<natpis>Slajd 6: usredotočimo se na ostatak i količnik pri dijeljenju s $D$; polja možemo rasporediti u mrežu s $D$ stupaca. Siva polja su prepreke (stube pod radovima).</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 340 244" role="img" aria-label="Mreža 4 puta 4 s DP vrijednostima i strelicama poteza">
+<defs><marker id="str-tower-4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+<rect x="58" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="86" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="114" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="142" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">10</text>
+<rect x="170" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="198" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">20</text>
+<rect x="226" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="254" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="58" y="66" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="66" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="170" y="66" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="198" y="99" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">55</text>
+<rect x="226" y="66" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="254" y="99" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">65</text>
+<rect x="58" y="122" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="86" y="155" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">75</text>
+<rect x="114" y="122" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="142" y="155" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">85</text>
+<rect x="170" y="122" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="122" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="58" y="178" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="142" y="211" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">120</text>
+<rect x="170" y="178" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="254" y="211" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">INF</text>
+<line x1="105" y1="38" x2="123" y2="38" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="161" y1="38" x2="179" y2="38" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="217" y1="38" x2="235" y2="38" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="198" y1="57" x2="198" y2="75" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="254" y1="57" x2="254" y2="75" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="217" y1="94" x2="235" y2="94" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="273" y1="94" x2="296" y2="94" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="44" y1="150" x2="67" y2="150" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="105" y1="150" x2="123" y2="150" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+<line x1="142" y1="169" x2="142" y2="187" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-4)"/>
+</svg>
+<natpis>Slajd 7: potezi mogući u mreži — za 1 udesno, za 1 prema dolje te teleport s desnog kraja reda na lijevi kraj sljedećeg reda (strelica koja izlazi desno iz polja $65$ i ulazi slijeva u polje $75$). U poljima su vrijednosti DP-a.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 340 244" role="img" aria-label="Mreža 4 puta 4 s DP vrijednostima i strelicama poteza (isto kao na prethodnom okviru)">
+<defs><marker id="str-tower-5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+<rect x="58" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="86" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="114" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="142" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">10</text>
+<rect x="170" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="198" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">20</text>
+<rect x="226" y="10" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="254" y="43" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="58" y="66" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="66" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="170" y="66" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="198" y="99" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">55</text>
+<rect x="226" y="66" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="254" y="99" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">65</text>
+<rect x="58" y="122" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="86" y="155" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">75</text>
+<rect x="114" y="122" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="142" y="155" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">85</text>
+<rect x="170" y="122" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="122" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="58" y="178" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="114" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="142" y="211" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">120</text>
+<rect x="170" y="178" width="56" height="56" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="226" y="178" width="56" height="56" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="254" y="211" style="font-size:14px;text-anchor:middle;fill:#1b2a3a">INF</text>
+<line x1="105" y1="38" x2="123" y2="38" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="161" y1="38" x2="179" y2="38" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="217" y1="38" x2="235" y2="38" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="198" y1="57" x2="198" y2="75" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="254" y1="57" x2="254" y2="75" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="217" y1="94" x2="235" y2="94" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="273" y1="94" x2="296" y2="94" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="44" y1="150" x2="67" y2="150" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="105" y1="150" x2="123" y2="150" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+<line x1="142" y1="169" x2="142" y2="187" stroke="#1b2a3a" stroke-width="1.4" marker-end="url(#str-tower-5)"/>
+</svg>
+<natpis>Slajd 8 (ista slika): u mrežu smjestimo prepreke i upite i provedemo DP; nakon kompresije koordinata mreža ima $O(N+Q)$ polja po visini i po širini, ukupno $O((N+Q)^2)$.</natpis>
+</okvir>
+</okviri>
+<dodatak naslov="Uz slike mreže">
+<p>Stuba $s=qD+r$ ($0\le r\lt D$) nalazi se u redu $q$ (količnik) i stupcu $r$ (ostatak). Korak za jednu stubu je pomak udesno (cijena $A$), osim iz zadnjeg stupca, gdje je to teleport na početak sljedećeg reda (također cijena $A$); skok za $D$ stuba je pomak za jedan red prema dolje (cijena $B$).</p>
+<p>Na slici sa slajda 6 polje stube $14$ (red 3, stupac 2) nije osjenčano, iako je i ta stuba pod radovima; na slajdovima 7 i 8 osjenčano je ispravno. Skice vjerno prate izvornik.</p>
+</dodatak>
+<dodatak naslov="Kako provesti kompresiju koordinata">
+<p>Slajd kompresiju samo spominje. Jedan ispravan način (provjeren usporedbom s izravnim DP-om na nasumičnim malim primjerima):</p>
+<p><b>Stupci.</b> Radovi $[L_i,R_i]$ kraći od $D$ stuba zauzimaju u mreži dio jednog reda ili kraj jednog i početak sljedećeg reda, dakle najviše dva vodoravna odsječka. Kao granice blokova uzmemo stupce $0$, $1$ i $D$, zatim za svaki odsječak prepreke od stupca $c_1$ do stupca $c_2$ vrijednosti $c_1$ i $c_2+1$, te za svaki upit u stupcu $c$ vrijednosti $c$ i $c+1$. Susjedne granice određuju <em>blok</em> uzastopnih stupaca; blokova je $O(N+Q)$. Unutar jednog reda svaki je blok ili cijeli prepreka ili cijeli slobodan, a ako je dostižno jedno polje bloka, dostižna su sva i vrijednosti $dp$ rastu unutar bloka za točno $A$ po stupcu. Zato je dovoljno pamtiti $dp$ prvog polja bloka, a pomak iz bloka širine $w$ u sljedeći blok stoji $wA$.</p>
+<p><b>Redovi.</b> Obrađuju se samo red $0$ i redovi u kojima postoji prepreka ili upit; njih je $O(N+Q)$. Što učiniti s praznim redovima između njih, opisano je u dopuni ispod slajda 9.</p>
+<p><b>Dugi radovi.</b> Ako je $R_i-L_i+1\ge D$, nijedna stuba $\ge L_i$ nije dostižna (skok s neke stube ispod $L_i$ završava najdalje na stubi $L_i-1+D\le R_i$), pa je odgovor za sve $X_j\ge L_i$ jednak $-1$, a kasniji se radovi mogu zanemariti.</p>
+</dodatak>
+
+<h3>Oprez pri brisanju praznih redova</h3>
+<p>Ako se redovi u kojima nema ničega izbrišu bez razmišljanja, odgovor se promijeni, pa treba biti oprezan.</p>
+<skica sirina="440px">
+<svg viewBox="0 0 400 146" role="img" aria-label="Lijevo mreža s četiri reda i putem do crvenog polja, desno ista mreža s izbrisanim praznim redom">
+<defs><marker id="str-tower-6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#1b2a3a"/></marker></defs>
+<rect x="18" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="46" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="74" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="102" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="130" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="158" y="24" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="18" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="46" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="74" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="102" y="52" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="130" y="52" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="158" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="18" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="46" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="74" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="102" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="130" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="158" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="18" y="108" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="46" y="108" width="28" height="28" fill="#e0453a" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="74" y="108" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="102" y="108" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="130" y="108" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="158" y="108" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<line x1="39" y1="38" x2="53" y2="38" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="67" y1="38" x2="81" y2="38" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="95" y1="38" x2="109" y2="38" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="116" y1="45" x2="116" y2="59" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="123" y1="66" x2="137" y2="66" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="144" y1="73" x2="144" y2="87" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="151" y1="94" x2="165" y2="94" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="179" y1="94" x2="193" y2="94" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="6" y1="122" x2="21" y2="122" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<line x1="39" y1="122" x2="53" y2="122" stroke="#1b2a3a" stroke-width="1.2" marker-end="url(#str-tower-6)"/>
+<rect x="218" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="246" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="274" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="302" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="330" y="24" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="358" y="24" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="218" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="246" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="274" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="302" y="52" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="330" y="52" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="358" y="52" width="28" height="28" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="218" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="246" y="80" width="28" height="28" fill="#e0453a" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="274" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="302" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="330" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<rect x="358" y="80" width="28" height="28" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="102" y="15" style="font-size:12px;text-anchor:middle;fill:#1b2a3a">izvorna mreža</text>
+<text x="302" y="15" style="font-size:12px;text-anchor:middle;fill:#1b2a3a">prazan red izbrisan</text>
+</svg>
+<natpis>Slajd 9: lijevo izvorna mreža, desno ista mreža nakon brisanja praznog (trećeg) reda. Siva polja su prepreke, crveno polje je upit. Lijevo se do crvenog polja dolazi tako da se kroz prazan red ode do desnog kraja i teleportira u sljedeći red; desno taj put više ne postoji.</natpis>
+</skica>
+<dodatak naslov="Što se smije izbrisati">
+<p>U desnoj mreži crveno polje nije dostižno: polje iznad njega i polje iznad njegova lijevog susjeda su prepreke, a u njegov se red ne može ni teleportirati jer je desni kraj reda iznad prepreka. U izvornoj je mreži crveno polje dostižno, dakle brisanje je promijenilo odgovor.</p>
+<p>Ispravno pravilo: promotrimo $m$ uzastopnih redova bez prepreka. Ako u redu prije njih nijedno polje nije dostižno, ništa se ne mijenja. Inače su nakon prvog praznog reda dostižna sva polja desno od prvog dostižnog (posebno i desni kraj), a nakon drugog — zbog teleporta — sva polja reda. Od tada svaki sljedeći prazan red svim poljima samo doda istu konstantu $\min(B,\,AD)$: ili se u polje stiže skokom odozgo ($B$), ili je jeftinije cijeli red prehodati korak po korak ($AD$). Zato je dovoljno prva dva prazna reda obraditi kao obične redove, a za preostalih $m-2$ svim vrijednostima dodati $(m-2)\cdot\min(B,AD)$. (Ova tvrdnja slijedi iz oblika DP niza dokazanog u dijelu „Puni bodovi”.)</p>
+</dodatak>
+
+<h2>Podzadatak 3 <span class="bodovi">25</span> <span class="slajd-ref">slajdovi 10–17</span></h2>
+<h3>Dovoljna je dostižnost ($A=1$, $B=D$)</h3>
+<p>Kojim god načinom kretanja, penjemo se 1 stubu po sekundi.</p>
+<p>→ Ako se do stube $X_j$ može stići, onda za to, kako god to učinili, treba $X_j$ sekundi.</p>
+<p>→ Dovoljno je odrediti samo <b>može li se</b> do stube $X_j$ stići!</p>
+
+<h3>DP red po red</h3>
+<p>Nakon kompresije koordinata iz podzadatka 2, DP promatramo red po red.</p>
+<p>Kako se iz DP-a reda $i-1$ dobiva DP reda $i$?</p>
+<okviri naslov="Prijelaz s reda i − 1 (gore) na red i (dolje)" vrsta="koraci">
+<okvir>
+<svg viewBox="0 0 360 84" role="img" aria-label="Gornji red 0 0 1 0 0 1 0 1 1 1, donji red nepoznat, prepreke u stupcima 4 i 8">
+<rect x="10" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="10" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="44" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="78" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="78" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="112" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="112" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="146" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="180" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="180" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="214" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="214" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="248" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="248" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="282" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="282" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+<rect x="316" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">?</text>
+</svg>
+<natpis>Slajd 11: gornji red je DP reda $i-1$ ($1$ = dostižno, $0$ = nedostižno), donji red je traženi DP reda $i$. Siva polja su prepreke u redu $i$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 84" role="img" aria-label="Donji red je kopija gornjeg">
+<rect x="10" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="10" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="78" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="78" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="112" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="112" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="180" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="180" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="214" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="214" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="248" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="248" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="282" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="282" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+</svg>
+<natpis>Slajd 12: ① za početak red samo kopiramo.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 84" role="img" aria-label="Polje s preprekom u stupcu 8 postalo je 0">
+<rect x="10" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="10" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="78" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="78" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="112" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="112" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="180" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="180" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="214" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="214" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="248" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="248" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="65" style="font-size:17px;text-anchor:middle;fill:#e0453a;font-weight:700">0</text>
+<rect x="282" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="282" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+</svg>
+<natpis>Slajd 13: ② polja na kojima je prepreka postavimo na $0$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 84" role="img" aria-label="Lijevi kraj donjeg reda postao je 1">
+<rect x="10" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="10" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="65" style="font-size:17px;text-anchor:middle;fill:#e0453a;font-weight:700">1</text>
+<rect x="44" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="78" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="78" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="112" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="112" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="180" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="180" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="214" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="214" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="248" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="248" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="282" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="282" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+</svg>
+<natpis>Slajd 14: ③ ako je polje na desnom kraju reda $i-1$ jednako $1$, polje na lijevom kraju postavimo na $1$.</natpis>
+</okvir>
+<okvir>
+<svg viewBox="0 0 360 84" role="img" aria-label="Jedinice su se proširile udesno do prepreka">
+<rect x="10" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="10" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="27" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="44" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="44" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="61" y="65" style="font-size:17px;text-anchor:middle;fill:#e0453a;font-weight:700">1</text>
+<rect x="78" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="78" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="95" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="112" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="112" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="129" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="146" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="163" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="180" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="180" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="197" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="214" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="214" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="231" y="65" style="font-size:17px;text-anchor:middle;fill:#e0453a;font-weight:700">1</text>
+<rect x="248" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="248" y="42" width="34" height="34" fill="#9aa5b1" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="265" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="282" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="282" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="299" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="8" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="31" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+<rect x="316" y="42" width="34" height="34" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="333" y="65" style="font-size:17px;text-anchor:middle;fill:#1b2a3a">1</text>
+</svg>
+<natpis>Slajd 15: ④ nabrojimo intervale bez prepreka, u svakom nađemo najljeviju jedinicu i sve od nje nadalje postavimo na $1$.</natpis>
+</okvir>
+</okviri>
+<p>① Za početak red samo kopiramo.</p>
+<p>Za to je dovoljno ponovno iskoristiti DP niz reda $i-1$.</p>
+<p>② Polja na kojima je prepreka postavimo na $0$.</p>
+<p>③ Ako je polje na desnom kraju reda $i-1$ jednako $1$, polje na lijevom kraju postavimo na $1$.</p>
+<p>④ Nabrojimo intervale bez prepreka, u svakom nađemo najljeviju jedinicu i sve od nje nadalje postavimo na $1$.</p>
+<p>Ovi se koraci mogu obraditi <b>lijenim segmentnim stablom</b><info naslov="Lijeno segmentno stablo s najljevijom jedinicom"><p>Segmentno stablo nad blokovima stupaca (nakon kompresije) u kojem svaki čvor pamti položaj najljevije jedinice u svom intervalu (ili oznaku da jedinice nema). Uz to čvor ima <i>lijenu oznaku</i> „cijeli interval postavi na 0” odnosno „cijeli interval postavi na 1”, koja se prema djeci gura tek kad se u njih mora ući.</p><p>Podržane operacije, svaka u $O(\log(N+Q))$: postavljanje svih polja intervala $[l,r]$ na $0$ ili na $1$; dohvat vrijednosti jednog polja; dohvat najljevije jedinice u intervalu $[l,r]$.</p><p>Nakon postavljanja intervala čvora na $1$ najljevija jedinica je njegov lijevi kraj, nakon postavljanja na $0$ jedinice nema; za unutarnji čvor uzima se odgovor lijevog djeteta ako u njemu postoji jedinica, inače odgovor desnog.</p></info> (koje čuva položaj najljevije jedinice u intervalu).</p>
+<dodatak naslov="Pojedinosti i složenost">
+<p><b>Početak.</b> U redu $0$ dostižno je samo polje stube $0$; nakon toga se primijeni korak ④ (u redu $0$ također mogu postojati prepreke).</p>
+<p><b>Redoslijed.</b> Vrijednost desnog kraja reda $i-1$ za korak ③ treba pročitati <em>prije</em> koraka ②, jer oba reda dijele isti niz. Ako je i samo lijevo krajnje polje reda $i$ prepreka, korak ③ se preskače.</p>
+<p><b>Operacije na stablu.</b> Korak ② je postavljanje intervala na $0$ za svaki odsječak prepreke u redu. Korak ④ je za svaki interval bez prepreka $[l,r]$ jedan dohvat najljevije jedinice $p$ i, ako postoji, postavljanje intervala $[p,r]$ na $1$.</p>
+<p><b>Broj operacija.</b> Radovi kraći od $D$ stuba daju najviše dva odsječka prepreke (radovi duljine barem $D$ zaustavljaju sve, vidi dopunu u podzadatku 2), pa je odsječaka ukupno $O(N)$, a red s $t$ odsječaka ima najviše $t+1$ intervala bez prepreka. Redova koje obrađujemo je $O(N+Q)$, dakle ukupno $O(N+Q)$ operacija na stablu i složenost $O((N+Q)\log(N+Q))$.</p>
+<p><b>Prazni redovi.</b> Od $m$ uzastopnih redova bez prepreka i upita dovoljno je obraditi najviše dva: nakon toga su ili sva polja $1$ ili sva $0$ i daljnji prazni redovi ništa ne mijenjaju.</p>
+<p><b>Odgovor.</b> Upit $X_j=qD+r$ čita se nakon obrade reda $q$: ako je polje u stupcu $r$ jednako $1$, odgovor je $X_j$, inače $-1$.</p>
+</dodatak>
+
+<h2>Puni bodovi (podzadatak 4) <span class="bodovi">32</span> <span class="slajd-ref">slajdovi 18–21</span></h2>
+<h3>Prijelazi DP-a</h3>
+<p>Prijelazi DP-a izgledaju ovako:</p>
+<p>① svim poljima dodaj konstantu;</p>
+<p>② polja na kojima je prepreka postavi na $\mathrm{INF}$;</p>
+<p>③ $\mathrm{chmin}($lijevi kraj reda $i$, desni kraj reda $i-1$ $+\,A)$;</p>
+<p>④ nabroji intervale bez prepreka i redom izvrši $\mathrm{chmin}(dp[j+1],\ dp[j]+A)$.</p>
+<dodatak>
+<p>$\mathrm{chmin}(a,b)$ znači $a\leftarrow\min(a,b)$. Konstanta iz koraka ① je $B$: pomak za jedan red prema dolje je skok za $D$ stuba. U koraku ③ „desni kraj reda $i-1$” je vrijednost iz reda $i-1$ prije koraka ① i ②.</p>
+</dodatak>
+
+<h3>Pomak za konstantu</h3>
+<p>Pomakom vrijednosti za konstante prijelazi se mogu svesti na sljedeće:</p>
+<p>① polja na kojima je prepreka postavi na $\mathrm{INF}$;</p>
+<p>② $\mathrm{chmin}($lijevi kraj reda $i$, desni kraj reda $i-1$ $+\,x)$;</p>
+<p>③ nabroji intervale bez prepreka i redom izvrši $\mathrm{chmin}(dp[j+1],\ dp[j])$.</p>
+<dodatak naslov="Koji pomak i koliki je x">
+<p>Slajd ne navodi ni pomak ni vrijednost $x$. Za polje u redu $q$ i stupcu $r$ definirajmo</p>
+\[
+f(q,r)=dp(q,r)-Bq-Ar .
+\]
+<p>Pomak prema dolje povećava $dp$ za $B$ i $Bq$ za $B$, pa $f$ ostaje isti (zato nestaje korak „dodaj konstantu”). Pomak udesno povećava $dp$ za $A$ i $Ar$ za $A$, pa $f$ opet ostaje isti (zato u koraku ③ nema $+A$). Teleport iz polja $(i-1,\,D-1)$ u polje $(i,\,0)$ stoji $A$, a oduzeti se dio promijeni s $B(i-1)+A(D-1)$ na $Bi$, pa je</p>
+\[
+f(i,0)\le f(i-1,D-1)+A+A(D-1)-B .
+\]
+<p>Dakle</p>
+\[
+x=AD-B .
+\]
+<p>„$dp$” na slajdovima 19–21 je ovaj pomaknuti niz $f$. Vrijedi $f=w\cdot x$, gdje je $w$ broj teleporta na putu, pa je pravo vrijeme $Bq+Ar+w\,x$. Broj $x$ može biti pozitivan, nula ili negativan: za $x\gt0$ isplati se što manje teleporta, za $x\lt0$ što više, a za $x=0$ (to je i podzadatak 3, $A=1$, $B=D$) svi su putovi jednako dugi.</p>
+<p>Provjera na primjeru 1: $D=4$, $A=10$, $B=35$, $x=5$. Stuba $13$ je u redu $q=3$ i stupcu $r=1$, a put koristi jedan teleport (sa stube $7$ na stubu $8$): $35\cdot3+10\cdot1+1\cdot5=120$.</p>
+</dodatak>
+
+<h3>Oblik DP niza</h3>
+<div class="tvrdnja">
+<p>Zapravo se DP niz svakog reda uvijek može, pomoću nekog cijelog broja $k$, zapisati kao</p>
+<p>(niz sastavljen od $(k+1)x$ i $\mathrm{INF}$) $+$ (niz sastavljen od $kx$ i $\mathrm{INF}$).</p>
+</div>
+<p class="dokaz"><em>(Dokaz.)</em> Indukcija.</p>
+<p>Može se promatrati <b>granica</b> između prednjeg i stražnjeg dijela.</p>
+<dodatak naslov="Provedba indukcije">
+<p>Znak „$+$” u tvrdnji je nadovezivanje nizova. Neka je $b$ granica: stupci $[0,b)$ čine prednji dio (vrijednosti $(k+1)x$ ili $\mathrm{INF}$), a stupci $[b,D)$ stražnji dio (vrijednosti $kx$ ili $\mathrm{INF}$).</p>
+<p><b>Baza.</b> U redu $0$ polje stube $0$ ima vrijednost $0$, a nakon širenja udesno sva su polja $0$ ili $\mathrm{INF}$: $k=0$, $b=0$.</p>
+<p><b>Korak.</b> Neka red $i-1$ ima taj oblik s parametrima $k$ i $b$. Ako je $b=D$ (stražnji dio je prazan), preimenujemo $k\leftarrow k+1$, $b\leftarrow0$; zato smijemo pretpostaviti $b\lt D$, pa je desni kraj reda $i-1$ jednak $kx$ ili $\mathrm{INF}$.</p>
+<p>Korak ① samo neka polja pretvara u $\mathrm{INF}$ i oblik ostaje.</p>
+<p>Korak ② nudi lijevom kraju vrijednost $(k+1)x$ (ili ništa, ako je desni kraj bio $\mathrm{INF}$). Ako je $b\ge1$, lijevi kraj je u prednjem dijelu i postaje ili ostaje $(k+1)x$. Ako je $b=0$, lijevi kraj je $kx$ ili $\mathrm{INF}$: kad se vrijednost promijeni u $(k+1)x$ (bio je $\mathrm{INF}$, ili je bio $kx$ a $x\lt0$), stavimo $b\leftarrow1$; inače se ništa ne mijenja. Oblik ostaje.</p>
+<p>Korak ③ unutar svakog intervala bez prepreka širi vrijednosti slijeva nadesno. Dok su u intervalu sve konačne vrijednosti jednake, samo se polja $\mathrm{INF}$ desno od prve konačne vrijednosti pune tom vrijednošću i oblik ostaje. Dvije različite vrijednosti mogu se sresti samo u onom intervalu bez prepreka $[l,r]$ koji sadrži granicu u svojoj unutrašnjosti ($l\lt b\le r$), i to samo ako u $[l,b)$ postoji konačna vrijednost $(k+1)x$:</p>
+<ul>
+    <li>za $x\gt0$ je $(k+1)x\gt kx$: vrijednost $(k+1)x$ puni polja $\mathrm{INF}$ od $b$ do prvog polja s vrijednošću $kx$ (a od njega nadalje širi se $kx$); nova granica je to prvo polje, odnosno $r+1$ ako takvog polja u $[b,r]$ nema;</li>
+    <li>za $x\lt0$ je $(k+1)x\lt kx$: vrijednost $(k+1)x$ prepisuje sva polja do kraja intervala; nova granica je $r+1$;</li>
+    <li>za $x=0$ obje su vrijednosti jednake i granica nije bitna.</li>
+</ul>
+<p>U svim slučajevima red $i$ opet ima traženi oblik (s istim $k$ i novom granicom), čime je indukcija provedena.</p>
+</dodatak>
+
+<h3>Održavanje segmentnim stablom</h3>
+<p>„Je li pojedini element $\mathrm{INF}$” može se održavati lijenim segmentnim stablom jednakim onome iz podzadatka 3.</p>
+<p>Pri ažuriranju DP-a dovoljno je na odgovarajući način ažurirati granicu između prednjeg i stražnjeg dijela.</p>
+<p>Složenost je $O((N+Q)\log(N+Q))$ ili slično.</p>
+<dodatak naslov="Kako točno ažurirati granicu">
+<p>Uz stablo iz podzadatka 3 ($1$ = konačno, $0$ = $\mathrm{INF}$) pamte se samo dva broja: $k$ i granica $b$. Postupak za red $i$ slijedi dokaz iz prethodne dopune (provjeren je usporedbom s izravnim DP-om na nasumičnim malim primjerima, za $x\gt0$, $x=0$ i $x\lt0$):</p>
+<ol>
+    <li>ako je $b=D$, stavi $k\leftarrow k+1$, $b\leftarrow0$; zapamti je li desni kraj reda $i-1$ konačan;</li>
+    <li>odsječke prepreka postavi na $0$;</li>
+    <li>ako je desni kraj bio konačan i lijevi kraj nije prepreka: ako je lijevi kraj $0$, postavi ga na $1$ i, ako je $b=0$, stavi $b\leftarrow1$; ako je lijevi kraj već $1$, a $b=0$ i $x\lt0$, stavi $b\leftarrow1$;</li>
+    <li>za interval bez prepreka $[l,r]$ s $l\lt b\le r$ u kojem $[l,b)$ sadrži jedinicu: za $x\gt0$ stavi $b\leftarrow$ najljevija jedinica u $[b,r]$ (ili $r+1$ ako je nema), a za $x\lt0$ stavi $b\leftarrow r+1$;</li>
+    <li>tek tada u svakom intervalu bez prepreka nađi najljeviju jedinicu i sve od nje nadalje postavi na $1$ (korak ④ iz podzadatka 3).</li>
 </ol>
-<div class="greske">
-    <h3>Tipične greške</h3>
-    <ul>
-        <li>Brisanje praznih redaka bez obrade prijelaza (za $x\lt0$ svaki prazni red donosi još jedan koristan prijelaz).</li>
-        <li>Gradilište preko cijelog reda: sve iznad je $-1$.</li>
-        <li>Kompresirani stupac širine $w$: cijena $wA$, a granica $b$ može pasti unutar bloka — kompresiraj tako da su krajevi gradilišta i stupci upita zasebni.</li>
-        <li>Prekoračenje: $Bq\approx 10^6\cdot10^{12}$ — 64-bitni tip, i $\infty$ dovoljno velik.</li>
-    </ul>
-</div>
+<p>Sve su to upiti „najljevija jedinica u intervalu” i postavljanja intervala, dakle $O(\log(N+Q))$ po odsječku. Uz kompresiju iz podzadatka 2 (stupac $0$ je zaseban blok) granica je uvijek na početku nekog bloka.</p>
+<p><b>Prazni redovi.</b> Od $m$ uzastopnih redova bez prepreka i upita prva se dva obrade kao obični redovi. Ako nakon toga postoji konačno polje, konačna su sva; za $x\ge0$ daljnji prazni redovi ne mijenjaju ništa, a za $x\lt0$ svaki sljedeći red svim poljima doda $x$, pa je dovoljno staviti $k\leftarrow k+(m-2)$.</p>
+<p><b>Odgovor.</b> Za upit $X_j=qD+r$, nakon obrade reda $q$: ako je polje u stupcu $r$ jednako $\mathrm{INF}$, odgovor je $-1$; inače je</p>
+\[
+Bq+Ar+w\,x,\qquad w=\begin{cases}k+1 & (r\lt b),\\ k & (r\ge b).\end{cases}
+\]
+<p>Sve vrijednosti stanu u 64-bitni cijeli broj (npr. $Bq\le10^6\cdot10^{12}=10^{18}$), ali ne i u 32-bitni.</p>
+</dodatak>
 
-@@ analiza
-<slajdovi from="1" to="3" naslov="Zadatak">
-    <s n="1">Naslov; analiza: Sugai.</s>
-    <s n="2">Uspon stubama: $A$ s za 1 stubu ili $B$ s za $D$ stuba; $N$ zabranjenih intervala; $Q$ upita: može li se do $X_j$ i za koliko.</s>
-    <s n="3">Podzadaci.</s>
-</slajdovi>
-
-<h2>Podzadaci 1–2 <span class="bodovi">43 boda</span></h2>
-<slajdovi from="4" to="9" vrsta="koraci" naslov="DP i mreža">
-    <s n="4">Stube $\le10^6$: $\mathit{dp}[i]$ = najkraće vrijeme do stube $i$.</s>
-    <s n="5">Pogledaj DP za sample 1; $D$ je konstanta → važan je ostatak mod $D$.</s>
-    <s n="6">Kvocijent i ostatak: ćelije u mreži s $D$ stupaca.</s>
-    <s n="7">Potezi: desno 1, dolje 1, prijelaz s desnog kraja na lijevi kraj sljedećeg reda.</s>
-    <s n="8">Postavi gradilišta i upite u mrežu, kompresija → $O(N+Q)$ redaka i stupaca, DP $O((N+Q)^2)$.</s>
-    <s n="9">Oprez: brisanje praznih redaka mijenja odgovor.</s>
-</slajdovi>
-
-<h2>Podzadatak 3 <span class="bodovi">25 bodova</span></h2>
-<slajdovi from="10" to="17" vrsta="koraci" naslov="Samo dostižnost">
-    <s n="10">$A=1$, $B=D$: oba poteza penju 1 stubu/s → svaki put do $X_j$ traje $X_j$ s; treba samo dostižnost.</s>
-    <s n="11">Nakon kompresije DP po redovima: kako iz reda $i-1$ dobiti red $i$?</s>
-    <s n="12">① kopiraj.</s>
-    <s n="13">② gradilišta → 0.</s>
-    <s n="14">③ ako je desni kraj reda $i-1$ jedinica, lijevi kraj reda $i$ postaje 1.</s>
-    <s n="15">④ po intervalima bez gradilišta nađi najljeviju jedinicu i sve iza postavi na 1.</s>
-    <s n="16">① = ponovno koristi isti niz.</s>
-    <s n="17">②–④ lijenim segmentnim stablom (čuva poziciju najljevije jedinice u intervalu).</s>
-</slajdovi>
-
-<h2>Puno rješenje <span class="bodovi">32 boda</span></h2>
-<slajdovi from="18" to="22" vrsta="koraci" naslov="Pomak za konstantu i oblik reda">
-    <s n="18">Prijelazi: ① svima dodaj konstantu, ② gradilišta → $\infty$, ③ $\mathrm{chmin}$(lijevi kraj reda $i$, desni kraj reda $i-1$ $+A$), ④ po intervalima $\mathrm{chmin}(dp[j+1],dp[j]+A)$.</s>
-    <s n="19">Pomakom za konstante: ① gradilišta → $\infty$, ② $\mathrm{chmin}$(lijevi kraj, desni kraj prethodnog $+x$), ③ po intervalima $\mathrm{chmin}(dp[j+1],dp[j])$.</s>
-    <s n="20">Svaki red je oblika (niz od $(k+1)x$ i $\infty$) + (niz od $kx$ i $\infty$). Dokaz indukcijom promatranjem granice.</s>
-    <s n="21">„Je li $\infty$” drži isto lijeno segmentno stablo kao u podzadatku 3; pri ažuriranju pomakni granicu. $O((N+Q)\log(N+Q))$.</s>
-    <s n="22">Raspodjela bodova.</s>
-</slajdovi>
-<div class="trener-umetak">
-    <p><b>Odakle $x$ (slajd 19).</b> Uz $f(q,r)=\mathit{dp}(q,r)-Bq-Ar$: dolje $+B$ i $+B$ potencijala → $f$ isti; desno $+A$/$+A$ → isti; prijelaz $(q-1,D-1)\to(q,0)$ košta $A$, potencijal se mijenja za $B-A(D-1)$, pa $f$ raste za $x=AD-B$. Dakle $\mathit{dp}=Bq+Ar+w(AD-B)$, $w$ = broj prijelaza; provjera na sampleu 1: $X=13$, $q=3,r=1$, $x=5$, $w=1$: $105+10+5=120$.</p>
-    <p><b>Indukcija sa slajda 20, oba znaka.</b> Red $i-1$: visoki dio $[0,b)$ s $(k+1)x/\infty$, niski $[b,D)$ s $kx/\infty$. Prijelaz daje u stupac 0 vrijednost $f_{i-1}[D-1]+x\in\{(k+1)x,\infty\}$ (ili $(k+2)x$ ako je niski dio prazan — tada preimenuj $k\to k+1$). Propagacija $\mathrm{chmin}(f[j+1],f[j])$ unutar intervala bez gradilišta: u dijelu s jednakim vrijednostima samo popunjava $\infty$; jedini interval gdje se dvije vrijednosti sretnu jest onaj koji sadrži $b$. Za $x\gt0$ ($(k+1)x\gt kx$) visoka vrijednost popunjava $\infty$-ćelije do prve $kx$-ćelije → nova granica je ta ćelija. Za $x\lt0$ ($(k+1)x\lt kx$) visoka vrijednost prepisuje sve do kraja intervala → nova granica je kraj intervala. Ako u intervalu lijevo od $b$ nema konačnih vrijednosti, granica ostaje. Sve što treba: „prva dostižna ćelija u $[b,\text{kraj intervala})$” i „kraj intervala” — upiti nad istim segmentnim stablom.</p>
-</div>
+<h2>Raspodjela bodova <span class="slajd-ref">slajd 22</span></h2>
+<ul>
+    <li>100 bodova: 5 natjecatelja</li>
+    <li>68 bodova: 2 natjecatelja</li>
+    <li>43 boda: 1 natjecatelj</li>
+    <li>30 bodova: 11 natjecatelja</li>
+    <li>5 bodova: 5 natjecatelja</li>
+    <li>0 bodova: 1 natjecatelj</li>
+</ul>
+<skica sirina="440px">
+<svg viewBox="0 0 400 226" role="img" aria-label="Bodovi 25 natjecatelja ispisani na stubama triju stubišta i u mreži 5 puta 5">
+<text x="41" y="211" style="font-size:10px;text-anchor:end;fill:#1b2a3a">0</text>
+<text x="54" y="192" style="font-size:10px;text-anchor:end;fill:#1b2a3a">5</text>
+<text x="67" y="173" style="font-size:10px;text-anchor:end;fill:#1b2a3a">5</text>
+<text x="80" y="154" style="font-size:10px;text-anchor:end;fill:#1b2a3a">5</text>
+<text x="93" y="135" style="font-size:10px;text-anchor:end;fill:#1b2a3a">5</text>
+<text x="106" y="116" style="font-size:10px;text-anchor:end;fill:#1b2a3a">5</text>
+<text x="119" y="97" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="132" y="78" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="145" y="59" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="158" y="40" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<polyline points="8,215 44,215 44,196 57,196 57,177 70,177 70,158 83,158 83,139 96,139 96,120 109,120 109,101 122,101 122,82 135,82 135,63 148,63 148,44 161,44 161,25" fill="none" stroke="#1b2a3a" stroke-width="1.2"/>
+<text x="157" y="211" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="170" y="192" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="183" y="173" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="196" y="154" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="209" y="135" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="222" y="116" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="235" y="97" style="font-size:10px;text-anchor:end;fill:#1b2a3a">30</text>
+<text x="248" y="78" style="font-size:10px;text-anchor:end;fill:#1b2a3a">43</text>
+<text x="261" y="59" style="font-size:10px;text-anchor:end;fill:#1b2a3a">68</text>
+<text x="274" y="40" style="font-size:10px;text-anchor:end;fill:#1b2a3a">68</text>
+<polyline points="142,215 160,215 160,196 173,196 173,177 186,177 186,158 199,158 199,139 212,139 212,120 225,120 225,101 238,101 238,82 251,82 251,63 264,63 264,44 277,44 277,25" fill="none" stroke="#1b2a3a" stroke-width="1.2"/>
+<text x="223" y="211" style="font-size:10px;text-anchor:end;fill:#1b2a3a">100</text>
+<text x="236" y="192" style="font-size:10px;text-anchor:end;fill:#1b2a3a">100</text>
+<text x="249" y="173" style="font-size:10px;text-anchor:end;fill:#1b2a3a">100</text>
+<text x="262" y="154" style="font-size:10px;text-anchor:end;fill:#1b2a3a">100</text>
+<text x="275" y="135" style="font-size:10px;text-anchor:end;fill:#1b2a3a">100</text>
+<polyline points="202,215 226,215 226,196 239,196 239,177 252,177 252,158 265,158 265,139 278,139 278,120" fill="none" stroke="#1b2a3a" stroke-width="1.2"/>
+<circle cx="16" cy="185" r="4.5" fill="none" stroke="#1b2a3a" stroke-width="1.2"/>
+<path d="M16 189.5 L16 204 M9 195 L23 195 M16 204 L10 215 M16 204 L22 215" fill="none" stroke="#1b2a3a" stroke-width="1.2"/>
+<rect x="286" y="70" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="297" y="85" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">0</text>
+<rect x="308" y="70" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="319" y="85" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">5</text>
+<rect x="330" y="70" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="341" y="85" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">5</text>
+<rect x="352" y="70" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="363" y="85" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">5</text>
+<rect x="374" y="70" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="385" y="85" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">5</text>
+<rect x="286" y="92" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="297" y="107" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">5</text>
+<rect x="308" y="92" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="319" y="107" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="330" y="92" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="341" y="107" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="352" y="92" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="363" y="107" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="374" y="92" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="385" y="107" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="286" y="114" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="297" y="129" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="308" y="114" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="319" y="129" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="330" y="114" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="341" y="129" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="352" y="114" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="363" y="129" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="374" y="114" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="385" y="129" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="286" y="136" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="297" y="151" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="308" y="136" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="319" y="151" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">30</text>
+<rect x="330" y="136" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="341" y="151" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">43</text>
+<rect x="352" y="136" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="363" y="151" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">68</text>
+<rect x="374" y="136" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="385" y="151" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">68</text>
+<rect x="286" y="158" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="297" y="173" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">100</text>
+<rect x="308" y="158" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="319" y="173" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">100</text>
+<rect x="330" y="158" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="341" y="173" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">100</text>
+<rect x="352" y="158" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="363" y="173" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">100</text>
+<rect x="374" y="158" width="22" height="22" fill="#ffffff" stroke="#1b2a3a" stroke-width="1.3"/>
+<text x="385" y="173" style="font-size:10px;text-anchor:middle;fill:#1b2a3a">100</text>
+</svg>
+<natpis>Slajd 22: bodovi svih 25 natjecatelja, poredani uzlazno i ispisani dvaput — na stubama triju stubišta i u mreži sa stupcima, kao u zadatku.</natpis>
+</skica>
 
 <div class="rezime">
     <h2>Sažetak</h2>
     <ul>
-        <li>Mreža širine $D$ s potezima desno/dolje/prijelaz; kompresija na $O(N+Q)$.</li>
-        <li>$f=\mathit{dp}-Bq-Ar$ mijenja se samo pri prijelazu ($x=AD-B$); red je uvijek $(k+1)x/\infty$ prefiks + $kx/\infty$ sufiks.</li>
-        <li>Lijeno segmentno stablo za dostižnost + $k$ i granica: $O((N+Q)\log(N+Q))$.</li>
+        <li>Stube do $10^6$: izravni DP $dp[i]$ = najkraće vrijeme do stube $i$ (5 bodova).</li>
+        <li>Stube se slažu u mrežu s $D$ stupaca; potezi su udesno, prema dolje i teleport s desnog kraja na lijevi kraj sljedećeg reda. Kompresija koordinata daje $O(N+Q)$ redova i stupaca i DP u $O((N+Q)^2)$; prazni redovi ne smiju se brisati bez razmišljanja.</li>
+        <li>Za $A=1$, $B=D$ vrijeme je uvijek $X_j$, pa treba samo dostižnost: red se iz prethodnog dobiva koracima ①–④ na lijenom segmentnom stablu koje čuva najljeviju jedinicu u intervalu.</li>
+        <li>Općenito se nakon pomaka za konstante mijenja samo teleport ($+x$), a svaki red ima oblik (niz od $(k+1)x$ i $\mathrm{INF}$) $+$ (niz od $kx$ i $\mathrm{INF}$).</li>
+        <li>Isto segmentno stablo pamti koja su polja $\mathrm{INF}$, uz to se održava granica dvaju dijelova: $O((N+Q)\log(N+Q))$.</li>
     </ul>
 </div>
