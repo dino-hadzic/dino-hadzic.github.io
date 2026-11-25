@@ -115,24 +115,45 @@ int sz[200005];
 vector&lt;array&lt;ll,3&gt;&gt; cand; // (i, j, d) kandidati, i&lt;j
 vector&lt;pair&lt;int,ll&gt;&gt; comp; // (vrh, udaljenost do centroida)
 
-int calc_size(int v, int p) {
-    sz[v] = 1;
-    for (auto [u, w] : g[v]) if (u != p &amp;&amp; !removed_[u]) sz[v] += calc_size(u, v);
-    return sz[v];
+// obilasci su iterativni (BFS): na lancu od 2*10^5 vrhova rekurzija bi prepunila stog
+int par_[200005];
+vector&lt;int&gt; ord;
+void bfs(int v) {
+    ord.clear(); ord.push_back(v); par_[v] = 0;
+    for (size_t i = 0; i &lt; ord.size(); i++) {
+        int x = ord[i];
+        for (auto [u, w] : g[x]) if (u != par_[x] &amp;&amp; !removed_[u]) { par_[u] = x; ord.push_back(u); }
+    }
 }
-int find_centroid(int v, int p, int total) {
-    for (auto [u, w] : g[v])
-        if (u != p &amp;&amp; !removed_[u] &amp;&amp; 2 * sz[u] &gt; total) return find_centroid(u, v, total);
-    return v;
+int find_centroid(int v) {
+    bfs(v);
+    int total = ord.size();
+    for (int i = total - 1; i &gt;= 0; i--) {
+        int x = ord[i];
+        sz[x] = 1;
+        for (auto [u, w] : g[x]) if (u != par_[x] &amp;&amp; !removed_[u]) sz[x] += sz[u];
+    }
+    int c = v;
+    while (true) {
+        int nxt = 0;
+        for (auto [u, w] : g[c]) if (u != par_[c] &amp;&amp; !removed_[u] &amp;&amp; 2 * sz[u] &gt; total) nxt = u;
+        if (!nxt) return c;
+        c = nxt;
+    }
 }
-void collect(int v, int p, ll d) {
-    comp.push_back({v, d});
-    for (auto [u, w] : g[v]) if (u != p &amp;&amp; !removed_[u]) collect(u, v, d + w);
+ll dist_[200005];
+void collect(int c) {
+    bfs(c);
+    dist_[c] = 0;
+    for (int x : ord) {
+        comp.push_back({x, dist_[x]});
+        for (auto [u, w] : g[x]) if (u != par_[x] &amp;&amp; !removed_[u]) dist_[u] = dist_[x] + w;
+    }
 }
 void decompose(int v) {
-    int c = find_centroid(v, 0, calc_size(v, 0));
+    int c = find_centroid(v);
     comp.clear();
-    collect(c, 0, 0);
+    collect(c);
     sort(comp.begin(), comp.end()); // po oznaci vrha
     // monotoni stog po dubini: za svaki vrh najblizi lijevi s dubinom &lt;= i najblizi desni s dubinom &lt;=
     vector&lt;int&gt; st;
