@@ -1,0 +1,227 @@
+@@ meta
+naslov = Udaljenost u stablu
+izvornik = Tree Distance
+oznake = centroid dekompozicija, monotoni stog, dominantni parovi, offline, Fenwickovo stablo
+izvori = vlastito rješenje (standardna tehnika „dominantnih parova”), provjereno brute-forceom
+
+@@ zadatak
+<h1>Udaljenost u stablu</h1>
+<p><i>Tree Distance</i> — Ynoi 2004; zadatak L s natjecanja ICPC Asia Jinan Regional 2022.</p>
+
+<p>Zadano je neukorijenjeno težinsko stablo $T$ s vrhovima $1, 2, \dots, n$. Odgovori na nekoliko upita.</p>
+<p>S $\mathrm{dist}(i,j)$ označavamo udaljenost između vrha $i$ i vrha $j$ u stablu $T$.</p>
+<p>U svakom upitu zadana su dva cijela broja $l, r$. Ispiši vrijednost</p>
+\[ \min_{l\le i\lt j\le r} \mathrm{dist}(i,j). \]
+
+<h3>Ulaz</h3>
+<p>U prvom retku nalazi se cijeli broj $n$ ($1\le n\le 2\cdot10^5$), broj vrhova stabla.</p>
+<p>Svaki od sljedećih $n-1$ redaka opisuje jedan brid stabla. Brid $i$ zadan je s tri cijela broja $a_i, b_i, w_i$ ($1\le a_i,b_i\le n$, $1\le w_i\le 10^9$): oznakama vrhova koje spaja i svojom težinom.</p>
+<p>Zatim slijedi redak s cijelim brojem $q$ ($1\le q\le 10^6$), brojem upita.</p>
+<p>Svaki od sljedećih $q$ redaka sadrži dva cijela broja $l, r$ ($1\le l\le r\le n$) koji opisuju upit.</p>
+<p>Zajamčeno je da zadani bridovi čine stablo.</p>
+
+<h3>Izlaz</h3>
+<p>Za svaki upit ispiši odgovor u zasebnom retku. Ako ne postoje $i, j$ takvi da je $l\le i\lt j\le r$, odgovor je $-1$.</p>
+
+<h3>Primjer</h3>
+<p>Ulaz:</p>
+<pre>5
+1 2 5
+1 3 3
+1 4 4
+3 5 2
+5
+1 1
+1 4
+2 4
+3 4
+2 5</pre>
+<p>Izlaz:</p>
+<pre>-1
+3
+7
+7
+2</pre>
+
+@@ editorial
+<h2>Pregled zadatka</h2>
+
+<p>Za svaki upit $[l,r]$ tražimo najbliži par vrhova čije su <b>oznake</b> u intervalu $[l,r]$. Parova ima $\Theta(n^2)$, a upita do $10^6$, pa ne možemo gledati sve parove. Rješenje se sastoji od dva koraka:</p>
+<ol>
+<li>pokazati da je dovoljno promatrati samo $O(n\log n)$ <b>parova kandidata</b>,</li>
+<li>riješiti preostali, čisto „geometrijski” zadatak: zadano je $K$ parova $(i,j,d)$ i upiti $[l,r]$, a traži se najmanji $d$ među parovima s $l\le i\lt j\le r$.</li>
+</ol>
+
+<h2>Korak 0: dominacija parova</h2>
+
+<p>Kažemo da par $(i',j')$ <b>dominira</b> par $(i,j)$ ako je $i\le i'\lt j'\le j$ i $\mathrm{dist}(i',j')\le \mathrm{dist}(i,j)$. Svaki upit koji sadrži par $(i,j)$ sadrži i par $(i',j')$, a on nije lošiji. Zato dominirani par smijemo izbaciti, a da se nijedan odgovor ne promijeni. Cilj je pronaći malen skup parova koji dominira sve ostale.</p>
+
+<h2>Korak 1: kandidati iz centroid dekompozicije</h2>
+
+<p>Koristimo <b>centroid dekompoziciju</b><info naslov="Centroid dekompozicija"><p>Centroid stabla je vrh čijim uklanjanjem svaka preostala komponenta ima najviše pola vrhova. Dekompozicija: nađi centroid $c$ trenutne komponente, obradi sve putove koji prolaze kroz $c$, ukloni $c$ i rekurzivno ponovi u svakoj preostaloj komponenti.</p><p>Dubina rekurzije je $O(\log n)$, pa je svaki vrh u $O(\log n)$ komponenti i zbroj veličina svih komponenti je $O(n\log n)$. Svaki put $u$–$v$ u stablu prolazi kroz centroid točno jedne komponente koja sadrži oba vrha: one u kojoj se $u$ i $v$ prvi put razdvoje.</p></info>. Promotrimo jednu komponentu $S$ s centroidom $c$ i označimo s $d_v$ udaljenost vrha $v\in S$ do $c$ (unutar komponente). Za svaka dva vrha $u,v\in S$ vrijedi</p>
+\[ \mathrm{dist}(u,v)\le d_u+d_v, \]
+<p>a jednakost vrijedi kad put $u$–$v$ prolazi kroz $c$. Za svaki par $(u,v)$ postoji točno jedna komponenta u kojoj njegov put prolazi kroz centroid, pa vrijedi</p>
+\[ \mathrm{dist}(u,v)=\min_{S\ni u,v}\bigl(d^{S}_u+d^{S}_v\bigr). \]
+<p>Zato u svakoj komponenti smijemo paru $(u,v)$ pripisati „težinu” $d_u+d_v$ (i onda kad je to više od stvarne udaljenosti): odgovor se ne može smanjiti ispod pravog jer je svaka težina barem $\mathrm{dist}(u,v)$, a prava udaljenost se pojavi u barem jednoj komponenti.</p>
+
+<p>Poredajmo vrhove komponente po oznaci: $v_1\lt v_2\lt\dots\lt v_k$.</p>
+
+<div class="tvrdnja"><p><strong>Lema.</strong> Neka su $i\lt j$ vrhovi komponente i neka postoji vrh komponente $t$ s $i\lt t\lt j$ i $d_t\le\max(d_i,d_j)$. Tada postoji par vrhova komponente koji leži strogo unutar $[i,j]$ i čija težina nije veća od $d_i+d_j$.</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> Ako je $d_t\le d_j$, par $(i,t)$ ima težinu $d_i+d_t\le d_i+d_j$ i vrijedi $i\lt t\lt j$. Inače je $d_t\le d_i$, pa par $(t,j)$ ima težinu $d_t+d_j\le d_i+d_j$. $\blacksquare$</p>
+
+<p>Ponavljanjem leme (interval se svaki put strogo smanjuje) zaključujemo: dovoljno je zadržati parove $(i,j)$ za koje <b>svi</b> vrhovi komponente s oznakom između $i$ i $j$ imaju $d$ strogo veći od $\max(d_i,d_j)$. Takav par je jednog od dva oblika:</p>
+<ul>
+<li>$d_i\le d_j$: tada je $i$ <b>najbliži lijevi</b> vrh od $j$ s $d\le d_j$;</li>
+<li>$d_i\gt d_j$: tada je $j$ <b>najbliži desni</b> vrh od $i$ s $d\lt d_i$.</li>
+</ul>
+<p>Svaki vrh komponente tako daje najviše dva kandidata, a nalazimo ih jednim prolazom <b>monotonim stogom</b> po vrhovima poredanima po oznaci: dok je vrh stoga dublji od trenutnog vrha, skidamo ga (trenutni vrh je njegov najbliži desni s manjim $d$) i bilježimo par; kad skidanje stane, vrh stoga je najbliži lijevi s $d\le$ trenutnog i opet bilježimo par.</p>
+
+<skica sirina="400px">
+<svg viewBox="0 0 400 190" role="img" aria-label="Dubine vrhova komponente poredanih po oznaci i parovi kandidati">
+  <line class="brid" x1="20" y1="160" x2="390" y2="160"/>
+  <rect class="cvor-plavi" x="40" y="100" width="30" height="60"/>
+  <rect class="cvor" x="100" y="40" width="30" height="120"/>
+  <rect class="cvor" x="160" y="70" width="30" height="90"/>
+  <rect class="cvor-istaknut" x="220" y="120" width="30" height="40"/>
+  <rect class="cvor" x="280" y="60" width="30" height="100"/>
+  <rect class="cvor-plavi" x="340" y="130" width="30" height="30"/>
+  <text class="tekst-mali" style="text-anchor:middle" x="55" y="178">2</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="115" y="178">5</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="175" y="178">6</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="235" y="178">9</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="295" y="178">11</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="355" y="178">14</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="55" y="94">d=6</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="115" y="34">d=12</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="175" y="64">d=9</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="235" y="114">d=4</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="295" y="54">d=10</text>
+  <text class="tekst-mali" style="text-anchor:middle" x="355" y="124">d=3</text>
+</svg>
+<natpis>Vrhovi jedne komponente poredani po oznaci; visina stupca je $d_v$. Par $(2,9)$ je kandidat (između su samo dublji vrhovi), kao i $(9,14)$, $(2,5)$, $(5,6)$, $(6,9)$, $(9,11)$, $(11,14)$. Par $(2,14)$ nije: vrh $9$ ima $d_9=4\le d_2$, pa ga par $(9,14)$ dominira.</natpis>
+</skica>
+
+<p>Ukupan broj kandidata je najviše $2\cdot\sum|S| = O(n\log n)$ (za $n=2\cdot10^5$ to je najviše oko $7\cdot10^6$). Sortiranje vrhova svake komponente po oznaci daje $O(n\log^2 n)$; može se izbjeći (npr. jednim globalnim sortiranjem i razdjeljivanjem), ali nije nužno.</p>
+
+<div class="tvrdnja"><p><strong>Tvrdnja (točnost).</strong> Za svaki upit $[l,r]$ najmanja težina kandidata s $l\le i\lt j\le r$ jednaka je $\min_{l\le i\lt j\le r}\mathrm{dist}(i,j)$.</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> Svaki kandidat ima težinu $\ge$ stvarne udaljenosti svog para, pa minimum kandidata nije manji od pravog odgovora. Obrnuto, neka je $(i,j)$ optimalan par upita i $S$ komponenta u kojoj put $i$–$j$ prolazi kroz centroid; tamo je težina para točno $\mathrm{dist}(i,j)$. Ako par nije kandidat, lema daje par unutar $[i,j]\subseteq[l,r]$ s težinom ne većom; nastavljajući dolazimo do kandidata unutar $[l,r]$ s težinom $\le\mathrm{dist}(i,j)$. $\blacksquare$</p>
+
+<h2>Korak 2: upiti nad kandidatima</h2>
+
+<p>Preostaje: zadano je $K=O(n\log n)$ trojki $(i,j,d)$ i $q$ upita; za upit $[l,r]$ treba $\min d$ po trojkama s $i\ge l$ i $j\le r$. To je dvodimenzionalna dominacija koju rješavamo offline:</p>
+<ul>
+<li>upite grupiramo po $l$, a kandidate sortiramo po $i$ silazno;</li>
+<li>$l$ smanjujemo od $n$ do $1$; kad $l$ dosegne $i$ nekog kandidata, u <b>Fenwickovo stablo za prefiksni minimum</b> na poziciju $j$ upišemo $d$;</li>
+<li>odgovor na upit $(l,r)$ je prefiksni minimum na pozicijama $1..r$ (ako je još $+\infty$, ispisujemo $-1$).</li>
+</ul>
+<p>Fenwickovo stablo ovdje smije čuvati minimum jer se vrijednosti samo smanjuju, a pitamo isključivo prefikse.</p>
+
+<h2>Složenost</h2>
+<p>Kandidata je $O(n\log n)$, svaki se upiše u Fenwickovo stablo u $O(\log n)$, a svaki upit košta $O(\log n)$: ukupno $O(n\log^2 n+q\log n)$ vremena i $O(n\log n+q)$ memorije. Uz $q=10^6$ važno je brzo čitanje ulaza i ispis.</p>
+
+<h2>Implementacija</h2>
+<pre><code>#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+const ll INF = LLONG_MAX;
+int n, q;
+vector&lt;pair&lt;int,int&gt;&gt; g[200005];
+bool removed_[200005];
+int sz[200005];
+vector&lt;array&lt;ll,3&gt;&gt; cand; // (i, j, d) kandidati, i&lt;j
+vector&lt;pair&lt;int,ll&gt;&gt; comp; // (vrh, udaljenost do centroida)
+
+// obilasci su iterativni (BFS): na lancu od 2*10^5 vrhova rekurzija bi prepunila stog
+int par_[200005];
+vector&lt;int&gt; ord;
+void bfs(int v) {
+    ord.clear(); ord.push_back(v); par_[v] = 0;
+    for (size_t i = 0; i &lt; ord.size(); i++) {
+        int x = ord[i];
+        for (auto [u, w] : g[x]) if (u != par_[x] &amp;&amp; !removed_[u]) { par_[u] = x; ord.push_back(u); }
+    }
+}
+int find_centroid(int v) {
+    bfs(v);
+    int total = ord.size();
+    for (int i = total - 1; i &gt;= 0; i--) {
+        int x = ord[i];
+        sz[x] = 1;
+        for (auto [u, w] : g[x]) if (u != par_[x] &amp;&amp; !removed_[u]) sz[x] += sz[u];
+    }
+    int c = v;
+    while (true) {
+        int nxt = 0;
+        for (auto [u, w] : g[c]) if (u != par_[c] &amp;&amp; !removed_[u] &amp;&amp; 2 * sz[u] &gt; total) nxt = u;
+        if (!nxt) return c;
+        c = nxt;
+    }
+}
+ll dist_[200005];
+void collect(int c) {
+    bfs(c);
+    dist_[c] = 0;
+    for (int x : ord) {
+        comp.push_back({x, dist_[x]});
+        for (auto [u, w] : g[x]) if (u != par_[x] &amp;&amp; !removed_[u]) dist_[u] = dist_[x] + w;
+    }
+}
+void decompose(int v) {
+    int c = find_centroid(v);
+    comp.clear();
+    collect(c);
+    sort(comp.begin(), comp.end()); // po oznaci vrha
+    // monotoni stog po dubini: za svaki vrh najblizi lijevi s dubinom &lt;= i najblizi desni s dubinom &lt;=
+    vector&lt;int&gt; st;
+    for (int i = 0; i &lt; (int)comp.size(); i++) {
+        while (!st.empty() &amp;&amp; comp[st.back()].second &gt; comp[i].second) {
+            // i je prvi desni s manjom dubinom za st.back()
+            cand.push_back({comp[st.back()].first, comp[i].first, comp[st.back()].second + comp[i].second});
+            st.pop_back();
+        }
+        if (!st.empty())
+            cand.push_back({comp[st.back()].first, comp[i].first, comp[st.back()].second + comp[i].second});
+        st.push_back(i);
+    }
+    removed_[c] = true;
+    for (auto [u, w] : g[c]) if (!removed_[u]) decompose(u);
+}
+ll bit[200005];
+void upd(int i, ll v) { for (; i &lt;= n; i += i &amp; -i) bit[i] = min(bit[i], v); }
+ll qry(int i) { ll r = INF; for (; i &gt; 0; i -= i &amp; -i) r = min(r, bit[i]); return r; }
+int main() {
+    scanf("%d", &amp;n);
+    for (int i = 1; i &lt; n; i++) {
+        int a, b, w; scanf("%d %d %d", &amp;a, &amp;b, &amp;w);
+        g[a].push_back({b, w}); g[b].push_back({a, w});
+    }
+    decompose(1);
+    scanf("%d", &amp;q);
+    vector&lt;array&lt;int,3&gt;&gt; qs(q);
+    for (int i = 0; i &lt; q; i++) { scanf("%d %d", &amp;qs[i][1], &amp;qs[i][0]); qs[i][0] = -qs[i][0]; qs[i][2] = i; }
+    // obrada po l silazno: par (i,j) aktivan kad je i &gt;= l; BIT po j cuva prefiksni minimum
+    sort(cand.begin(), cand.end(), [](const array&lt;ll,3&gt;&amp; a, const array&lt;ll,3&gt;&amp; b) { return a[0] &gt; b[0]; });
+    vector&lt;vector&lt;pair&lt;int,int&gt;&gt;&gt; byL(n + 2);
+    for (int i = 0; i &lt; q; i++) byL[qs[i][1]].push_back({-qs[i][0], qs[i][2]});
+    fill(bit, bit + n + 1, INF);
+    vector&lt;ll&gt; ans(q);
+    size_t p = 0;
+    for (int l = n; l &gt;= 1; l--) {
+        while (p &lt; cand.size() &amp;&amp; cand[p][0] &gt;= l) { upd(cand[p][1], cand[p][2]); p++; }
+        for (auto [r, id] : byL[l]) { ll v = qry(r); ans[id] = v == INF ? -1 : v; }
+    }
+    for (int i = 0; i &lt; q; i++) printf("%lld\n", ans[i]);
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Par vrhova koji u svom intervalu oznaka sadrži drugi, ne dulji par može se zanemariti (dominacija).</li>
+<li>U komponenti centroid dekompozicije paru pripišemo $d_u+d_v$; nakon sortiranja po oznaci samo parovi „bez plićeg vrha između” preživljavaju — najviše dva po vrhu, nalaze se monotonim stogom.</li>
+<li>Ukupno $O(n\log n)$ kandidata; upiti se rješavaju offline po $l$ silazno, Fenwickovim stablom s prefiksnim minimumom po $j$.</li>
+<li>Složenost: $O(n\log^2 n+q\log n)$.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: ICPC Asia Jinan Regional 2022, zadatak L (QOJ #5148).</li>
+<li>Rješenje gore je vlastita implementacija; uspoređena je s izravnim $O(n^2)$ rješenjem po upitu na 1500 nasumičnih stabala (lanci, nasumična stabla, razne težine).</li>
+</ul>

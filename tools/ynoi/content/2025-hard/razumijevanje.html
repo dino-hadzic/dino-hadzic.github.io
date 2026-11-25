@@ -1,0 +1,446 @@
+@@ meta
+naslov = Razumijevanje (boja)
+izvornik = 运筹帷幄 / 《十字神名的预言者》理解（色彩）
+oznake = stabla, pohlepno, promjena korijena, dugi lanci, binarno pretraživanje, poništavanje
+izvori = službeni izvještaj autora (赵海鲲, 集训队互测 2024, 5. kolo); vlastita implementacija provjerena brute-forceom
+
+@@ zadatak
+<h1>Razumijevanje (boja)</h1>
+<p><i>运筹帷幄</i> — Ynoi 2025 Hard Round / 集训队互测 2024, 5. kolo. Autor: zhaohaikun.</p>
+
+<blockquote><p>Šah je kao život: povučen potez ne vraća se. Tko promisli svaki korak, daleko dospije.</p></blockquote>
+
+<p>Zadano je stablo s $n$ čvorova. U čvoru $i$ nalazi se $b_i$ žetona, a u njega ih stane najviše $a_i$. Neka je čvor $k$ korijen. U jednom potezu odabireš čvor i jedan njegov žeton premjestiš u roditelja tog čvora, uz uvjet da roditelj prije poteza nije pun (ima manje od $a$ žetona). Poteza smije biti proizvoljno mnogo; cilj je da zbroj udaljenosti svih žetona do korijena $k$ bude što manji.</p>
+<p>Odredi odgovor za svaki $k=1,2,\dots,n$.</p>
+
+<h3>Ulaz</h3>
+<p>U prvom je retku prirodan broj $n$ — broj čvorova.</p>
+<p>U drugom je retku $n$ prirodnih brojeva; $i$-ti je $a_i$, najveći broj žetona u čvoru $i$.</p>
+<p>U trećem je retku $n$ cijelih brojeva; $i$-ti je $b_i$, početni broj žetona u čvoru $i$.</p>
+<p>U sljedećih $n-1$ redaka nalaze se po dva broja $u$, $v$ — brid stabla.</p>
+
+<h3>Izlaz</h3>
+<p>Ispiši jedan redak s $n$ cijelih brojeva; $i$-ti je odgovor kad je korijen čvor $i$.</p>
+
+<h3>Primjer 1</h3>
+<p>Ulaz:</p>
+<pre>3
+6 2 10
+6 0 2
+1 2
+2 3</pre>
+<p>Izlaz:</p>
+<pre>2 6 0</pre>
+
+<h3>Primjer 2</h3>
+<p>Ulaz:</p>
+<pre>5
+7 6 2 1 10
+3 5 0 0 7
+1 2
+2 3
+1 4
+4 5</pre>
+<p>Izlaz:</p>
+<pre>10 12 20 14 9</pre>
+
+<h3>Ograničenja</h3>
+<p>Za sve testove vrijedi $1\le n\le 5\cdot10^5$, $0\le b_i\le a_i$, $1\le a_i\le 10^7$ (gornja granica za $a_i$ odabrana je tako da odgovor stane u 64-bitni cijeli broj).</p>
+<table>
+<tr><th>Podzadatak</th><th>Bodovi</th><th>Ograničenje</th></tr>
+<tr><td>1</td><td>1</td><td>$b_i=0$</td></tr>
+<tr><td>2</td><td>5</td><td>$n\le 2000$</td></tr>
+<tr><td>3</td><td>11</td><td>$n\le 8000$</td></tr>
+<tr><td>4</td><td>3</td><td>lanac: za svaki $i\in[1,n-1]$ postoji brid između $i$ i $i+1$</td></tr>
+<tr><td>5</td><td>3</td><td>zvijezda: za svaki $i\in[2,n]$ postoji brid između $1$ i $i$</td></tr>
+<tr><td>6</td><td>6</td><td>stablo je nasumično</td></tr>
+<tr><td>7</td><td>16</td><td>$a_i\le 5$</td></tr>
+<tr><td>8</td><td>22</td><td>$n\le 5\cdot10^4$</td></tr>
+<tr><td>9</td><td>16</td><td>$n\le 10^5$</td></tr>
+<tr><td>10</td><td>11</td><td>$n\le 2\cdot10^5$</td></tr>
+<tr><td>11</td><td>5</td><td>$n\le 3\cdot10^5$</td></tr>
+<tr><td>12</td><td>1</td><td>bez dodatnih ograničenja</td></tr>
+</table>
+<p>Nasumično stablo nastaje ovako: za svaki čvor $i\in[2,n]$ jednoliko se nasumično odabere $p\in[1,i-1]$ i doda brid između $i$ i $p$.</p>
+<p>Vremensko ograničenje: 2 s. Memorijsko ograničenje: 2048 MB.</p>
+
+@@ editorial
+<h2>Pregled zadatka</h2>
+<p>Za svaki korijen treba pohlepno „povući” žetone prema korijenu i zbrojiti udaljenosti. Rješenje ima tri dijela:</p>
+<ul>
+<li><b>pohlepni postupak</b> za jedan korijen i njegov zapis nizom $E_x(j)$ = broj žetona na udaljenosti barem $j$;</li>
+<li><b>dugi lanci</b>: nizovi $E_x$ za jedan korijen u $O(n)$, uz mogućnost poništavanja;</li>
+<li><b>promjena korijena</b>: stanje „izvan podstabla” čuvamo kao eksplicitan niz blizu čvora plus zamrznute „daleke komade”, a rez nalazimo binarnim pretraživanjem.</li>
+</ul>
+<p>Složenost je $O(n\log n)$ vremena i $O(n)$ memorije.</p>
+
+<h2>Korak 1: pohlepno za jedan korijen</h2>
+<p>Budući da je $a_i\ge 1$, žeton se može provući i kroz pun čvor (pun čvor prvo pošalje svoj žeton gore, pa primi novi). Zato je potez zapravo „premjesti žeton u bilo kojeg pretka koji ima mjesta”.</p>
+<div class="tvrdnja"><p><strong>Pohlepni postupak.</strong> Čvorove obrađujemo odozdo prema gore. Kad dođemo do čvora $x$, njegova su podstabla već obrađena; u $x$ povlačimo <b>najdublje</b> žetone iz podstabla dok $x$ ima mjesta ($a_x-b_x$ slobodnih mjesta) i dok ispod njega ima žetona.</p></div>
+<p><i>Zašto.</i> Poredajmo udaljenosti žetona u podstablu do $x$. Povlačenjem bilo kojeg žetona u $x$ novi je sortirani niz po članovima manji ili jednak starom, pa se isplati povlačiti. Ako povučemo najdalji, dobiveni niz je po članovima manji ili jednak nizu koji bi nastao povlačenjem bilo kojeg drugog — dakle najdalji je najbolji izbor za sve što slijedi.</p>
+
+<h2>Korak 2: zapis nizom $E$</h2>
+<p>Neka je $c_x=a_x-b_x$ broj slobodnih mjesta, $T(x)$ ukupan broj žetona u podstablu i</p>
+\[ E_x(j)=\text{broj žetona na udaljenosti}\ \ge j\ \text{od } x \text{ u obrađenom podstablu čvora } x. \]
+<p>Prije povlačenja u $x$, na udaljenosti $\ge j$ (za $j\ge1$) nalazi se $\sum_{c}E_c(j-1)$ žetona, zbroj po djeci $c$. Čvor $x$ uzima $c_x$ najdubljih, pa je</p>
+\[ E_x(0)=T(x),\qquad E_x(j)=\max\Bigl(0,\ \sum_{c}E_c(j-1)-c_x\Bigr)\quad (j\ge 1). \]
+<p>Odgovor za korijen $k$ je $\sum_{j\ge1}E_k(j)$ (žeton na udaljenosti $t$ broji se u $E(1),\dots,E(t)$).</p>
+<p>Niz $E_x$ je nerastući, pa „$-c_x$ i odreži na nuli” znači: oduzmi konstantu i odbaci rep. To je ključno svojstvo cijelog rješenja.</p>
+
+<h2>Korak 3: jedan korijen u $O(n)$ — dugi lanci</h2>
+<p>Ukorijenimo stablo u čvoru $1$. <b>Teški sin</b> čvora je sin s najvećom visinom; teški bridovi tvore lance. Niz $E_x$ dijeli memoriju s nizom teškog sina $h$:</p>
+<ol>
+<li>dodaj novi element na početak (pomak indeksa za 1);</li>
+<li>pribroji nizove lakih sinova (svaki košta svoju duljinu, a to je najviše duljina njegova lanca);</li>
+<li>lijena oznaka: $\mathit{TAG}\mathrel{+}=c_x$ (stvarna vrijednost je $\mathit{raw}-\mathit{TAG}$);</li>
+<li>odbaci s kraja elemente koji su pali na $\le 0$ (pomak granice $\mathit{lo}$).</li>
+</ol>
+<p>Zbroj duljina lanaca je $n$, pa je sve $O(n)$. Dodatno održavamo prefiksne zbrojeve $\mathit{PS}$ od daljeg kraja; promjene su uvijek pri bližem kraju, pa se $\mathit{PS}$ popravlja u istoj cijeni.</p>
+<p><b>Detalj.</b> Lak sin može imati dulji niz od trenutno preživjelog dijela niza teškog sina. Tada se odrezani dio „oživljava”: vrijednost se postavlja na $\mathit{TAG}$ (stvarna nula) pa joj se pribraja. Prebrisane stare vrijednosti spremamo jer će trebati pri poništavanju.</p>
+<p><b>Poništavanje.</b> U drugom prolazu, kad stignemo u $x$, korak čvora $x$ poništimo (oduzmemo lake sinove, vratimo $\mathit{TAG}$, $\mathit{lo}$ i prebrisane vrijednosti). Niz lanca tada sadrži točno $E_h$. Nizovi lakih sinova su netaknuti dok u njih ne uđemo.</p>
+
+<h2>Korak 4: promjena korijena — što nam treba</h2>
+<p>Za čvor $z$ neka je $U_z(j)$ broj žetona <i>izvan</i> podstabla čvora $z$ na udaljenosti $\ge j$ od $z$, nakon što je taj vanjski dio obrađen prema $z$ (kao da je roditelj od $z$ sin čvora $z$). Uz</p>
+\[ W_z(j)=U_z(j)+\sum_{c\ \text{sin od}\ z}E_c(j-1) \]
+<p>vrijedi</p>
+\[ \mathit{odg}(z)=\sum_{j\ge1}\max\bigl(0,\ W_z(j)-c_z\bigr),\qquad U_y(j)=\max\bigl(0,\ W_z(j-1)-E_y(j-2)-c_z\bigr)\ \ (j\ge2) \]
+<p>za sina $y$ čvora $z$, uz $U_y(1)=T_{\text{uk}}-T(y)$. Nizovi $U$ mogu biti dugi ($\Theta(n)$ za svaki čvor), pa ih ne smijemo graditi iznova.</p>
+
+<h2>Korak 5: prikaz vanjskog stanja</h2>
+<p>Koristimo koordinatu $g=j-\mathit{dubina}(z)$. Silaskom u sina indeks $j$ svakog elementa raste za 1, a dubina također — dakle $g$ se <b>ne mijenja</b> i podatke ne treba pomicati; silazak samo dodaje jedan novi element na bližem kraju.</p>
+<p>Stanje čine:</p>
+<ul>
+<li>globalni niz $G[g]$ s prefiksnim zbrojevima i <b>dnevnikom promjena</b> (pri povratku iz sina sve se vraća);</li>
+<li>lijena konstanta $C$ (zbroj svih dosad oduzetih $c$);</li>
+<li><b>rez</b> $\mathit{cut}$: za $g\ge\mathit{cut}$ vrijednost je $0$;</li>
+<li>stog <b>dalekih komada</b>: zamrznuti odsječci nizova $E_h$ (vidi dolje).</li>
+</ul>
+<p>Vrijednost je $U(g)=G[g]+P(g)-C$ za $g\lt\mathit{cut}$, gdje je $P(g)$ vrijednost komada koji pokriva $g$ (ako postoji).</p>
+
+<p><b>U čvoru $z$:</b></p>
+<ol>
+<li>u $G$ pribrojimo sve lake sinove (indeksi $j\le$ njihova duljina) i poništimo korak lanca, pa je dostupan $E_h$;</li>
+<li>za odgovor privremeno dodamo cijeli $E_h$ kao komad, povećamo $C$ za $c_z$, nađemo rez i zbrojimo; zatim to vratimo;</li>
+<li>za <b>teškog sina</b>: $C\mathrel{+}=c_z$, dodamo novi element $T_{\text{uk}}-T(h)$, nađemo rez;</li>
+<li>za <b>lakog sina</b> $y$: iz $G$ oduzmemo $E_y$, pribrojimo <i>bliski</i> dio niza $E_h$ (indeksi $j\lt\mathit{visina}(y)$), a <i>daleki</i> dio ($j\ge\mathit{visina}(y)$) stavimo na stog kao komad; dalje kao za teškog sina. Cijena je $O(\mathit{visina}(y))$, a zbroj visina lakih sinova je najviše $n$.</li>
+</ol>
+
+<div class="tvrdnja"><p><strong>Zašto su komadi sigurni.</strong> Sve što se kasnije događa unutar podstabla čvora $y$ dira samo koordinate $g\le\mathit{visina}(y)-\mathit{dubina}(y)$: svaki čvor $w$ u tom podstablu pribraja nizove duljine najviše $\mathit{visina}(w)$, a $\mathit{visina}(w)-\mathit{dubina}(w)\le\mathit{visina}(y)-\mathit{dubina}(y)$. Komad počinje tek iza te granice. Zato se u području komada više ništa ne pribraja — ondje se vrijednosti samo smanjuju za konstantu i režu, a to opisuju $C$ i $\mathit{cut}$.</p></div>
+<p>Iz istog razloga komadi na stogu pokrivaju <b>disjunktne</b> raspone, i to tako da je stariji komad dalje od novijeg. Kako je $U$ nerastući, komadi „umiru” redom od najstarijeg.</p>
+
+<h2>Korak 6: pažnja — rezanje pa pribrajanje</h2>
+<p>Lijeni zapis $\max(0,\ \text{zbroj}-C)$ vrijedi samo dok se pribraja <i>unutar</i> reza. Ako se pribraja iza reza (ondje je stvarna vrijednost $0$, a zapisana „negativna”), moramo to ispraviti:</p>
+<ul>
+<li><b>eksplicitno pribrajanje iza reza:</b> element se najprije postavi na $G[g]=C$ (stvarna nula), rez se pomakne, pa se pribroji;</li>
+<li><b>komad koji viri iza reza:</b> iza reza vrijedi samo komad. Pamtimo granicu $\mathit{gl}$ do koje je $G$ eksplicitan i konstantu $\mathit{vc}$ koja zamjenjuje $G[g]$ za $g\ge\mathit{gl}$; u tom trenutku stavimo $\mathit{vc}=C$. Tako ne moramo ispunjavati dugačak dio niza.</li>
+</ul>
+<p>Oba se slučaja mogu dogoditi samo kad nema živog starijeg komada (živi stariji komad znači da je rez daleko iza svega što se sada pribraja), pa je jedna konstanta $\mathit{vc}$ dovoljna.</p>
+
+<h2>Korak 7: novi rez i zbroj</h2>
+<p>Nakon povećanja $C$ tražimo prvi $g$ s vrijednošću $\le0$:</p>
+<ol>
+<li>binarno po stogu komada nađemo prvi živi komad (živ je ako mu je vrijednost na početku raspona pozitivna — svojstvo je monotono);</li>
+<li>rez je tada između početka tog komada i početka prethodnog (mrtvog) komada; u tom rasponu sudjeluje samo jedan komad, pa se vrijednost računa u $O(1)$ i rez nalazimo binarnim pretraživanjem.</li>
+</ol>
+<p>Zbroj $\sum_{g\lt\mathit{cut}}U(g)$ dobivamo iz prefiksnih zbrojeva niza $G$, prefiksnih zbrojeva nizova lanaca (za djelomično živ komad) i prefiksnih zbrojeva ukupnih vrijednosti komada na stogu (za potpuno žive).</p>
+
+<h2>Složenost</h2>
+<ul>
+<li>prvi prolaz: $O(n)$;</li>
+<li>eksplicitne promjene niza $G$ i dnevnik: $O(\text{zbroj visina lakih sinova})=O(n)$;</li>
+<li>po čvoru $O(1)$ binarnih pretraživanja: $O(n\log n)$.</li>
+</ul>
+<p>Memorija je $O(n)$. Drugi je prolaz napisan bez rekurzije (dubina može biti $5\cdot10^5$). Za $n=5\cdot10^5$ program radi $0{,}2$–$0{,}8$ s na lancu, zvijezdi, gusjenici, češlju, binarnom i nasumičnom stablu.</p>
+
+<h2>Implementacija</h2>
+<pre><code>// Ynoi 2025 "Razumijevanje (boja)" / QOJ 9534: za svaki korijen najmanji zbroj udaljenosti zetona.
+// E_x(j) = broj zetona na udaljenosti &gt;= j u obradjenom podstablu; dugi lanci + promjena korijena.
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+typedef unsigned long long ull;
+
+int n;
+vector&lt;int&gt; adjStart, adjList, par, dep, hgt, heavy, topIdx, chainOf, loh;
+vector&lt;ll&gt; T, cz, ans;
+ll Ttot;
+
+// --- nizovi lanaca: E_x(j) = raw[topIdx[x] - j] - TAGc[lanac], zivi indeksi &gt;= LOc[lanac]
+vector&lt;ll&gt; raw_;
+vector&lt;ull&gt; PS;            // PS[q] - PS[q-1] = raw[q] na zivom dijelu
+vector&lt;ll&gt; TAGc;
+vector&lt;int&gt; LOc;
+// vrijednosti koje je ozivljavanje prebrisalo (za vracanje u 2. prolazu)
+vector&lt;ll&gt; revRaw; vector&lt;ull&gt; revPS; vector&lt;int&gt; revStart, revCnt;
+
+// --- vanjsko stanje: koordinata g = j - dubina; G[n - g]
+vector&lt;ll&gt; G;
+vector&lt;ull&gt; PSG_;          // pomaknuto za 1
+ll C, vc;
+int cut_, gl, alive, np;
+vector&lt;int&gt; pK, pS, pE;
+vector&lt;ll&gt; pTag, PT;
+struct LogE { int idx; int kind; ull old; };
+vector&lt;LogE&gt; lg;
+int pminW;
+
+inline ull &amp;PSG(int p) { return PSG_[p + 1]; }
+inline void writeG(int p, ll v) {
+    lg.push_back({p, 0, (ull)G[p]});
+    G[p] = v;
+    if (p &lt; pminW) pminW = p;
+}
+inline void psRecompute(int plo, int phi) {
+    for (int p = plo; p &lt;= phi; p++) {
+        lg.push_back({p, 1, PSG(p)});
+        PSG(p) = PSG(p - 1) + (ull)G[p];
+    }
+}
+inline void undoTo(size_t pos) {
+    while (lg.size() &gt; pos) {
+        LogE &amp;e = lg.back();
+        if (e.kind == 0) G[e.idx] = (ll)e.old; else PSG(e.idx) = e.old;
+        lg.pop_back();
+    }
+}
+// eksplicitni dio prosiri do g &lt; ghi; iza reza vrijednosti su 0
+inline void ensureExplicit(int ghi) {
+    while (gl &lt; ghi) {
+        if (gl == cut_) { writeG(n - gl, C); cut_++; alive = np; }
+        else writeG(n - gl, vc);
+        gl++;
+    }
+}
+inline ll val(int g, int pi) {
+    ll v = (g &lt; gl ? G[n - g] : vc) - C;
+    if (pi &gt;= 0 &amp;&amp; g &gt;= pS[pi] &amp;&amp; g &lt; pE[pi]) v += raw_[pK[pi] - g] - pTag[pi];
+    return v;
+}
+inline void pushPiece(int K, ll tag, int s, int e) {
+    pK[np] = K; pTag[np] = tag; pS[np] = s; pE[np] = e;
+    PT[np + 1] = PT[np] + (ll)(PS[K - s] - PS[K - e]) - tag * (ll)(e - s);
+    if (e &gt; cut_) { vc = C; alive = np; cut_ = e; }   // komad viri iza reza: svi stariji su mrtvi
+    np++;
+}
+// novi rez: prvi g s vrijednoscu &lt;= 0
+inline void recut(int gmin) {
+    int lo = alive, hi = np;
+    while (lo &lt; hi) {
+        int mid = (lo + hi) &gt;&gt; 1;
+        if (val(pS[mid], mid) &gt; 0) hi = mid; else lo = mid + 1;
+    }
+    int a = lo, L, H, pi;
+    if (a &lt; np) { L = pS[a] + 1; H = (a &gt; alive ? pS[a - 1] : cut_); pi = a; }
+    else { L = gmin; H = (np &gt; alive ? pS[np - 1] : cut_); pi = -1; }
+    if (H &lt; L) H = L;
+    while (L &lt; H) {
+        int mid = (L + H) &gt;&gt; 1;
+        if (val(mid, pi) &gt; 0) L = mid + 1; else H = mid;
+    }
+    cut_ = L; alive = a;
+    if (gl &gt; cut_) gl = cut_;
+}
+inline ll sumAll(int gmin) {
+    int cnt = cut_ - gmin;
+    if (cnt &lt;= 0) return 0;
+    int g2 = min(gl, cut_);
+    ll s = (ll)(PSG(n - gmin) - PSG(n - g2)) + vc * (ll)(cut_ - g2);
+    if (alive &lt; np) {
+        int a = alive, e = min(pE[a], cut_);
+        if (e &gt; pS[a]) s += (ll)(PS[pK[a] - pS[a]] - PS[pK[a] - e]) - pTag[a] * (ll)(e - pS[a]);
+        s += PT[np] - PT[a + 1];
+    }
+    return s - C * (ll)cnt;
+}
+
+struct Scal { ll C, vc; int cut, gl, alive, np; };
+inline Scal getS() { return {C, vc, cut_, gl, alive, np}; }
+inline void setS(const Scal &amp;s) { C = s.C; vc = s.vc; cut_ = s.cut; gl = s.gl; alive = s.alive; np = s.np; }
+
+inline int lenOf(int x) { return topIdx[x] - LOc[chainOf[x]] + 1; }
+
+// dolazak u cvor z: dodaj lake sinove u G, vrati niz lanca na stanje teskog sina, izracunaj odgovor
+void enterNode(int z) {
+    int d = dep[z], h = heavy[z];
+    if (h &lt; 0) {
+        Scal s0 = getS();
+        C += cz[z]; recut(1 - d); ans[z] = sumAll(1 - d);
+        setS(s0);
+        return;
+    }
+    int ch = chainOf[z], tz = topIdx[z], maxlen = 0;
+    for (int e = adjStart[z]; e &lt; adjStart[z + 1]; e++) {
+        int c = adjList[e];
+        if (c == par[z] || c == h) continue;
+        int len = lenOf(c);
+        if (len &lt;= 0) continue;
+        maxlen = max(maxlen, len);
+        ensureExplicit(len + 1 - d);
+        ll tg = TAGc[c]; int tc = topIdx[c];
+        for (int j = 0; j &lt; len; j++) {
+            ll v = raw_[tc - j] - tg;
+            int p = n + d - 1 - j;
+            writeG(p, G[p] + v);
+            int q = tz - 1 - j;
+            if (q &gt;= loh[z]) raw_[q] -= v;
+        }
+    }
+    if (maxlen) psRecompute(n + d - maxlen, n + d - 1);
+    TAGc[ch] -= cz[z]; LOc[ch] = loh[z];
+    for (int i = 0; i &lt; revCnt[z]; i++) {   // prebrisane mrtve vrijednosti
+        int q = loh[z] - 1 - i;
+        raw_[q] = revRaw[revStart[z] + i]; PS[q] = revPS[revStart[z] + i];
+    }
+    for (int q = max(loh[z], tz - maxlen); q &lt;= tz - 1; q++) PS[q] = PS[q - 1] + (ull)raw_[q];
+    Scal s0 = getS();
+    int lh = lenOf(h);
+    if (lh &gt; 0) pushPiece(topIdx[h] + 1 - d, TAGc[ch], 1 - d, lh + 1 - d);
+    C += cz[z]; recut(1 - d); ans[z] = sumAll(1 - d);
+    setS(s0);
+}
+// pripremi stanje za sina y cvora z
+void prepChild(int z, int y) {
+    int d = dep[z], h = heavy[z];
+    pminW = n + d;
+    if (y != h) {
+        int len = lenOf(y);
+        ll tg = TAGc[y]; int ty = topIdx[y];
+        for (int j = 0; j &lt; len; j++) { int p = n + d - 1 - j; writeG(p, G[p] - (raw_[ty - j] - tg)); }
+        int ch = chainOf[z], lh = lenOf(h), th = topIdx[h];
+        ll tgh = TAGc[ch];
+        int m = min(lh, hgt[y] - 1);
+        if (m &gt; 0) {
+            ensureExplicit(m + 1 - d);
+            for (int j = 0; j &lt; m; j++) { int p = n + d - 1 - j; writeG(p, G[p] + (raw_[th - j] - tgh)); }
+        }
+        int sj = max(1, hgt[y]);
+        if (lh + 1 &gt; sj) {
+            ensureExplicit(sj - d);
+            pushPiece(th + 1 - d, tgh, sj - d, lh + 1 - d);
+        }
+    }
+    C += cz[z];
+    writeG(n + d, C + (Ttot - T[y]));
+    psRecompute(pminW, n + d);
+    recut(-d);
+}
+
+int main() {
+    if (scanf("%d", &amp;n) != 1) return 0;
+    vector&lt;ll&gt; a(n), b(n);
+    for (auto &amp;x : a) scanf("%lld", &amp;x);
+    for (auto &amp;x : b) scanf("%lld", &amp;x);
+    vector&lt;int&gt; eu(n - 1), ev(n - 1);
+    adjStart.assign(n + 2, 0);
+    for (int i = 0; i &lt; n - 1; i++) {
+        scanf("%d %d", &amp;eu[i], &amp;ev[i]); eu[i]--; ev[i]--;
+        adjStart[eu[i] + 1]++; adjStart[ev[i] + 1]++;
+    }
+    for (int i = 0; i &lt; n; i++) adjStart[i + 1] += adjStart[i];
+    adjList.resize(2 * (n - 1));
+    { vector&lt;int&gt; fill(adjStart.begin(), adjStart.begin() + n);
+      for (int i = 0; i &lt; n - 1; i++) { adjList[fill[eu[i]]++] = ev[i]; adjList[fill[ev[i]]++] = eu[i]; } }
+    par.assign(n, -1); dep.assign(n, 0); hgt.assign(n, 0); heavy.assign(n, -1);
+    T.assign(n, 0); cz.assign(n, 0); ans.assign(n, 0);
+    vector&lt;int&gt; order; order.reserve(n); order.push_back(0);
+    for (int i = 0; i &lt; n; i++) {
+        int x = order[i];
+        for (int e = adjStart[x]; e &lt; adjStart[x + 1]; e++) {
+            int c = adjList[e];
+            if (c != par[x]) { par[c] = x; dep[c] = dep[x] + 1; order.push_back(c); }
+        }
+    }
+    for (int i = 0; i &lt; n; i++) { T[i] = b[i]; cz[i] = a[i] - b[i]; }
+    for (int i = n - 1; i &gt;= 1; i--) {
+        int x = order[i], p = par[x];
+        T[p] += T[x];
+        if (heavy[p] &lt; 0 || hgt[x] + 1 &gt; hgt[p]) { heavy[p] = x; hgt[p] = hgt[x] + 1; }
+    }
+    Ttot = T[0];
+    // raspored lanaca
+    topIdx.assign(n, 0); chainOf.assign(n, 0); loh.assign(n, 0);
+    int cur = 0;
+    for (int i = 0; i &lt; n; i++) {
+        int x = order[i];
+        if (i == 0 || heavy[par[x]] != x) { chainOf[x] = x; topIdx[x] = cur + 1 + hgt[x]; cur += hgt[x] + 2; }
+        else { chainOf[x] = chainOf[par[x]]; topIdx[x] = topIdx[par[x]] - 1; }
+    }
+    revStart.assign(n, 0); revCnt.assign(n, 0);
+    raw_.assign(cur + 1, 0); PS.assign(cur + 1, 0); TAGc.assign(n, 0); LOc.assign(n, 0);
+    // 1. prolaz: nizovi E odozdo prema gore
+    for (int i = n - 1; i &gt;= 0; i--) {
+        int x = order[i], ch = chainOf[x], tx = topIdx[x], h = heavy[x];
+        if (h &lt; 0) {
+            raw_[tx] = T[x]; LOc[ch] = T[x] &gt; 0 ? tx : tx + 1;
+            PS[tx] = PS[tx - 1] + (ull)raw_[tx];
+            continue;
+        }
+        int lo = LOc[ch], qmin = tx;
+        loh[x] = lo; revStart[x] = (int)revRaw.size();
+        ll tg = TAGc[ch];
+        for (int e = adjStart[x]; e &lt; adjStart[x + 1]; e++) {
+            int c = adjList[e];
+            if (c == par[x] || c == h) continue;
+            int len = lenOf(c);
+            ll tgc = TAGc[c]; int tc = topIdx[c];
+            for (int j = 0; j &lt; len; j++) {
+                int q = tx - 1 - j;
+                if (q &lt; lo) {                              // ozivljavanje izrezanog dijela
+                    revRaw.push_back(raw_[q]); revPS.push_back(PS[q]); revCnt[x]++;
+                    raw_[q] = tg; lo = q;
+                }
+                raw_[q] += raw_[tc - j] - tgc;
+            }
+            if (len) qmin = min(qmin, tx - len);
+        }
+        tg += cz[x]; TAGc[ch] = tg;
+        while (lo &lt; tx &amp;&amp; raw_[lo] - tg &lt;= 0) lo++;
+        raw_[tx] = T[x] + tg;
+        if (T[x] == 0) lo = tx + 1;
+        LOc[ch] = lo;
+        for (int q = qmin; q &lt;= tx; q++) PS[q] = PS[q - 1] + (ull)raw_[q];
+    }
+    // 2. prolaz: promjena korijena
+    G.assign(2 * n + 5, 0); PSG_.assign(2 * n + 6, 0);
+    pK.assign(n + 2, 0); pS.assign(n + 2, 0); pE.assign(n + 2, 0); pTag.assign(n + 2, 0); PT.assign(n + 3, 0);
+    C = 0; vc = 0; cut_ = 1; gl = 1; alive = 0; np = 0;
+    struct Fr { int z, e; bool heavyDone, active; Scal s; size_t lp; };
+    vector&lt;Fr&gt; st; st.reserve(n);
+    enterNode(0);
+    st.push_back({0, adjStart[0], false, false, getS(), lg.size()});
+    while (!st.empty()) {
+        Fr &amp;f = st.back();
+        if (f.active) { undoTo(f.lp); setS(f.s); f.active = false; }
+        int z = f.z, y = -1;
+        while (f.e &lt; adjStart[z + 1]) {
+            int c = adjList[f.e++];
+            if (c != par[z] &amp;&amp; c != heavy[z]) { y = c; break; }
+        }
+        if (y &lt; 0 &amp;&amp; !f.heavyDone &amp;&amp; heavy[z] &gt;= 0) { y = heavy[z]; f.heavyDone = true; }
+        if (y &lt; 0) { st.pop_back(); continue; }
+        f.s = getS(); f.lp = lg.size(); f.active = true;
+        prepChild(z, y);
+        enterNode(y);
+        st.push_back({y, adjStart[y], false, false, getS(), lg.size()});
+    }
+    string out;
+    for (int i = 0; i &lt; n; i++) { out += to_string(ans[i]); out += i + 1 &lt; n ? ' ' : '\n'; }
+    fputs(out.c_str(), stdout);
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Pohlepno: svaki čvor odozdo prema gore povlači najdublje žetone iz svog podstabla.</li>
+<li>$E_x(j)=\max(0,\sum_cE_c(j-1)-c_x)$; odgovor je $\sum_{j\ge1}E_k(j)$.</li>
+<li>Dugi lanci daju sve $E_x$ u $O(n)$; u drugom se prolazu koraci poništavaju.</li>
+<li>Vanjsko stanje: eksplicitan niz u koordinati $g=j-\text{dubina}$, lijena konstanta, rez i zamrznuti daleki komadi teških podstabala.</li>
+<li>Komadi su disjunktni i poredani po udaljenosti, pa se rez nalazi s dva binarna pretraživanja.</li>
+<li>Složenost: $O(n\log n)$ vremena, $O(n)$ memorije.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: QOJ #9534 / Luogu P12481 [集训队互测 2024] 运筹帷幄.</li>
+<li>Službeni izvještaj autora (赵海鲲, 《运筹帷幄》解题报告): pohlepni postupak s dokazom te ideje „najprije se brišu žetoni dalji od veličine podstabla” i „daleki dijelovi teških podstabala kao zasebne strukture” (algoritmi 9–13).</li>
+<li>Zapis nizovima $E$, koordinata $g$ i prikaz s rezom i konstantom $\mathit{vc}$ vlastita su razrada; izvještaj daje samo skicu.</li>
+<li>Implementacija je vlastita. Uspoređena je s izravnom simulacijom pohlepnog postupka na 6000 malih nasumičnih stabala te s izravnim računanjem nizova $E$ na 1500 stabala do 300 čvorova i na većim posebnim oblicima. Na QOJ-u nije predana.</li>
+</ul>

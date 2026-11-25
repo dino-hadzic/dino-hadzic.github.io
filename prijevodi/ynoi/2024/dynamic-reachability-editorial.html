@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ynoi 2024 — Dinamička dohvatljivost: analiza rješenja</title>
+    <script src="../../../assets/js/asset-errors.js"></script>
+    <script src="../../../assets/js/mathjax-config.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js" integrity="sha384-AHAnt9ZhGeHIrydA1Kp1L7FN+2UosbF7RQg6C+9Is/a7kDpQ1684C2iH2VWil6r4" crossorigin="anonymous"
+        onerror="reportAssetError('MathJax', 'Matematički izrazi ostat će prikazani kao izvorni LaTeX kod.')"></script>
+    <link rel="stylesheet" href="../../../assets/css/zadatak.css">
+    <link rel="stylesheet" href="../../../assets/css/pozadina.css">
+    <script defer src="../../../assets/js/pozadina.js"></script>
+    <link rel="stylesheet" href="../../../assets/css/trener.css">
+    <link rel="stylesheet" href="../../../assets/css/joisc.css">
+    <script src="../../../assets/js/joisc.js"></script>
+</head>
+
+<body>
+    <p class="navigacija-analize"><a href="dynamic-reachability.html">← Natrag na zadatak</a> · <a href="index.html">Ynoi 2024</a> · <a href="../../../index.html">Početna</a></p>
+    <article class="analiza">
+        <header>
+            <p class="nadnaslov">Analiza rješenja · Ynoi 2024 · QOJ #4000</p>
+            <h1>Dinamička dohvatljivost</h1>
+            <p class="meta"><i>Dynamic Reachability</i></p>
+        </header>
+        <div class="uvodnik">
+            <h3>O ovom članku</h3>
+            <p>Za Ynoi zadatke na QOJ-u nema službenog pisanog editoriala, pa je ova analiza autorska (izvori: vlastito rješenje (blokovi operacija + SCC + bitset), provjereno brute-forceom). Opisano rješenje je implementirano i provjereno usporedbom s izravnim (brute-force) rješenjem na nasumičnim testovima. Gumb <span class="info-gumb-primjer" aria-hidden="true">i</span> otvara karticu s dodatnim objašnjenjem pojma.</p>
+        </div>
+<h2>Pregled zadatka</h2>
+
+<p>Dohvatljivost u usmjerenom grafu koji se mijenja nema poznatu „polilogaritamsku” strukturu podataka: već za statički graf ne znamo bitno bolje od bitsetova ($O(nm/64)$ za sve parove). Zato ciljamo na složenost oblika $O\bigl((n+m)\cdot q/64\bigr)$ uz malu konstantu. Ključna ideja je <b>sqrt-dekompozicija po vremenu</b>: operacije dijelimo u blokove po $B$ uzastopnih operacija. Unutar jednog bloka mijenja se najviše $B$ bridova — gotovo cijeli graf je „zamrznut”.</p>
+
+<h2>Izravno rješenje</h2>
+<p>Za svaki upit pokrenemo BFS po crnim bridovima: $O(m)$ po upitu, ukupno $O(qm)=10^{10}$. Presporo, ali korisno kao referenca za provjeru.</p>
+
+<h2>Jedan blok: fiksni i posebni bridovi</h2>
+
+<p>Promatrajmo blok od $B$ operacija. Bridove dijelimo na:</p>
+<ul>
+<li><b>posebne</b>: one čija se boja mijenja barem jednom u bloku (najviše $B$ njih);</li>
+<li><b>fiksne</b>: crne bridove koji se u bloku ne mijenjaju. (Bijeli bridovi koji se ne mijenjaju u ovom bloku ne postoje.)</li>
+</ul>
+<p>Vrh zovemo <b>ključnim</b> ako je početak (rep) nekog posebnog brida ili odredište $v$ nekog upita u bloku. Ključnih vrhova je $K\le B$ (svaka operacija doda najviše jedan).</p>
+
+<div class="tvrdnja"><p><strong>Zapažanje.</strong> Svaki put $u\rightsquigarrow v$ po crnim bridovima ima oblik: fiksni dio, posebni brid, fiksni dio, posebni brid, …, fiksni dio. Zato je za odgovor dovoljno znati (a) koje ključne vrhove svaki vrh doseže <i>samo fiksnim bridovima</i> i (b) koji su posebni bridovi trenutačno crni.</p></div>
+
+<h3>Predračun: dohvatljivost do ključnih vrhova</h3>
+<p>Na fiksnom grafu nađemo <b>jake komponente povezanosti</b> (SCC, Tarjanov algoritam) i sažmemo ih u DAG. Za svaku komponentu $c$ računamo bitset $R_c$ od $K$ bitova: $j$-ti bit je $1$ ako se iz $c$ fiksnim bridovima može doći do $j$-tog ključnog vrha. Obrađujemo komponente u obrnutom topološkom poretku:</p>
+\[ R_c=\{\text{ključni vrhovi u } c\}\ \cup \bigcup_{c\to d} R_d . \]
+<p>Tarjanov algoritam komponente numerira upravo tim redom (komponenta dobije broj tek kad su sve komponente dohvatljive iz nje već numerirane), pa ne treba zasebno topološko sortiranje. Cijena: $O\bigl((n+m)\cdot K/64\bigr)$ po bloku.</p>
+
+<h3>Odgovor na upit $(u,v)$</h3>
+<p>Održavamo bitset $V$ ključnih vrhova za koje znamo da su dohvatljivi iz $u$ i bitset $D$ onih koje smo već „proširili”.</p>
+<ol>
+<li>Ako su $u$ i $v$ u istoj jakoj komponenti fiksnog grafa, odgovor je <code>YES</code>.</li>
+<li>Inače $V\leftarrow R_{\mathrm{comp}(u)}$.</li>
+<li>Dok postoji ključni vrh $x\in V\setminus D$: dodaj ga u $D$ i za svaki <b>trenutačno crni</b> posebni brid $x\to y$ napravi $V\leftarrow V\cup R_{\mathrm{comp}(y)}$.</li>
+<li>Odgovor je <code>YES</code> ako i samo ako je $v\in V$ (odredište $v$ je ključni vrh, pa ima svoj bit).</li>
+</ol>
+<p class="dokaz"><em>(Zašto je točno.)</em> Indukcijom po broju posebnih bridova na putu: ključni vrhovi dohvatljivi putem s $0$ posebnih bridova su točno $R_{\mathrm{comp}(u)}$. Put s $t+1$ posebnih bridova završava fiksnim dijelom nakon posebnog brida $x\to y$; njegov rep $x$ je ključni vrh dohvatljiv putem s $t$ posebnih bridova, pa je po pretpostavci u $V$, u nekom se trenutku proširi, i tada u $V$ ulazi cijeli $R_{\mathrm{comp}(y)}$. Obrnuto, sve što uđe u $V$ očito je dohvatljivo. $\blacksquare$</p>
+<p>Svaki ključni vrh proširi se najviše jednom, a svaki posebni brid pregleda se najviše jednom, pa upit košta $O(K + B\cdot K/64)$. Traženje sljedećeg neproširenog vrha radi se nad riječima bitseta (<code>ctz</code>).</p>
+<p>Operacija tipa $1$ unutar bloka samo okrene zastavicu boje brida: $O(1)$.</p>
+
+<h2>Složenost i izbor $B$</h2>
+<p>Blokova je $q/B$; po bloku plaćamo $O\bigl((n+m)B/64\bigr)$ za predračun i $O(B\cdot B^2/64)$ za upite. Ukupno</p>
+\[ O\!\left(\frac{q\,(n+m)}{64}+\frac{qB^2}{64}\right), \]
+<p>uz dodatnih $O\bigl((q/B)(n+m)\bigr)$ za izgradnju SCC-a. Prvi član ne ovisi o $B$, drugi raste s $B$, a SCC-član pada s $B$; u praksi je dobar izbor $B$ od nekoliko stotina (u kodu $B=400$). Memorija: $n$ bitsetova od $B$ bitova, oko $n\cdot B/8$ bajtova ($2{,}5$ MB).</p>
+<p>Na najvećem testu ($n=5\cdot10^4$, $m=q=10^5$) implementacija radi oko $1{,}2$ s (ograničenje je $12$ s).</p>
+
+<h2>Implementacija</h2>
+<pre><code>#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef unsigned long long ull;
+const int B = 400;            // velicina bloka operacija
+const int W = (2 * B + 63) / 64; // rijeci u bitsetu nad kljucnim vrhovima
+
+int n, m, q;
+int eu[100005], ev[100005];
+bool white_[100005], special_[100005];
+int typ[100005], qa[100005], qb[100005];
+
+// fiksni graf (CSR) i njegov SCC
+vector&lt;int&gt; head_, nxt_, to_;
+int comp[50005], low_[50005], num_[50005], timer_, ncomp;
+vector&lt;int&gt; stk;
+void tarjan(int v) {
+    low_[v] = num_[v] = ++timer_;
+    stk.push_back(v);
+    for (int e = head_[v]; e != -1; e = nxt_[e]) {
+        int u = to_[e];
+        if (!num_[u]) { tarjan(u); low_[v] = min(low_[v], low_[u]); }
+        else if (comp[u] == -1) low_[v] = min(low_[v], num_[u]);
+    }
+    if (low_[v] == num_[v]) {
+        while (true) { int u = stk.back(); stk.pop_back(); comp[u] = ncomp; if (u == v) break; }
+        ncomp++;
+    }
+}
+int keyId[50005];
+vector&lt;array&lt;ull, W&gt;&gt; reach; // reach[c] = kljucni vrhovi dohvatljivi iz komponente c fiksnim bridovima
+
+int main() {
+    scanf("%d %d %d", &amp;n, &amp;m, &amp;q);
+    for (int i = 1; i &lt;= m; i++) scanf("%d %d", &amp;eu[i], &amp;ev[i]);
+    for (int i = 0; i &lt; q; i++) {
+        scanf("%d %d", &amp;typ[i], &amp;qa[i]);
+        if (typ[i] == 2) scanf("%d", &amp;qb[i]);
+    }
+    reach.resize(n);
+    for (int s = 0; s &lt; q; s += B) {
+        int e = min(q, s + B);
+        // 1) posebni bridovi i kljucni vrhovi bloka
+        vector&lt;int&gt; sp, keys;
+        fill(keyId + 1, keyId + n + 1, -1);
+        auto addKey = [&amp;](int v) { if (keyId[v] &lt; 0) { keyId[v] = keys.size(); keys.push_back(v); } };
+        for (int i = s; i &lt; e; i++) {
+            if (typ[i] == 1) { if (!special_[qa[i]]) { special_[qa[i]] = true; sp.push_back(qa[i]); addKey(eu[qa[i]]); } }
+            else addKey(qb[i]);
+        }
+        // 2) fiksni graf = crni bridovi koji se u bloku ne mijenjaju; SCC
+        head_.assign(n + 1, -1); nxt_.clear(); to_.clear();
+        for (int i = 1; i &lt;= m; i++) if (!white_[i] &amp;&amp; !special_[i]) {
+            to_.push_back(ev[i]); nxt_.push_back(head_[eu[i]]); head_[eu[i]] = to_.size() - 1;
+        }
+        fill(comp + 1, comp + n + 1, -1); fill(num_ + 1, num_ + n + 1, 0); timer_ = 0; ncomp = 0;
+        for (int v = 1; v &lt;= n; v++) if (!num_[v]) tarjan(v);
+        // 3) Tarjan numerira komponente u obrnutom topoloskom poretku: bridovi idu iz veceg u manji (ili isti) broj
+        for (int c = 0; c &lt; ncomp; c++) reach[c].fill(0);
+        for (int v : keys) reach[comp[v]][keyId[v] &gt;&gt; 6] |= 1ULL &lt;&lt; (keyId[v] &amp; 63);
+        vector&lt;vector&lt;int&gt;&gt; members(ncomp);
+        for (int v = 1; v &lt;= n; v++) members[comp[v]].push_back(v);
+        int w = (keys.size() + 63) / 64;
+        for (int c = 0; c &lt; ncomp; c++)
+            for (int v : members[c])
+                for (int ed = head_[v]; ed != -1; ed = nxt_[ed]) {
+                    int d = comp[to_[ed]];
+                    if (d != c) for (int k = 0; k &lt; w; k++) reach[c][k] |= reach[d][k];
+                }
+        // 4) posebni bridovi grupirani po kljucnom vrhu iz kojeg izlaze
+        vector&lt;vector&lt;int&gt;&gt; out(keys.size());
+        for (int id : sp) out[keyId[eu[id]]].push_back(id);
+        // 5) operacije bloka
+        array&lt;ull, W&gt; vis, done;
+        for (int i = s; i &lt; e; i++) {
+            if (typ[i] == 1) { white_[qa[i]] = !white_[qa[i]]; continue; }
+            int u = qa[i], v = qb[i];
+            bool ok = comp[u] == comp[v];
+            if (!ok) {
+                vis = reach[comp[u]]; done.fill(0);
+                int target = keyId[v];
+                bool progress = true;
+                while (progress &amp;&amp; !(vis[target &gt;&gt; 6] &gt;&gt; (target &amp; 63) &amp; 1)) {
+                    progress = false;
+                    for (int k = 0; k &lt; w; k++) {
+                        ull todo = vis[k] &amp; ~done[k];
+                        while (todo) {
+                            int x = k * 64 + __builtin_ctzll(todo); todo &amp;= todo - 1;
+                            done[k] |= 1ULL &lt;&lt; (x &amp; 63);
+                            for (int id : out[x]) if (!white_[id]) {
+                                const auto&amp; r = reach[comp[ev[id]]];
+                                for (int t = 0; t &lt; w; t++) vis[t] |= r[t];
+                                progress = true;
+                            }
+                        }
+                    }
+                }
+                ok = vis[target &gt;&gt; 6] &gt;&gt; (target &amp; 63) &amp; 1;
+            }
+            puts(ok ? "YES" : "NO");
+        }
+        for (int id : sp) special_[id] = false;
+    }
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Operacije dijelimo u blokove po $B$; u bloku se mijenja najviše $B$ „posebnih” bridova, ostali crni bridovi su fiksni.</li>
+<li>Na fiksnom grafu: SCC + DAG, i za svaku komponentu bitset ključnih vrhova (repovi posebnih bridova, odredišta upita) koje doseže.</li>
+<li>Upit je BFS po najviše $B$ ključnih vrhova, gdje se „skok” preko crnog posebnog brida svodi na OR dvaju bitsetova.</li>
+<li>Složenost: $O\bigl(q(n+m)/64+qB^2/64\bigr)$.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: Moscow Pre-Finals Workshops 2022, dan 5 (QOJ #4000).</li>
+<li>Rješenje gore je vlastita implementacija; uspoređena je s izravnim BFS rješenjem na 1500 nasumičnih testova, i to s dvije veličine bloka ($B=400$ i $B=5$, da se provjere prijelazi između blokova).</li>
+</ul>
+        <footer>
+            Izvor: <a href="https://qoj.ac/problem/4000">zadatak na QOJ-u</a>. Tekst zadatka preveden je prema tekstu na QOJ-u; analiza je autorska.
+        </footer>
+    </article>
+</body>
+</html>

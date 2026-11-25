@@ -1,0 +1,257 @@
+@@ meta
+naslov = tmostnrq2
+izvornik = tmostnrq2
+oznake = offline, HLD, treap, amortizacija potencijalom, union-find
+izvori = Luogu P9999 (rješenje _GIGjqw12_); vlastita implementacija provjerena brute-forceom
+
+@@ zadatak
+<h1>tmostnrq2</h1>
+<p><i>tmostnrq2</i> — Ynoi 2000.</p>
+
+<p>Zadano je stablo s $n$ vrhova označenih brojevima $1,\dots,n$ te niz $a_1,\dots,a_{n_0}$ duljine $n_0$. Treba odgovoriti na $m$ upita. Svaki upit zadaje $l, r, x$ i pita: u kojem vrhu završi žeton koji krene iz vrha $x$ i redom se pomakne za jedan korak prema $a_l, a_{l+1},\dots,a_r$?</p>
+<p>Pomak za jedan korak iz vrha $x$ prema vrhu $y$ definiran je ovako: ako je $x=y$, ostaje se u $x$; inače se prelazi u susjeda vrha $x$ koji je najbliži vrhu $y$.</p>
+
+<h3>Ulaz</h3>
+<p>U prvom retku nalaze se tri cijela broja $n$, $n_0$, $m$.</p>
+<p>U sljedećem retku nalazi se $n-1$ cijelih brojeva $f_2,\dots,f_n$, gdje je $f_i$ roditelj vrha $i$; korijen je vrh $1$.</p>
+<p>U sljedećem retku nalazi se $n_0$ cijelih brojeva $a_1,\dots,a_{n_0}$.</p>
+<p>Svaki od sljedećih $m$ redaka sadrži tri cijela broja $l, r, x$ koji opisuju jedan upit.</p>
+
+<h3>Izlaz</h3>
+<p>Ispiši $m$ redaka: redom odgovore na upite.</p>
+
+<h3>Primjer</h3>
+<p>Ulaz:</p>
+<pre>5 4 3
+1 1 3 3
+5 2 2 3
+3 4 5
+1 3 4
+1 2 1</pre>
+<p>Izlaz:</p>
+<pre>3
+2
+1</pre>
+
+<h3>Ograničenja</h3>
+<p>Za sve testove vrijedi $1\le n, n_0, m\le 10^6$ (te $1\le l\le r\le n_0$, $1\le x\le n$, $1\le a_i\le n$).</p>
+<p>Vremensko ograničenje: 12 s. Memorijsko ograničenje: 512 MB.</p>
+
+@@ editorial
+<h2>Pregled zadatka</h2>
+
+<p>Svaki upit je žeton koji „živi” od operacije $l$ do operacije $r$. Umjesto da svaki žeton simuliramo zasebno ($O(n_0)$ po upitu), simuliramo <b>sve žetone odjednom</b>: prolazimo operacije $i=1,\dots,n_0$; prije operacije $i$ ubacimo žetone upita s $l=i$, izvedemo operaciju nad svim žetonima, a nakon nje očitamo položaje žetona upita s $r=i$. Žetone nikad ne brišemo — višak ne smeta.</p>
+<p>Ostaje pitanje: kako jednu operaciju „svi žetoni korak prema $a_i$” izvesti brzo? Odgovor: rastav na teške lance (HLD), po jedan treap za svaki lanac, stapanje žetona koji se nađu u istom vrhu i amortizacija potencijalom. Složenost je $O((n_0+m)\log^2 n)$.</p>
+
+<h2>Izravno rješenje</h2>
+<p>Za svaki upit i svaku operaciju napravimo jedan korak (npr. provjerom je li $a_i$ u podstablu od $x$): $O(m\cdot n_0)$ koraka. Služi kao referenca za provjeru.</p>
+
+<h2>Što jedna operacija radi sa svim žetonima</h2>
+<p>Neka je $P$ put od korijena do $c=a_i$.</p>
+<ul>
+<li>Žeton u vrhu $v\in P$, $v\ne c$, spušta se u dijete od $v$ koje leži na $P$.</li>
+<li>Žeton u $c$ ostaje.</li>
+<li>Svaki drugi žeton (izvan $P$) penje se u roditelja.</li>
+</ul>
+<p>„Svi se penju za jedan” je globalna operacija i želimo je izvesti u $O(1)$; posebno obrađujemo samo put $P$.</p>
+
+<div class="tvrdnja"><p><strong>Zapažanje (stapanje).</strong> Dva žetona koja se u nekom trenutku nađu u istom vrhu zauvijek ostaju zajedno. Zato ih stapamo (union-find) i u svakom vrhu držimo najviše jednog predstavnika.</p></div>
+
+<h2>Teški lanci i „lijeni” pomak prema gore</h2>
+<p>Napravimo HLD. Za svaki teški lanac držimo treap predstavnika koji su na tom lancu, uređen po dubini. Neka je $T$ broj do sada izvedenih operacija. Umjesto dubine pamtimo <b>ključ</b></p>
+\[ \mathit{key}=\mathit{dubina}+T\quad\Longleftrightarrow\quad \mathit{dubina}=\mathit{key}-T . \]
+<p>Kad se $T$ poveća za $1$, svi žetoni kojima ključ nismo dirali automatski su se popeli za jedan — točno ono što treba svima izvan puta $P$.</p>
+
+<h3>Lanci na putu $P$</h3>
+<p>Put $P$ siječe $O(\log n)$ lanaca, i to svaki u <b>prefiksu</b>: od vrha lanca $t$ do nekog vrha $u$ (gdje put prelazi lakim bridom u sljedeći lanac, ili je $u=c$). Treap lanca podijelimo po dubini na tri dijela:</p>
+<ul>
+<li>$A$ (dubina $\lt\mathrm{dub}(u)$): žetoni se spuštaju. Dodamo $2$ svim ključevima (lijena oznaka na korijenu od $A$), što nakon $T\mathrel{+}=1$ daje dubinu veću za $1$.</li>
+<li>$B$ (najviše jedan žeton, točno u $u$): ako je $u=c$, ostaje (ključ $+1$); inače prelazi u vrh sljedećeg lanca na putu.</li>
+<li>$C$ (dubina $\gt\mathrm{dub}(u)$): izvan puta, penje se — ključ ne diramo.</li>
+</ul>
+<p>Dijelove ponovno spojimo. Jedina mjesta gdje dva žetona mogu završiti u istom vrhu su granice dijelova (npr. žeton s dubine $\mathrm{dub}(u)-1$ spusti se u $u$, a onaj s $\mathrm{dub}(u)+1$ popne se u $u$), pa pri spajanju usporedimo najveći ključ lijevog i najmanji ključ desnog dijela i po potrebi stopimo žetone.</p>
+
+<h3>Izlazak iz lanca prema gore</h3>
+<p>Žeton lanca s vrhom $t$ izlazi iz lanca kad mu dubina padne ispod $\mathrm{dub}(t)$. To se prvo dogodi žetonu s najmanjim ključem $k$, i to nakon operacije broj $k-\mathrm{dub}(t)+1$. Za svaki neprazni lanac taj trenutak držimo u prioritetnom redu. Nakon obrade puta i povećanja $T$ vadimo iz reda sve lance kojima je vrijeme došlo: najmanji žeton izvadimo iz treapa i ubacimo ga u lanac roditelja vrha $t$ (uz moguće stapanje). Kad god se najmanji ključ lanca promijeni, u red stavimo novi zapis; zastarjele zapise prepoznajemo i preskačemo.</p>
+
+<h3>Očitavanje položaja</h3>
+<p>Za upit nađemo predstavnika (union-find), popnemo se pokazivačima na roditelja do korijena treapa i usput zbrojimo lijene oznake — tako dobijemo pravi ključ i saznamo kojem lancu treap pripada. Vrh je onda onaj na dubini $\mathit{key}-T$ tog lanca.</p>
+
+<h2>Zašto je to brzo: potencijal</h2>
+<p>Obrada puta košta $O(\log n)$ lanaca $\times$ $O(\log n)$ po operaciji nad treapom, dakle $O(n_0\log^2 n)$ ukupno. Treba još ograničiti broj izlazaka iz lanca prema gore.</p>
+
+<div class="tvrdnja"><p><strong>Lema.</strong> Ukupan broj prelazaka predstavnika iz lanca u lanac prema gore je $O((n_0+m)\log n)$.</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> Neka je potencijal $\Phi$ zbroj, po svim predstavnicima, broja lakih bridova na putu od predstavnika do korijena. Ubacivanje žetona povećava $\Phi$ za najviše $\log_2 n$. Jedna operacija spušta preko svakog lakog brida puta $P$ najviše <i>jednog</i> predstavnika (u vrhu je najviše jedan), a lakih bridova na $P$ ima najviše $\log_2 n$; dakle povećanje je najviše $\log_2 n$ po operaciji. Stapanje i pomaci unutar lanca ne povećavaju $\Phi$. Svaki izlazak prema gore smanjuje $\Phi$ za $1$, a $\Phi\ge0$. Zato je izlazaka najviše $(n_0+m)\log_2 n$. $\blacksquare$</p>
+
+<p>Svaki izlazak košta $O(\log n)$ (treap + prioritetni red), pa je ukupna složenost</p>
+\[ O\bigl((n_0+m)\log^2 n\bigr) \]
+<p>vremena i $O(n+n_0+m)$ memorije. U praksi je puno brže od te ocjene: implementacija na testovima s $n=n_0=m=10^6$ radi $2$–$4$ s (ograničenje $12$ s).</p>
+
+<h2>Detalji implementacije</h2>
+<ul>
+<li>Stablo može biti dubine $10^6$, pa su obilazak i HLD napisani bez rekurzije.</li>
+<li>Lance puta $P$ obrađujemo od korijena prema $c$ i „nosimo” žeton koji prelazi laki brid; ubacujemo ga tek nakon što je sljedeći lanac obrađen, da se ne pomakne dvaput.</li>
+<li>Žeton koji u istoj operaciji izađe iz lanca u roditelja $p$ ne smije se opet pomaknuti — i ne pomiče se, jer se izlasci obrađuju nakon puta, a njegov je novi ključ računat s već povećanim $T$.</li>
+</ul>
+
+<h2>Implementacija</h2>
+<pre><code>#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int N = 1000005;
+int n, n0, m;
+int par_[N], dep[N], sz[N], heavy[N], top_[N], dfn[N], vat[N];
+int a[N], ql[N], qr[N], qx[N], ans[N];
+vector&lt;int&gt; ch[N];
+
+// treap: cvor = zeton (upit); kljuc = dubina + T u trenutku zadnjeg azuriranja
+int key_[N], lz[N], lc[N], rc[N], up[N], dsu[N];
+unsigned pri[N];
+int root_[N];   // korijen treapa lanca (indeks = vrh lanca)
+int chainOf[N]; // za korijen treapa: vrh njegova lanca
+int T = 0;
+
+int find(int x) { while (dsu[x] != x) x = dsu[x] = dsu[dsu[x]]; return x; }
+inline void add(int x, int v) { if (x) { key_[x] += v; lz[x] += v; } }
+inline void push(int x) { if (lz[x]) { add(lc[x], lz[x]); add(rc[x], lz[x]); lz[x] = 0; } }
+// a: kljucevi &lt;= k, b: ostali
+void split(int t, int k, int &amp;x, int &amp;y) {
+    if (!t) { x = y = 0; return; }
+    push(t);
+    if (key_[t] &lt;= k) { x = t; split(rc[t], k, rc[t], y); if (rc[t]) up[rc[t]] = t; }
+    else { y = t; split(lc[t], k, x, lc[t]); if (lc[t]) up[lc[t]] = t; }
+    up[t] = 0;
+}
+int merge(int x, int y) {
+    if (!x || !y) { int t = x | y; if (t) up[t] = 0; return t; }
+    if (pri[x] &gt; pri[y]) { push(x); rc[x] = merge(rc[x], y); up[rc[x]] = x; up[x] = 0; return x; }
+    push(y); lc[y] = merge(x, lc[y]); up[lc[y]] = y; up[y] = 0; return y;
+}
+int minNode(int t) { while (push(t), lc[t]) t = lc[t]; return t; }
+int maxNode(int t) { while (push(t), rc[t]) t = rc[t]; return t; }
+// spoji x (manji kljucevi) i y; ako se rubni zetoni poklapaju, stopi ih
+int join(int x, int y) {
+    if (x &amp;&amp; y) {
+        int p = maxNode(x), q = minNode(y);
+        if (key_[p] == key_[q]) {
+            int rest, one;
+            split(x, key_[p] - 1, rest, one);
+            dsu[p] = q; x = rest;
+        }
+    }
+    return merge(x, y);
+}
+
+priority_queue&lt;pair&lt;int,int&gt;, vector&lt;pair&lt;int,int&gt;&gt;, greater&lt;pair&lt;int,int&gt;&gt;&gt; pq;
+int sched[N];
+void setRoot(int c, int t) {
+    root_[c] = t;
+    if (!t) { sched[c] = -1; return; }
+    chainOf[t] = c;
+    int tm = key_[minNode(t)] - dep[c] + 1; // prva operacija nakon koje je zeton iznad vrha lanca
+    if (tm != sched[c]) { sched[c] = tm; pq.push({tm, c}); }
+}
+// ubaci zeton x (sam cvor) na dubinu d u lanac c
+void insertAt(int c, int x, int d) {
+    key_[x] = d + T; lz[x] = lc[x] = rc[x] = up[x] = 0;
+    int A, B;
+    split(root_[c], d + T - 1, A, B);
+    setRoot(c, join(join(A, x), B));
+}
+
+int main() {
+    scanf("%d %d %d", &amp;n, &amp;n0, &amp;m);
+    for (int i = 2; i &lt;= n; i++) { scanf("%d", &amp;par_[i]); ch[par_[i]].push_back(i); }
+    for (int i = 1; i &lt;= n0; i++) scanf("%d", &amp;a[i]);
+    vector&lt;vector&lt;int&gt;&gt; ins(n0 + 2), ask(n0 + 2);
+    for (int i = 1; i &lt;= m; i++) {
+        scanf("%d %d %d", &amp;ql[i], &amp;qr[i], &amp;qx[i]);
+        ins[ql[i]].push_back(i); ask[qr[i]].push_back(i);
+    }
+    // HLD bez rekurzije
+    vector&lt;int&gt; order; order.reserve(n); order.push_back(1);
+    for (int i = 0; i &lt; (int)order.size(); i++) {
+        int v = order[i];
+        for (int c : ch[v]) { dep[c] = dep[v] + 1; order.push_back(c); }
+    }
+    for (int i = n - 1; i &gt;= 0; i--) {
+        int v = order[i]; sz[v] += 1;
+        if (i) { int p = par_[v]; sz[p] += sz[v]; if (!heavy[p] || sz[v] &gt; sz[heavy[p]]) heavy[p] = v; }
+    }
+    {
+        int cnt = 0;
+        vector&lt;int&gt; st; st.push_back(1);
+        while (!st.empty()) {
+            int h = st.back(); st.pop_back();
+            for (int v = h; v; v = heavy[v]) {
+                top_[v] = h; dfn[v] = ++cnt; vat[cnt] = v;
+                for (int c : ch[v]) if (c != heavy[v]) st.push_back(c);
+            }
+        }
+    }
+    mt19937 rng(12345);
+    for (int i = 1; i &lt;= m; i++) { pri[i] = rng(); dsu[i] = i; }
+    for (int i = 1; i &lt;= n; i++) sched[i] = -1;
+
+    static int pt[64], pu[64];
+    for (int i = 1; i &lt;= n0; i++) {
+        for (int id : ins[i]) insertAt(top_[qx[id]], id, dep[qx[id]]);
+        // lanci na putu korijen -&gt; a[i]
+        int k = 0;
+        for (int v = a[i]; v; v = par_[top_[v]]) { pt[k] = top_[v]; pu[k] = v; k++; }
+        int carry = 0;
+        for (int j = k - 1; j &gt;= 0; j--) {
+            int c = pt[j], u = pu[j];
+            int A, B, C, rest;
+            split(root_[c], dep[u] + T - 1, A, rest);
+            split(rest, dep[u] + T, B, C);
+            add(A, 2);                 // prema dolje: +1 stvarne dubine nakon T++
+            int incoming = carry; carry = 0;
+            int t;
+            if (j &gt; 0) { carry = B; t = join(A, C); }   // zeton s u prelazi u sljedeci lanac
+            else { add(B, 1); t = join(join(A, B), C); } // zeton na a[i] ostaje
+            if (incoming) {
+                int x = incoming;
+                key_[x] = dep[c] + T + 1; lz[x] = lc[x] = rc[x] = up[x] = 0;
+                t = join(x, t);
+            }
+            setRoot(c, t);
+        }
+        T++;
+        // zetoni koji izlaze iz lanca prema gore
+        while (!pq.empty() &amp;&amp; pq.top().first &lt;= T) {
+            int c = pq.top().second, tm = pq.top().first; pq.pop();
+            if (sched[c] != tm || !root_[c]) continue;
+            int x = minNode(root_[c]);
+            if (key_[x] - T &gt;= dep[c]) { sched[c] = -1; setRoot(c, root_[c]); continue; }
+            int one, rest;
+            split(root_[c], key_[x], one, rest);
+            sched[c] = -1; setRoot(c, rest);
+            int p = par_[c];
+            insertAt(top_[p], x, dep[p]);
+        }
+        for (int id : ask[i]) {
+            int x = find(id);
+            int kk = key_[x], r = x;
+            while (up[r]) { r = up[r]; kk += lz[r]; }
+            int c = chainOf[r];
+            ans[id] = vat[dfn[c] + (kk - T) - dep[c]];
+        }
+    }
+    for (int i = 1; i &lt;= m; i++) printf("%d\n", ans[i]);
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Offline: žeton upita ubacimo prije operacije $l$, očitamo nakon operacije $r$; žetone u istom vrhu stapamo.</li>
+<li>Operacija: žetoni na putu korijen–$a_i$ spuštaju se, svi ostali se penju; penjanje je „besplatno” uz ključ $=$ dubina $+\,T$.</li>
+<li>HLD + treap po lancu: put siječe $O(\log n)$ lanaca u prefiksima, svaki se obradi s nekoliko split/merge operacija.</li>
+<li>Izlasci iz lanca prema gore vode se prioritetnim redom; potencijal (broj lakih bridova do korijena) daje $O((n_0+m)\log n)$ izlazaka.</li>
+<li>Složenost: $O((n_0+m)\log^2 n)$.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: QOJ #11275 / Luogu P9999 [Ynoi2000] tmostnrq2.</li>
+<li>Ideja (HLD, potencijal, stapanje): rješenje korisnika _GIGjqw12_ na Luogu, <a href="https://www.luogu.com/article/2fmjcf5d">luogu.com/article/2fmjcf5d</a>.</li>
+<li>Implementacija gore je vlastita; uspoređena je s izravnom simulacijom na 4000 nasumičnih testova.</li>
+</ul>
