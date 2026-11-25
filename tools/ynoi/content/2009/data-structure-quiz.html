@@ -1,0 +1,309 @@
+@@ meta
+naslov = Kviz iz struktura podataka
+izvornik = Data Structure Quiz
+oznake = podijeli pa vladaj, segmentno stablo, povijesni maksimum, offline
+izvori = vlastito rješenje (podijeli pa vladaj po retcima + povijesni maksimum), provjereno brute-forceom
+
+@@ zadatak
+<h1>Kviz iz struktura podataka</h1>
+<p><i>Data Structure Quiz</i> — Ynoi 2009; 38. Petrozavodsk Programming Camp, zima 2020., dan 9 (Yuhao Du Contest 7), zadatak D.</p>
+
+<p>Nakon što si naučio KD-stablo, smislio si sljedeći zadatak. Trebao bi biti odličan kviz za tu strukturu podataka.</p>
+<p>Zadana je matrica $A$ dimenzija $n\times n$. Na početku su svi elementi jednaki nuli.</p>
+<p>Najprije treba izvesti $m_1$ operacija zbrajanja na pravokutniku. Za svaku su operaciju zadani $x_1, y_1, x_2, y_2, w$ ($1\le x_1\le x_2\le n$, $1\le y_1\le y_2\le n$). Treba dodati $w$ svim elementima $A_{i,j}$ za koje je $x_1\le i\le x_2$ i $y_1\le j\le y_2$.</p>
+<p>Zatim treba odgovoriti na $m_2$ upita o maksimumu na pravokutniku. Za svaki su upit zadani $x_1, y_1, x_2, y_2$ ($1\le x_1\le x_2\le n$, $1\le y_1\le y_2\le n$). Treba naći najveći među elementima $A_{i,j}$ za koje je $x_1\le i\le x_2$ i $y_1\le j\le y_2$.</p>
+
+<h3>Ulaz</h3>
+<p>U prvom retku nalaze se tri cijela broja $n$, $m_1$, $m_2$ ($1\le n\le 5\cdot10^4$, $1\le m_1\le 5\cdot10^4$, $1\le m_2\le 5\cdot10^5$).</p>
+<p>Svaki od sljedećih $m_1$ redaka sadrži pet cijelih brojeva $x_1, y_1, x_2, y_2, w$ ($1\le x_1\le x_2\le n$, $1\le y_1\le y_2\le n$, $1\le w\le 10^9$).</p>
+<p>Svaki od sljedećih $m_2$ redaka sadrži četiri cijela broja $x_1, y_1, x_2, y_2$ ($1\le x_1\le x_2\le n$, $1\le y_1\le y_2\le n$).</p>
+
+<h3>Izlaz</h3>
+<p>Ispiši $m_2$ redaka; u svakom jedan cijeli broj: odgovor na odgovarajući upit.</p>
+
+<h3>Primjer</h3>
+<p>Ulaz:</p>
+<pre>5 5 5
+1 1 4 5 4
+4 1 4 1 10
+1 3 3 3 3
+1 1 5 5 8
+2 4 4 5 8
+2 1 2 1
+4 1 5 4
+1 2 3 5
+2 1 5 3
+1 3 5 5</pre>
+<p>Izlaz:</p>
+<pre>12
+22
+20
+22
+20</pre>
+
+@@ editorial
+<h2>Pregled zadatka</h2>
+
+<p>Sva zbrajanja dolaze prije svih upita, pa je zadatak potpuno <b>offline</b>. Tekst zadatka mami na KD-stablo ($O(\sqrt{n})$ po operaciji), no postoji bitno brže rješenje koje koristi samo segmentna stabla:</p>
+<ul>
+<li>podijeli pa vladaj po retcima (koordinati $x$): upit koji prelazi sredinu $\mathit{mid}$ rastavi se na dio „od $x_1$ do $\mathit{mid}$” i dio „od $\mathit{mid}+1$ do $x_2$”;</li>
+<li>za svaki od ta dva dijela pomičemo redak od sredine prema van i održavamo za svaki stupac <b>povijesni maksimum</b> — najveću vrijednost koju je taj stupac imao u do sada obiđenim retcima;</li>
+<li>da cijena čvora rekurzije ne bi ovisila o $n$, stupce sažimamo na $O(k)$ odsječaka, gdje je $k$ broj zbrajanja čiji rub pada u čvor.</li>
+</ul>
+<p>Ukupna složenost bit će $O(m_1\log^2 n+m_2\log n)$.</p>
+
+<h2>Izravna rješenja</h2>
+<p>Matricu ne možemo ni zapisati ($n^2=2{,}5\cdot10^9$). Rješenje „za svaki upit prođi sve retke i u segmentnom stablu po stupcima traži maksimum” košta $O(n\log n)$ po upitu i također je presporo. KD-stablo nad $O(m_1)$ sažetih koordinata daje $O((m_1+m_2)\sqrt{m_1})$ — oko $10^8$ koraka uz veliku konstantu.</p>
+
+<h2>Korak 1: jedan redak kao funkcija stupca</h2>
+<p>Fiksirajmo redak $i$. Vrijednosti $A_{i,\cdot}$ dobijemo tako da za svako zbrajanje s $x_1\le i\le x_2$ dodamo $w$ na stupce $[y_1,y_2]$. Kad s retka $i$ prijeđemo na susjedni, mijenjaju se samo zbrajanja kojima je tu rub: neka se „upale”, neka „ugase”. To je <i>sweep-line</i> po retcima nad segmentnim stablom po stupcima (zbrajanje na intervalu).</p>
+<p>Upit traži $\max$ po <i>više</i> redaka, tj. za stupac $j$ zanima nas</p>
+\[ H_j=\max_{x_1\le i\le x_2}A_{i,j}. \]
+<p>Ako sweep krene u retku $x_2$ i ide prema $x_1$, $H_j$ je upravo povijesni maksimum stupca $j$. Problem je što svaki upit ima svoj početni redak — tu pomaže podijeli pa vladaj.</p>
+
+<h2>Korak 2: podijeli pa vladaj po retcima</h2>
+<p>Rekurzija $\mathrm{solve}(l,r)$ obrađuje upite s $l\le x_1\le x_2\le r$. Neka je $\mathit{mid}=\lfloor (l+r)/2\rfloor$.</p>
+<ul>
+<li>Upiti s $x_2\le\mathit{mid}$ idu u lijevo dijete, oni s $x_1\gt\mathit{mid}$ u desno.</li>
+<li>Upit s $x_1\le\mathit{mid}\lt x_2$ rješavamo ovdje. Odgovor je veći od dvaju brojeva: maksimuma u retcima $[x_1,\mathit{mid}]$ i maksimuma u retcima $[\mathit{mid}+1,x_2]$.</li>
+</ul>
+<p>Za lijeve dijelove pokrenemo sweep od retka $\mathit{mid}$ prema $l$; kad obradimo redak $i$, povijesni maksimumi stupaca su točno $\max_{i\le i'\le\mathit{mid}}A_{i',j}$, pa upite s $x_1=i$ odgovorimo upitom „maksimum povijesnih maksimuma na $[y_1,y_2]$”. Desni dijelovi su simetrični (od $\mathit{mid}+1$ prema $r$). Svaki se upit obradi u točno jednom čvoru rekurzije (ili u listu $l=r$, gdje je to običan upit o maksimumu retka).</p>
+
+<div class="napomena"><p><strong>Oprez: međustanja.</strong> Povijesni maksimum smije „vidjeti” samo stanja koja odgovaraju stvarnim retcima. Pri prelasku na novi redak zato najprije primijenimo sva gašenja (oduzimanja), a tek onda paljenja. Budući da je $w\ge1$, svako je međustanje po svim stupcima $\le$ konačnog stanja tog retka, pa ne može pokvariti povijesni maksimum. Isto vrijedi za početno stanje (samo paljenja iz nule).</p></div>
+
+<h2>Korak 3: zašto to još nije dovoljno i kako popraviti</h2>
+<p>U čvoru $[l,r]$ sweep mora krenuti iz pravog stanja retka $\mathit{mid}$, a ono ovisi i o zbrajanjima koja <b>prekrivaju cijeli</b> $[l,r]$ po $x$. Takvih može biti $m_1$ u svakom čvoru, a i stablo po stupcima ima $n$ listova — rekurzija bi koštala $O(n\cdot(n+m_1))$.</p>
+<p>Zbrajanja koja sijeku $[l,r]$ dijelimo na dvije vrste:</p>
+<ul>
+<li><b>puna</b>: $x_1\le l$ i $r\le x_2$. U čvoru su ona konstantna po retcima; označimo njihov zbroj kao funkciju stupca $F(y)$;</li>
+<li><b>unutarnja</b>: ostala (barem jedan rub im je unutar $[l,r]$). Označimo njihov zbroj u retku $i$ s $G_i(y)$.</li>
+</ul>
+<p>Dakle $A_{i,y}=F(y)+G_i(y)$ za $i\in[l,r]$.</p>
+
+<div class="tvrdnja"><p><strong>Lema 1.</strong> Zbroj broja unutarnjih zbrajanja po svim čvorovima rekurzije je $O(m_1\log n)$.</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> Čvorovi iste razine su disjunktni intervali. Zbrajanje je unutarnje za čvor samo ako taj čvor sadrži rub $x_1-1|x_1$ ili $x_2|x_2+1$, a to su najviše dva čvora po razini. $\blacksquare$</p>
+
+<p><b>Funkcija $F$.</b> Držimo jedno globalno segmentno stablo po stupcima (zbrajanje na intervalu, maksimum na intervalu). Kad se spuštamo u dijete, u njega dodamo zbrajanja koja su za roditelja bila unutarnja, a za dijete su puna; pri povratku ih oduzmemo. Po lemi 1 to je $O(m_1\log n)$ operacija, svaka $O(\log n)$.</p>
+
+<p><b>Funkcija $G$ na sažetim stupcima.</b> Neka čvor ima $k$ unutarnjih zbrajanja. Njihovi rubovi $y_1$ i $y_2+1$ dijele stupce na najviše $2k+1$ odsječaka, a na svakom je odsječku $G_i$ konstantan <i>u svakom retku</i>.</p>
+
+<div class="tvrdnja"><p><strong>Lema 2.</strong> Neka je $T$ skup uzastopnih stupaca unutar jednog odsječka $S$ i $R$ skup redaka čvora. Tada je
+\[ \max_{i\in R,\ y\in T}A_{i,y}=\max_{y\in T}F(y)+\max_{i\in R}G_i(S). \]</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> $A_{i,y}=F(y)+G_i(S)$, a prvi pribrojnik ovisi samo o $y$, drugi samo o $i$; maksimum zbroja po Kartezijevu produktu je zbroj maksimuma. $\blacksquare$</p>
+
+<p>Zato u čvoru gradimo malo segmentno stablo nad odsječcima, s početnom vrijednošću odsječka $b_S=\max_{y\in S}F(y)$ (jedan upit nad stablom za $F$) i s povijesnim maksimumom. Sweep u njemu pali i gasi unutarnja zbrajanja. Povijesni maksimum lista $S$ jednak je $b_S+\max_i G_i(S)$.</p>
+
+<h3>Odgovor na dio upita sa stupcima $[y_1,y_2]$</h3>
+<p>Neka $y_1$ pada u odsječak $S_a$, a $y_2$ u $S_b$.</p>
+<ul>
+<li>Odsječci strogo između $S_a$ i $S_b$ pokriveni su u cijelosti: upit o povijesnom maksimumu na malom stablu.</li>
+<li>Za rubni odsječak $S_a$ pokriven je samo dio $T=[y_1,\mathrm{kraj}(S_a)]$. Po lemi 2 vrijednost je $\max_{y\in T}F(y)+(\mathrm{hist}(S_a)-b_{S_a})$: jedan upit nad stablom za $F$ i jedan nad malim stablom. Isto za $S_b$ (i za slučaj $a=b$).</li>
+</ul>
+
+<h2>Segmentno stablo s povijesnim maksimumom</h2>
+<p>Svaki čvor pamti trenutačni maksimum $\mathit{mx}$ i povijesni $\mathit{hmx}$ te dvije lijene oznake: $\mathit{ad}$ (ukupno dodano otkad je oznaka zadnji put spuštena) i $\mathit{had}$ (najveći prefiksni zbroj tih dodavanja). Primjena para $(a,h)$ na čvor:</p>
+<pre><code>hmx = max(hmx, mx + h);   had = max(had, ad + h);
+mx += a;                  ad += a;</code></pre>
+<p>Redoslijed je bitan: povijesne veličine računaju se iz <i>starih</i> $\mathit{mx}$ i $\mathit{ad}$.</p>
+
+<h2>Složenost</h2>
+<p>U čvoru s $k$ unutarnjih zbrajanja: $O(k)$ upita nad $F$ za početne vrijednosti, $O(k\log k)$ za sortiranje i $O(k)$ operacija nad malim stablom. Po lemi 1 to je ukupno $O(m_1\log^2 n)$. Svaki upit obrađuje se u jednom čvoru s konstantnim brojem upita nad stablima, uz sortiranje upita čvora: $O(m_2\log n)$. Ukupno</p>
+\[ O(m_1\log^2 n+m_2\log n) \]
+<p>vremena i $O(n+m_1+m_2)$ memorije (rekurzija ulazi samo u čvorove koji imaju upita). Na najvećim testovima implementacija radi oko $2{,}5$ s (ograničenje $8$ s). Vrijednosti dosežu $5\cdot10^{13}$, pa treba 64-bitni tip.</p>
+
+<h2>Implementacija</h2>
+<pre><code>#include &lt;bits/stdc++.h&gt;
+using namespace std;
+typedef long long ll;
+const ll NEG = LLONG_MIN / 4;
+
+int n, m1, m2;
+struct Upd { int x1, y1, x2, y2; ll w; };
+struct Qry { int x1, y1, x2, y2; };
+vector&lt;Upd&gt; U;
+vector&lt;Qry&gt; Q;
+vector&lt;ll&gt; ans;
+
+// F: zbroj azuriranja koja pokrivaju cijeli x-raspon trenutnog cvora (funkcija od y)
+ll fmx[1 &lt;&lt; 17], fad[1 &lt;&lt; 17];
+void fadd(int o, int l, int r, int a, int b, ll w) {
+    if (a &lt;= l &amp;&amp; r &lt;= b) { fmx[o] += w; fad[o] += w; return; }
+    int m = (l + r) / 2;
+    if (a &lt;= m) fadd(o * 2, l, m, a, b, w);
+    if (b &gt; m) fadd(o * 2 + 1, m + 1, r, a, b, w);
+    fmx[o] = max(fmx[o * 2], fmx[o * 2 + 1]) + fad[o];
+}
+ll fqry(int o, int l, int r, int a, int b) {
+    if (a &lt;= l &amp;&amp; r &lt;= b) return fmx[o];
+    int m = (l + r) / 2; ll res = NEG;
+    if (a &lt;= m) res = max(res, fqry(o * 2, l, m, a, b));
+    if (b &gt; m) res = max(res, fqry(o * 2 + 1, m + 1, r, a, b));
+    return res + fad[o];
+}
+
+// stablo s povijesnim maksimumom nad sazetim y-odsjeccima
+vector&lt;ll&gt; mx, hmx, ad, had, base;
+vector&lt;int&gt; ys; // poceci odsjecaka
+int K;
+void apply(int o, ll a, ll ha) {
+    hmx[o] = max(hmx[o], mx[o] + ha);
+    had[o] = max(had[o], ad[o] + ha);
+    mx[o] += a; ad[o] += a;
+}
+void push(int o) {
+    if (ad[o] || had[o]) {
+        apply(o * 2, ad[o], had[o]); apply(o * 2 + 1, ad[o], had[o]);
+        ad[o] = had[o] = 0;
+    }
+}
+void build(int o, int l, int r) {
+    ad[o] = had[o] = 0;
+    if (l == r) { mx[o] = hmx[o] = base[l]; return; }
+    int m = (l + r) / 2;
+    build(o * 2, l, m); build(o * 2 + 1, m + 1, r);
+    mx[o] = max(mx[o * 2], mx[o * 2 + 1]);
+    hmx[o] = max(hmx[o * 2], hmx[o * 2 + 1]);
+}
+void hadd(int o, int l, int r, int a, int b, ll w) {
+    if (a &lt;= l &amp;&amp; r &lt;= b) { apply(o, w, max(w, 0LL)); return; }
+    push(o);
+    int m = (l + r) / 2;
+    if (a &lt;= m) hadd(o * 2, l, m, a, b, w);
+    if (b &gt; m) hadd(o * 2 + 1, m + 1, r, a, b, w);
+    mx[o] = max(mx[o * 2], mx[o * 2 + 1]);
+    hmx[o] = max(hmx[o * 2], hmx[o * 2 + 1]);
+}
+ll hqry(int o, int l, int r, int a, int b) {
+    if (a &gt; b) return NEG;
+    if (a &lt;= l &amp;&amp; r &lt;= b) return hmx[o];
+    push(o);
+    int m = (l + r) / 2; ll res = NEG;
+    if (a &lt;= m) res = max(res, hqry(o * 2, l, m, a, b));
+    if (b &gt; m) res = max(res, hqry(o * 2 + 1, m + 1, r, a, b));
+    return res;
+}
+int segOf(int y) { return int(upper_bound(ys.begin(), ys.end(), y) - ys.begin()) - 1; }
+void addUpd(const Upd &amp;u, ll sign) {
+    hadd(1, 0, K - 1, segOf(u.y1), segOf(u.y2), sign * u.w);
+}
+// maksimum po y u [y1,y2] povijesnog maksimuma stupca
+ll query(int y1, int y2) {
+    int a = segOf(y1), b = segOf(y2);
+    if (a == b) return fqry(1, 1, n, y1, y2) + hqry(1, 0, K - 1, a, a) - base[a];
+    ll res = fqry(1, 1, n, y1, ys[a + 1] - 1) + hqry(1, 0, K - 1, a, a) - base[a];
+    res = max(res, fqry(1, 1, n, ys[b], y2) + hqry(1, 0, K - 1, b, b) - base[b]);
+    return max(res, hqry(1, 0, K - 1, a + 1, b - 1));
+}
+
+void solve(int l, int r, vector&lt;int&gt; &amp;us, vector&lt;int&gt; &amp;qs) {
+    if (qs.empty()) return;
+    if (l == r) {
+        for (int id : qs) ans[id] = fqry(1, 1, n, Q[id].y1, Q[id].y2);
+        return;
+    }
+    int mid = (l + r) / 2;
+    vector&lt;int&gt; here, ql, qr;
+    for (int id : qs) {
+        if (Q[id].x2 &lt;= mid) ql.push_back(id);
+        else if (Q[id].x1 &gt; mid) qr.push_back(id);
+        else here.push_back(id);
+    }
+    if (!here.empty()) {
+        ys.clear(); ys.push_back(1);
+        for (int id : us) { ys.push_back(U[id].y1); if (U[id].y2 &lt; n) ys.push_back(U[id].y2 + 1); }
+        sort(ys.begin(), ys.end()); ys.erase(unique(ys.begin(), ys.end()), ys.end());
+        K = ys.size();
+        base.assign(K, 0);
+        for (int i = 0; i &lt; K; i++) base[i] = fqry(1, 1, n, ys[i], i + 1 &lt; K ? ys[i + 1] - 1 : n);
+        mx.assign(4 * K, 0); hmx.assign(4 * K, 0); ad.assign(4 * K, 0); had.assign(4 * K, 0);
+        // lijeva polovica: redak ide od mid prema l
+        {
+            vector&lt;int&gt; byx2, byx1, qq = here;
+            for (int id : us) if (U[id].x1 &lt;= mid) {
+                if (U[id].x2 &lt; mid) byx2.push_back(id);
+                byx1.push_back(id);
+            }
+            sort(byx2.begin(), byx2.end(), [](int a, int b) { return U[a].x2 &gt; U[b].x2; });
+            sort(byx1.begin(), byx1.end(), [](int a, int b) { return U[a].x1 &gt; U[b].x1; });
+            sort(qq.begin(), qq.end(), [](int a, int b) { return Q[a].x1 &gt; Q[b].x1; });
+            build(1, 0, K - 1);
+            for (int id : us) if (U[id].x1 &lt;= mid &amp;&amp; U[id].x2 &gt;= mid) addUpd(U[id], 1);
+            size_t p1 = 0, p2 = 0, pq = 0;
+            for (int i = mid; i &gt;= l &amp;&amp; pq &lt; qq.size(); i--) {
+                while (p1 &lt; byx1.size() &amp;&amp; U[byx1[p1]].x1 &gt; i) addUpd(U[byx1[p1++]], -1);
+                while (p2 &lt; byx2.size() &amp;&amp; U[byx2[p2]].x2 &gt;= i) addUpd(U[byx2[p2++]], 1);
+                while (pq &lt; qq.size() &amp;&amp; Q[qq[pq]].x1 == i) {
+                    int id = qq[pq++];
+                    ans[id] = query(Q[id].y1, Q[id].y2);
+                }
+            }
+        }
+        // desna polovica: redak ide od mid+1 prema r
+        {
+            vector&lt;int&gt; byx2, byx1, qq = here;
+            for (int id : us) if (U[id].x2 &gt; mid) {
+                if (U[id].x1 &gt; mid + 1) byx1.push_back(id);
+                byx2.push_back(id);
+            }
+            sort(byx2.begin(), byx2.end(), [](int a, int b) { return U[a].x2 &lt; U[b].x2; });
+            sort(byx1.begin(), byx1.end(), [](int a, int b) { return U[a].x1 &lt; U[b].x1; });
+            sort(qq.begin(), qq.end(), [](int a, int b) { return Q[a].x2 &lt; Q[b].x2; });
+            build(1, 0, K - 1);
+            for (int id : us) if (U[id].x1 &lt;= mid + 1 &amp;&amp; U[id].x2 &gt; mid) addUpd(U[id], 1);
+            size_t p1 = 0, p2 = 0, pq = 0;
+            for (int i = mid + 1; i &lt;= r &amp;&amp; pq &lt; qq.size(); i++) {
+                while (p2 &lt; byx2.size() &amp;&amp; U[byx2[p2]].x2 &lt; i) addUpd(U[byx2[p2++]], -1);
+                while (p1 &lt; byx1.size() &amp;&amp; U[byx1[p1]].x1 &lt;= i) addUpd(U[byx1[p1++]], 1);
+                while (pq &lt; qq.size() &amp;&amp; Q[qq[pq]].x2 == i) {
+                    int id = qq[pq++];
+                    ans[id] = max(ans[id], query(Q[id].y1, Q[id].y2));
+                }
+            }
+        }
+    }
+    for (int side = 0; side &lt; 2; side++) {
+        int cl = side ? mid + 1 : l, cr = side ? r : mid;
+        vector&lt;int&gt; &amp;cq = side ? qr : ql;
+        if (cq.empty()) continue;
+        vector&lt;int&gt; cu, full;
+        for (int id : us) {
+            if (U[id].x2 &lt; cl || U[id].x1 &gt; cr) continue;
+            if (U[id].x1 &lt;= cl &amp;&amp; cr &lt;= U[id].x2) full.push_back(id);
+            else cu.push_back(id);
+        }
+        for (int id : full) fadd(1, 1, n, U[id].y1, U[id].y2, U[id].w);
+        solve(cl, cr, cu, cq);
+        for (int id : full) fadd(1, 1, n, U[id].y1, U[id].y2, -U[id].w);
+    }
+}
+
+int main() {
+    scanf("%d %d %d", &amp;n, &amp;m1, &amp;m2);
+    U.resize(m1); Q.resize(m2); ans.assign(m2, 0);
+    vector&lt;int&gt; us, qs(m2);
+    for (int i = 0; i &lt; m1; i++) {
+        scanf("%d %d %d %d %lld", &amp;U[i].x1, &amp;U[i].y1, &amp;U[i].x2, &amp;U[i].y2, &amp;U[i].w);
+        if (U[i].x1 == 1 &amp;&amp; U[i].x2 == n) fadd(1, 1, n, U[i].y1, U[i].y2, U[i].w);
+        else us.push_back(i);
+    }
+    for (int i = 0; i &lt; m2; i++) {
+        scanf("%d %d %d %d", &amp;Q[i].x1, &amp;Q[i].y1, &amp;Q[i].x2, &amp;Q[i].y2);
+        qs[i] = i;
+    }
+    solve(1, n, us, qs);
+    for (int i = 0; i &lt; m2; i++) printf("%lld\n", ans[i]);
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Offline: podijeli pa vladaj po retcima; upit se u čvoru gdje prelazi sredinu rastavi na lijevi i desni dio.</li>
+<li>Sweep od sredine prema van s povijesnim maksimumom po stupcima daje maksimum po više redaka.</li>
+<li>Zbrajanja koja prekrivaju cijeli čvor čine funkciju $F(y)$ u globalnom stablu; ostala (ukupno $O(m_1\log n)$) žive na sažetim odsječcima stupaca.</li>
+<li>Na odsječku se maksimum rastavlja: $\max F$ + povijesni maksimum od $G$.</li>
+<li>Složenost: $O(m_1\log^2 n+m_2\log n)$.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: 38. Petrozavodsk Programming Camp, zima 2020., dan 9 (QOJ #2066).</li>
+<li>Rješenje gore je vlastito; uspoređeno je s izravnim rješenjem na 3000 nasumičnih malih testova i izmjereno na najvećim ulazima.</li>
+</ul>

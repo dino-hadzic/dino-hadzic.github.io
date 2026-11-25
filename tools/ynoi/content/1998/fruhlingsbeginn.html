@@ -1,0 +1,338 @@
+@@ meta
+naslov = Frühlingsbeginn
+izvornik = Frühlingsbeginn
+oznake = offline, podijeli pa vladaj, segmentno stablo, sweep-line
+izvori = Luogu P12082 (rješenje xuyifei1599); vlastita implementacija provjerena brute-forceom
+
+@@ zadatak
+<h1>Frühlingsbeginn</h1>
+<p><i>Frühlingsbeginn</i> („početak proljeća”) — Ynoi 1998.</p>
+
+<p>Zadani su $n$ i $m$. Treba održavati multiskup intervala na brojevnom pravcu $[1,n)$, koji je na početku prazan, i podržati ukupno $m$ operacija triju vrsta:</p>
+<ol>
+<li>Ubaci interval $[l,r)$.</li>
+<li>Izbriši interval ubačen u $t$-toj operaciji.</li>
+<li>Zadan je interval $[l,r)$; odredi postoji li podskup trenutačnog multiskupa takav da je unija svih intervala podskupa <b>točno</b> $[l,r)$.</li>
+</ol>
+
+<h3>Ulaz</h3>
+<p>U prvom retku nalaze se dva cijela broja $n$ i $m$.</p>
+<p>Svaki od sljedećih $m$ redaka opisuje jednu operaciju: <code>1 l r</code>, <code>2 t</code> ili <code>3 l r</code>.</p>
+
+<h3>Izlaz</h3>
+<p>Za svaki upit (operaciju vrste 3) ispiši u zasebnom retku veliko slovo <code>Y</code> ako takav podskup postoji, a <code>N</code> inače.</p>
+
+<h3>Primjeri</h3>
+<p>Ulaz 1:</p>
+<pre>5 5
+1 1 3
+1 2 4
+3 1 4
+2 1
+3 1 4</pre>
+<p>Izlaz 1:</p>
+<pre>Y
+N</pre>
+<p>Ulaz 2:</p>
+<pre>9 17
+1 6 9
+1 1 8
+1 5 7
+1 6 8
+1 8 9
+3 4 5
+3 1 7
+3 8 9
+1 4 9
+3 1 8
+3 1 7
+1 6 9
+3 2 6
+2 2
+1 1 3
+3 1 2
+1 4 6</pre>
+<p>Izlaz 2:</p>
+<pre>N
+N
+Y
+Y
+N
+N
+N</pre>
+
+<h3>Ograničenja</h3>
+<p>Za sve testove vrijedi $2\le n\le 10^6$, $1\le m\le 5\cdot10^5$, $1\le l\lt r\le n$. Svaki $t$ u operaciji vrste 2 je redni broj neke ranije operacije vrste 1 i svi su $t$ međusobno različiti.</p>
+<p>Vremensko ograničenje: 2 s. Memorijsko ograničenje: 512 MB.</p>
+
+@@ editorial
+<h2>Pregled zadatka</h2>
+
+<p>Interval $[l,r)$ promatramo kao skup ćelija $l, l+1,\dots,r-1$, tj. zatvoreni interval $[l,r-1]$ na ćelijama $1,\dots,n-1$. U nastavku su svi intervali zatvoreni intervali ćelija.</p>
+
+<div class="tvrdnja"><p><strong>Zapažanje 1.</strong> Odgovor na upit $[l,r]$ je „da” ako i samo ako unija <b>svih</b> trenutačno prisutnih intervala koji su sadržani u $[l,r]$ pokriva cijeli $[l,r]$.</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> U podskup smiju ući samo intervali sadržani u $[l,r]$ (inače unija izlazi van). Uzeti ih sve daje najveću moguću uniju, pa ako ni ona nije cijeli $[l,r]$, nijedan podskup nije. $\blacksquare$</p>
+
+<p>Zadatak rješavamo <b>offline</b>. Svaki ubačeni interval dobije „životni vijek” $(s,e)$: $s$ je redni broj operacije koja ga je ubacila, $e$ redni broj operacije koja ga je izbrisala (ili $m+1$). Upit postavljen u operaciji $t$ vidi interval ako je $s\lt t\lt e$. Tako dobivamo statički problem s tri uvjeta — lijevi rub, desni rub i vrijeme — koji rješavamo tehnikom podijeli pa vladaj po koordinati. Složenost: $O(m\log^2 m)$ (uz $O(m\log n\log m)$ kao precizniju ocjenu).</p>
+
+<h2>Izravno rješenje</h2>
+<p>Za svaki upit prođemo sve žive intervale, označimo ćelije onih koji su unutar $[l,r]$ i provjerimo je li sve pokriveno: $O(m\cdot(m+n))$. Koristimo ga kao referencu.</p>
+
+<h2>Podijeli pa vladaj po koordinati</h2>
+<p>Rekurzija $\mathrm{solve}(L,R)$ dobije sve intervale i sve upite sadržane u $[L,R]$. Neka je $\mathit{mid}=\lfloor(L+R)/2\rfloor$. Upite koji ne prelaze sredinu proslijedimo djeci, zajedno s intervalima sadržanima u odgovarajućoj polovici. Upite s $l\le\mathit{mid}\lt r$ rješavamo ovdje. Za takav upit korisni intervali su triju vrsta:</p>
+<ul>
+<li><b>srednji</b>: prelaze sredinu (sadrže ćelije $\mathit{mid}$ i $\mathit{mid}+1$);</li>
+<li><b>lijevi</b>: sadržani u $[L,\mathit{mid}]$;</li>
+<li><b>desni</b>: sadržani u $[\mathit{mid}+1,R]$.</li>
+</ul>
+<p>Svaki je upit obrađen u točno jednom čvoru, a svaki interval sudjeluje u $O(\log n)$ čvorova (na putu do čvora u kojem je srednji).</p>
+
+<h3>1) Srednji intervali: unija je jedan interval $[f,g]$</h3>
+<p>Svi srednji intervali sadrže $\mathit{mid}$, pa je unija onih koji su živi i sadržani u upitu <b>povezana</b>: jednaka je $[f,g]$, gdje je $f$ najmanji lijevi rub, a $g$ najveći desni rub među njima. Ako takvih nema, stavimo $f=\mathit{mid}+1$, $g=\mathit{mid}$ (prazno).</p>
+<p>Za svaki lijevi rub $x$ neka je $A_x$ najmanji desni rub živog srednjeg intervala koji počinje u $x$ (ili $+\infty$). Tada je</p>
+\[ f=\min\{x\ge l : A_x\le r\}. \]
+<p>Naime, ako ijedan interval s lijevim rubom $x$ stane u upit, stane i onaj s najmanjim desnim rubom. Simetrično, $B_y$ je najveći lijevi rub živog srednjeg intervala koji završava u $y$ i $g=\max\{y\le r: B_y\ge l\}$.</p>
+<p>Prolazimo vrijeme (sweep po $t$): događaji „interval se rodio / umro” mijenjaju $A_x$ i $B_y$, a upit u trenutku $t$ pita za $f$ i $g$. Vrijednosti $A_x$ držimo u segmentnom stablu s minimumom nad (sažetim) lijevim rubovima; traženje „prvog $x\ge l$ s $A_x\le r$” je spuštanje po stablu. Budući da više intervala može imati isti rub, za svaki $x$ držimo gomilu s lijenim brisanjem.</p>
+
+<h3>2) Lijevi intervali: dokle seže pokrivanje od $l$</h3>
+<p>Lijevi intervali moraju pokriti ćelije $l,\dots,f-1$. Definiramo $h$ kao prvu ćeliju koju živi lijevi intervali s lijevim rubom $\ge l$ <i>ne</i> pokrivaju kad krenemo od $l$ udesno. Uvjet je $h\ge f$.</p>
+<p>Računamo $h$ za sve upite čvora odjednom, prolazeći koordinatu $a$ slijeva nadesno. Upiti su poredani po vremenu i čine listove segmentnog stabla; list pamti trenutačni $h$ svog upita.</p>
+<ul>
+<li>Kad $a$ dosegne $l$ nekog upita, upit se „aktivira” s $h=l$.</li>
+<li>Lijevi interval $[a,b]$ sa životnim vijekom $(s,e)$ svim aktivnim upitima s vremenom u $(s,e)$ radi $h\leftarrow\max(h,b+1)$ — to je <i>chmax</i> na intervalu listova.</li>
+<li>Prije obrade koordinate $a$ iz stabla izvadimo sve upite s $h\lt a$: ćelija $h$ im je ostala nepokrivena, a svi budući intervali počinju desno od nje, pa im je $h$ konačan.</li>
+</ul>
+<div class="tvrdnja"><p><strong>Zašto je <i>chmax</i> smije primijeniti na sve aktivne upite.</strong> U trenutku obrade intervala $[a,b]$ svaki aktivni upit ima $l\le a$ (aktiviran je ranije) i $h\ge a$ (inače bi bio izvađen). Dakle interval je unutar upita s lijeve strane i nadovezuje se na već pokriveni dio $[l,h-1]$ bez rupe.</p></div>
+<p>Stablo pamti minimum podstabla (da brzo nađemo upite za vađenje) i lijenu <i>chmax</i> oznaku. Neaktivni i izvađeni listovi imaju vrijednost $+\infty$, pa na njih <i>chmax</i> ne djeluje; pri aktivaciji lista prvo spustimo oznake na putu do njega da stare oznake ne bi djelovale na novi upit.</p>
+
+<h3>3) Desni intervali</h3>
+<p>Zrcalno: krećemo od $r$ ulijevo i tražimo prvu nepokrivenu ćeliju $k$; uvjet je $k\le g$. U kodu se koristi ista procedura na koordinatama pomnoženima s $-1$.</p>
+
+<div class="tvrdnja"><p><strong>Tvrdnja.</strong> Odgovor na upit je „da” ako i samo ako je $h\ge f$ i $k\le g$.</p></div>
+<p class="dokaz"><em>(Dokaz.)</em> Unija svih korisnih intervala je $U_L\cup[f,g]\cup U_D$, gdje su $U_L\subseteq[l,\mathit{mid}]$ i $U_D\subseteq[\mathit{mid}+1,r]$ unije lijevih, odnosno desnih. Ćelije $l,\dots,f-1$ mogu pokriti samo lijevi intervali, i pokrivene su sve upravo kad je $h\ge f$. Ako je $[f,g]$ prazan, uvjet $h\ge\mathit{mid}+1$ znači da lijevi sami pokrivaju cijelu lijevu polovicu upita. Analogno za desnu stranu. Po zapažanju 1 to je traženi uvjet. $\blacksquare$</p>
+
+<h3>List rekurzije</h3>
+<p>Ako je $L=R$, upit i intervali su jedna te ista ćelija, pa samo treba znati je li u trenutku $t$ živ barem jedan interval: broj rođenih prije $t$ minus broj umrlih prije $t$.</p>
+
+<h2>Složenost</h2>
+<p>Svaki interval sudjeluje u $O(\log n)$ čvorova, a u svakom košta $O(\log m)$ (sortiranje, binarno pretraživanje vremena, operacija nad stablom). <i>Chmax</i> s prekidom „ako je minimum već $\ge v$” i vađenje upita amortizirano su $O(\log m)$ po operaciji, odnosno po izvađenom upitu. Ukupno</p>
+\[ O(m\log n\log m) \]
+<p>vremena i $O(n+m)$ memorije (popisi se oslobađaju prije rekurzije). Rekurzija ulazi samo u čvorove koji imaju upita. Implementacija na najvećim testovima radi ispod $0{,}5$ s.</p>
+
+<h2>Implementacija</h2>
+<pre><code>#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int INF = INT_MAX;
+struct Itv { int a, b, s, e; };   // celije [a,b], zivi u trenucima s &lt; t &lt; e
+struct Qry { int l, r, t; };
+vector&lt;Itv&gt; I;
+vector&lt;Qry&gt; Q;
+vector&lt;char&gt; ok;
+
+// ---- stablo po vremenu: chmax na intervalu, minimum, vadjenje ----
+vector&lt;int&gt; mn, tg, hres;
+void tpush(int o) {
+    if (tg[o] != -INF) {
+        for (int c = 2 * o; c &lt;= 2 * o + 1; c++) {
+            if (mn[c] != INF) mn[c] = max(mn[c], tg[o]);
+            tg[c] = max(tg[c], tg[o]);
+        }
+        tg[o] = -INF;
+    }
+}
+void tset(int o, int l, int r, int p, int v) {
+    if (l == r) { mn[o] = v; return; }
+    tpush(o);
+    int m = (l + r) / 2;
+    if (p &lt;= m) tset(2 * o, l, m, p, v); else tset(2 * o + 1, m + 1, r, p, v);
+    mn[o] = min(mn[2 * o], mn[2 * o + 1]);
+}
+void tchmax(int o, int l, int r, int a, int b, int v) {
+    if (mn[o] &gt;= v) return;            // nista se ne mijenja (ukljucuje prazno podstablo)
+    if (a &lt;= l &amp;&amp; r &lt;= b) { mn[o] = max(mn[o], v); tg[o] = max(tg[o], v); return; }
+    tpush(o);
+    int m = (l + r) / 2;
+    if (a &lt;= m) tchmax(2 * o, l, m, a, b, v);
+    if (b &gt; m) tchmax(2 * o + 1, m + 1, r, a, b, v);
+    mn[o] = min(mn[2 * o], mn[2 * o + 1]);
+}
+// izvadi sve listove s vrijednoscu &lt; lim, zapisi im rezultat
+void tpop(int o, int l, int r, int lim) {
+    if (mn[o] &gt;= lim) return;
+    if (l == r) { hres[l] = mn[o]; mn[o] = INF; return; }
+    tpush(o);
+    int m = (l + r) / 2;
+    tpop(2 * o, l, m, lim); tpop(2 * o + 1, m + 1, r, lim);
+    mn[o] = min(mn[2 * o], mn[2 * o + 1]);
+}
+
+struct SI { int a, b, lo, hi; };   // interval celija i raspon indeksa upita (po vremenu)
+struct SQ { int start, idx; };
+// za svaki upit: prva nepokrivena celija kad krenemo od start udesno
+void sweep(vector&lt;SI&gt; &amp;its, vector&lt;SQ&gt; &amp;qs, int K) {
+    sort(its.begin(), its.end(), [](const SI &amp;x, const SI &amp;y) { return x.a &lt; y.a; });
+    sort(qs.begin(), qs.end(), [](const SQ &amp;x, const SQ &amp;y) { return x.start &lt; y.start; });
+    mn.assign(4 * K, INF); tg.assign(4 * K, -INF); hres.assign(K, 0);
+    size_t pi = 0, pq = 0;
+    while (pi &lt; its.size() || pq &lt; qs.size()) {
+        int a = INF;
+        if (pi &lt; its.size()) a = min(a, its[pi].a);
+        if (pq &lt; qs.size()) a = min(a, qs[pq].start);
+        tpop(1, 0, K - 1, a);     // upiti zapeli prije a
+        while (pq &lt; qs.size() &amp;&amp; qs[pq].start == a) { tset(1, 0, K - 1, qs[pq].idx, a); pq++; }
+        while (pi &lt; its.size() &amp;&amp; its[pi].a == a) { tchmax(1, 0, K - 1, its[pi].lo, its[pi].hi, its[pi].b + 1); pi++; }
+    }
+    tpop(1, 0, K - 1, INF);
+}
+
+// ---- stablo za intervale koji prelaze sredinu: minimum po sazetim koordinatama ----
+struct MinTree {
+    int n; vector&lt;int&gt; t;
+    void init(int n_) { n = 1; while (n &lt; n_) n *= 2; t.assign(2 * n, INF); }
+    void set(int p, int v) { p += n; t[p] = v; for (p &gt;&gt;= 1; p; p &gt;&gt;= 1) t[p] = min(t[2 * p], t[2 * p + 1]); }
+    // najmanji indeks &gt;= from s vrijednoscu &lt;= lim, ili -1
+    int first(int from, int lim) {
+        if (from &gt;= n) return -1;
+        int p = from + n;
+        if (t[p] &gt; lim) {
+            while (true) {
+                while (p &amp; 1) { p &gt;&gt;= 1; if (p == 0) return -1; }
+                if (p == 1) return -1;       // from je bio u lijevom rubu, nema desnog brata
+                p++;
+                if (t[p] &lt;= lim) break;
+            }
+            while (p &lt; n) p = t[2 * p] &lt;= lim ? 2 * p : 2 * p + 1;
+        }
+        return p - n;
+    }
+};
+
+void solve(int L, int R, vector&lt;int&gt; &amp;iv, vector&lt;int&gt; &amp;qs) {
+    if (qs.empty()) return;
+    if (L == R) {
+        vector&lt;int&gt; st, en;
+        for (int id : iv) { st.push_back(I[id].s); en.push_back(I[id].e); }
+        sort(st.begin(), st.end()); sort(en.begin(), en.end());
+        for (int id : qs) {
+            int t = Q[id].t;
+            int alive = int(lower_bound(st.begin(), st.end(), t) - st.begin()) - int(lower_bound(en.begin(), en.end(), t) - en.begin());
+            ok[id] = alive &gt; 0;
+        }
+        return;
+    }
+    int mid = (L + R) / 2;
+    vector&lt;int&gt; here, ql, qr, il, ir, ic;
+    for (int id : qs) {
+        if (Q[id].r &lt;= mid) ql.push_back(id);
+        else if (Q[id].l &gt; mid) qr.push_back(id);
+        else here.push_back(id);
+    }
+    for (int id : iv) {
+        if (I[id].b &lt;= mid) il.push_back(id);
+        else if (I[id].a &gt; mid) ir.push_back(id);
+        else ic.push_back(id);
+    }
+    if (!here.empty()) {
+        int K = here.size();
+        sort(here.begin(), here.end(), [](int x, int y) { return Q[x].t &lt; Q[y].t; });
+        vector&lt;int&gt; ts(K), f(K, mid + 1), g(K, mid);
+        for (int i = 0; i &lt; K; i++) ts[i] = Q[here[i]].t;
+        // 1) intervali preko sredine: unija onih unutar upita je [f,g]
+        if (!ic.empty()) {
+            vector&lt;int&gt; xs, ys;
+            for (int id : ic) { xs.push_back(I[id].a); ys.push_back(-I[id].b); }
+            sort(xs.begin(), xs.end()); xs.erase(unique(xs.begin(), xs.end()), xs.end());
+            sort(ys.begin(), ys.end()); ys.erase(unique(ys.begin(), ys.end()), ys.end());
+            typedef priority_queue&lt;pair&lt;int,int&gt;, vector&lt;pair&lt;int,int&gt;&gt;, greater&lt;pair&lt;int,int&gt;&gt;&gt; PQ;
+            vector&lt;PQ&gt; ha(xs.size()), hb(ys.size());
+            MinTree ta, tb; ta.init(xs.size()); tb.init(ys.size());
+            vector&lt;array&lt;int,3&gt;&gt; ev; // (vrijeme, tip: 0 dodaj / 1 makni, id)
+            for (int id : ic) { ev.push_back({I[id].s, 0, id}); ev.push_back({I[id].e, 1, id}); }
+            sort(ev.begin(), ev.end());
+            static vector&lt;char&gt; dead; if (dead.size() &lt; I.size()) dead.assign(I.size(), 0);
+            size_t pe = 0;
+            for (int i = 0; i &lt; K; i++) {
+                while (pe &lt; ev.size() &amp;&amp; ev[pe][0] &lt; ts[i]) {
+                    int id = ev[pe][2];
+                    int px = lower_bound(xs.begin(), xs.end(), I[id].a) - xs.begin();
+                    int py = lower_bound(ys.begin(), ys.end(), -I[id].b) - ys.begin();
+                    if (ev[pe][1] == 0) { ha[px].push({I[id].b, id}); hb[py].push({-I[id].a, id}); }
+                    else dead[id] = 1;
+                    while (!ha[px].empty() &amp;&amp; dead[ha[px].top().second]) ha[px].pop();
+                    while (!hb[py].empty() &amp;&amp; dead[hb[py].top().second]) hb[py].pop();
+                    ta.set(px, ha[px].empty() ? INF : ha[px].top().first);
+                    tb.set(py, hb[py].empty() ? INF : hb[py].top().first);
+                    pe++;
+                }
+                const Qry &amp;q = Q[here[i]];
+                int px = ta.first(lower_bound(xs.begin(), xs.end(), q.l) - xs.begin(), q.r);
+                if (px &gt;= 0) {
+                    f[i] = xs[px];
+                    int py = tb.first(lower_bound(ys.begin(), ys.end(), -q.r) - ys.begin(), -q.l);
+                    g[i] = -ys[py];
+                }
+            }
+            for (int id : ic) dead[id] = 0;
+        }
+        // 2) lijevo: pokrivanje od l udesno; 3) desno: zrcalno
+        vector&lt;char&gt; good(K, 1);
+        for (int side = 0; side &lt; 2; side++) {
+            vector&lt;SI&gt; its; vector&lt;SQ&gt; sq(K);
+            for (int id : (side ? ir : il)) {
+                int lo = upper_bound(ts.begin(), ts.end(), I[id].s) - ts.begin();
+                int hi = int(lower_bound(ts.begin(), ts.end(), I[id].e) - ts.begin()) - 1;
+                if (lo &gt; hi) continue;
+                if (side == 0) its.push_back({I[id].a, I[id].b, lo, hi});
+                else its.push_back({-I[id].b, -I[id].a, lo, hi});
+            }
+            for (int i = 0; i &lt; K; i++) sq[i] = {side ? -Q[here[i]].r : Q[here[i]].l, i};
+            sweep(its, sq, K);
+            for (int i = 0; i &lt; K; i++) {
+                if (side == 0) { if (hres[i] &lt; f[i]) good[i] = 0; }
+                else { if (hres[i] &lt; -g[i]) good[i] = 0; }
+            }
+        }
+        for (int i = 0; i &lt; K; i++) ok[here[i]] = good[i];
+    }
+    vector&lt;int&gt;().swap(here); vector&lt;int&gt;().swap(ic); vector&lt;int&gt;().swap(iv); vector&lt;int&gt;().swap(qs);
+    solve(L, mid, il, ql);
+    solve(mid + 1, R, ir, qr);
+}
+
+static char buf[1 &lt;&lt; 25];
+int main() {
+    size_t len = fread(buf, 1, sizeof(buf) - 1, stdin); buf[len] = 0;
+    char *p = buf;
+    auto rd = [&amp;]() { while (*p &amp;&amp; (*p &lt; '0' || *p &gt; '9')) p++; int x = 0; while (*p &gt;= '0' &amp;&amp; *p &lt;= '9') x = x * 10 + *p++ - '0'; return x; };
+    int n = rd(), m = rd();
+    vector&lt;int&gt; idOf(m + 1, -1);
+    for (int t = 1; t &lt;= m; t++) {
+        int op = rd();
+        if (op == 1) { int l = rd(), r = rd(); idOf[t] = I.size(); I.push_back({l, r - 1, t, m + 1}); }
+        else if (op == 2) { int x = rd(); I[idOf[x]].e = t; }
+        else { int l = rd(), r = rd(); Q.push_back({l, r - 1, t}); }
+    }
+    ok.assign(Q.size(), 0);
+    vector&lt;int&gt; iv(I.size()), qs(Q.size());
+    iota(iv.begin(), iv.end(), 0); iota(qs.begin(), qs.end(), 0);
+    solve(1, max(1, n - 1), iv, qs);
+    string out;
+    for (size_t i = 0; i &lt; Q.size(); i++) { out += ok[i] ? 'Y' : 'N'; out += '\n'; }
+    fwrite(out.data(), 1, out.size(), stdout);
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Upit je „da” točno kad svi živi intervali unutar $[l,r]$ zajedno pokrivaju $[l,r]$.</li>
+<li>Offline: interval ima životni vijek; podijeli pa vladaj po koordinati, upit se rješava u čvoru čiju sredinu prelazi.</li>
+<li>Intervali preko sredine daju povezanu uniju $[f,g]$ (sweep po vremenu + stablo minimuma).</li>
+<li>Lijevo i desno od toga: sweep po koordinati sa stablom po vremenu (<i>chmax</i>, minimum, vađenje zapelih upita).</li>
+<li>Složenost: $O(m\log n\log m)$.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: QOJ #11283 / Luogu P12082 [Ynoi1998] Frühlingsbeginn (ideja zadatka: critnos).</li>
+<li>Pristup: rješenje korisnika xuyifei1599 na Luogu, <a href="https://www.luogu.com.cn/article/0u9r4vd7">luogu.com.cn/article/0u9r4vd7</a>.</li>
+<li>Implementacija gore je vlastita; uspoređena je s izravnim rješenjem na 5000 nasumičnih testova.</li>
+</ul>

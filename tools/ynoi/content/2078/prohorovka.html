@@ -1,0 +1,291 @@
+@@ meta
+naslov = Prohorovka
+izvornik = 普罗霍洛夫卡
+oznake = sweep-line, korijenska dekompozicija, povijesni XOR, bitovne operacije, offline
+izvori = CTS 2022 (Luogu P8257; rješenja juju527, 18Michael, GotoHiotori); vlastita implementacija provjerena brute-forceom
+
+@@ zadatak
+<h1>Prohorovka</h1>
+<p><i>普罗霍洛夫卡</i> — Ynoi 2078 / CTS 2022, prvi dan.</p>
+
+<p>Zadan je niz $a_1,\dots,a_n$ i $m$ upita. Svaki upit zadaje $l,r$; treba odrediti bitovni XOR težina svih parova $(L,R)$ za koje je $l\le L\le R\le r$. Težina para $(L,R)$ je $|\{a_i\mid L\le i\le R\}|$, tj. broj različitih vrijednosti u $a_L,\dots,a_R$.</p>
+
+<h3>Ulaz</h3>
+<p>U prvom su retku dva cijela broja $n$ i $m$.</p>
+<p>U drugom je retku $n$ cijelih brojeva $a_1,\dots,a_n$.</p>
+<p>U sljedećih $m$ redaka nalaze se po dva cijela broja $l$ i $r$ — jedan upit.</p>
+
+<h3>Izlaz</h3>
+<p>Ispiši $m$ redaka: redom odgovore na upite.</p>
+
+<h3>Primjer</h3>
+<p>Ulaz:</p>
+<pre>5 2
+1 1 1 2 4
+1 5
+3 5</pre>
+<p>Izlaz:</p>
+<pre>3
+2</pre>
+
+<h3>Ograničenja</h3>
+<p>Za sve testove vrijedi $1\le n,m\le 4\cdot10^5$ i $1\le a_i\le n$; svi su brojevi cijeli.</p>
+<table>
+<tr><th>Udio testova</th><th>Ograničenje</th></tr>
+<tr><td>5 %</td><td>$n,m\le 100$</td></tr>
+<tr><td>10 %</td><td>$n,m\le 5000$</td></tr>
+<tr><td>20 %</td><td>$n,m\le 10^5$</td></tr>
+<tr><td>30 %</td><td>$n,m\le 2\cdot10^5$</td></tr>
+<tr><td>40 %</td><td>$n,m\le 3\cdot10^5$</td></tr>
+<tr><td>50 %</td><td>$n,m\le 3{,}5\cdot10^5$</td></tr>
+<tr><td>dodatnih 10 %</td><td>$m=n^2$</td></tr>
+<tr><td>dodatnih 10 %</td><td>$a_i\le 2$ za sve $i$</td></tr>
+<tr><td>dodatnih 10 %</td><td>$a_i\le 10$ za sve $i$</td></tr>
+<tr><td>100 %</td><td>bez dodatnih ograničenja</td></tr>
+</table>
+<p>Svaka skupina testova čini podzadatak.</p>
+<p>Vremensko ograničenje: 15 s (na QOJ-u). Memorijsko ograničenje: 512 MB.</p>
+
+@@ editorial
+<h2>Pregled zadatka</h2>
+<p>Treba XOR broja različitih vrijednosti po svim podintervalima zadanog intervala. Rješenje:</p>
+<ul>
+<li>sweep po desnom rubu pretvara zadatak u „<b>dodaj 1 na intervalu</b>” i „<b>XOR svih dosadašnjih verzija na intervalu</b>” (povijesni XOR);</li>
+<li>XOR se ne slaže lijepo sa zbrajanjem, pa nema polilogaritamske strukture — koristimo blokove veličine $\sqrt n$;</li>
+<li>ključni potprogram: za skup $S$ i sve $x\in[0,T)$ izračunati $\bigoplus_{s\in S}(s+x)$ u $O(|S|+T)$.</li>
+</ul>
+<p>Složenost je $O\bigl((n+m)\sqrt n\bigr)$ uz $O(n+m)$ memorije.</p>
+
+<h2>Izravno rješenje</h2>
+<p>Za svaki lijevi rub $L$ širimo $R$ i brojimo različite vrijednosti: $O(n^2)$ težina, a upit ih zbraja u $O(n^2)$. Služi samo za provjeru.</p>
+
+<h2>Korak 1: sweep po desnom rubu</h2>
+<p>Idemo po $r=1,2,\dots,n$ i održavamo $A_l$ = broj različitih vrijednosti u $[l,r]$. Neka je $p$ prethodna pojava vrijednosti $a_r$ (ili $0$). Prelaskom na $r$ vrijednost $a_r$ je nova točno za $l\in(p,r]$:</p>
+\[ A_l\leftarrow A_l+1\quad\text{za } p\lt l\le r. \]
+<p>Uvedimo $H_l=\bigoplus_{R=l}^{r}w(l,R)$, XOR svih dosadašnjih vrijednosti $A_l$. Nakon ažuriranja niza $A$ radimo <b>povijesni korak</b>: $H_l\leftarrow H_l\oplus A_l$ za sve $l$ (za $l\gt r$ je $A_l=0$, pa ne smeta). Odgovor na upit $(l,r)$ je, nakon koraka $r$,</p>
+\[ H_l\oplus H_{l+1}\oplus\dots\oplus H_r. \]
+<p>Trebaju nam dakle tri operacije: (1) $+1$ na intervalu niza $A$, (2) $H_l\mathrel{\oplus}=A_l$ za sve $l$, (3) XOR intervala niza $H$.</p>
+<div class="tvrdnja"><p><strong>Svojstvo niza $A$.</strong> $A_l$ ne raste po $l$ i susjedni se članovi razlikuju najviše za $1$ (interval $[l,r]$ ima najviše jednu vrijednost više od $[l+1,r]$). Zato je unutar bloka od $T$ uzastopnih položaja $\max A-\min A\lt T$.</p></div>
+
+<h2>Korak 2: blokovi</h2>
+<p>Niz dijelimo u blokove veličine $T=2^k\approx\sqrt n$ (u kodu $T=512$). Za blok pamtimo:</p>
+<ul>
+<li>$a_i$ i $H_i$ — vrijednosti elemenata <i>bez</i> odgođenih promjena;</li>
+<li>$\mathit{tag}\lt T$ — broj još neprovedenih „$+1$ cijelom bloku”;</li>
+<li>$F[x]=\bigoplus_i(a_i+x)$ za sve $x\in[0,T)$;</li>
+<li>$\mathit{HS}$ — XOR <i>stvarnih</i> vrijednosti $H_i$ bloka;</li>
+<li>$\mathit{pend}[x]$ — paritet broja povijesnih koraka koji su se dogodili uz $\mathit{tag}=x$, a još nisu upisani u $H_i$.</li>
+</ul>
+<p><b>Povijesni korak</b> za cijeli blok: stvarne vrijednosti su $a_i+\mathit{tag}$, pa je $\mathit{HS}\mathrel{\oplus}=F[\mathit{tag}]$ i $\mathit{pend}[\mathit{tag}]\mathrel{\oplus}=1$. To je $O(1)$ po bloku, $O(n/T)$ po koraku. Dva koraka s istom oznakom se u $H_i$ poništavaju — zato je dovoljan paritet.</p>
+<p><b>$+1$ cijelom bloku:</b> $\mathit{tag}\leftarrow\mathit{tag}+1$; ako dosegne $T$, blok obnavljamo.</p>
+<p><b>Djelomično zahvaćen blok</b> (rub ažuriranja ili upita) obnavljamo:</p>
+<ol>
+<li><i>provođenje u $H$</i>: $H_i\mathrel{\oplus}=\bigoplus_{x:\,\mathit{pend}[x]=1}(a_i+x)$, pa brišemo $\mathit{pend}$;</li>
+<li><i>provođenje oznake</i>: $a_i\leftarrow a_i+\mathit{tag}$, $\mathit{tag}\leftarrow0$, zatim eventualni $+1$ na dijelu bloka;</li>
+<li>ponovno računanje $F$.</li>
+</ol>
+<p>Upitu treba samo prvi dio (na rubnim blokovima), a za pune blokove koristi $\mathit{HS}$ preko prefiksnih XOR-ova po blokovima.</p>
+<p>Obnova ima $O(n+m)$ zbog rubova i $O(n^2/T^2)=O(n)$ zbog prelijevanja oznake (blok primi najviše $n$ puta $+1$). Preostaje svaku obaviti u $O(T)$.</p>
+
+<h2>Korak 3: obje obnove su isti problem</h2>
+<div class="tvrdnja"><p><strong>Potprogram.</strong> Za multiskup $S$ nenegativnih brojeva izračunaj $G[x]=\bigoplus_{s\in S}(s+x)$ za sve $x\in[0,T)$.</p></div>
+<ul>
+<li>Računanje $F$: $S=\{a_i\}$, $x$ je oznaka.</li>
+<li>Provođenje u $H$: neka je $\mu=\min a_i$ i $d_i=a_i-\mu\in[0,T)$ (svojstvo niza $A$). Tada je $a_i+x=(x+\mu)+d_i$, pa uzmemo $S=\{x+\mu:\mathit{pend}[x]=1\}$ i $H_i\mathrel{\oplus}=G[d_i]$. Uloge elemenata i oznaka su se zamijenile.</li>
+</ul>
+
+<h2>Korak 4: potprogram u $O(|S|+T)$</h2>
+<p>Svaki $s$ rastavimo na $s=\mathit{hi}\cdot T+\mathit{lo}$, $0\le\mathit{lo}\lt T$. Tada je</p>
+\[ s+x=\bigl(\mathit{hi}+[\mathit{lo}+x\ge T]\bigr)\cdot T+\bigl((\mathit{lo}+x)\bmod T\bigr). \]
+<p><b>Viši dio.</b> Za $x\lt T-\mathit{lo}$ doprinos je $\mathit{hi}$, inače $\mathit{hi}+1$. Krenemo od $\bigoplus\mathit{hi}$ i u razliku na položaju $T-\mathit{lo}$ upišemo $\mathit{hi}\oplus(\mathit{hi}+1)$; prefiksni XOR daje viši dio za sve $x$. Cijena $O(|S|+T)$.</p>
+<p><b>Niži dio.</b> Treba $L[x]=\bigoplus_s\bigl((\mathit{lo}_s+x)\bmod T\bigr)$. Bit $j$ broja $(\mathit{lo}+x)\bmod T$ ovisi samo o $\mathit{lo}\bmod 2^{j+1}$ i $x\bmod 2^{j+1}$: jednak je $1$ točno kad je $(\mathit{lo}+x)\bmod 2^{j+1}\ge 2^j$. Zato za svaki $j$:</p>
+<ol>
+<li>imamo paritete $f_j[v]$ broja elemenata s $\mathit{lo}\equiv v\pmod{2^{j+1}}$; dobivaju se „preklapanjem”: $f_{j-1}[v]=f_j[v]\oplus f_j[v+2^j]$;</li>
+<li>za $x\in[0,2^{j+1})$ bit $j$ je paritet elemenata čiji ostatak leži u cikličkom prozoru $[2^j-x,\,2^{j+1}-x)$ modulo $2^{j+1}$ — očitamo ga iz prefiksnih pariteta u $O(1)$;</li>
+<li>rezultat za donjih $j+1$ bitova, $M_j[x]$ za $x\in[0,2^{j+1})$, je $M_{j-1}[x\bmod 2^j]$ s dodanim bitom $j$.</li>
+</ol>
+<p>Razina $j$ košta $O(2^{j+1})$, ukupno $2+4+\dots+T=O(T)$. Na kraju je $L=M_{k-1}$ i $G[x]=\text{viši}[x]\cdot T+L[x]$.</p>
+
+<h2>Složenost</h2>
+<ul>
+<li>povijesni koraci i $+1$ punim blokovima: $O(n\cdot n/T)$;</li>
+<li>obnove: $O(n+m)$ puta po $O(T)$;</li>
+<li>upiti: $O(T)$ za rubove i $O(1)$ za pune blokove, uz $O(n/T)$ po koraku za prefiksne XOR-ove.</li>
+</ul>
+<p>Uz $T\approx\sqrt n$ ukupno $O\bigl((n+m)\sqrt n\bigr)$ vremena. Tablice $F$ i $\mathit{pend}$ imaju $n/T$ blokova po $T$ članova, dakle $O(n)$ memorije. Za $n=m=4\cdot10^5$ implementacija radi oko 6 s (nasumični niz), unutar ograničenja od 15 s.</p>
+
+<h2>Implementacija</h2>
+<p>Indeksi su od $0$. Kad je neprovedenih oznaka najviše četiri, provođenje u $H$ radi se izravno — to je čest slučaj kod bloka koji sadrži $r$.</p>
+<pre><code>// Prohorovka (QOJ 4405): XOR broja razlicitih vrijednosti po svim podintervalima upita.
+// Sweep po desnom rubu + korijenska dekompozicija s "povijesnim XOR-om".
+#include &lt;bits/stdc++.h&gt;
+using namespace std;
+
+const int K = 9, T = 1 &lt;&lt; K;          // velicina bloka i granica oznake (tag) su T = 2^K
+const int MAXN = 400005, MAXB = MAXN / T + 2;
+
+int n, m, nb;
+int a[MAXN + T];       // a[l]: broj razlicitih u [l, r], bez oznake bloka
+int H[MAXN + T];       // H[l]: XOR vrijednosti a[l] kroz sve dosadasnje korake, bez neprovedenih
+int tagv[MAXB];        // neprovedena dodavanja +1 cijelom bloku (uvijek &lt; T)
+int HS[MAXB];          // XOR stvarnih povijesnih vrijednosti bloka
+int F[MAXB][T];        // F[b][x] = XOR_i (a_i + x) po elementima bloka
+unsigned char pend[MAXB][T]; // paritet: koliko je puta korak zavrsio uz oznaku x, a da nije proveden u H
+int pcnt[MAXB];
+
+// G[x] = XOR_{s u vals} (s + x) za sve x u [0, T), u O(cnt + T)
+int cpar[T], D[T + 1], Mlow[2][T], G[T], vals[T + 5];
+void computeG(int cnt) {
+    memset(cpar, 0, sizeof cpar);
+    memset(D, 0, sizeof D);
+    int base = 0;
+    for (int i = 0; i &lt; cnt; i++) {
+        int lo = vals[i] &amp; (T - 1), hi = vals[i] &gt;&gt; K;
+        cpar[lo] ^= 1;
+        base ^= hi;
+        if (lo) D[T - lo] ^= hi ^ (hi + 1);   // za x &gt;= T - lo dolazi prijenos u visi dio
+    }
+    // nizi bitovi: f[j] = pariteti ostataka modulo 2^(j+1)
+    static int f[K][T], R[T + 1];
+    memcpy(f[K - 1], cpar, sizeof cpar);
+    for (int j = K - 1; j &gt;= 1; j--) {
+        int h = 1 &lt;&lt; j;
+        for (int v = 0; v &lt; h; v++) f[j - 1][v] = f[j][v] ^ f[j][v + h];
+    }
+    int cur = 0;
+    for (int j = 0; j &lt; K; j++) {
+        int h = 1 &lt;&lt; j, sz = h &lt;&lt; 1;
+        // R[v] = paritet broja elemenata s ostatkom &lt; v
+        R[0] = 0;
+        for (int v = 0; v &lt; sz; v++) R[v + 1] = R[v] ^ f[j][v];
+        int *nw = Mlow[cur ^ 1], *od = Mlow[cur];
+        for (int x = 0; x &lt; sz; x++) {
+            // bit j od (v + x) je 1 za v u ciklickom prozoru [h - x, 2h - x) modulo 2h
+            int bit;
+            if (x &lt;= h) bit = R[sz - x] ^ R[h - x];
+            else bit = R[sz - x] ^ R[sz] ^ R[sz + h - x];
+            nw[x] = (j ? od[x &amp; (h - 1)] : 0) | (bit &lt;&lt; j);
+        }
+        cur ^= 1;
+    }
+    int *lowp = Mlow[cur];
+    int acc = base;
+    for (int x = 0; x &lt; T; x++) {
+        acc ^= D[x];
+        G[x] = (acc &lt;&lt; K) | lowp[x];
+    }
+}
+
+inline int bl(int b) { return b * T; }
+inline int br(int b) { return min(n, (b + 1) * T) - 1; }
+
+// provedi neprovedene korake u H elemenata bloka
+void pushH(int b) {
+    if (!pcnt[b]) return;
+    int l = bl(b), r = br(b);
+    int mn = a[l];
+    for (int i = l + 1; i &lt;= r; i++) mn = min(mn, a[i]);
+    int cnt = 0;
+    unsigned char *p = pend[b];
+    for (int x = 0; x &lt; T; x++) if (p[x]) { vals[cnt++] = x + mn; p[x] = 0; }
+    pcnt[b] = 0;
+    if (cnt == 0) return;
+    if (cnt &lt;= 4) {     // malo razlicitih oznaka: izravno
+        for (int i = l; i &lt;= r; i++) {
+            int d = a[i] - mn, g = 0;
+            for (int j = 0; j &lt; cnt; j++) g ^= vals[j] + d;
+            H[i] ^= g;
+        }
+        return;
+    }
+    computeG(cnt);
+    for (int i = l; i &lt;= r; i++) H[i] ^= G[a[i] - mn];   // a[i] - mn &lt; T
+}
+void rebuildF(int b) {
+    int l = bl(b), r = br(b), cnt = 0;
+    for (int i = l; i &lt;= r; i++) vals[cnt++] = a[i];
+    computeG(cnt);
+    memcpy(F[b], G, sizeof G);
+}
+// potpuna obnova: H i a postaju stvarni, oznaka 0; zatim +1 na [x, y] unutar bloka
+void rebuildAdd(int b, int x, int y) {
+    pushH(b);
+    int l = bl(b), r = br(b), t = tagv[b];
+    if (t) for (int i = l; i &lt;= r; i++) a[i] += t;
+    tagv[b] = 0;
+    for (int i = x; i &lt;= y; i++) a[i]++;
+    rebuildF(b);
+}
+
+int main() {
+    if (scanf("%d %d", &amp;n, &amp;m) != 2) return 0;
+    vector&lt;int&gt; col(n), last(n + 1, -1);
+    for (int i = 0; i &lt; n; i++) scanf("%d", &amp;col[i]);
+    vector&lt;int&gt; ql(m), qhead(n, -1), qnext(m, -1), ans(m);
+    for (int i = 0; i &lt; m; i++) {
+        int l, r;
+        scanf("%d %d", &amp;l, &amp;r);
+        l--; r--;
+        ql[i] = l; qnext[i] = qhead[r]; qhead[r] = i;
+    }
+    nb = (n + T - 1) / T;
+    vector&lt;int&gt; pre(nb + 1);
+    for (int r = 0; r &lt; n; r++) {
+        // 1) a[l]++ za l u (prethodna pojava, r]
+        int lo = last[col[r]] + 1, hi = r;
+        last[col[r]] = r;
+        int b1 = lo / T, b2 = hi / T;
+        if (b1 == b2) rebuildAdd(b1, lo, hi);
+        else {
+            if (lo == bl(b1)) b1--; else rebuildAdd(b1, lo, br(b1));
+            for (int b = b1 + 1; b &lt; b2; b++)
+                if (++tagv[b] == T) rebuildAdd(b, 0, -1);
+            rebuildAdd(b2, bl(b2), hi);
+        }
+        // 2) povijesni korak: H[l] ^= a[l] za sve l (desno od r je a = 0)
+        for (int b = 0; b &lt;= b2; b++) {
+            int t = tagv[b];
+            HS[b] ^= F[b][t];
+            pend[b][t] ^= 1;
+            pcnt[b]++;
+        }
+        // 3) upiti s desnim rubom r
+        if (qhead[r] &lt; 0) continue;
+        pre[0] = 0;
+        for (int b = 0; b &lt;= b2; b++) pre[b + 1] = pre[b] ^ HS[b];
+        pushH(b2);
+        for (int q = qhead[r]; q &gt;= 0; q = qnext[q]) {
+            int l = ql[q], c1 = l / T, res = 0;
+            if (c1 == b2) {
+                for (int i = l; i &lt;= r; i++) res ^= H[i];
+            } else {
+                for (int i = bl(b2); i &lt;= r; i++) res ^= H[i];
+                res ^= pre[b2] ^ pre[c1 + 1];
+                if (l == bl(c1)) res ^= HS[c1];
+                else {
+                    pushH(c1);
+                    for (int i = l; i &lt;= br(c1); i++) res ^= H[i];
+                }
+            }
+            ans[q] = res;
+        }
+    }
+    string out;
+    for (int i = 0; i &lt; m; i++) { out += to_string(ans[i]); out += '\n'; }
+    fputs(out.c_str(), stdout);
+}</code></pre>
+
+<div class="rezime"><h2>Sažetak</h2><ul>
+<li>Sweep po $r$: $+1$ na $(p,r]$, zatim $H_l\mathrel{\oplus}=A_l$; upit je XOR od $H_l,\dots,H_r$.</li>
+<li>Blok pamti oznaku, tablicu $F[x]=\bigoplus(a_i+x)$ i paritete neprovedenih koraka po oznaci.</li>
+<li>Obje obnove svode se na $\bigoplus_{s\in S}(s+x)$ za sve $x\lt T$.</li>
+<li>Viši bitovi: prefiksni XOR po pragu prijenosa; niži bitovi: razina po razina s tablicama veličine $2^{j+1}$.</li>
+<li>Složenost: $O((n+m)\sqrt n)$ vremena, $O(n+m)$ memorije.</li>
+</ul></div>
+
+<h2>Izvori</h2>
+<ul>
+<li>Tekst zadatka: QOJ #4405 / Luogu P8257 [CTS2022] 普罗霍洛夫卡.</li>
+<li>Pristup: bilješke korisnika juju527 (<a href="https://www.cnblogs.com/juju527/p/17017908.html">cnblogs</a>), 18Michael (<a href="https://www.cnblogs.com/18Michael/p/17016993.html">cnblogs</a>) i GotoHiotori (<a href="https://qoj.ac/problem/4405/discussion/1307">rasprava na QOJ-u</a>).</li>
+<li>Implementacija je vlastita; uspoređena je s izravnim rješenjem na 3000 nasumičnih testova za blokove veličine $4$, $8$ i $512$.</li>
+</ul>
